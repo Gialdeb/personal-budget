@@ -1,31 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
-import { useUiCopy } from '@/i18n/ui-copy';
 import type { SupportRequestCategory, SupportRequestStatus } from '@/types';
 
-const ui = useUiCopy();
+const { t } = useI18n();
 
 const props = defineProps<{
     value: SupportRequestStatus | SupportRequestCategory;
     kind: 'status' | 'category';
+    admin?: boolean;
 }>();
 
-const label = computed(() => {
-    if (props.kind === 'category') {
-        return {
-            bug: 'Bug',
-            feature_request: ui('Feature request'),
-            general_support: ui('General support'),
-        }[props.value as SupportRequestCategory];
-    }
-
-    return {
-        new: ui('New'),
-        in_progress: ui('In progress'),
-        closed: ui('Closed'),
-    }[props.value as SupportRequestStatus];
-});
+const label = computed(() =>
+    t(
+        `supportTickets.${props.admin && props.kind === 'status' ? 'admin_' : ''}${props.value}`,
+    ),
+);
 
 const className = computed(() => {
     if (props.kind === 'category') {
@@ -39,8 +30,9 @@ const className = computed(() => {
     }
 
     return {
-        new: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300',
-        in_progress:
+        waiting_admin:
+            'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300',
+        waiting_user:
             'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300',
         closed: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300',
     }[props.value as SupportRequestStatus];

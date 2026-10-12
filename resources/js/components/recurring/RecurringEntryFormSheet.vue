@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { useForm, usePage } from '@inertiajs/vue3';
-import { useMediaQuery } from '@vueuse/core';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { createReusableTemplate, useMediaQuery } from '@vueuse/core';
 import { BellRing, Calendar, Gift, SlidersHorizontal } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
     previewExchangeSnapshot,
+    storeTrackedItemOption,
     store,
     update,
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
@@ -15,6 +16,8 @@ import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
+import RecurringPostingMode from '@/components/recurring/RecurringPostingMode.vue';
+import SalarySetupFields from '@/components/recurring/SalarySetupFields.vue';
 import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import { Button } from '@/components/ui/button';
@@ -51,6 +54,7 @@ import {
 import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
 import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
+import { emptySalarySetup } from '@/lib/salary-presets';
 import { cn } from '@/lib/utils';
 import type {
     Auth,
@@ -167,6 +171,87 @@ const form = useForm({
     reminder_days_before: [] as number[],
 });
 
+const isSalary = ref(false);
+const salaryMode = computed(() => isSalary.value || !!props.entry?.salary_url);
+const [DefineReference, ReuseReference] = createReusableTemplate();
+const [DefineDescription, ReuseDescription] = createReusableTemplate();
+const [DefineExtraOptions, ReuseExtraOptions] = createReusableTemplate();
+const salarySetup = ref(emptySalarySetup());
+const salaryFormOptions = computed(
+    () =>
+        props.formOptions as typeof props.formOptions & {
+            salary_employments?: {
+                uuid: string;
+                name: string;
+                automatic: boolean;
+                account_uuid: string | null;
+                reference_uuid: string | null;
+            }[];
+        },
+);
+watch(
+    () => salarySetup.value.employment_uuid,
+    (uuid) => {
+        const employment = salaryFormOptions.value.salary_employments?.find(
+            (row) => row.uuid === uuid,
+        );
+
+        if (employment) {
+            form.auto_create_transaction = employment.automatic;
+
+            if (employment.account_uuid) {
+                form.account_uuid = employment.account_uuid;
+            }
+
+            form.tracked_item_uuid = employment.reference_uuid ?? NONE_VALUE;
+        }
+    },
+);
+function selectSalaryCategory(): void {
+    const category = (
+        props.formOptions.categories[form.account_uuid] ?? []
+    ).find(
+        (option) =>
+            (option as typeof option & { is_salary_default?: boolean })
+                .is_salary_default,
+    );
+
+    if (category) {
+        form.category_uuid = category.value;
+    }
+}
+watch(
+    () => salarySetup.value.name,
+    (value) => {
+        if (isSalary.value && !form.description) {
+            form.description = value;
+        }
+    },
+);
+watch(isSalary, (value) => {
+    if (value) {
+        form.is_amount_variable = true;
+        form.is_shared_expense = false;
+        form.trial_enabled = false;
+        selectSalaryCategory();
+    }
+});
+watch(
+    () => form.account_uuid,
+    () => {
+        if (isSalary.value) {
+            selectSalaryCategory();
+        }
+    },
+);
+watch(
+    () => [form.direction, form.entry_type],
+    () => {
+        if (form.direction !== 'income' || form.entry_type !== 'recurring') {
+            isSalary.value = false;
+        }
+    },
+);
 const trackedItemCatalog = ref<Record<string, RecurringFormOption[]>>({});
 const creatingTrackedItem = ref(false);
 const newReferenceOpen = ref(false);
@@ -1133,6 +1218,8 @@ watch(
             ),
         );
         advancedOpen.value = false;
+        isSalary.value = false;
+        salarySetup.value = emptySalarySetup();
 
         if (entry) {
             initialInstallmentTotal.value =
@@ -2011,7 +2098,11 @@ function toggleWeekday(code: (typeof weekdayOptions)[number]): void {
 }
 
 function setBooleanField(
-    field: 'auto_generate_occurrences' | 'is_active' | 'is_amount_variable',
+    field:
+        | 'auto_generate_occurrences'
+        | 'is_active'
+        | 'is_amount_variable'
+        | 'auto_create_transaction',
     checked: boolean | 'indeterminate',
 ): void {
     form[field] = checked === true;
@@ -2084,7 +2175,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
         const response = await fetch(
             isMobile.value
                 ? storeTransactionReference.url()
-                : '/recurring-entries/tracked-items',
+                : storeTrackedItemOption.url(),
             {
                 method: 'POST',
                 headers: {
@@ -2202,7 +2293,13 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
 }
 
 function normalizedPrimaryDescription(): string {
-    return form.description.trim();
+    return (
+        form.description.trim() ||
+        (salaryMode.value
+            ? salarySetup.value.name.trim() ||
+              `${t('salary.salary')} · ${trackedItemOptions.value.find((option) => option.value === form.tracked_item_uuid)?.label ?? t('salary.ordinary')}`
+            : '')
+    );
 }
 
 function normalizeMoneyField(
@@ -2448,6 +2545,58 @@ function submit(confirmInstallmentRecalculation = false): void {
         resolveRecurrenceConfig();
     const payload = {
         ...form.data(),
+        salary:
+            isSalary.value && !isEditing.value
+                ? {
+                      ...salarySetup.value,
+                      name: salarySetup.value.name.trim(),
+                      employment_uuid:
+                          salarySetup.value.employment_uuid || null,
+                      annual_gross_salary:
+                          salarySetup.value.annual_gross_salary || null,
+                      annual_gross_salary_currency: salarySetup.value
+                          .annual_gross_salary
+                          ? salarySetup.value.annual_gross_salary_currency.toUpperCase()
+                          : null,
+                      additional_schedules:
+                          salarySetup.value.additional_schedules.map(
+                              (schedule) => ({
+                                  ...schedule,
+                                  recurrence_rule:
+                                      schedule.recurrence_type === 'yearly'
+                                          ? {
+                                                mode: 'month_day',
+                                                month: Number(
+                                                    schedule.start_date.slice(
+                                                        5,
+                                                        7,
+                                                    ),
+                                                ),
+                                                day: Number(
+                                                    schedule.start_date.slice(
+                                                        8,
+                                                        10,
+                                                    ),
+                                                ),
+                                            }
+                                          : schedule.recurrence_type ===
+                                                  'monthly' ||
+                                              schedule.recurrence_type ===
+                                                  'quarterly'
+                                            ? {
+                                                  mode: 'day_of_month',
+                                                  day: Number(
+                                                      schedule.start_date.slice(
+                                                          8,
+                                                          10,
+                                                      ),
+                                                  ),
+                                              }
+                                            : {},
+                              }),
+                          ),
+                  }
+                : null,
         trial_duration:
             selectedPlanType.value === 'recurring' && form.trial_enabled
                 ? Number(form.trial_duration)
@@ -2504,7 +2653,9 @@ function submit(confirmInstallmentRecalculation = false): void {
             selectedPlanType.value === 'recurring' ? normalizedAmount : null,
         is_amount_variable:
             selectedPlanType.value === 'recurring'
-                ? form.is_amount_variable
+                ? isSalary.value ||
+                  Boolean(props.entry?.salary_url) ||
+                  form.is_amount_variable
                 : false,
         total_amount:
             selectedPlanType.value === 'installment' ? normalizedAmount : null,
@@ -2601,1943 +2752,1254 @@ const firstTrialBillingDate = computed(() => {
 </script>
 
 <template>
-    <Sheet
-        :open="open"
-        :modal="!isMobile"
-        @update:open="emit('update:open', $event)"
-    >
-        <SheetContent
-            class="min-h-0 overflow-hidden"
-            :style="mobileSheetStyle"
-            :side="isMobile ? 'bottom' : 'right'"
-            :class="
-                isMobile
-                    ? 'h-[100dvh] max-h-[100dvh] w-full rounded-t-[1.75rem] border-t border-l-0 p-0'
-                    : 'w-full border-l p-0 sm:max-w-3xl'
-            "
-            @open-auto-focus.prevent
-        >
-            <div class="flex h-full min-h-0 flex-col overflow-hidden">
-                <SheetHeader
-                    class="shrink-0 border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
-                >
-                    <SheetTitle>{{ sheetTitle }}</SheetTitle>
-                    <SheetDescription>
-                        {{ sheetDescription }}
-                    </SheetDescription>
-                </SheetHeader>
-
+    <div class="contents">
+        <DefineReference>
+            <div class="grid gap-2">
+                <Label>{{
+                    salaryMode
+                        ? t('salary.employer')
+                        : t('transactions.recurring.form.labels.trackedItem')
+                }}</Label>
                 <div
-                    ref="formScrollContainer"
-                    class="min-h-0 min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-y-contain px-6 py-6 [-webkit-overflow-scrolling:touch]"
-                    :class="
-                        isMobile
-                            ? '[&_.grid]:min-w-0 [&_button]:touch-manipulation [&_button:not([role=checkbox])]:min-h-11 [&_input]:max-w-full [&_input]:min-w-0 [&_input]:text-base [&_input:not([type=checkbox])]:min-h-11 [&_textarea]:text-base'
-                            : ''
-                    "
+                    v-if="isMobile && !structuralLocked"
+                    class="grid min-w-0 gap-2"
                 >
-                    <form
-                        class="space-y-6"
-                        @focusin.capture="handleFocusIn"
-                        @submit.prevent="submit()"
+                    <MobileQuickChoices
+                        v-if="quickReferences.length"
+                        v-model="form.tracked_item_uuid"
+                        :options="quickReferences"
+                        appearance="reference"
+                    />
+                    <div class="flex min-w-0 items-center gap-2">
+                        <MobileSearchableSelect
+                            v-if="trackedItemOptions.length"
+                            v-model="form.tracked_item_uuid"
+                            :options="trackedItemOptions"
+                            :placeholder="ui('Tutti · Cerca')"
+                            :search-placeholder="ui('Cerca riferimento')"
+                            clearable
+                            :clear-value="NONE_VALUE"
+                            :teleport="false"
+                            :mobile-title="ui('Riferimento')"
+                            class="min-w-0 flex-1"
+                            trigger-class="min-h-11 rounded-2xl"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            class="min-h-11 shrink-0 rounded-2xl"
+                            @click="newReferenceOpen = !newReferenceOpen"
+                            >{{ ui('+ Nuovo') }}</Button
+                        >
+                    </div>
+                    <div
+                        v-if="newReferenceOpen"
+                        class="grid gap-3 rounded-2xl border border-border bg-muted/30 p-3"
                     >
-                        <AlertError
-                            v-if="formErrorMessages.length > 0"
-                            :title="
-                                t(
-                                    'transactions.recurring.form.errors.alertTitle',
+                        <Label for="recurring-reference-name">{{
+                            ui('Nome riferimento')
+                        }}</Label>
+                        <Input
+                            id="recurring-reference-name"
+                            v-model="newReferenceName"
+                            :placeholder="ui('Es. Amazon')"
+                        />
+                        <Label for="recurring-reference-website">{{
+                            ui('Sito web per il logo (opzionale)')
+                        }}</Label>
+                        <Input
+                            id="recurring-reference-website"
+                            v-model="newReferenceWebsite"
+                            type="url"
+                            placeholder="https://www.amazon.it"
+                        />
+                        <Button
+                            type="button"
+                            class="min-h-11"
+                            :disabled="
+                                creatingTrackedItem || !newReferenceName.trim()
+                            "
+                            @click="
+                                createTrackedItemFromContext(
+                                    newReferenceName.trim(),
                                 )
                             "
-                            :errors="formErrorMessages"
-                        />
-
-                        <div
-                            v-if="structuralLocked"
-                            class="rounded-[24px] border border-amber-200 bg-amber-50/80 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100"
+                            >{{ ui('Crea e seleziona') }}</Button
                         >
-                            <p class="font-semibold">
+                    </div>
+                </div>
+                <MobileSearchableSelect
+                    v-else
+                    v-model="form.tracked_item_uuid"
+                    :options="[
+                        {
+                            value: NONE_VALUE,
+                            label: t(
+                                'transactions.recurring.form.placeholders.none',
+                            ),
+                        },
+                        ...trackedItemOptions,
+                    ]"
+                    :placeholder="
+                        t(
+                            'transactions.recurring.form.placeholders.selectTrackedItem',
+                        )
+                    "
+                    :search-placeholder="
+                        t(
+                            'transactions.recurring.form.placeholders.searchTrackedItem',
+                        )
+                    "
+                    :empty-label="
+                        t(
+                            'transactions.recurring.form.placeholders.noSearchResults',
+                        )
+                    "
+                    :disabled="structuralLocked"
+                    clearable
+                    :clear-value="NONE_VALUE"
+                    creatable
+                    :creating="creatingTrackedItem"
+                    :mobile-title="
+                        t('transactions.recurring.form.labels.trackedItem')
+                    "
+                    :create-label="
+                        t(
+                            'transactions.recurring.form.actions.createTrackedItem',
+                        )
+                    "
+                    :teleport="false"
+                    :trigger-class="
+                        cn(
+                            'h-11 rounded-2xl',
+                            fieldErrorClass(
+                                hasFormError(
+                                    'tracked_item_uuid',
+                                    'tracked_item_id',
+                                ),
+                            ),
+                        )
+                    "
+                    content-class="z-[260]"
+                    @create-option="createTrackedItemFromContext"
+                />
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    {{
+                        salaryMode && structuralLocked
+                            ? t('salary.currentReferenceHint')
+                            : t(
+                                  'transactions.recurring.form.helper.trackedItem',
+                              )
+                    }}
+                </p>
+                <InputError
+                    :message="formError('tracked_item_uuid', 'tracked_item_id')"
+                />
+                <div
+                    v-if="
+                        isEditing &&
+                        salaryMode &&
+                        structuralLocked &&
+                        props.entry?.salary_url
+                    "
+                    class="space-y-2 rounded-2xl bg-sky-50 p-3 text-sm dark:bg-sky-950/30"
+                >
+                    <p>{{ t('salary.referenceFutureHint') }}</p>
+                    <Button as-child variant="outline" class="rounded-xl">
+                        <Link :href="`${props.entry.salary_url}?edit=1`">{{
+                            t('salary.editFutureReference')
+                        }}</Link>
+                    </Button>
+                </div>
+            </div>
+        </DefineReference>
+        <DefineDescription>
+            <div class="grid gap-2 md:col-span-2">
+                <MobileTextFieldEditor
+                    v-if="isMobile"
+                    v-model="form.description"
+                    v-model:open="mobileDescriptionEditorOpen"
+                    :label="
+                        salaryMode && isEditing
+                            ? t('salary.recurringName')
+                            : t(
+                                  'transactions.recurring.form.labels.descriptionPrimary',
+                              )
+                    "
+                    :placeholder="
+                        selectedPlanType === 'installment'
+                            ? t(
+                                  'transactions.recurring.form.placeholders.installmentDescription',
+                              )
+                            : t(
+                                  'transactions.recurring.form.placeholders.recurringDescription',
+                              )
+                    "
+                    :description="
+                        salaryMode && isEditing
+                            ? t('salary.recurringNameHint')
+                            : t(
+                                  'transactions.recurring.form.helper.descriptionPrimary',
+                              )
+                    "
+                    :disabled="structuralLocked && !salaryMode"
+                />
+                <Input
+                    v-else
+                    id="recurring-description"
+                    v-model="form.description"
+                    :placeholder="
+                        selectedPlanType === 'installment'
+                            ? t(
+                                  'transactions.recurring.form.placeholders.installmentDescription',
+                              )
+                            : t(
+                                  'transactions.recurring.form.placeholders.recurringDescription',
+                              )
+                    "
+                    :class="
+                        cn(
+                            'h-11 rounded-2xl',
+                            fieldErrorClass(
+                                hasFieldError(
+                                    form.errors.description,
+                                    form.errors.title,
+                                ),
+                            ),
+                        )
+                    "
+                />
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    {{
+                        salaryMode && isEditing
+                            ? t('salary.recurringNameHint')
+                            : t(
+                                  'transactions.recurring.form.helper.descriptionPrimary',
+                              )
+                    }}
+                </p>
+                <InputError
+                    :message="form.errors.description || form.errors.title"
+                />
+            </div>
+        </DefineDescription>
+        <DefineExtraOptions>
+            <section class="grid gap-2">
+                <MobileTextFieldEditor
+                    v-if="isMobile"
+                    v-model="form.notes"
+                    v-model:open="mobileNotesEditorOpen"
+                    :label="t('transactions.recurring.form.labels.notes')"
+                    :placeholder="
+                        t('transactions.recurring.form.placeholders.notes')
+                    "
+                    :disabled="structuralLocked"
+                    multiline
+                    :rows="8"
+                />
+                <textarea
+                    v-else
+                    id="recurring-notes"
+                    v-model="form.notes"
+                    rows="4"
+                    :placeholder="
+                        t('transactions.recurring.form.placeholders.notes')
+                    "
+                    class="min-h-28 rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-sm shadow-xs transition-colors outline-none placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-800 dark:placeholder:text-slate-500"
+                />
+                <InputError :message="form.errors.notes" />
+            </section>
+
+            <section
+                class="space-y-4 rounded-[28px] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40"
+            >
+                <div class="flex items-start gap-3">
+                    <div
+                        class="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                    >
+                        <BellRing class="size-4" />
+                    </div>
+                    <div class="space-y-1">
+                        <p
+                            class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                        >
+                            {{
+                                t(
+                                    'transactions.recurring.form.sections.reminders',
+                                )
+                            }}
+                        </p>
+                        <p
+                            class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                        >
+                            {{
+                                t(
+                                    'transactions.recurring.form.helper.reminders',
+                                    {
+                                        count: props.formOptions.reminders
+                                            .max_custom_alerts,
+                                    },
+                                )
+                            }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                    <button
+                        v-for="daysBefore in reminderDayOptions"
+                        :key="daysBefore"
+                        type="button"
+                        class="rounded-2xl border px-2 py-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+                        :class="
+                            form.reminder_days_before.includes(daysBefore)
+                                ? 'border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-500/50 dark:bg-sky-500/15 dark:text-sky-100'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300 dark:hover:border-sky-500/40 dark:hover:text-sky-300'
+                        "
+                        :aria-pressed="
+                            form.reminder_days_before.includes(daysBefore)
+                        "
+                        :disabled="
+                            reminderLimitReached &&
+                            !form.reminder_days_before.includes(daysBefore)
+                        "
+                        @click="toggleReminderDay(daysBefore)"
+                    >
+                        {{
+                            t(
+                                daysBefore === 1
+                                    ? 'transactions.recurring.form.reminders.dayBefore'
+                                    : 'transactions.recurring.form.reminders.daysBefore',
+                                { count: daysBefore },
+                            )
+                        }}
+                    </button>
+                </div>
+
+                <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    {{
+                        form.reminder_days_before.length > 0
+                            ? t(
+                                  'transactions.recurring.form.reminders.selected',
+                                  {
+                                      count: form.reminder_days_before.length,
+                                      max: props.formOptions.reminders
+                                          .max_custom_alerts,
+                                  },
+                              )
+                            : t(
+                                  'transactions.recurring.form.reminders.noneSelected',
+                              )
+                    }}
+                </p>
+                <InputError :message="form.errors.reminder_days_before" />
+            </section>
+
+            <Collapsible
+                v-if="!salaryMode"
+                v-model:open="advancedOpen"
+                class="rounded-[28px] border border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/30"
+            >
+                <CollapsibleTrigger as-child>
+                    <button
+                        type="button"
+                        class="flex w-full items-center justify-between px-4 py-4 text-left"
+                    >
+                        <div>
+                            <p
+                                class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                            >
                                 {{
                                     t(
-                                        'transactions.recurring.form.locked.title',
+                                        'transactions.recurring.form.sections.advanced',
                                     )
                                 }}
                             </p>
                             <p
-                                class="mt-1 text-sm/6 text-amber-800 dark:text-amber-200"
+                                class="mt-1 text-sm text-slate-500 dark:text-slate-400"
                             >
                                 {{
                                     t(
-                                        'transactions.recurring.form.locked.description',
-                                    )
-                                }}
-                            </p>
-                            <p
-                                v-if="selectedPlanType === 'installment'"
-                                class="mt-2 text-sm/6 text-amber-800 dark:text-amber-200"
-                            >
-                                {{
-                                    t(
-                                        'transactions.recurring.detail.futureAmountOnly',
+                                        'transactions.recurring.form.helper.advanced',
                                     )
                                 }}
                             </p>
                         </div>
+                        <span class="text-slate-500 dark:text-slate-400">
+                            {{ advancedOpen ? '-' : '+' }}
+                        </span>
+                    </button>
+                </CollapsibleTrigger>
 
-                        <section class="space-y-4">
-                            <div class="space-y-2">
-                                <p
-                                    class="text-sm font-semibold text-slate-900 dark:text-slate-100"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.recurring.form.sections.planType',
-                                        )
-                                    }}
-                                </p>
-                                <div class="grid gap-3 md:grid-cols-2">
-                                    <button
-                                        type="button"
-                                        class="rounded-[24px] border px-4 py-4 text-left transition-all"
-                                        :class="
-                                            cn(
-                                                selectedPlanType === 'recurring'
-                                                    ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                structuralLocked
-                                                    ? 'cursor-not-allowed opacity-60'
-                                                    : '',
-                                            )
-                                        "
-                                        :disabled="structuralLocked"
-                                        @click="setPlanType('recurring')"
-                                    >
-                                        <p class="text-sm font-semibold">
-                                            {{
-                                                t(
-                                                    'transactions.recurring.enums.entryType.recurring',
-                                                )
-                                            }}
-                                        </p>
-                                        <p
-                                            class="mt-1 text-sm text-slate-600 dark:text-slate-300"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.planTypes.recurring',
-                                                )
-                                            }}
-                                        </p>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="rounded-[24px] border px-4 py-4 text-left transition-all"
-                                        :class="
-                                            cn(
-                                                selectedPlanType ===
-                                                    'installment'
-                                                    ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                structuralLocked
-                                                    ? 'cursor-not-allowed opacity-60'
-                                                    : '',
-                                            )
-                                        "
-                                        :disabled="structuralLocked"
-                                        @click="setPlanType('installment')"
-                                    >
-                                        <p class="text-sm font-semibold">
-                                            {{
-                                                t(
-                                                    'transactions.recurring.enums.entryType.installment',
-                                                )
-                                            }}
-                                        </p>
-                                        <p
-                                            class="mt-1 text-sm text-slate-600 dark:text-slate-300"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.planTypes.installment',
-                                                )
-                                            }}
-                                        </p>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="space-y-2">
-                                <p
-                                    class="text-sm font-semibold text-slate-900 dark:text-slate-100"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.recurring.form.labels.direction',
-                                        )
-                                    }}
-                                </p>
-                                <div class="grid gap-3 sm:grid-cols-2">
-                                    <button
-                                        type="button"
-                                        class="rounded-[22px] border px-4 py-3 text-left transition-all"
-                                        :class="
-                                            cn(
-                                                form.direction === 'expense'
-                                                    ? 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100'
-                                                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                structuralLocked
-                                                    ? 'cursor-not-allowed opacity-60'
-                                                    : '',
-                                            )
-                                        "
-                                        :disabled="structuralLocked"
-                                        @click="setDirection('expense')"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.enums.direction.expense',
-                                            )
-                                        }}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="rounded-[22px] border px-4 py-3 text-left transition-all"
-                                        :class="
-                                            cn(
-                                                form.direction === 'income'
-                                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100'
-                                                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                structuralLocked
-                                                    ? 'cursor-not-allowed opacity-60'
-                                                    : '',
-                                            )
-                                        "
-                                        :disabled="structuralLocked"
-                                        @click="setDirection('income')"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.enums.direction.income',
-                                            )
-                                        }}
-                                    </button>
-                                </div>
-                                <InputError :message="form.errors.direction" />
-                            </div>
-                        </section>
-
-                        <section
-                            class="grid gap-5 md:grid-cols-[minmax(0,1fr)_220px]"
-                        >
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t(
-                                        'transactions.recurring.form.labels.account',
-                                    )
-                                }}</Label>
-                                <MobileSearchableSelect
-                                    v-model="form.account_uuid"
-                                    :options="accountOptions"
-                                    :placeholder="
-                                        t(
-                                            'transactions.recurring.form.placeholders.selectAccount',
-                                        )
+                <CollapsibleContent
+                    class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800"
+                >
+                    <div class="grid gap-5 md:grid-cols-2">
+                        <div class="grid gap-4 self-end">
+                            <label
+                                class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800"
+                            >
+                                <Checkbox
+                                    :model-value="
+                                        form.auto_generate_occurrences
                                     "
-                                    :search-placeholder="
-                                        t(
-                                            'transactions.recurring.form.placeholders.searchAccount',
+                                    @update:model-value="
+                                        setBooleanField(
+                                            'auto_generate_occurrences',
+                                            $event,
                                         )
-                                    "
-                                    :empty-label="
-                                        t(
-                                            'transactions.recurring.form.placeholders.noSearchResults',
-                                        )
-                                    "
-                                    :disabled="structuralLocked"
-                                    hierarchical
-                                    :teleport="false"
-                                    :mobile-title="
-                                        t(
-                                            'transactions.recurring.form.labels.account',
-                                        )
-                                    "
-                                    :trigger-class="
-                                        cn(
-                                            'h-11 rounded-2xl',
-                                            fieldErrorClass(
-                                                hasFormError(
-                                                    'account_uuid',
-                                                    'account_id',
-                                                ),
-                                            ),
-                                        )
-                                    "
-                                    content-class="z-[260]"
-                                />
-                                <InputError
-                                    :message="
-                                        formError('account_uuid', 'account_id')
                                     "
                                 />
-                            </div>
-
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t(
-                                        'transactions.recurring.form.labels.currency',
-                                    )
-                                }}</Label>
-                                <div
-                                    class="flex h-11 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100"
-                                >
-                                    <span>{{
-                                        selectedAccountCurrencyLabel
-                                    }}</span>
+                                <span class="space-y-1">
                                     <span
-                                        class="ml-auto text-xs font-medium text-slate-500 dark:text-slate-400"
+                                        class="block text-sm font-medium text-slate-900 dark:text-slate-100"
                                     >
                                         {{
                                             t(
-                                                'transactions.recurring.form.helper.accountCurrencyReadonly',
+                                                'transactions.recurring.form.labels.autoGenerateOccurrences',
                                             )
                                         }}
                                     </span>
-                                </div>
-                            </div>
-                        </section>
-
-                        <section
-                            class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-                        >
-                            <div class="grid gap-2">
-                                <MobileAmountInput
-                                    v-if="selectedPlanType === 'installment'"
-                                    id="recurring-primary-amount"
-                                    v-model="installmentAmount"
-                                    :label="primaryAmountLabel"
-                                    :mobile-title="primaryAmountLabel"
-                                    :format-locale="formatLocale"
-                                    :currency-code="selectedAccountCurrency"
-                                    :disabled="
-                                        structuralLocked &&
-                                        selectedPlanType !== 'installment'
-                                    "
-                                    :placeholder="
-                                        t(
-                                            'transactions.recurring.form.placeholders.amount',
-                                        )
-                                    "
-                                    :class="
-                                        cn(
-                                            'h-11 rounded-2xl',
-                                            directionAccentClass,
-                                            hasFieldError(
-                                                form.errors.total_amount,
-                                            )
-                                                ? fieldErrorClass(true)
-                                                : '',
-                                        )
-                                    "
-                                />
-                                <MobileAmountInput
-                                    v-else
-                                    id="recurring-primary-amount"
-                                    v-model="form.expected_amount"
-                                    :label="primaryAmountLabel"
-                                    :mobile-title="primaryAmountLabel"
-                                    :format-locale="formatLocale"
-                                    :currency-code="selectedAccountCurrency"
-                                    :disabled="form.processing"
-                                    :placeholder="
-                                        t(
-                                            'transactions.recurring.form.placeholders.amount',
-                                        )
-                                    "
-                                    :class="
-                                        cn(
-                                            'h-11 rounded-2xl',
-                                            directionAccentClass,
-                                            hasFieldError(
-                                                form.errors.expected_amount,
-                                            )
-                                                ? fieldErrorClass(true)
-                                                : '',
-                                        )
-                                    "
-                                    @blur="
-                                        normalizeMoneyField('expected_amount')
-                                    "
-                                />
-                                <InputError
-                                    :message="
-                                        selectedPlanType === 'installment'
-                                            ? form.errors.total_amount
-                                            : form.errors.expected_amount
-                                    "
-                                />
-                                <div
-                                    v-if="
-                                        exchangePreviewLoading ||
-                                        exchangePreview?.should_preview ||
-                                        exchangePreviewError
-                                    "
-                                    class="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/80"
-                                >
-                                    <p
-                                        class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.form.helper.fxPreviewTitle',
-                                            )
-                                        }}
-                                    </p>
-                                    <p
-                                        v-if="exchangePreviewLoading"
-                                        class="mt-2 text-sm text-slate-600 dark:text-slate-300"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.form.placeholders.balanceAdjustmentLoading',
-                                            )
-                                        }}
-                                    </p>
-                                    <template
-                                        v-else-if="
-                                            exchangePreview &&
-                                            exchangePreview.should_preview
-                                        "
-                                    >
-                                        <p
-                                            class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.helper.fxPreviewAmount',
-                                                    {
-                                                        source: formatCurrency(
-                                                            exchangePreview.amount_raw,
-                                                            exchangePreview.currency_code,
-                                                            formatLocale,
-                                                        ),
-                                                        target: formatCurrency(
-                                                            exchangePreview.converted_base_amount_raw,
-                                                            exchangePreview.base_currency_code,
-                                                            formatLocale,
-                                                        ),
-                                                    },
-                                                )
-                                            }}
-                                        </p>
-                                        <p
-                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.helper.fxPreviewRateDate',
-                                                    {
-                                                        date: formatPreviewDate(
-                                                            exchangePreview.exchange_rate_date,
-                                                        ),
-                                                    },
-                                                )
-                                            }}
-                                        </p>
-                                        <p
-                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.helper.fxPreviewInformative',
-                                                )
-                                            }}
-                                        </p>
-                                    </template>
-                                    <p
-                                        v-else-if="exchangePreviewError"
-                                        class="mt-2 text-sm text-rose-600 dark:text-rose-400"
-                                    >
-                                        {{ exchangePreviewError }}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div
-                                v-if="selectedPlanType === 'installment'"
-                                class="grid gap-2"
-                            >
-                                <Label for="installments-count">{{
-                                    t(
-                                        'transactions.recurring.form.labels.installmentsCount',
-                                    )
-                                }}</Label>
-                                <Input
-                                    id="installments-count"
-                                    v-model="installmentCount"
-                                    :type="isMobile ? 'text' : 'number'"
-                                    inputmode="numeric"
-                                    pattern="[0-9]*"
-                                    autocomplete="off"
-                                    enterkeyhint="next"
-                                    min="1"
-                                    :disabled="structuralLocked"
-                                    :class="
-                                        cn(
-                                            'h-11 rounded-2xl',
-                                            fieldErrorClass(
-                                                hasFieldError(
-                                                    form.errors
-                                                        .installments_count,
-                                                ),
-                                            ),
-                                        )
-                                    "
-                                />
-                                <div class="flex flex-wrap gap-2">
-                                    <button
-                                        v-for="count in quickInstallmentCounts"
-                                        :key="count"
-                                        type="button"
-                                        class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                                        :class="
-                                            form.installments_count ===
-                                            String(count)
-                                                ? 'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200'
-                                                : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300'
-                                        "
-                                        :disabled="structuralLocked"
-                                        @click="
-                                            installmentCount = String(count)
-                                        "
-                                    >
-                                        {{ count }}
-                                        {{
-                                            t(
-                                                'transactions.recurring.form.quickActions.installments',
-                                            )
-                                        }}
-                                    </button>
-                                </div>
-                                <p
-                                    v-if="form.total_amount"
-                                    class="text-xs text-slate-500 dark:text-slate-400"
-                                >
-                                    {{ ui('Totale piano:') }}
-                                    {{
-                                        formatCurrency(
-                                            Number(form.total_amount),
-                                            selectedAccountCurrency,
-                                        )
-                                    }}
                                     <span
-                                        v-if="
-                                            isEditing &&
-                                            installmentAmountDraft === null
-                                        "
-                                        class="block"
-                                        >{{
-                                            ui(
-                                                'Importi personalizzati esistenti mantenuti. Modificare la rata ricalcola il piano con conferma.',
-                                            )
-                                        }}</span
+                                        class="block text-xs text-slate-500 dark:text-slate-400"
                                     >
-                                </p>
-                                <InputError
-                                    :message="form.errors.installments_count"
-                                />
-                            </div>
-                        </section>
-
-                        <SharedExpenseFields
-                            decorated
-                            v-model:enabled="form.is_shared_expense"
-                            v-model:counterparty="
-                                form.shared_expense_counterparty_uuid
-                            "
-                            v-model:paid-by="form.shared_expense_paid_by"
-                            v-model:my-share="form.shared_expense_my_share"
-                            v-model:counterparty-share="
-                                form.shared_expense_counterparty_share
-                            "
-                            v-model:custom="form.shared_expense_custom_split"
-                            :counterparties="
-                                props.formOptions.shared_expense_counterparties
-                            "
-                            dropdown-side="bottom"
-                            :dropdown-teleport="false"
-                            :amount="
-                                selectedPlanType === 'installment'
-                                    ? form.total_amount
-                                    : form.expected_amount
-                            "
-                            :errors="form.errors"
-                        />
-
-                        <label
-                            v-if="selectedPlanType === 'recurring'"
-                            class="grid min-w-0 cursor-pointer gap-3 rounded-2xl border p-4 transition-colors"
-                            :class="
-                                form.is_amount_variable
-                                    ? 'border-violet-300 bg-violet-50/80 dark:border-violet-500/40 dark:bg-violet-500/10'
-                                    : 'border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/40'
-                            "
-                        >
-                            <span class="flex min-w-0 items-center gap-3">
-                                <span
-                                    class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300"
-                                    ><SlidersHorizontal
-                                        class="size-5"
-                                        aria-hidden="true"
-                                /></span>
-                                <span
-                                    class="min-w-0 flex-1 text-sm font-semibold text-foreground"
-                                    >{{
-                                        t(
-                                            'transactions.recurring.form.labels.variableAmount',
-                                        )
-                                    }}</span
-                                >
-                                <span class="relative h-6 w-11 shrink-0">
-                                    <Checkbox
-                                        :model-value="form.is_amount_variable"
-                                        class="relative h-6 w-11 shrink-0 rounded-full border-transparent bg-muted shadow-none"
-                                        @update:model-value="
-                                            setBooleanField(
-                                                'is_amount_variable',
-                                                $event,
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.helper.autoGenerateOccurrences',
                                             )
-                                        "
-                                        ><span
-                                    /></Checkbox>
-                                    <span
-                                        aria-hidden="true"
-                                        class="pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-background shadow-sm transition-transform"
-                                        :class="
-                                            form.is_amount_variable
-                                                ? 'translate-x-5'
-                                                : ''
-                                        "
-                                /></span>
-                            </span>
-                            <span class="min-w-0">
-                                <span
-                                    class="block text-xs leading-relaxed text-muted-foreground"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.recurring.form.helper.variableAmount',
-                                        )
-                                    }}
+                                        }}
+                                    </span>
                                 </span>
-                                <InputError
-                                    :message="form.errors.is_amount_variable"
-                                />
-                            </span>
-                        </label>
+                            </label>
 
-                        <section class="grid gap-5 md:grid-cols-2">
-                            <div class="grid gap-2 md:col-span-2">
-                                <MobileTextFieldEditor
-                                    v-if="isMobile"
-                                    v-model="form.description"
-                                    v-model:open="mobileDescriptionEditorOpen"
-                                    :label="
-                                        t(
-                                            'transactions.recurring.form.labels.descriptionPrimary',
-                                        )
-                                    "
-                                    :placeholder="
-                                        selectedPlanType === 'installment'
-                                            ? t(
-                                                  'transactions.recurring.form.placeholders.installmentDescription',
-                                              )
-                                            : t(
-                                                  'transactions.recurring.form.placeholders.recurringDescription',
-                                              )
-                                    "
-                                    :description="
-                                        t(
-                                            'transactions.recurring.form.helper.descriptionPrimary',
-                                        )
-                                    "
-                                    :disabled="structuralLocked"
-                                />
-                                <Input
-                                    v-else
-                                    id="recurring-description"
-                                    v-model="form.description"
-                                    :placeholder="
-                                        selectedPlanType === 'installment'
-                                            ? t(
-                                                  'transactions.recurring.form.placeholders.installmentDescription',
-                                              )
-                                            : t(
-                                                  'transactions.recurring.form.placeholders.recurringDescription',
-                                              )
-                                    "
-                                    :class="
-                                        cn(
-                                            'h-11 rounded-2xl',
-                                            fieldErrorClass(
-                                                hasFieldError(
-                                                    form.errors.description,
-                                                    form.errors.title,
-                                                ),
-                                            ),
-                                        )
-                                    "
-                                />
-                                <p
-                                    class="text-xs text-slate-500 dark:text-slate-400"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.recurring.form.helper.descriptionPrimary',
-                                        )
-                                    }}
-                                </p>
-                                <InputError
-                                    :message="
-                                        form.errors.description ||
-                                        form.errors.title
-                                    "
-                                />
-                            </div>
-
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t(
-                                        'transactions.recurring.form.labels.category',
-                                    )
-                                }}</Label>
-                                <div
-                                    v-if="isMobile && !structuralLocked"
-                                    class="grid min-w-0 gap-2"
-                                >
-                                    <MobileQuickChoices
-                                        v-model="form.category_uuid"
-                                        :options="quickCategories"
-                                        appearance="category"
-                                    />
-                                    <MobileQuickChoices
-                                        v-if="categoryChildren.length"
-                                        v-model="form.category_uuid"
-                                        :options="categoryChildren"
-                                        appearance="category"
-                                    />
-                                </div>
-                                <MobileSearchableSelect
-                                    v-model="form.category_uuid"
-                                    :options="filteredCategoryOptions"
-                                    :placeholder="
-                                        t(
-                                            'transactions.recurring.form.placeholders.selectCategory',
-                                        )
-                                    "
-                                    :search-placeholder="
-                                        t(
-                                            'transactions.recurring.form.placeholders.searchCategory',
-                                        )
-                                    "
-                                    :empty-label="
-                                        t(
-                                            'transactions.recurring.form.placeholders.noSearchResults',
-                                        )
-                                    "
-                                    :disabled="structuralLocked"
-                                    hierarchical
-                                    :teleport="false"
-                                    :mobile-title="
-                                        t(
-                                            'transactions.recurring.form.labels.category',
-                                        )
-                                    "
-                                    :trigger-class="
-                                        cn(
-                                            'h-11 rounded-2xl',
-                                            fieldErrorClass(
-                                                hasFormError(
-                                                    'category_uuid',
-                                                    'category_id',
-                                                ),
-                                            ),
-                                        )
-                                    "
-                                    content-class="z-[260]"
-                                />
-                                <InputError
-                                    :message="
-                                        formError(
-                                            'category_uuid',
-                                            'category_id',
-                                        )
-                                    "
-                                />
-                            </div>
-
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t(
-                                        'transactions.recurring.form.labels.trackedItem',
-                                    )
-                                }}</Label>
-                                <div
-                                    v-if="isMobile && !structuralLocked"
-                                    class="grid min-w-0 gap-2"
-                                >
-                                    <MobileQuickChoices
-                                        v-if="quickReferences.length"
-                                        v-model="form.tracked_item_uuid"
-                                        :options="quickReferences"
-                                        appearance="reference"
-                                    />
-                                    <div
-                                        class="flex min-w-0 items-center gap-2"
-                                    >
-                                        <MobileSearchableSelect
-                                            v-if="trackedItemOptions.length"
-                                            v-model="form.tracked_item_uuid"
-                                            :options="trackedItemOptions"
-                                            :placeholder="ui('Tutti · Cerca')"
-                                            :search-placeholder="
-                                                ui('Cerca riferimento')
-                                            "
-                                            clearable
-                                            :clear-value="NONE_VALUE"
-                                            :teleport="false"
-                                            :mobile-title="ui('Riferimento')"
-                                            class="min-w-0 flex-1"
-                                            trigger-class="min-h-11 rounded-2xl"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            class="min-h-11 shrink-0 rounded-2xl"
-                                            @click="
-                                                newReferenceOpen =
-                                                    !newReferenceOpen
-                                            "
-                                            >{{ ui('+ Nuovo') }}</Button
-                                        >
-                                    </div>
-                                    <div
-                                        v-if="newReferenceOpen"
-                                        class="grid gap-3 rounded-2xl border border-border bg-muted/30 p-3"
-                                    >
-                                        <Label for="recurring-reference-name">{{
-                                            ui('Nome riferimento')
-                                        }}</Label>
-                                        <Input
-                                            id="recurring-reference-name"
-                                            v-model="newReferenceName"
-                                            :placeholder="ui('Es. Amazon')"
-                                        />
-                                        <Label
-                                            for="recurring-reference-website"
-                                            >{{
-                                                ui(
-                                                    'Sito web per il logo (opzionale)',
-                                                )
-                                            }}</Label
-                                        >
-                                        <Input
-                                            id="recurring-reference-website"
-                                            v-model="newReferenceWebsite"
-                                            type="url"
-                                            placeholder="https://www.amazon.it"
-                                        />
-                                        <Button
-                                            type="button"
-                                            class="min-h-11"
-                                            :disabled="
-                                                creatingTrackedItem ||
-                                                !newReferenceName.trim()
-                                            "
-                                            @click="
-                                                createTrackedItemFromContext(
-                                                    newReferenceName.trim(),
-                                                )
-                                            "
-                                            >{{
-                                                ui('Crea e seleziona')
-                                            }}</Button
-                                        >
-                                    </div>
-                                </div>
-                                <MobileSearchableSelect
-                                    v-else
-                                    v-model="form.tracked_item_uuid"
-                                    :options="[
-                                        {
-                                            value: NONE_VALUE,
-                                            label: t(
-                                                'transactions.recurring.form.placeholders.none',
-                                            ),
-                                        },
-                                        ...trackedItemOptions,
-                                    ]"
-                                    :placeholder="
-                                        t(
-                                            'transactions.recurring.form.placeholders.selectTrackedItem',
-                                        )
-                                    "
-                                    :search-placeholder="
-                                        t(
-                                            'transactions.recurring.form.placeholders.searchTrackedItem',
-                                        )
-                                    "
-                                    :empty-label="
-                                        t(
-                                            'transactions.recurring.form.placeholders.noSearchResults',
-                                        )
-                                    "
-                                    :disabled="structuralLocked"
-                                    clearable
-                                    :clear-value="NONE_VALUE"
-                                    creatable
-                                    :creating="creatingTrackedItem"
-                                    :mobile-title="
-                                        t(
-                                            'transactions.recurring.form.labels.trackedItem',
-                                        )
-                                    "
-                                    :create-label="
-                                        t(
-                                            'transactions.recurring.form.actions.createTrackedItem',
-                                        )
-                                    "
-                                    :teleport="false"
-                                    :trigger-class="
-                                        cn(
-                                            'h-11 rounded-2xl',
-                                            fieldErrorClass(
-                                                hasFormError(
-                                                    'tracked_item_uuid',
-                                                    'tracked_item_id',
-                                                ),
-                                            ),
-                                        )
-                                    "
-                                    content-class="z-[260]"
-                                    @create-option="
-                                        createTrackedItemFromContext
-                                    "
-                                />
-                                <p
-                                    class="text-xs text-slate-500 dark:text-slate-400"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.recurring.form.helper.trackedItem',
-                                        )
-                                    }}
-                                </p>
-                                <InputError
-                                    :message="
-                                        formError(
-                                            'tracked_item_uuid',
-                                            'tracked_item_id',
-                                        )
-                                    "
-                                />
-                            </div>
-                        </section>
-
-                        <section class="grid gap-5 md:grid-cols-2">
-                            <div class="grid gap-2">
-                                <Label for="recurring-start-date">{{
-                                    t(
-                                        'transactions.recurring.form.labels.startDate',
-                                    )
-                                }}</Label>
-                                <div
-                                    :class="
-                                        cn(
-                                            'flex items-center gap-2 rounded-2xl border bg-white px-3 dark:bg-slate-950/70',
-                                            fieldErrorClass(
-                                                hasFieldError(
-                                                    form.errors.start_date,
-                                                ),
-                                            ),
-                                        )
-                                    "
-                                >
-                                    <Input
-                                        id="recurring-start-date"
-                                        ref="startDateInput"
-                                        v-model="form.start_date"
-                                        type="date"
-                                        :min="recurringDateMin || undefined"
-                                        :disabled="startDateLocked"
-                                        class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        class="size-9 rounded-full text-slate-500"
-                                        :disabled="startDateLocked"
-                                        :aria-label="
-                                            t(
-                                                'transactions.recurring.form.actions.openDatePicker',
-                                            )
-                                        "
-                                        @click="openDatePicker('start')"
-                                    >
-                                        <Calendar class="size-4" />
-                                    </Button>
-                                </div>
-                                <InputError :message="form.errors.start_date" />
-                                <p
-                                    v-if="
-                                        entry?.stats
-                                            .can_realign_refunded_schedule
-                                    "
-                                >
-                                    {{
-                                        t(
-                                            'transactions.recurring.form.locked.refundedSchedule',
-                                        )
-                                    }}
-                                </p>
-                            </div>
-
-                            <section
-                                v-if="selectedPlanType === 'recurring'"
-                                class="grid min-w-0 gap-3 rounded-2xl border p-4 transition-colors"
-                                :class="
-                                    form.trial_enabled
-                                        ? 'border-sky-200 bg-sky-50/60 dark:border-sky-500/30 dark:bg-sky-500/10'
-                                        : 'border-border bg-background'
-                                "
+                            <label
+                                class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800"
                             >
-                                <label
-                                    class="flex min-h-11 min-w-0 cursor-pointer items-center gap-3"
-                                >
+                                <Checkbox
+                                    :model-value="form.is_active"
+                                    @update:model-value="
+                                        setBooleanField('is_active', $event)
+                                    "
+                                />
+                                <span class="space-y-1">
                                     <span
-                                        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300"
-                                        ><Gift
-                                            class="size-5"
-                                            aria-hidden="true"
-                                    /></span>
-                                    <span class="min-w-0 flex-1"
-                                        ><span
-                                            class="block text-sm font-semibold"
-                                            >{{ ui('Periodo di prova') }}</span
-                                        ><span
-                                            class="block text-xs text-muted-foreground"
-                                            >{{
-                                                ui(
-                                                    'Gratis prima del primo addebito',
-                                                )
-                                            }}</span
-                                        ></span
+                                        class="block text-sm font-medium text-slate-900 dark:text-slate-100"
                                     >
-                                    <span
-                                        class="relative flex h-6 w-11 shrink-0 items-center"
-                                    >
-                                        <input
-                                            v-model="form.trial_enabled"
-                                            type="checkbox"
-                                            :disabled="structuralLocked"
-                                            class="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-                                        />
-                                        <span
-                                            aria-hidden="true"
-                                            class="h-6 w-11 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-disabled:opacity-50"
-                                        />
-                                        <span
-                                            aria-hidden="true"
-                                            class="pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-background shadow-sm transition-transform peer-checked:translate-x-5"
-                                        />
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.labels.isActive',
+                                            )
+                                        }}
                                     </span>
-                                </label>
-                                <template v-if="form.trial_enabled">
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div class="grid gap-1.5">
-                                            <Label for="trial-duration">{{
-                                                ui('Durata')
-                                            }}</Label
-                                            ><Input
-                                                id="trial-duration"
-                                                v-model="form.trial_duration"
-                                                type="number"
-                                                min="1"
-                                                max="3650"
-                                                :disabled="structuralLocked"
-                                                class="h-11 min-w-0 text-base"
-                                            />
-                                        </div>
-                                        <div class="grid gap-1.5">
-                                            <Label>{{ ui('Unità') }}</Label
-                                            ><Select
-                                                v-model="form.trial_unit"
-                                                :disabled="structuralLocked"
-                                                ><SelectTrigger class="h-11"
-                                                    ><SelectValue /></SelectTrigger
-                                                ><SelectContent
-                                                    ><SelectItem value="days">{{
-                                                        ui('Giorni')
-                                                    }}</SelectItem
-                                                    ><SelectItem
-                                                        value="weeks"
-                                                        >{{
-                                                            ui('Settimane')
-                                                        }}</SelectItem
-                                                    ><SelectItem
-                                                        value="months"
-                                                        >{{
-                                                            ui('Mesi')
-                                                        }}</SelectItem
-                                                    ></SelectContent
-                                                ></Select
-                                            >
-                                        </div>
-                                    </div>
-                                    <p
-                                        class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-sky-100/80 px-3 py-2.5 text-sm font-semibold text-sky-800 dark:bg-sky-500/15 dark:text-sky-200"
+                                    <span
+                                        class="block text-xs text-slate-500 dark:text-slate-400"
                                     >
-                                        <Calendar
-                                            class="size-4 shrink-0"
-                                            aria-hidden="true"
-                                        />
-                                        {{ ui('Primo addebito:') }}
-                                        {{ firstTrialBillingDate || '—' }}
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
                                         {{
-                                            ui(
-                                                'Durante la prova non vengono registrati movimenti economici. Gli avvisi configurati restano attivi prima del primo addebito.',
+                                            t(
+                                                'transactions.recurring.form.helper.isActive',
                                             )
                                         }}
-                                    </p>
-                                    <InputError
-                                        :message="
-                                            form.errors.trial_duration ||
-                                            form.errors.trial_unit
-                                        "
-                                    />
-                                </template>
-                            </section>
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </CollapsibleContent>
+            </Collapsible>
+        </DefineExtraOptions>
+        <Sheet
+            :open="open"
+            :modal="!isMobile"
+            @update:open="emit('update:open', $event)"
+        >
+            <SheetContent
+                class="min-h-0 overflow-hidden"
+                :style="mobileSheetStyle"
+                :side="isMobile ? 'bottom' : 'right'"
+                :class="
+                    isMobile
+                        ? 'h-[100dvh] max-h-[100dvh] w-full rounded-t-[1.75rem] border-t border-l-0 p-0'
+                        : 'w-full border-l p-0 sm:max-w-3xl'
+                "
+                @open-auto-focus.prevent
+            >
+                <div class="flex h-full min-h-0 flex-col overflow-hidden">
+                    <SheetHeader
+                        class="shrink-0 border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
+                    >
+                        <SheetTitle>{{ sheetTitle }}</SheetTitle>
+                        <SheetDescription>
+                            {{ sheetDescription }}
+                        </SheetDescription>
+                    </SheetHeader>
 
-                            <div
-                                v-if="showStartMonthSelector && !isEditing"
-                                class="grid gap-2"
-                            >
-                                <Label for="recurring-start-month">{{
-                                    t(
-                                        'transactions.recurring.form.labels.month',
-                                    )
-                                }}</Label>
-                                <Select
-                                    :model-value="selectedStartMonth"
-                                    :disabled="structuralLocked"
-                                    @update:model-value="updateStartDateMonth"
-                                >
-                                    <SelectTrigger
-                                        id="recurring-start-month"
-                                        class="h-11 rounded-2xl border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/70"
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="option in startMonthOptions"
-                                            :key="option.value"
-                                            :value="option.value"
-                                        >
-                                            {{ option.label }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <p
-                                    class="text-xs text-slate-500 dark:text-slate-400"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.recurring.form.helper.startMonth',
-                                        )
-                                    }}
-                                </p>
-                            </div>
-
-                            <div class="space-y-2">
-                                <p
-                                    class="text-sm font-semibold text-slate-900 dark:text-slate-100"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.recurring.form.labels.postingMode',
-                                        )
-                                    }}
-                                </p>
-                                <div class="grid gap-3 sm:grid-cols-2">
-                                    <button
-                                        type="button"
-                                        class="rounded-[22px] border px-4 py-3 text-left transition-all"
-                                        :class="
-                                            form.auto_create_transaction
-                                                ? 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
-                                                : 'border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-100'
-                                        "
-                                        @click="
-                                            form.auto_create_transaction = false
-                                        "
-                                    >
-                                        <p class="text-sm font-semibold">
-                                            {{
-                                                t(
-                                                    'transactions.recurring.labels.manualPosting',
-                                                )
-                                            }}
-                                        </p>
-                                        <p
-                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.helper.postingManual',
-                                                )
-                                            }}
-                                        </p>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="rounded-[22px] border px-4 py-3 text-left transition-all"
-                                        :class="
-                                            form.auto_create_transaction
-                                                ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100'
-                                                : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
-                                        "
-                                        @click="
-                                            form.auto_create_transaction = true
-                                        "
-                                    >
-                                        <p class="text-sm font-semibold">
-                                            {{
-                                                t(
-                                                    'transactions.recurring.labels.autoPosting',
-                                                )
-                                            }}
-                                        </p>
-                                        <p
-                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.helper.postingAutomatic',
-                                                )
-                                            }}
-                                        </p>
-                                    </button>
-                                </div>
-                            </div>
-                        </section>
-
-                        <section
-                            class="space-y-4 rounded-[28px] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40"
+                    <div
+                        ref="formScrollContainer"
+                        class="min-h-0 min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-y-contain px-6 py-6 [-webkit-overflow-scrolling:touch]"
+                        :class="
+                            isMobile
+                                ? '[&_.grid]:min-w-0 [&_button]:touch-manipulation [&_button:not([role=checkbox])]:min-h-11 [&_input]:max-w-full [&_input]:min-w-0 [&_input]:text-base [&_input:not([type=checkbox])]:min-h-11 [&_textarea]:text-base'
+                                : ''
+                        "
+                    >
+                        <form
+                            class="space-y-6"
+                            @focusin.capture="handleFocusIn"
+                            @submit.prevent="submit()"
                         >
-                            <div class="space-y-1">
-                                <p
-                                    class="text-sm font-semibold text-slate-900 dark:text-slate-100"
-                                >
+                            <AlertError
+                                v-if="formErrorMessages.length > 0"
+                                :title="
+                                    t(
+                                        'transactions.recurring.form.errors.alertTitle',
+                                    )
+                                "
+                                :errors="formErrorMessages"
+                            />
+
+                            <div
+                                v-if="structuralLocked"
+                                class="rounded-[24px] border border-amber-200 bg-amber-50/80 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100"
+                            >
+                                <p class="font-semibold">
                                     {{
-                                        selectedPlanType === 'installment'
-                                            ? t(
-                                                  'transactions.recurring.form.sections.installmentCadence',
-                                              )
-                                            : t(
-                                                  'transactions.recurring.form.sections.repeat',
-                                              )
+                                        t(
+                                            'transactions.recurring.form.locked.title',
+                                        )
                                     }}
                                 </p>
                                 <p
-                                    class="text-sm text-slate-600 dark:text-slate-300"
+                                    class="mt-1 text-sm/6 text-amber-800 dark:text-amber-200"
                                 >
                                     {{
-                                        selectedPlanType === 'installment'
-                                            ? t(
-                                                  'transactions.recurring.form.helper.installmentCadence',
-                                              )
-                                            : t(
-                                                  'transactions.recurring.form.helper.repeat',
-                                              )
+                                        t(
+                                            'transactions.recurring.form.locked.description',
+                                        )
+                                    }}
+                                </p>
+                                <p
+                                    v-if="selectedPlanType === 'installment'"
+                                    class="mt-2 text-sm/6 text-amber-800 dark:text-amber-200"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.detail.futureAmountOnly',
+                                        )
                                     }}
                                 </p>
                             </div>
 
-                            <div
-                                class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
-                            >
-                                <button
-                                    v-for="option in repeatPresetOptions"
-                                    :key="option.value"
-                                    type="button"
-                                    class="rounded-[20px] border px-4 py-3 text-left transition-all"
-                                    :class="
-                                        repeatPreset === option.value
-                                            ? 'border-sky-300 bg-white text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
-                                    "
-                                    :disabled="structuralLocked"
-                                    @click="setRepeatPreset(option.value)"
-                                >
-                                    {{ option.label }}
-                                </button>
-                            </div>
-
-                            <div
-                                v-if="repeatPreset === 'custom'"
-                                class="grid gap-5 rounded-[24px] border border-slate-200/80 bg-white p-4 md:grid-cols-2 dark:border-slate-800 dark:bg-slate-950/50"
-                            >
-                                <div class="grid gap-2">
-                                    <Label>{{
-                                        t(
-                                            'transactions.recurring.form.labels.recurrenceInterval',
-                                        )
-                                    }}</Label>
-                                    <Input
-                                        v-model="customRecurrenceInterval"
-                                        type="number"
-                                        min="1"
-                                        :disabled="structuralLocked"
-                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    />
-                                </div>
-
-                                <div class="grid gap-2">
-                                    <Label>{{
-                                        t(
-                                            'transactions.recurring.form.labels.customUnit',
-                                        )
-                                    }}</Label>
-                                    <Select
-                                        :model-value="customRecurrenceType"
-                                        :disabled="structuralLocked"
-                                        @update:model-value="
-                                            updateCustomRecurrenceType(
-                                                String($event),
-                                            )
-                                        "
-                                    >
-                                        <SelectTrigger
-                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                        >
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem
-                                                v-for="option in customRecurrenceTypeOptions"
-                                                :key="option.value"
-                                                :value="option.value"
-                                            >
-                                                {{ option.label }}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div
-                                    class="rounded-[20px] border border-sky-200/80 bg-sky-50/80 p-4 md:col-span-2 dark:border-sky-500/20 dark:bg-sky-500/10"
-                                >
-                                    <p
-                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.form.preview.title',
-                                            )
-                                        }}
-                                    </p>
-                                    <p
-                                        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.form.helper.customPreview',
-                                            )
-                                        }}
-                                    </p>
-                                    <p
-                                        class="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-200"
-                                    >
-                                        {{ customRecurrencePreview }}
-                                    </p>
-                                </div>
-
-                                <div
-                                    v-if="customRecurrenceType === 'weekly'"
-                                    class="grid gap-3 md:col-span-2"
-                                >
-                                    <Label>{{
-                                        t(
-                                            'transactions.recurring.form.labels.weekdays',
-                                        )
-                                    }}</Label>
-                                    <div class="flex flex-wrap gap-2">
-                                        <button
-                                            v-for="weekday in weekdayOptions"
-                                            :key="weekday"
-                                            type="button"
-                                            class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                                            :class="
-                                                weeklyWeekdays.includes(weekday)
-                                                    ? 'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200'
-                                                    : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300'
-                                            "
-                                            :disabled="structuralLocked"
-                                            @click="toggleWeekday(weekday)"
-                                        >
-                                            {{
-                                                t(
-                                                    `transactions.recurring.form.weekdays.${weekday}`,
-                                                )
-                                            }}
-                                        </button>
-                                    </div>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.form.helper.weeklyWeekdays',
-                                            )
-                                        }}
-                                    </p>
-                                </div>
-
-                                <template
-                                    v-if="
-                                        ['monthly', 'quarterly'].includes(
-                                            customRecurrenceType,
-                                        )
-                                    "
-                                >
-                                    <div class="grid gap-3 md:col-span-2">
-                                        <div class="space-y-1">
-                                            <Label>{{
-                                                t(
-                                                    'transactions.recurring.form.labels.monthlyMode',
-                                                )
-                                            }}</Label>
-                                            <p
-                                                class="text-xs text-slate-500 dark:text-slate-400"
-                                            >
-                                                {{
-                                                    monthlyMode ===
-                                                    'day_of_month'
-                                                        ? t(
-                                                              'transactions.recurring.form.helper.monthlyFixedDay',
-                                                          )
-                                                        : t(
-                                                              'transactions.recurring.form.helper.monthlyOrdinalWeekday',
-                                                          )
-                                                }}
-                                            </p>
-                                        </div>
-
-                                        <div class="grid gap-3 md:grid-cols-2">
-                                            <button
-                                                type="button"
-                                                class="rounded-[20px] border px-4 py-3 text-left transition-all"
-                                                :class="
-                                                    monthlyMode ===
-                                                    'day_of_month'
-                                                        ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
-                                                "
-                                                :disabled="structuralLocked"
-                                                @click="
-                                                    blurCurrentTarget($event);
-                                                    updateMonthlyMode(
-                                                        'day_of_month',
-                                                    );
-                                                "
-                                            >
-                                                <p
-                                                    class="text-sm font-semibold"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.form.monthlyModes.day_of_month',
-                                                        )
-                                                    }}
-                                                </p>
-                                                <p
-                                                    class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.form.helper.monthlyFixedDay',
-                                                        )
-                                                    }}
-                                                </p>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                class="rounded-[20px] border px-4 py-3 text-left transition-all"
-                                                :class="
-                                                    monthlyMode ===
-                                                    'ordinal_weekday'
-                                                        ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
-                                                "
-                                                :disabled="structuralLocked"
-                                                @click="
-                                                    blurCurrentTarget($event);
-                                                    updateMonthlyMode(
-                                                        'ordinal_weekday',
-                                                    );
-                                                "
-                                            >
-                                                <p
-                                                    class="text-sm font-semibold"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.form.monthlyModes.ordinal_weekday',
-                                                        )
-                                                    }}
-                                                </p>
-                                                <p
-                                                    class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.form.helper.monthlyOrdinalWeekday',
-                                                        )
-                                                    }}
-                                                </p>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        v-if="monthlyMode === 'day_of_month'"
-                                        class="grid gap-2"
-                                    >
-                                        <Label>{{
-                                            t(
-                                                'transactions.recurring.form.labels.dayOfMonth',
-                                            )
-                                        }}</Label>
-                                        <Input
-                                            v-model="monthlyDay"
-                                            type="number"
-                                            min="1"
-                                            max="31"
-                                            :disabled="structuralLocked"
-                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                        />
-                                        <p
-                                            class="text-xs text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.helper.monthlyFixedDay',
-                                                )
-                                            }}
-                                        </p>
-                                    </div>
-
-                                    <template v-else>
-                                        <div class="grid gap-2">
-                                            <Label>{{
-                                                t(
-                                                    'transactions.recurring.form.labels.ordinal',
-                                                )
-                                            }}</Label>
-                                            <Select
-                                                :model-value="ordinal"
-                                                :disabled="structuralLocked"
-                                                @update:model-value="
-                                                    updateOrdinal(
-                                                        String($event),
-                                                    )
-                                                "
-                                            >
-                                                <SelectTrigger
-                                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                                >
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem
-                                                        v-for="option in ordinalOptions"
-                                                        :key="option"
-                                                        :value="option"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                `transactions.recurring.form.ordinals.${option}`,
-                                                            )
-                                                        }}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <p
-                                                class="text-xs text-slate-500 dark:text-slate-400"
-                                            >
-                                                {{
-                                                    t(
-                                                        'transactions.recurring.form.helper.monthlyOrdinalWeekday',
-                                                    )
-                                                }}
-                                            </p>
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label>{{
-                                                t(
-                                                    'transactions.recurring.form.labels.weekday',
-                                                )
-                                            }}</Label>
-                                            <Select
-                                                :model-value="ordinalWeekday"
-                                                :disabled="structuralLocked"
-                                                @update:model-value="
-                                                    updateOrdinalWeekday(
-                                                        String($event),
-                                                    )
-                                                "
-                                            >
-                                                <SelectTrigger
-                                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                                >
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem
-                                                        v-for="weekday in weekdayOptions"
-                                                        :key="weekday"
-                                                        :value="weekday"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                `transactions.recurring.form.weekdays.${weekday}`,
-                                                            )
-                                                        }}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </template>
-                                </template>
-
-                                <template
-                                    v-if="customRecurrenceType === 'yearly'"
-                                >
-                                    <div class="grid gap-2">
-                                        <Label>{{
-                                            t(
-                                                'transactions.recurring.form.labels.yearlyMode',
-                                            )
-                                        }}</Label>
-                                        <Select
-                                            :model-value="yearlyMode"
-                                            :disabled="structuralLocked"
-                                            @update:model-value="
-                                                updateYearlyMode(String($event))
-                                            "
-                                        >
-                                            <SelectTrigger
-                                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                            >
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="month_day">
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.form.yearlyModes.month_day',
-                                                        )
-                                                    }}
-                                                </SelectItem>
-                                                <SelectItem
-                                                    value="ordinal_weekday"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.form.yearlyModes.ordinal_weekday',
-                                                        )
-                                                    }}
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <p
-                                            class="text-xs text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                yearlyMode === 'month_day'
-                                                    ? t(
-                                                          'transactions.recurring.form.helper.yearlyMonthDay',
-                                                      )
-                                                    : t(
-                                                          'transactions.recurring.form.helper.yearlyOrdinalWeekday',
-                                                      )
-                                            }}
-                                        </p>
-                                    </div>
-
-                                    <div class="grid gap-2">
-                                        <Label>{{
-                                            t(
-                                                'transactions.recurring.form.labels.month',
-                                            )
-                                        }}</Label>
-                                        <Input
-                                            v-model="yearlyMonth"
-                                            type="number"
-                                            min="1"
-                                            max="12"
-                                            :disabled="structuralLocked"
-                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                        />
-                                    </div>
-
-                                    <div
-                                        v-if="yearlyMode === 'month_day'"
-                                        class="grid gap-2"
-                                    >
-                                        <Label>{{
-                                            t(
-                                                'transactions.recurring.form.labels.dayOfMonth',
-                                            )
-                                        }}</Label>
-                                        <Input
-                                            v-model="yearlyDay"
-                                            type="number"
-                                            min="1"
-                                            max="31"
-                                            :disabled="structuralLocked"
-                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                        />
-                                        <p
-                                            class="text-xs text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.helper.yearlyMonthDay',
-                                                )
-                                            }}
-                                        </p>
-                                    </div>
-
-                                    <template v-else>
-                                        <div class="grid gap-2">
-                                            <Label>{{
-                                                t(
-                                                    'transactions.recurring.form.labels.ordinal',
-                                                )
-                                            }}</Label>
-                                            <Select
-                                                :model-value="ordinal"
-                                                :disabled="structuralLocked"
-                                                @update:model-value="
-                                                    updateOrdinal(
-                                                        String($event),
-                                                    )
-                                                "
-                                            >
-                                                <SelectTrigger
-                                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                                >
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem
-                                                        v-for="option in ordinalOptions"
-                                                        :key="option"
-                                                        :value="option"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                `transactions.recurring.form.ordinals.${option}`,
-                                                            )
-                                                        }}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <p
-                                                class="text-xs text-slate-500 dark:text-slate-400"
-                                            >
-                                                {{
-                                                    t(
-                                                        'transactions.recurring.form.helper.yearlyOrdinalWeekday',
-                                                    )
-                                                }}
-                                            </p>
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label>{{
-                                                t(
-                                                    'transactions.recurring.form.labels.weekday',
-                                                )
-                                            }}</Label>
-                                            <Select
-                                                :model-value="ordinalWeekday"
-                                                :disabled="structuralLocked"
-                                                @update:model-value="
-                                                    updateOrdinalWeekday(
-                                                        String($event),
-                                                    )
-                                                "
-                                            >
-                                                <SelectTrigger
-                                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                                >
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem
-                                                        v-for="weekday in weekdayOptions"
-                                                        :key="weekday"
-                                                        :value="weekday"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                `transactions.recurring.form.weekdays.${weekday}`,
-                                                            )
-                                                        }}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </template>
-                                </template>
-                            </div>
-
-                            <template v-if="selectedPlanType === 'recurring'">
-                                <div
-                                    class="space-y-3 border-t border-slate-200/80 pt-4 dark:border-slate-800"
-                                >
+                            <section v-if="!salaryMode" class="space-y-4">
+                                <div class="space-y-2">
                                     <p
                                         class="text-sm font-semibold text-slate-900 dark:text-slate-100"
                                     >
                                         {{
                                             t(
-                                                'transactions.recurring.form.labels.endMode',
+                                                'transactions.recurring.form.sections.planType',
                                             )
                                         }}
                                     </p>
-                                    <div class="grid gap-3 md:grid-cols-3">
+                                    <div class="grid gap-3 md:grid-cols-2">
                                         <button
                                             type="button"
-                                            class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                            class="rounded-[24px] border px-4 py-4 text-left transition-all"
                                             :class="
-                                                form.end_mode === 'never'
-                                                    ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                                    : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                                cn(
+                                                    selectedPlanType ===
+                                                        'recurring'
+                                                        ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
+                                                    structuralLocked
+                                                        ? 'cursor-not-allowed opacity-60'
+                                                        : '',
+                                                )
                                             "
                                             :disabled="structuralLocked"
-                                            @click="setEndMode('never')"
+                                            @click="setPlanType('recurring')"
                                         >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.endModes.never',
-                                                )
-                                            }}
+                                            <p class="text-sm font-semibold">
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.enums.entryType.recurring',
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-sm text-slate-600 dark:text-slate-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.planTypes.recurring',
+                                                    )
+                                                }}
+                                            </p>
                                         </button>
                                         <button
                                             type="button"
-                                            class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                            class="rounded-[24px] border px-4 py-4 text-left transition-all"
                                             :class="
-                                                form.end_mode ===
-                                                'after_occurrences'
-                                                    ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                                    : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                                cn(
+                                                    selectedPlanType ===
+                                                        'installment'
+                                                        ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
+                                                    structuralLocked
+                                                        ? 'cursor-not-allowed opacity-60'
+                                                        : '',
+                                                )
                                             "
                                             :disabled="structuralLocked"
-                                            @click="
-                                                setEndMode('after_occurrences')
-                                            "
+                                            @click="setPlanType('installment')"
                                         >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.endModes.after_occurrences',
-                                                )
-                                            }}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="rounded-[20px] border px-4 py-3 text-left transition-all"
-                                            :class="
-                                                form.end_mode === 'until_date'
-                                                    ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                                    : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
-                                            "
-                                            :disabled="structuralLocked"
-                                            @click="setEndMode('until_date')"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.endModes.until_date',
-                                                )
-                                            }}
+                                            <p class="text-sm font-semibold">
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.enums.entryType.installment',
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-sm text-slate-600 dark:text-slate-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.planTypes.installment',
+                                                    )
+                                                }}
+                                            </p>
                                         </button>
                                     </div>
                                 </div>
 
-                                <div
-                                    v-if="form.end_mode === 'after_occurrences'"
-                                    class="grid gap-2 md:max-w-sm"
-                                >
-                                    <Label for="occurrences-limit">{{
-                                        t(
-                                            'transactions.recurring.form.labels.repetitionsCount',
-                                        )
-                                    }}</Label>
-                                    <Select
-                                        :model-value="form.occurrences_limit"
-                                        :disabled="structuralLocked"
-                                        @update:model-value="
-                                            form.occurrences_limit =
-                                                String($event)
-                                        "
+                                <div class="space-y-2">
+                                    <p
+                                        class="text-sm font-semibold text-slate-900 dark:text-slate-100"
                                     >
-                                        <SelectTrigger
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.labels.direction',
+                                            )
+                                        }}
+                                    </p>
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        <button
+                                            type="button"
+                                            class="rounded-[22px] border px-4 py-3 text-left transition-all"
                                             :class="
                                                 cn(
-                                                    'h-11 rounded-2xl',
-                                                    fieldErrorClass(
-                                                        hasFieldError(
-                                                            form.errors
-                                                                .occurrences_limit,
-                                                        ),
-                                                    ),
+                                                    form.direction === 'expense'
+                                                        ? 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100'
+                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
+                                                    structuralLocked
+                                                        ? 'cursor-not-allowed opacity-60'
+                                                        : '',
                                                 )
                                             "
-                                            id="occurrences-limit"
+                                            :disabled="structuralLocked"
+                                            @click="setDirection('expense')"
                                         >
-                                            <SelectValue
-                                                :placeholder="
-                                                    t(
-                                                        'transactions.recurring.form.placeholders.selectRepetitionsCount',
-                                                    )
-                                                "
-                                            />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem
-                                                v-for="option in repetitionLimitOptions"
-                                                :key="option.value"
-                                                :value="option.value"
-                                            >
-                                                {{ option.label }}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                            {{
+                                                t(
+                                                    'transactions.recurring.enums.direction.expense',
+                                                )
+                                            }}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="rounded-[22px] border px-4 py-3 text-left transition-all"
+                                            :class="
+                                                cn(
+                                                    form.direction === 'income'
+                                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100'
+                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
+                                                    structuralLocked
+                                                        ? 'cursor-not-allowed opacity-60'
+                                                        : '',
+                                                )
+                                            "
+                                            :disabled="structuralLocked"
+                                            @click="setDirection('income')"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.enums.direction.income',
+                                                )
+                                            }}
+                                        </button>
+                                    </div>
                                     <InputError
-                                        :message="form.errors.occurrences_limit"
+                                        :message="form.errors.direction"
+                                    />
+                                </div>
+                            </section>
+
+                            <section
+                                v-if="
+                                    salaryMode ||
+                                    (!isEditing &&
+                                        form.direction === 'income' &&
+                                        selectedPlanType === 'recurring')
+                                "
+                                class="space-y-4"
+                            >
+                                <label
+                                    v-if="!isEditing"
+                                    class="grid gap-2 text-sm"
+                                    >{{ t('salary.incomeType') }}
+                                    <select
+                                        v-model="isSalary"
+                                        class="rounded-xl border bg-background p-3"
+                                    >
+                                        <option :value="false">
+                                            {{ t('salary.normal') }}
+                                        </option>
+                                        <option :value="true">
+                                            {{ t('salary.salary') }}
+                                        </option>
+                                    </select>
+                                </label>
+                                <p
+                                    v-if="isEditing && salaryMode"
+                                    class="text-sm font-medium"
+                                >
+                                    {{ t('salary.incomeType') }}:
+                                    {{ t('salary.salary') }}
+                                </p>
+                                <ReuseReference v-if="salaryMode" />
+                                <div
+                                    v-if="isEditing && salaryMode"
+                                    class="grid gap-2"
+                                >
+                                    <Label
+                                        v-if="!isMobile"
+                                        for="recurring-description"
+                                        >{{ t('salary.recurringName') }}</Label
+                                    >
+                                    <ReuseDescription />
+                                </div>
+                            </section>
+                            <section
+                                class="grid gap-5 md:grid-cols-[minmax(0,1fr)_220px]"
+                            >
+                                <div class="grid gap-2">
+                                    <Label>{{
+                                        t(
+                                            'transactions.recurring.form.labels.account',
+                                        )
+                                    }}</Label>
+                                    <MobileSearchableSelect
+                                        v-model="form.account_uuid"
+                                        :options="accountOptions"
+                                        :placeholder="
+                                            t(
+                                                'transactions.recurring.form.placeholders.selectAccount',
+                                            )
+                                        "
+                                        :search-placeholder="
+                                            t(
+                                                'transactions.recurring.form.placeholders.searchAccount',
+                                            )
+                                        "
+                                        :empty-label="
+                                            t(
+                                                'transactions.recurring.form.placeholders.noSearchResults',
+                                            )
+                                        "
+                                        :disabled="structuralLocked"
+                                        hierarchical
+                                        :teleport="false"
+                                        :mobile-title="
+                                            t(
+                                                'transactions.recurring.form.labels.account',
+                                            )
+                                        "
+                                        :trigger-class="
+                                            cn(
+                                                'h-11 rounded-2xl',
+                                                fieldErrorClass(
+                                                    hasFormError(
+                                                        'account_uuid',
+                                                        'account_id',
+                                                    ),
+                                                ),
+                                            )
+                                        "
+                                        content-class="z-[260]"
+                                    />
+                                    <InputError
+                                        :message="
+                                            formError(
+                                                'account_uuid',
+                                                'account_id',
+                                            )
+                                        "
                                     />
                                 </div>
 
-                                <div
-                                    v-if="form.end_mode === 'until_date'"
-                                    class="grid gap-2 md:max-w-sm"
-                                >
-                                    <Label for="recurring-end-date">{{
+                                <div class="grid gap-2">
+                                    <Label>{{
                                         t(
-                                            'transactions.recurring.form.labels.endDate',
+                                            'transactions.recurring.form.labels.currency',
+                                        )
+                                    }}</Label>
+                                    <div
+                                        class="flex h-11 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100"
+                                    >
+                                        <span>{{
+                                            selectedAccountCurrencyLabel
+                                        }}</span>
+                                        <span
+                                            class="ml-auto text-xs font-medium text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.helper.accountCurrencyReadonly',
+                                                )
+                                            }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section
+                                class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                            >
+                                <div class="grid gap-2">
+                                    <MobileAmountInput
+                                        v-if="
+                                            selectedPlanType === 'installment'
+                                        "
+                                        id="recurring-primary-amount"
+                                        v-model="installmentAmount"
+                                        :label="primaryAmountLabel"
+                                        :mobile-title="primaryAmountLabel"
+                                        :format-locale="formatLocale"
+                                        :currency-code="selectedAccountCurrency"
+                                        :disabled="
+                                            structuralLocked &&
+                                            selectedPlanType !== 'installment'
+                                        "
+                                        :placeholder="
+                                            t(
+                                                'transactions.recurring.form.placeholders.amount',
+                                            )
+                                        "
+                                        :class="
+                                            cn(
+                                                'h-11 rounded-2xl',
+                                                directionAccentClass,
+                                                hasFieldError(
+                                                    form.errors.total_amount,
+                                                )
+                                                    ? fieldErrorClass(true)
+                                                    : '',
+                                            )
+                                        "
+                                    />
+                                    <MobileAmountInput
+                                        v-else
+                                        id="recurring-primary-amount"
+                                        v-model="form.expected_amount"
+                                        :label="primaryAmountLabel"
+                                        :mobile-title="primaryAmountLabel"
+                                        :format-locale="formatLocale"
+                                        :currency-code="selectedAccountCurrency"
+                                        :disabled="form.processing"
+                                        :placeholder="
+                                            t(
+                                                'transactions.recurring.form.placeholders.amount',
+                                            )
+                                        "
+                                        :class="
+                                            cn(
+                                                'h-11 rounded-2xl',
+                                                directionAccentClass,
+                                                hasFieldError(
+                                                    form.errors.expected_amount,
+                                                )
+                                                    ? fieldErrorClass(true)
+                                                    : '',
+                                            )
+                                        "
+                                        @blur="
+                                            normalizeMoneyField(
+                                                'expected_amount',
+                                            )
+                                        "
+                                    />
+                                    <InputError
+                                        :message="
+                                            selectedPlanType === 'installment'
+                                                ? form.errors.total_amount
+                                                : form.errors.expected_amount
+                                        "
+                                    />
+                                    <div
+                                        v-if="
+                                            exchangePreviewLoading ||
+                                            exchangePreview?.should_preview ||
+                                            exchangePreviewError
+                                        "
+                                        class="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/80"
+                                    >
+                                        <p
+                                            class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.helper.fxPreviewTitle',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            v-if="exchangePreviewLoading"
+                                            class="mt-2 text-sm text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.form.placeholders.balanceAdjustmentLoading',
+                                                )
+                                            }}
+                                        </p>
+                                        <template
+                                            v-else-if="
+                                                exchangePreview &&
+                                                exchangePreview.should_preview
+                                            "
+                                        >
+                                            <p
+                                                class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.helper.fxPreviewAmount',
+                                                        {
+                                                            source: formatCurrency(
+                                                                exchangePreview.amount_raw,
+                                                                exchangePreview.currency_code,
+                                                                formatLocale,
+                                                            ),
+                                                            target: formatCurrency(
+                                                                exchangePreview.converted_base_amount_raw,
+                                                                exchangePreview.base_currency_code,
+                                                                formatLocale,
+                                                            ),
+                                                        },
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.helper.fxPreviewRateDate',
+                                                        {
+                                                            date: formatPreviewDate(
+                                                                exchangePreview.exchange_rate_date,
+                                                            ),
+                                                        },
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.helper.fxPreviewInformative',
+                                                    )
+                                                }}
+                                            </p>
+                                        </template>
+                                        <p
+                                            v-else-if="exchangePreviewError"
+                                            class="mt-2 text-sm text-rose-600 dark:text-rose-400"
+                                        >
+                                            {{ exchangePreviewError }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div
+                                    v-if="selectedPlanType === 'installment'"
+                                    class="grid gap-2"
+                                >
+                                    <Label for="installments-count">{{
+                                        t(
+                                            'transactions.recurring.form.labels.installmentsCount',
+                                        )
+                                    }}</Label>
+                                    <Input
+                                        id="installments-count"
+                                        v-model="installmentCount"
+                                        :type="isMobile ? 'text' : 'number'"
+                                        inputmode="numeric"
+                                        pattern="[0-9]*"
+                                        autocomplete="off"
+                                        enterkeyhint="next"
+                                        min="1"
+                                        :disabled="structuralLocked"
+                                        :class="
+                                            cn(
+                                                'h-11 rounded-2xl',
+                                                fieldErrorClass(
+                                                    hasFieldError(
+                                                        form.errors
+                                                            .installments_count,
+                                                    ),
+                                                ),
+                                            )
+                                        "
+                                    />
+                                    <div class="flex flex-wrap gap-2">
+                                        <button
+                                            v-for="count in quickInstallmentCounts"
+                                            :key="count"
+                                            type="button"
+                                            class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+                                            :class="
+                                                form.installments_count ===
+                                                String(count)
+                                                    ? 'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200'
+                                                    : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300'
+                                            "
+                                            :disabled="structuralLocked"
+                                            @click="
+                                                installmentCount = String(count)
+                                            "
+                                        >
+                                            {{ count }}
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.quickActions.installments',
+                                                )
+                                            }}
+                                        </button>
+                                    </div>
+                                    <p
+                                        v-if="form.total_amount"
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{ ui('Totale piano:') }}
+                                        {{
+                                            formatCurrency(
+                                                Number(form.total_amount),
+                                                selectedAccountCurrency,
+                                            )
+                                        }}
+                                        <span
+                                            v-if="
+                                                isEditing &&
+                                                installmentAmountDraft === null
+                                            "
+                                            class="block"
+                                            >{{
+                                                ui(
+                                                    'Importi personalizzati esistenti mantenuti. Modificare la rata ricalcola il piano con conferma.',
+                                                )
+                                            }}</span
+                                        >
+                                    </p>
+                                    <InputError
+                                        :message="
+                                            form.errors.installments_count
+                                        "
+                                    />
+                                </div>
+                            </section>
+
+                            <SharedExpenseFields
+                                v-if="!isSalary && !props.entry?.salary_url"
+                                decorated
+                                v-model:enabled="form.is_shared_expense"
+                                v-model:counterparty="
+                                    form.shared_expense_counterparty_uuid
+                                "
+                                v-model:paid-by="form.shared_expense_paid_by"
+                                v-model:my-share="form.shared_expense_my_share"
+                                v-model:counterparty-share="
+                                    form.shared_expense_counterparty_share
+                                "
+                                v-model:custom="
+                                    form.shared_expense_custom_split
+                                "
+                                :counterparties="
+                                    props.formOptions
+                                        .shared_expense_counterparties
+                                "
+                                dropdown-side="bottom"
+                                :dropdown-teleport="false"
+                                :amount="
+                                    selectedPlanType === 'installment'
+                                        ? form.total_amount
+                                        : form.expected_amount
+                                "
+                                :errors="form.errors"
+                            />
+
+                            <label
+                                v-if="
+                                    selectedPlanType === 'recurring' &&
+                                    !isSalary &&
+                                    !props.entry?.salary_url
+                                "
+                                class="grid min-w-0 cursor-pointer gap-3 rounded-2xl border p-4 transition-colors"
+                                :class="
+                                    form.is_amount_variable
+                                        ? 'border-violet-300 bg-violet-50/80 dark:border-violet-500/40 dark:bg-violet-500/10'
+                                        : 'border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/40'
+                                "
+                            >
+                                <span class="flex min-w-0 items-center gap-3">
+                                    <span
+                                        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300"
+                                        ><SlidersHorizontal
+                                            class="size-5"
+                                            aria-hidden="true"
+                                    /></span>
+                                    <span
+                                        class="min-w-0 flex-1 text-sm font-semibold text-foreground"
+                                        >{{
+                                            t(
+                                                'transactions.recurring.form.labels.variableAmount',
+                                            )
+                                        }}</span
+                                    >
+                                    <span class="relative h-6 w-11 shrink-0">
+                                        <Checkbox
+                                            :model-value="
+                                                form.is_amount_variable
+                                            "
+                                            class="relative h-6 w-11 shrink-0 rounded-full border-transparent bg-muted shadow-none"
+                                            @update:model-value="
+                                                setBooleanField(
+                                                    'is_amount_variable',
+                                                    $event,
+                                                )
+                                            "
+                                            ><span
+                                        /></Checkbox>
+                                        <span
+                                            aria-hidden="true"
+                                            class="pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-background shadow-sm transition-transform"
+                                            :class="
+                                                form.is_amount_variable
+                                                    ? 'translate-x-5'
+                                                    : ''
+                                            "
+                                    /></span>
+                                </span>
+                                <span class="min-w-0">
+                                    <span
+                                        class="block text-xs leading-relaxed text-muted-foreground"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.helper.variableAmount',
+                                            )
+                                        }}
+                                    </span>
+                                    <InputError
+                                        :message="
+                                            form.errors.is_amount_variable
+                                        "
+                                    />
+                                </span>
+                            </label>
+
+                            <section class="grid gap-5 md:grid-cols-2">
+                                <ReuseDescription v-if="!salaryMode" />
+                                <div class="grid gap-2">
+                                    <Label>{{
+                                        t(
+                                            'transactions.recurring.form.labels.category',
+                                        )
+                                    }}</Label>
+                                    <div
+                                        v-if="isMobile && !structuralLocked"
+                                        class="grid min-w-0 gap-2"
+                                    >
+                                        <MobileQuickChoices
+                                            v-model="form.category_uuid"
+                                            :options="quickCategories"
+                                            appearance="category"
+                                        />
+                                        <MobileQuickChoices
+                                            v-if="categoryChildren.length"
+                                            v-model="form.category_uuid"
+                                            :options="categoryChildren"
+                                            appearance="category"
+                                        />
+                                    </div>
+                                    <MobileSearchableSelect
+                                        v-model="form.category_uuid"
+                                        :options="filteredCategoryOptions"
+                                        :placeholder="
+                                            t(
+                                                'transactions.recurring.form.placeholders.selectCategory',
+                                            )
+                                        "
+                                        :search-placeholder="
+                                            t(
+                                                'transactions.recurring.form.placeholders.searchCategory',
+                                            )
+                                        "
+                                        :empty-label="
+                                            t(
+                                                'transactions.recurring.form.placeholders.noSearchResults',
+                                            )
+                                        "
+                                        :disabled="structuralLocked"
+                                        hierarchical
+                                        :teleport="false"
+                                        :mobile-title="
+                                            t(
+                                                'transactions.recurring.form.labels.category',
+                                            )
+                                        "
+                                        :trigger-class="
+                                            cn(
+                                                'h-11 rounded-2xl',
+                                                fieldErrorClass(
+                                                    hasFormError(
+                                                        'category_uuid',
+                                                        'category_id',
+                                                    ),
+                                                ),
+                                            )
+                                        "
+                                        content-class="z-[260]"
+                                    />
+                                    <InputError
+                                        :message="
+                                            formError(
+                                                'category_uuid',
+                                                'category_id',
+                                            )
+                                        "
+                                    />
+                                </div>
+
+                                <ReuseReference v-if="!salaryMode" />
+                            </section>
+
+                            <SalarySetupFields
+                                v-if="isSalary && !isEditing"
+                                v-model="salarySetup"
+                                :start-date="form.start_date"
+                                :amount="form.expected_amount"
+                                :accounts="formOptions.accounts"
+                                :employments="
+                                    salaryFormOptions.salary_employments ?? []
+                                "
+                            />
+                            <section class="grid gap-5 md:grid-cols-2">
+                                <div class="grid gap-2">
+                                    <Label for="recurring-start-date">{{
+                                        t(
+                                            'transactions.recurring.form.labels.startDate',
                                         )
                                     }}</Label>
                                     <div
@@ -4546,19 +4008,19 @@ const firstTrialBillingDate = computed(() => {
                                                 'flex items-center gap-2 rounded-2xl border bg-white px-3 dark:bg-slate-950/70',
                                                 fieldErrorClass(
                                                     hasFieldError(
-                                                        form.errors.end_date,
+                                                        form.errors.start_date,
                                                     ),
                                                 ),
                                             )
                                         "
                                     >
                                         <Input
-                                            id="recurring-end-date"
-                                            ref="endDateInput"
-                                            v-model="form.end_date"
+                                            id="recurring-start-date"
+                                            ref="startDateInput"
+                                            v-model="form.start_date"
                                             type="date"
-                                            :min="recurringEndDateMin"
-                                            :disabled="structuralLocked"
+                                            :min="recurringDateMin || undefined"
+                                            :disabled="startDateLocked"
                                             class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
                                         />
                                         <Button
@@ -4566,395 +4028,1143 @@ const firstTrialBillingDate = computed(() => {
                                             variant="ghost"
                                             size="icon"
                                             class="size-9 rounded-full text-slate-500"
-                                            :disabled="structuralLocked"
+                                            :disabled="startDateLocked"
                                             :aria-label="
                                                 t(
                                                     'transactions.recurring.form.actions.openDatePicker',
                                                 )
                                             "
-                                            @click="openDatePicker('end')"
+                                            @click="openDatePicker('start')"
                                         >
                                             <Calendar class="size-4" />
                                         </Button>
                                     </div>
                                     <InputError
-                                        :message="form.errors.end_date"
+                                        :message="form.errors.start_date"
                                     />
+                                    <p
+                                        v-if="
+                                            entry?.stats
+                                                .can_realign_refunded_schedule
+                                        "
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.locked.refundedSchedule',
+                                            )
+                                        }}
+                                    </p>
                                 </div>
-                            </template>
 
-                            <div
-                                v-else
-                                class="rounded-[22px] border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-100"
-                            >
-                                {{
-                                    t(
-                                        'transactions.recurring.form.helper.installmentEnd',
-                                    )
-                                }}
-                            </div>
-
-                            <InputError
-                                :message="recurrenceConfigurationError"
-                            />
-                        </section>
-
-                        <section class="grid gap-2">
-                            <MobileTextFieldEditor
-                                v-if="isMobile"
-                                v-model="form.notes"
-                                v-model:open="mobileNotesEditorOpen"
-                                :label="
-                                    t(
-                                        'transactions.recurring.form.labels.notes',
-                                    )
-                                "
-                                :placeholder="
-                                    t(
-                                        'transactions.recurring.form.placeholders.notes',
-                                    )
-                                "
-                                :disabled="structuralLocked"
-                                multiline
-                                :rows="8"
-                            />
-                            <textarea
-                                v-else
-                                id="recurring-notes"
-                                v-model="form.notes"
-                                rows="4"
-                                :placeholder="
-                                    t(
-                                        'transactions.recurring.form.placeholders.notes',
-                                    )
-                                "
-                                class="min-h-28 rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-sm shadow-xs transition-colors outline-none placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-800 dark:placeholder:text-slate-500"
-                            />
-                            <InputError :message="form.errors.notes" />
-                        </section>
-
-                        <section
-                            class="space-y-4 rounded-[28px] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40"
-                        >
-                            <div class="flex items-start gap-3">
-                                <div
-                                    class="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                                <section
+                                    v-if="
+                                        selectedPlanType === 'recurring' &&
+                                        !isSalary &&
+                                        !props.entry?.salary_url
+                                    "
+                                    class="grid min-w-0 gap-3 rounded-2xl border p-4 transition-colors"
+                                    :class="
+                                        form.trial_enabled
+                                            ? 'border-sky-200 bg-sky-50/60 dark:border-sky-500/30 dark:bg-sky-500/10'
+                                            : 'border-border bg-background'
+                                    "
                                 >
-                                    <BellRing class="size-4" />
+                                    <label
+                                        class="flex min-h-11 min-w-0 cursor-pointer items-center gap-3"
+                                    >
+                                        <span
+                                            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300"
+                                            ><Gift
+                                                class="size-5"
+                                                aria-hidden="true"
+                                        /></span>
+                                        <span class="min-w-0 flex-1"
+                                            ><span
+                                                class="block text-sm font-semibold"
+                                                >{{
+                                                    ui('Periodo di prova')
+                                                }}</span
+                                            ><span
+                                                class="block text-xs text-muted-foreground"
+                                                >{{
+                                                    ui(
+                                                        'Gratis prima del primo addebito',
+                                                    )
+                                                }}</span
+                                            ></span
+                                        >
+                                        <span
+                                            class="relative flex h-6 w-11 shrink-0 items-center"
+                                        >
+                                            <input
+                                                v-model="form.trial_enabled"
+                                                type="checkbox"
+                                                :disabled="structuralLocked"
+                                                class="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                                            />
+                                            <span
+                                                aria-hidden="true"
+                                                class="h-6 w-11 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-disabled:opacity-50"
+                                            />
+                                            <span
+                                                aria-hidden="true"
+                                                class="pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-background shadow-sm transition-transform peer-checked:translate-x-5"
+                                            />
+                                        </span>
+                                    </label>
+                                    <template v-if="form.trial_enabled">
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div class="grid gap-1.5">
+                                                <Label for="trial-duration">{{
+                                                    ui('Durata')
+                                                }}</Label
+                                                ><Input
+                                                    id="trial-duration"
+                                                    v-model="
+                                                        form.trial_duration
+                                                    "
+                                                    type="number"
+                                                    min="1"
+                                                    max="3650"
+                                                    :disabled="structuralLocked"
+                                                    class="h-11 min-w-0 text-base"
+                                                />
+                                            </div>
+                                            <div class="grid gap-1.5">
+                                                <Label>{{ ui('Unità') }}</Label
+                                                ><Select
+                                                    v-model="form.trial_unit"
+                                                    :disabled="structuralLocked"
+                                                    ><SelectTrigger class="h-11"
+                                                        ><SelectValue /></SelectTrigger
+                                                    ><SelectContent
+                                                        ><SelectItem
+                                                            value="days"
+                                                            >{{
+                                                                ui('Giorni')
+                                                            }}</SelectItem
+                                                        ><SelectItem
+                                                            value="weeks"
+                                                            >{{
+                                                                ui('Settimane')
+                                                            }}</SelectItem
+                                                        ><SelectItem
+                                                            value="months"
+                                                            >{{
+                                                                ui('Mesi')
+                                                            }}</SelectItem
+                                                        ></SelectContent
+                                                    ></Select
+                                                >
+                                            </div>
+                                        </div>
+                                        <p
+                                            class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-sky-100/80 px-3 py-2.5 text-sm font-semibold text-sky-800 dark:bg-sky-500/15 dark:text-sky-200"
+                                        >
+                                            <Calendar
+                                                class="size-4 shrink-0"
+                                                aria-hidden="true"
+                                            />
+                                            {{ ui('Primo addebito:') }}
+                                            {{ firstTrialBillingDate || '—' }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            {{
+                                                ui(
+                                                    'Durante la prova non vengono registrati movimenti economici. Gli avvisi configurati restano attivi prima del primo addebito.',
+                                                )
+                                            }}
+                                        </p>
+                                        <InputError
+                                            :message="
+                                                form.errors.trial_duration ||
+                                                form.errors.trial_unit
+                                            "
+                                        />
+                                    </template>
+                                </section>
+
+                                <div
+                                    v-if="showStartMonthSelector && !isEditing"
+                                    class="grid gap-2"
+                                >
+                                    <Label for="recurring-start-month">{{
+                                        t(
+                                            'transactions.recurring.form.labels.month',
+                                        )
+                                    }}</Label>
+                                    <Select
+                                        :model-value="selectedStartMonth"
+                                        :disabled="structuralLocked"
+                                        @update:model-value="
+                                            updateStartDateMonth
+                                        "
+                                    >
+                                        <SelectTrigger
+                                            id="recurring-start-month"
+                                            class="h-11 rounded-2xl border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/70"
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem
+                                                v-for="option in startMonthOptions"
+                                                :key="option.value"
+                                                :value="option.value"
+                                            >
+                                                {{ option.label }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.helper.startMonth',
+                                            )
+                                        }}
+                                    </p>
                                 </div>
+
+                                <RecurringPostingMode
+                                    v-model="form.auto_create_transaction"
+                                    :class="salaryMode ? 'md:col-span-2' : ''"
+                                />
+                            </section>
+
+                            <section
+                                class="space-y-4 rounded-[28px] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40"
+                            >
                                 <div class="space-y-1">
                                     <p
                                         class="text-sm font-semibold text-slate-900 dark:text-slate-100"
                                     >
                                         {{
-                                            t(
-                                                'transactions.recurring.form.sections.reminders',
-                                            )
+                                            selectedPlanType === 'installment'
+                                                ? t(
+                                                      'transactions.recurring.form.sections.installmentCadence',
+                                                  )
+                                                : t(
+                                                      'transactions.recurring.form.sections.repeat',
+                                                  )
                                         }}
                                     </p>
                                     <p
-                                        class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                        v-if="!salaryMode"
+                                        class="text-sm text-slate-600 dark:text-slate-300"
                                     >
                                         {{
-                                            t(
-                                                'transactions.recurring.form.helper.reminders',
-                                                {
-                                                    count: props.formOptions
-                                                        .reminders
-                                                        .max_custom_alerts,
-                                                },
-                                            )
+                                            selectedPlanType === 'installment'
+                                                ? t(
+                                                      'transactions.recurring.form.helper.installmentCadence',
+                                                  )
+                                                : t(
+                                                      'transactions.recurring.form.helper.repeat',
+                                                  )
                                         }}
                                     </p>
                                 </div>
-                            </div>
 
-                            <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                                <button
-                                    v-for="daysBefore in reminderDayOptions"
-                                    :key="daysBefore"
-                                    type="button"
-                                    class="rounded-2xl border px-2 py-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45"
-                                    :class="
-                                        form.reminder_days_before.includes(
-                                            daysBefore,
-                                        )
-                                            ? 'border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-500/50 dark:bg-sky-500/15 dark:text-sky-100'
-                                            : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300 dark:hover:border-sky-500/40 dark:hover:text-sky-300'
-                                    "
-                                    :aria-pressed="
-                                        form.reminder_days_before.includes(
-                                            daysBefore,
-                                        )
-                                    "
-                                    :disabled="
-                                        reminderLimitReached &&
-                                        !form.reminder_days_before.includes(
-                                            daysBefore,
-                                        )
-                                    "
-                                    @click="toggleReminderDay(daysBefore)"
+                                <div
+                                    class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
                                 >
-                                    {{
-                                        t(
-                                            daysBefore === 1
-                                                ? 'transactions.recurring.form.reminders.dayBefore'
-                                                : 'transactions.recurring.form.reminders.daysBefore',
-                                            { count: daysBefore },
-                                        )
-                                    }}
-                                </button>
-                            </div>
+                                    <button
+                                        v-for="option in repeatPresetOptions"
+                                        :key="option.value"
+                                        type="button"
+                                        class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                        :class="
+                                            repeatPreset === option.value
+                                                ? 'border-sky-300 bg-white text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                        "
+                                        :disabled="structuralLocked"
+                                        @click="setRepeatPreset(option.value)"
+                                    >
+                                        {{ option.label }}
+                                    </button>
+                                </div>
 
-                            <p
-                                class="text-xs leading-5 text-slate-500 dark:text-slate-400"
-                            >
-                                {{
-                                    form.reminder_days_before.length > 0
-                                        ? t(
-                                              'transactions.recurring.form.reminders.selected',
-                                              {
-                                                  count: form
-                                                      .reminder_days_before
-                                                      .length,
-                                                  max: props.formOptions
-                                                      .reminders
-                                                      .max_custom_alerts,
-                                              },
-                                          )
-                                        : t(
-                                              'transactions.recurring.form.reminders.noneSelected',
-                                          )
-                                }}
-                            </p>
-                            <InputError
-                                :message="form.errors.reminder_days_before"
-                            />
-                        </section>
-
-                        <Collapsible
-                            v-model:open="advancedOpen"
-                            class="rounded-[28px] border border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/30"
-                        >
-                            <CollapsibleTrigger as-child>
-                                <button
-                                    type="button"
-                                    class="flex w-full items-center justify-between px-4 py-4 text-left"
+                                <div
+                                    v-if="repeatPreset === 'custom'"
+                                    class="grid gap-5 rounded-[24px] border border-slate-200/80 bg-white p-4 md:grid-cols-2 dark:border-slate-800 dark:bg-slate-950/50"
                                 >
-                                    <div>
+                                    <div class="grid gap-2">
+                                        <Label>{{
+                                            t(
+                                                'transactions.recurring.form.labels.recurrenceInterval',
+                                            )
+                                        }}</Label>
+                                        <Input
+                                            v-model="customRecurrenceInterval"
+                                            type="number"
+                                            min="1"
+                                            :disabled="structuralLocked"
+                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                        />
+                                    </div>
+
+                                    <div class="grid gap-2">
+                                        <Label>{{
+                                            t(
+                                                'transactions.recurring.form.labels.customUnit',
+                                            )
+                                        }}</Label>
+                                        <Select
+                                            :model-value="customRecurrenceType"
+                                            :disabled="structuralLocked"
+                                            @update:model-value="
+                                                updateCustomRecurrenceType(
+                                                    String($event),
+                                                )
+                                            "
+                                        >
+                                            <SelectTrigger
+                                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                            >
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem
+                                                    v-for="option in customRecurrenceTypeOptions"
+                                                    :key="option.value"
+                                                    :value="option.value"
+                                                >
+                                                    {{ option.label }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div
+                                        class="rounded-[20px] border border-sky-200/80 bg-sky-50/80 p-4 md:col-span-2 dark:border-sky-500/20 dark:bg-sky-500/10"
+                                    >
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.preview.title',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.helper.customPreview',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-200"
+                                        >
+                                            {{ customRecurrencePreview }}
+                                        </p>
+                                    </div>
+
+                                    <div
+                                        v-if="customRecurrenceType === 'weekly'"
+                                        class="grid gap-3 md:col-span-2"
+                                    >
+                                        <Label>{{
+                                            t(
+                                                'transactions.recurring.form.labels.weekdays',
+                                            )
+                                        }}</Label>
+                                        <div class="flex flex-wrap gap-2">
+                                            <button
+                                                v-for="weekday in weekdayOptions"
+                                                :key="weekday"
+                                                type="button"
+                                                class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+                                                :class="
+                                                    weeklyWeekdays.includes(
+                                                        weekday,
+                                                    )
+                                                        ? 'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200'
+                                                        : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300'
+                                                "
+                                                :disabled="structuralLocked"
+                                                @click="toggleWeekday(weekday)"
+                                            >
+                                                {{
+                                                    t(
+                                                        `transactions.recurring.form.weekdays.${weekday}`,
+                                                    )
+                                                }}
+                                            </button>
+                                        </div>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.helper.weeklyWeekdays',
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+
+                                    <template
+                                        v-if="
+                                            ['monthly', 'quarterly'].includes(
+                                                customRecurrenceType,
+                                            )
+                                        "
+                                    >
+                                        <div class="grid gap-3 md:col-span-2">
+                                            <div class="space-y-1">
+                                                <Label>{{
+                                                    t(
+                                                        'transactions.recurring.form.labels.monthlyMode',
+                                                    )
+                                                }}</Label>
+                                                <p
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        monthlyMode ===
+                                                        'day_of_month'
+                                                            ? t(
+                                                                  'transactions.recurring.form.helper.monthlyFixedDay',
+                                                              )
+                                                            : t(
+                                                                  'transactions.recurring.form.helper.monthlyOrdinalWeekday',
+                                                              )
+                                                    }}
+                                                </p>
+                                            </div>
+
+                                            <div
+                                                class="grid gap-3 md:grid-cols-2"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                                    :class="
+                                                        monthlyMode ===
+                                                        'day_of_month'
+                                                            ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                                    "
+                                                    :disabled="structuralLocked"
+                                                    @click="
+                                                        blurCurrentTarget(
+                                                            $event,
+                                                        );
+                                                        updateMonthlyMode(
+                                                            'day_of_month',
+                                                        );
+                                                    "
+                                                >
+                                                    <p
+                                                        class="text-sm font-semibold"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.form.monthlyModes.day_of_month',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                    <p
+                                                        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.form.helper.monthlyFixedDay',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                                    :class="
+                                                        monthlyMode ===
+                                                        'ordinal_weekday'
+                                                            ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                                    "
+                                                    :disabled="structuralLocked"
+                                                    @click="
+                                                        blurCurrentTarget(
+                                                            $event,
+                                                        );
+                                                        updateMonthlyMode(
+                                                            'ordinal_weekday',
+                                                        );
+                                                    "
+                                                >
+                                                    <p
+                                                        class="text-sm font-semibold"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.form.monthlyModes.ordinal_weekday',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                    <p
+                                                        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.form.helper.monthlyOrdinalWeekday',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            v-if="
+                                                monthlyMode === 'day_of_month'
+                                            "
+                                            class="grid gap-2"
+                                        >
+                                            <Label>{{
+                                                t(
+                                                    'transactions.recurring.form.labels.dayOfMonth',
+                                                )
+                                            }}</Label>
+                                            <Input
+                                                v-model="monthlyDay"
+                                                type="number"
+                                                min="1"
+                                                max="31"
+                                                :disabled="structuralLocked"
+                                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                            />
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.helper.monthlyFixedDay',
+                                                    )
+                                                }}
+                                            </p>
+                                        </div>
+
+                                        <template v-else>
+                                            <div class="grid gap-2">
+                                                <Label>{{
+                                                    t(
+                                                        'transactions.recurring.form.labels.ordinal',
+                                                    )
+                                                }}</Label>
+                                                <Select
+                                                    :model-value="ordinal"
+                                                    :disabled="structuralLocked"
+                                                    @update:model-value="
+                                                        updateOrdinal(
+                                                            String($event),
+                                                        )
+                                                    "
+                                                >
+                                                    <SelectTrigger
+                                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                                    >
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem
+                                                            v-for="option in ordinalOptions"
+                                                            :key="option"
+                                                            :value="option"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    `transactions.recurring.form.ordinals.${option}`,
+                                                                )
+                                                            }}
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <p
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.helper.monthlyOrdinalWeekday',
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                            <div class="grid gap-2">
+                                                <Label>{{
+                                                    t(
+                                                        'transactions.recurring.form.labels.weekday',
+                                                    )
+                                                }}</Label>
+                                                <Select
+                                                    :model-value="
+                                                        ordinalWeekday
+                                                    "
+                                                    :disabled="structuralLocked"
+                                                    @update:model-value="
+                                                        updateOrdinalWeekday(
+                                                            String($event),
+                                                        )
+                                                    "
+                                                >
+                                                    <SelectTrigger
+                                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                                    >
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem
+                                                            v-for="weekday in weekdayOptions"
+                                                            :key="weekday"
+                                                            :value="weekday"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    `transactions.recurring.form.weekdays.${weekday}`,
+                                                                )
+                                                            }}
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </template>
+                                    </template>
+
+                                    <template
+                                        v-if="customRecurrenceType === 'yearly'"
+                                    >
+                                        <div class="grid gap-2">
+                                            <Label>{{
+                                                t(
+                                                    'transactions.recurring.form.labels.yearlyMode',
+                                                )
+                                            }}</Label>
+                                            <Select
+                                                :model-value="yearlyMode"
+                                                :disabled="structuralLocked"
+                                                @update:model-value="
+                                                    updateYearlyMode(
+                                                        String($event),
+                                                    )
+                                                "
+                                            >
+                                                <SelectTrigger
+                                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                                >
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem
+                                                        value="month_day"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.form.yearlyModes.month_day',
+                                                            )
+                                                        }}
+                                                    </SelectItem>
+                                                    <SelectItem
+                                                        value="ordinal_weekday"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.form.yearlyModes.ordinal_weekday',
+                                                            )
+                                                        }}
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    yearlyMode === 'month_day'
+                                                        ? t(
+                                                              'transactions.recurring.form.helper.yearlyMonthDay',
+                                                          )
+                                                        : t(
+                                                              'transactions.recurring.form.helper.yearlyOrdinalWeekday',
+                                                          )
+                                                }}
+                                            </p>
+                                        </div>
+
+                                        <div class="grid gap-2">
+                                            <Label>{{
+                                                t(
+                                                    'transactions.recurring.form.labels.month',
+                                                )
+                                            }}</Label>
+                                            <Input
+                                                v-model="yearlyMonth"
+                                                type="number"
+                                                min="1"
+                                                max="12"
+                                                :disabled="structuralLocked"
+                                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                            />
+                                        </div>
+
+                                        <div
+                                            v-if="yearlyMode === 'month_day'"
+                                            class="grid gap-2"
+                                        >
+                                            <Label>{{
+                                                t(
+                                                    'transactions.recurring.form.labels.dayOfMonth',
+                                                )
+                                            }}</Label>
+                                            <Input
+                                                v-model="yearlyDay"
+                                                type="number"
+                                                min="1"
+                                                max="31"
+                                                :disabled="structuralLocked"
+                                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                            />
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.helper.yearlyMonthDay',
+                                                    )
+                                                }}
+                                            </p>
+                                        </div>
+
+                                        <template v-else>
+                                            <div class="grid gap-2">
+                                                <Label>{{
+                                                    t(
+                                                        'transactions.recurring.form.labels.ordinal',
+                                                    )
+                                                }}</Label>
+                                                <Select
+                                                    :model-value="ordinal"
+                                                    :disabled="structuralLocked"
+                                                    @update:model-value="
+                                                        updateOrdinal(
+                                                            String($event),
+                                                        )
+                                                    "
+                                                >
+                                                    <SelectTrigger
+                                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                                    >
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem
+                                                            v-for="option in ordinalOptions"
+                                                            :key="option"
+                                                            :value="option"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    `transactions.recurring.form.ordinals.${option}`,
+                                                                )
+                                                            }}
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <p
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.helper.yearlyOrdinalWeekday',
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                            <div class="grid gap-2">
+                                                <Label>{{
+                                                    t(
+                                                        'transactions.recurring.form.labels.weekday',
+                                                    )
+                                                }}</Label>
+                                                <Select
+                                                    :model-value="
+                                                        ordinalWeekday
+                                                    "
+                                                    :disabled="structuralLocked"
+                                                    @update:model-value="
+                                                        updateOrdinalWeekday(
+                                                            String($event),
+                                                        )
+                                                    "
+                                                >
+                                                    <SelectTrigger
+                                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                                    >
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem
+                                                            v-for="weekday in weekdayOptions"
+                                                            :key="weekday"
+                                                            :value="weekday"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    `transactions.recurring.form.weekdays.${weekday}`,
+                                                                )
+                                                            }}
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </template>
+                                    </template>
+                                </div>
+
+                                <template
+                                    v-if="
+                                        selectedPlanType === 'recurring' &&
+                                        !salaryMode
+                                    "
+                                >
+                                    <div
+                                        class="space-y-3 border-t border-slate-200/80 pt-4 dark:border-slate-800"
+                                    >
                                         <p
                                             class="text-sm font-semibold text-slate-900 dark:text-slate-100"
                                         >
                                             {{
                                                 t(
-                                                    'transactions.recurring.form.sections.advanced',
+                                                    'transactions.recurring.form.labels.endMode',
                                                 )
                                             }}
                                         </p>
-                                        <p
-                                            class="mt-1 text-sm text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.form.helper.advanced',
-                                                )
-                                            }}
-                                        </p>
+                                        <div class="grid gap-3 md:grid-cols-3">
+                                            <button
+                                                type="button"
+                                                class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                                :class="
+                                                    form.end_mode === 'never'
+                                                        ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                        : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                                "
+                                                :disabled="structuralLocked"
+                                                @click="setEndMode('never')"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.endModes.never',
+                                                    )
+                                                }}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                                :class="
+                                                    form.end_mode ===
+                                                    'after_occurrences'
+                                                        ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                        : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                                "
+                                                :disabled="structuralLocked"
+                                                @click="
+                                                    setEndMode(
+                                                        'after_occurrences',
+                                                    )
+                                                "
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.endModes.after_occurrences',
+                                                    )
+                                                }}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                                :class="
+                                                    form.end_mode ===
+                                                    'until_date'
+                                                        ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                        : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                                "
+                                                :disabled="structuralLocked"
+                                                @click="
+                                                    setEndMode('until_date')
+                                                "
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.endModes.until_date',
+                                                    )
+                                                }}
+                                            </button>
+                                        </div>
                                     </div>
-                                    <span
-                                        class="text-slate-500 dark:text-slate-400"
+
+                                    <div
+                                        v-if="
+                                            form.end_mode ===
+                                            'after_occurrences'
+                                        "
+                                        class="grid gap-2 md:max-w-sm"
                                     >
-                                        {{ advancedOpen ? '-' : '+' }}
-                                    </span>
-                                </button>
-                            </CollapsibleTrigger>
-
-                            <CollapsibleContent
-                                class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800"
-                            >
-                                <div class="grid gap-5 md:grid-cols-2">
-                                    <div class="grid gap-4 self-end">
-                                        <label
-                                            class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800"
+                                        <Label for="occurrences-limit">{{
+                                            t(
+                                                'transactions.recurring.form.labels.repetitionsCount',
+                                            )
+                                        }}</Label>
+                                        <Select
+                                            :model-value="
+                                                form.occurrences_limit
+                                            "
+                                            :disabled="structuralLocked"
+                                            @update:model-value="
+                                                form.occurrences_limit =
+                                                    String($event)
+                                            "
                                         >
-                                            <Checkbox
-                                                :model-value="
-                                                    form.auto_generate_occurrences
-                                                "
-                                                @update:model-value="
-                                                    setBooleanField(
-                                                        'auto_generate_occurrences',
-                                                        $event,
+                                            <SelectTrigger
+                                                :class="
+                                                    cn(
+                                                        'h-11 rounded-2xl',
+                                                        fieldErrorClass(
+                                                            hasFieldError(
+                                                                form.errors
+                                                                    .occurrences_limit,
+                                                            ),
+                                                        ),
                                                     )
                                                 "
-                                            />
-                                            <span class="space-y-1">
-                                                <span
-                                                    class="block text-sm font-medium text-slate-900 dark:text-slate-100"
-                                                >
-                                                    {{
+                                                id="occurrences-limit"
+                                            >
+                                                <SelectValue
+                                                    :placeholder="
                                                         t(
-                                                            'transactions.recurring.form.labels.autoGenerateOccurrences',
+                                                            'transactions.recurring.form.placeholders.selectRepetitionsCount',
                                                         )
-                                                    }}
-                                                </span>
-                                                <span
-                                                    class="block text-xs text-slate-500 dark:text-slate-400"
+                                                    "
+                                                />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem
+                                                    v-for="option in repetitionLimitOptions"
+                                                    :key="option.value"
+                                                    :value="option.value"
                                                 >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.form.helper.autoGenerateOccurrences',
-                                                        )
-                                                    }}
-                                                </span>
-                                            </span>
-                                        </label>
-
-                                        <label
-                                            class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800"
-                                        >
-                                            <Checkbox
-                                                :model-value="form.is_active"
-                                                @update:model-value="
-                                                    setBooleanField(
-                                                        'is_active',
-                                                        $event,
-                                                    )
-                                                "
-                                            />
-                                            <span class="space-y-1">
-                                                <span
-                                                    class="block text-sm font-medium text-slate-900 dark:text-slate-100"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.form.labels.isActive',
-                                                        )
-                                                    }}
-                                                </span>
-                                                <span
-                                                    class="block text-xs text-slate-500 dark:text-slate-400"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.form.helper.isActive',
-                                                        )
-                                                    }}
-                                                </span>
-                                            </span>
-                                        </label>
+                                                    {{ option.label }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError
+                                            :message="
+                                                form.errors.occurrences_limit
+                                            "
+                                        />
                                     </div>
-                                </div>
-                            </CollapsibleContent>
-                        </Collapsible>
-                    </form>
-                </div>
 
-                <div
-                    :style="mobileFooterStyle"
-                    class="shrink-0 border-t border-slate-200/80 px-6 py-4 dark:border-slate-800"
-                >
+                                    <div
+                                        v-if="form.end_mode === 'until_date'"
+                                        class="grid gap-2 md:max-w-sm"
+                                    >
+                                        <Label for="recurring-end-date">{{
+                                            t(
+                                                'transactions.recurring.form.labels.endDate',
+                                            )
+                                        }}</Label>
+                                        <div
+                                            :class="
+                                                cn(
+                                                    'flex items-center gap-2 rounded-2xl border bg-white px-3 dark:bg-slate-950/70',
+                                                    fieldErrorClass(
+                                                        hasFieldError(
+                                                            form.errors
+                                                                .end_date,
+                                                        ),
+                                                    ),
+                                                )
+                                            "
+                                        >
+                                            <Input
+                                                id="recurring-end-date"
+                                                ref="endDateInput"
+                                                v-model="form.end_date"
+                                                type="date"
+                                                :min="recurringEndDateMin"
+                                                :disabled="structuralLocked"
+                                                class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                class="size-9 rounded-full text-slate-500"
+                                                :disabled="structuralLocked"
+                                                :aria-label="
+                                                    t(
+                                                        'transactions.recurring.form.actions.openDatePicker',
+                                                    )
+                                                "
+                                                @click="openDatePicker('end')"
+                                            >
+                                                <Calendar class="size-4" />
+                                            </Button>
+                                        </div>
+                                        <InputError
+                                            :message="form.errors.end_date"
+                                        />
+                                    </div>
+                                </template>
+
+                                <div
+                                    v-else-if="
+                                        selectedPlanType === 'installment'
+                                    "
+                                    class="rounded-[22px] border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-100"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.helper.installmentEnd',
+                                        )
+                                    }}
+                                </div>
+
+                                <InputError
+                                    :message="recurrenceConfigurationError"
+                                />
+                            </section>
+
+                            <details
+                                v-if="salaryMode"
+                                class="space-y-4 rounded-2xl border border-border p-4"
+                            >
+                                <summary
+                                    class="cursor-pointer text-sm font-medium"
+                                >
+                                    {{ t('salary.otherOptions') }}
+                                </summary>
+                                <ReuseDescription v-if="!isEditing" />
+                                <ReuseExtraOptions />
+                            </details>
+                            <ReuseExtraOptions v-else />
+                        </form>
+                    </div>
+
                     <div
-                        class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+                        :style="mobileFooterStyle"
+                        class="shrink-0 border-t border-slate-200/80 px-6 py-4 dark:border-slate-800"
                     >
-                        <Button
-                            type="button"
-                            variant="outline"
-                            class="rounded-2xl"
-                            @click="closeSheet"
+                        <div
+                            class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
                         >
-                            {{ t('app.common.cancel') }}
-                        </Button>
-                        <Button
-                            type="button"
-                            class="rounded-2xl"
-                            :disabled="form.processing"
-                            @click="submit()"
-                        >
-                            {{
-                                isEditing
-                                    ? t(
-                                          'transactions.recurring.form.actions.save',
-                                      )
-                                    : t(
-                                          'transactions.recurring.form.actions.create',
-                                      )
-                            }}
-                        </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                class="rounded-2xl"
+                                @click="closeSheet"
+                            >
+                                {{ t('app.common.cancel') }}
+                            </Button>
+                            <Button
+                                type="button"
+                                class="rounded-2xl"
+                                :disabled="form.processing"
+                                @click="submit()"
+                            >
+                                {{
+                                    isEditing
+                                        ? t(
+                                              'transactions.recurring.form.actions.save',
+                                          )
+                                        : t(
+                                              'transactions.recurring.form.actions.create',
+                                          )
+                                }}
+                            </Button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </SheetContent>
-        <Dialog v-model:open="installmentRecalculationDialogOpen">
-            <DialogContent class="sm:max-w-lg">
-                <DialogHeader class="space-y-3 text-left">
-                    <DialogTitle>{{
-                        ui('Ricalcola e aggiorna il piano rateale')
-                    }}</DialogTitle>
-                    <DialogDescription class="leading-6">
-                        {{ ui('Stai modificando l’importo totale da') }}
-                        <strong>{{
-                            formatCurrency(
-                                installmentRecalculationPreview?.oldTotal ?? 0,
-                                selectedAccountCurrency,
-                            )
-                        }}</strong>
-                        {{ ui('a') }}
-                        <strong>{{
-                            formatCurrency(
-                                Number(form.total_amount || 0),
-                                selectedAccountCurrency,
-                            )
-                        }}</strong
-                        >.
-                    </DialogDescription>
-                </DialogHeader>
-                <div
-                    v-if="installmentRecalculationPreview"
-                    class="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50"
-                >
-                    <p>
-                        {{
-                            t(
-                                'transactions.recurring.detail.futureInstallmentAmount',
-                                {
-                                    amount: formatCurrency(
-                                        installmentRecalculationPreview
-                                            .amounts[0],
-                                        selectedAccountCurrency,
-                                    ),
-                                },
-                            )
-                        }}
-                    </p>
-                    <p>
-                        {{
-                            t('transactions.recurring.detail.futureAmountOnly')
-                        }}
-                    </p>
-                    <p class="text-amber-800 dark:text-amber-200">
-                        {{
-                            ui(
-                                'Date, conti, categorie, riferimenti e altre personalizzazioni delle singole rate non saranno modificati.',
-                            )
-                        }}
-                    </p>
-                </div>
-                <DialogFooter class="gap-2">
-                    <Button
-                        variant="outline"
-                        @click="installmentRecalculationDialogOpen = false"
-                        >{{ ui('Annulla') }}</Button
+            </SheetContent>
+            <Dialog v-model:open="installmentRecalculationDialogOpen">
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader class="space-y-3 text-left">
+                        <DialogTitle>{{
+                            ui('Ricalcola e aggiorna il piano rateale')
+                        }}</DialogTitle>
+                        <DialogDescription class="leading-6">
+                            {{ ui('Stai modificando l’importo totale da') }}
+                            <strong>{{
+                                formatCurrency(
+                                    installmentRecalculationPreview?.oldTotal ??
+                                        0,
+                                    selectedAccountCurrency,
+                                )
+                            }}</strong>
+                            {{ ui('a') }}
+                            <strong>{{
+                                formatCurrency(
+                                    Number(form.total_amount || 0),
+                                    selectedAccountCurrency,
+                                )
+                            }}</strong
+                            >.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div
+                        v-if="installmentRecalculationPreview"
+                        class="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50"
                     >
-                    <Button
-                        @click="
-                            installmentRecalculationDialogOpen = false;
-                            submit(true);
-                        "
-                        >{{ ui('Ricalcola e aggiorna') }}</Button
-                    >
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    </Sheet>
+                        <p>
+                            {{
+                                t(
+                                    'transactions.recurring.detail.futureInstallmentAmount',
+                                    {
+                                        amount: formatCurrency(
+                                            installmentRecalculationPreview
+                                                .amounts[0],
+                                            selectedAccountCurrency,
+                                        ),
+                                    },
+                                )
+                            }}
+                        </p>
+                        <p>
+                            {{
+                                t(
+                                    'transactions.recurring.detail.futureAmountOnly',
+                                )
+                            }}
+                        </p>
+                        <p class="text-amber-800 dark:text-amber-200">
+                            {{
+                                ui(
+                                    'Date, conti, categorie, riferimenti e altre personalizzazioni delle singole rate non saranno modificati.',
+                                )
+                            }}
+                        </p>
+                    </div>
+                    <DialogFooter class="gap-2">
+                        <Button
+                            variant="outline"
+                            @click="installmentRecalculationDialogOpen = false"
+                            >{{ ui('Annulla') }}</Button
+                        >
+                        <Button
+                            @click="
+                                installmentRecalculationDialogOpen = false;
+                                submit(true);
+                            "
+                            >{{ ui('Ricalcola e aggiorna') }}</Button
+                        >
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </Sheet>
+    </div>
 </template>

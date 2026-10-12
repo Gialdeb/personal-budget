@@ -108,7 +108,7 @@ export const transactionsMessages = {
                 openTransaction: 'Apri transazione',
                 backToIndex: 'Torna alle ricorrenze',
                 pause: 'Sospendi',
-                resume: 'Riprendi',
+                resume: 'Riattiva',
                 cancel: 'Annulla piano',
                 delete: 'Elimina piano',
                 editOccurrence: 'Modifica occorrenza',
@@ -116,10 +116,13 @@ export const transactionsMessages = {
                 saveAmount: 'Salva importo',
                 cancelAmountEdit: 'Annulla modifica importo',
                 resetFilters: 'Reset filtri',
+                showAllDays: 'Mostra tutto',
             },
             labels: {
                 plannedIncome: 'Entrate previste',
                 plannedExpenses: 'Uscite previste',
+                installmentPaid: 'Rate già pagate',
+                installmentPaidHint: 'Fino a oggi, sui piani visibili',
                 occurrences: 'Occorrenze',
                 plans: 'Piani visibili',
                 pending: 'Da gestire',
@@ -178,6 +181,8 @@ export const transactionsMessages = {
                 description:
                     'Le righe restano consultative e operative. Creazione e modifica dei piani avvengono sempre tramite form dedicato.',
                 empty: 'Nessuna occurrence corrisponde ai filtri attivi nel mese selezionato.',
+                emptyDay:
+                    'Nessun movimento per il giorno selezionato con i filtri attivi.',
                 convertedBadge: 'Registrata',
                 refundedBadge: 'Rimborsata',
                 pendingBadge: 'Da registrare',
@@ -284,7 +289,7 @@ export const transactionsMessages = {
                     fxPreviewInformative:
                         'È solo una preview informativa. Il cambio definitivo verrà fissato quando la ricorrenza genera la transazione reale.',
                     variableAmount:
-                        'Attivalo per utenze o movimenti il cui importo cambia a ogni scadenza. Nel giorno previsto riceverai un promemoria e potrai correggere soltanto quella registrazione.',
+                        'Attivalo per importi che cambiano a ogni scadenza. La registrazione automatica usa l’importo previsto, che puoi verificare e correggere dopo; in modalità manuale confermi l’importo prima di registrare.',
                     descriptionPrimary:
                         'Questo testo identifica il movimento programmato e verrà riusato anche nella transazione reale.',
                     trackedItem:
@@ -463,6 +468,9 @@ export const transactionsMessages = {
                 editOccurrenceTitle: 'Modifica occorrenza',
                 editOccurrenceDescription:
                     'La data e il conto modificati valgono solo per questa occorrenza.',
+                resumeTitle: 'Riattiva piano',
+                resumeDescription:
+                    'Il piano torna attivo. Le scadenze precedenti a oggi restano da registrare manualmente e non generano transazioni automatiche. Le scadenze di oggi e future seguono la modalità di registrazione del piano.',
                 cancelTitle: 'Annulla piano',
                 pauseFor: 'Sospendi per:',
                 temporaryPauseDescription:
@@ -511,6 +519,7 @@ export const transactionsMessages = {
             },
         },
         sheet: {
+            confirmRegistration: 'Conferma registrazione',
             metaTitle: 'Transazioni {month} {year}',
             badge: 'Registro operativo mensile',
             budgetLinked: 'Collegato al budget',
@@ -675,6 +684,18 @@ export const transactionsMessages = {
                 records: '{count} registrazioni',
                 editingCategory: 'Categoria in modifica nel registro',
                 newRowCategory: 'Categoria selezionata nella riga nuova',
+            },
+            paymentProblem: {
+                trigger: 'Segnala problema pagamento',
+                title: 'Segnalare un problema con il pagamento?',
+                description:
+                    'Indica che questo pagamento automatico presenta un problema o non è avvenuto come previsto.',
+                effects:
+                    'La registrazione automatica sarà eliminata definitivamente e il saldo del conto sarà ricalcolato senza questo movimento. La scadenza resterà da regolarizzare e non verrà registrata di nuovo automaticamente.',
+                nextStep:
+                    'Si aprirà il dettaglio della ricorrenza, dove potrai regolarizzare la scadenza manualmente. La registrazione rimossa non può essere ripristinata.',
+                cancel: 'Annulla',
+                confirm: 'Segnala e rimuovi registrazione',
             },
             dialog: {
                 deleteTitle: 'Elimina registrazione',
@@ -920,10 +941,13 @@ export const transactionsMessages = {
                 saveAmount: 'Save amount',
                 cancelAmountEdit: 'Cancel amount edit',
                 resetFilters: 'Reset filters',
+                showAllDays: 'Show all',
             },
             labels: {
                 plannedIncome: 'Expected income',
                 plannedExpenses: 'Expected expenses',
+                installmentPaid: 'Installments paid',
+                installmentPaidHint: 'To date, for visible plans',
                 occurrences: 'Occurrences',
                 plans: 'Visible plans',
                 pending: 'To manage',
@@ -982,6 +1006,8 @@ export const transactionsMessages = {
                 description:
                     'Rows stay operational and readable. Plan creation and editing always happen through a dedicated form.',
                 empty: 'No occurrence matches the active filters for the selected month.',
+                emptyDay:
+                    'No entries for the selected day with the active filters.',
                 convertedBadge: 'Posted',
                 refundedBadge: 'Refunded',
                 pendingBadge: 'To post',
@@ -1268,6 +1294,9 @@ export const transactionsMessages = {
                 editOccurrenceTitle: 'Edit occurrence',
                 editOccurrenceDescription:
                     'The changed date and account apply only to this occurrence.',
+                resumeTitle: 'Reactivate plan',
+                resumeDescription:
+                    'The plan becomes active again. Dates before today require manual recording and will not generate automatic transactions. Today and future dates follow the plan’s posting mode.',
                 cancelTitle: 'Cancel plan',
                 pauseFor: 'Suspend for:',
                 temporaryPauseDescription:
@@ -1316,6 +1345,7 @@ export const transactionsMessages = {
             },
         },
         sheet: {
+            confirmRegistration: 'Confirm registration',
             metaTitle: 'Transactions {month} {year}',
             badge: 'Monthly operational register',
             budgetLinked: 'Linked to budget',
@@ -1477,6 +1507,18 @@ export const transactionsMessages = {
                 records: '{count} records',
                 editingCategory: 'Category being edited in the register',
                 newRowCategory: 'Category selected in the new row',
+            },
+            paymentProblem: {
+                trigger: 'Report payment issue',
+                title: 'Report a payment issue?',
+                description:
+                    'Indicate that this automatic payment has a problem or did not happen as expected.',
+                effects:
+                    'The automatic posting will be permanently deleted and the account balance recalculated without this transaction. The occurrence will return to pending and will not be posted again automatically.',
+                nextStep:
+                    'The recurring entry details will open, where you can settle the occurrence manually. The removed posting cannot be restored.',
+                cancel: 'Cancel',
+                confirm: 'Report and remove posting',
             },
             dialog: {
                 deleteTitle: 'Delete transaction',

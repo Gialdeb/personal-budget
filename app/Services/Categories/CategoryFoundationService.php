@@ -222,6 +222,11 @@ class CategoryFoundationService
      *     children?:list<array{name:string,slug:string,icon:string,color:string,sort_order:int,is_selectable:bool}>
      * }>>
      */
+    public static function childSlugForKey(string $nameKey): ?string
+    {
+        return collect(self::CHILD_DEFINITIONS)->flatten(1)->firstWhere('name_key', $nameKey)['slug'] ?? null;
+    }
+
     public static function defaultChildDefinitions(string $locale = 'it'): array
     {
         $resolvedLocale = self::resolveFoundationLocale($locale);

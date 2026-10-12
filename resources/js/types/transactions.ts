@@ -352,6 +352,7 @@ export type MonthlyTransactionSheetPageProps = {
 };
 
 export type RecurringEntryIndexCard = {
+    salary_url?: string | null;
     uuid: string;
     show_url: string;
     title: string;
@@ -509,6 +510,7 @@ export type RecurringMonthlyCalendar = {
         converted_count: number;
         planned_income_total: number;
         planned_expense_total: number;
+        installment_paid_totals: { currency: string; amount: number }[];
     };
     days: RecurringMonthlyCalendarDay[];
 };
@@ -617,7 +619,11 @@ export type RecurringEntryShowPayload = {
         expected_amount: number | null;
         status: string | null;
         settlement_status?:
-            'settled' | 'partial' | 'due' | 'amount_confirmation' | null;
+            | 'settled'
+            | 'partial'
+            | 'due'
+            | 'amount_confirmation'
+            | null;
         allocated_amount?: number;
         can_register_payment: boolean;
         payments: Array<{
@@ -648,6 +654,9 @@ export type RecurringEntryShowPayload = {
         converted_occurrences: number;
         converted_amount: number;
         remaining_amount: number;
+        paid_count: number;
+        paid_amount: number;
+        paid_year: number | null;
     };
     actions: {
         can_pause: boolean;

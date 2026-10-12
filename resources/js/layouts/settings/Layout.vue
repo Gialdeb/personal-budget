@@ -286,8 +286,8 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                             :class="[
                                 'h-auto w-full justify-start rounded-2xl px-4 py-3 text-left transition-all',
                                 isCurrentOrParentUrl(item.href)
-                                    ? 'bg-foreground text-background shadow-lg shadow-black/10 hover:bg-foreground'
-                                    : 'text-muted-foreground hover:bg-foreground hover:text-background',
+                                    ? 'bg-foreground text-background shadow-lg shadow-black/10 hover:bg-foreground hover:text-background dark:hover:bg-foreground dark:hover:text-background'
+                                    : 'text-muted-foreground hover:bg-foreground hover:text-background dark:hover:bg-foreground dark:hover:text-background',
                             ]"
                             as-child
                         >

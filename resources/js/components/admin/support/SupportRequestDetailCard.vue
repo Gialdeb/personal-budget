@@ -30,6 +30,7 @@ const metaEntries = computed(() =>
                 <div class="flex flex-wrap items-center gap-2">
                     <SupportRequestStatusBadge
                         kind="status"
+                        admin
                         :value="props.supportRequest.status"
                     />
                     <SupportRequestStatusBadge

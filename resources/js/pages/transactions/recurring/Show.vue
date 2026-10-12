@@ -31,10 +31,10 @@ import {
 } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
 import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
 import InputError from '@/components/InputError.vue';
-import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import OccurrencePayments from '@/components/recurring/OccurrencePayments.vue';
-import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
+import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
+import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -100,7 +100,10 @@ const paymentDate = computed(
 function registerPayment(
     occurrence: (typeof props.recurringEntry.occurrences)[number],
 ): void {
-    if (!occurrence.can_register_payment || paymentLoading.value) return;
+    if (!occurrence.can_register_payment || paymentLoading.value) {
+        return;
+    }
+
     paymentLoading.value = true;
     router.reload({
         only: ['transactionSheet'],
@@ -129,6 +132,7 @@ function registerPayment(
     });
 }
 const cancelDialogOpen = ref(false);
+const resumeDialogOpen = ref(false);
 const pauseDialogOpen = ref(false);
 const pauseForm = useForm({ periods: 1 });
 const pauseUnit = computed(() =>
@@ -200,6 +204,16 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const summaryCards = computed(() => [
+    {
+        key: 'paid',
+        label: t('transactions.recurring.labels.installmentPaid'),
+        value:
+            props.recurringEntry.summary.paid_year === null
+                ? `${props.recurringEntry.summary.paid_count} / ${progressTotal.value}`
+                : `${props.recurringEntry.summary.paid_count} · ${props.recurringEntry.summary.paid_year}`,
+        tone: 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+        icon: ShieldCheck,
+    },
     {
         key: 'pending',
         label: t('transactions.recurring.labels.pending'),
@@ -334,7 +348,16 @@ function confirmTemporaryPause(): void {
 }
 
 function handleResume(): void {
-    router.patch(resume.url(entry.value.uuid), {}, { preserveScroll: true });
+    router.patch(
+        resume.url(entry.value.uuid),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                resumeDialogOpen.value = false;
+            },
+        },
+    );
 }
 
 function handleCancel(): void {
@@ -673,6 +696,12 @@ function isFutureOccurrence(
                         </div>
 
                         <div class="space-y-2">
+                            <Link
+                                v-if="entry.salary_url"
+                                :href="entry.salary_url"
+                                class="inline-flex rounded-xl border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                                >{{ t('salary.details') }}</Link
+                            >
                             <h1
                                 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
                             >
@@ -723,7 +752,7 @@ function isFutureOccurrence(
                                 v-if="props.recurringEntry.actions.can_resume"
                                 variant="outline"
                                 class="rounded-2xl"
-                                @click="handleResume"
+                                @click="resumeDialogOpen = true"
                             >
                                 <Play class="mr-2 size-4" />
                                 {{ t('transactions.recurring.actions.resume') }}
@@ -748,7 +777,7 @@ function isFutureOccurrence(
                         </div>
                     </div>
 
-                    <div class="grid gap-3 sm:grid-cols-3">
+                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <article
                             v-for="card in summaryCards"
                             :key="card.key"
@@ -772,6 +801,20 @@ function isFutureOccurrence(
                                         <template v-else>
                                             {{ card.value }}
                                         </template>
+                                    </p>
+                                    <p
+                                        v-if="card.key === 'paid'"
+                                        class="text-sm text-muted-foreground"
+                                    >
+                                        <SensitiveValue
+                                            variant="veil"
+                                            :value="
+                                                formatMoney(
+                                                    recurringEntry.summary
+                                                        .paid_amount,
+                                                )
+                                            "
+                                        />
                                     </p>
                                 </div>
                                 <div
@@ -1789,6 +1832,29 @@ function isFutureOccurrence(
             </DialogContent>
         </Dialog>
 
+        <Dialog v-model:open="resumeDialogOpen">
+            <DialogContent>
+                <DialogHeader
+                    ><DialogTitle>{{
+                        t('transactions.recurring.dialogs.resumeTitle')
+                    }}</DialogTitle
+                    ><DialogDescription>{{
+                        t('transactions.recurring.dialogs.resumeDescription')
+                    }}</DialogDescription></DialogHeader
+                >
+                <DialogFooter
+                    ><Button
+                        variant="outline"
+                        @click="resumeDialogOpen = false"
+                        >{{ t('app.common.cancel') }}</Button
+                    ><Button @click="handleResume"
+                        ><Play class="mr-2 size-4" />{{
+                            t('transactions.recurring.actions.resume')
+                        }}</Button
+                    ></DialogFooter
+                >
+            </DialogContent>
+        </Dialog>
         <Dialog v-model:open="cancelDialogOpen">
             <DialogContent class="sm:max-w-xl">
                 <DialogHeader>

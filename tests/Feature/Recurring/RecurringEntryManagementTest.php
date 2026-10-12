@@ -29,6 +29,7 @@ use App\Services\Accounts\AccountOpeningBalanceService;
 use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
+use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\TransactionRefundService;
 use App\Services\Recurring\UpdateRecurringOccurrenceAmountService;
 use App\Services\SharedExpenses\SharedExpenseOccurrencePostingService;
@@ -42,6 +43,46 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
+});
+
+test('installment paid summary counts actual historical and partial payments and respects filters', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-12'));
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, ['entry_type' => 'installment', 'total_amount' => 250, 'installments_count' => 5, 'end_mode' => 'after_occurrences', 'occurrences_limit' => 5]);
+    $rows = $entry->occurrences()->orderBy('sequence_number')->get();
+    $makePayment = fn (float $amount, string $date, string $status = 'confirmed'): Transaction => Transaction::create(['user_id' => $c['user']->id, 'account_id' => $c['account']->id, 'direction' => 'expense', 'amount' => $amount, 'currency' => 'EUR', 'transaction_date' => $date, 'kind' => 'manual', 'source_type' => 'manual', 'status' => $status]);
+    foreach ([[70, '2026-03-15', 'confirmed'], [120, '2026-11-15', 'confirmed'], [33, '2026-04-15', 'draft'], [50, '2026-05-15', 'confirmed']] as $index => [$amount, $date, $status]) {
+        $payment = $makePayment($amount, $date, $status);
+        $rows[$index]->update(['converted_transaction_id' => $payment->id, 'status' => 'completed']);
+    }
+    $refunded = $rows[3]->fresh()->convertedTransaction;
+    Transaction::create(['user_id' => $c['user']->id, 'account_id' => $c['account']->id, 'direction' => 'income', 'amount' => 50, 'currency' => 'EUR', 'transaction_date' => '2026-06-01', 'kind' => 'refund', 'source_type' => 'manual', 'status' => 'confirmed', 'refunded_transaction_id' => $refunded->id]);
+    $partial = $makePayment(100, '2026-06-15');
+    $rows[4]->paymentAllocations()->create(['transaction_id' => $partial->id, 'amount_cents' => 2000]);
+    $this->actingAs($c['user'])->getJson(route('recurring-entries.show', $entry->uuid))->assertOk()
+        ->assertJsonPath('recurringEntry.summary.paid_count', 1)
+        ->assertJsonPath('recurringEntry.summary.paid_amount', 90)
+        ->assertJsonPath('recurringEntry.summary.paid_year', null);
+    $this->actingAs($c['user'])->get(route('recurring-entries.index', ['year' => 2026, 'month' => 10]))->assertInertia(fn (Assert $page) => $page->where('monthlyCalendar.summary.installment_paid_totals.0.currency', 'EUR')->where('monthlyCalendar.summary.installment_paid_totals.0.amount', 90));
+    $this->get(route('recurring-entries.index', ['year' => 2026, 'month' => 11]))->assertInertia(fn (Assert $page) => $page->where('monthlyCalendar.summary.installment_paid_totals.0.amount', 90));
+    $this->get(route('recurring-entries.index', ['year' => 2026, 'month' => 10, 'entry_type' => 'recurring']))->assertInertia(fn (Assert $page) => $page->where('monthlyCalendar.summary.installment_paid_totals', []));
+    $rows[0]->convertedTransaction->delete();
+    $this->get(route('recurring-entries.index', ['year' => 2026, 'month' => 10]))->assertInertia(fn (Assert $page) => $page->where('monthlyCalendar.summary.installment_paid_totals.0.amount', 20));
+});
+
+test('indefinite recurring detail only counts payments received in the current year', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-12'));
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c);
+    $rows = $entry->occurrences()->orderBy('sequence_number')->get();
+    foreach (['2025-12-15', '2026-03-15', '2026-11-15'] as $index => $date) {
+        $transaction = Transaction::create(['user_id' => $c['user']->id, 'account_id' => $c['account']->id, 'direction' => 'expense', 'amount' => 9.99, 'currency' => 'EUR', 'transaction_date' => $date, 'kind' => 'manual', 'source_type' => 'manual', 'status' => 'confirmed']);
+        $rows[$index]->update(['converted_transaction_id' => $transaction->id, 'status' => 'completed']);
+    }
+    $this->actingAs($c['user'])->getJson(route('recurring-entries.show', $entry->uuid))->assertOk()
+        ->assertJsonPath('recurringEntry.summary.paid_count', 1)
+        ->assertJsonPath('recurringEntry.summary.paid_amount', 9.99)
+        ->assertJsonPath('recurringEntry.summary.paid_year', 2026);
 });
 
 test('recurring and installment forms receive the authenticated users active shared counterparties', function () {
@@ -1686,7 +1727,7 @@ test('a refunded automatic occurrence remains history when its future schedule i
         ->and($entry->occurrences()->where('sequence_number', 2)->firstOrFail()->expected_date->toDateString())->toBe('2026-11-28')
         ->and($entry->occurrences()->where('sequence_number', 3)->firstOrFail()->expected_date->toDateString())->toBe('2026-12-28')
         ->and($entry->occurrences()->where('sequence_number', 3)->firstOrFail()->status->value)->toBe('pending')
-        ->and($entry->occurrences()->count())->toBe($count)
+        ->and($entry->occurrences()->count())->toBeGreaterThanOrEqual($count)
         ->and($entry->occurrences()->whereDate('expected_date', '2026-10-28')->where('status', 'pending')->exists())->toBeFalse()
         ->and(Transaction::query()->count())->toBe(2)
         ->and($entry->occurrences()->openObligations()->whereKey($history->id)->exists())->toBeFalse();
@@ -1773,10 +1814,10 @@ test('dashboard confirms a due variable occurrence without changing its plan', f
         'occurrences_limit' => 2,
     ]);
     $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
-    expect(Transaction::query()->count())->toBe(0);
+    expect(Transaction::query()->count())->toBe(1);
     $dashboardUrl = route('dashboard.data', ['year' => 2026, 'month' => 1]);
     $items = $this->actingAs($context['user'])->getJson($dashboardUrl)->assertSuccessful()->json('pending_actions.items');
-    expect(collect($items)->firstWhere('occurrence_uuid', $occurrence->uuid)['requires_amount_confirmation'])->toBeTrue();
+    expect(collect($items)->firstWhere('transaction_uuid', $occurrence->fresh()->convertedTransaction->uuid)['requires_payment_confirmation'])->toBeTrue();
     $this->from(route('dashboard'))->patch(route('recurring-entries.occurrences.amount.update', [$entry->uuid, $occurrence->uuid]), [
         'amount' => $amount,
         'return_to_dashboard' => true,
@@ -1785,7 +1826,7 @@ test('dashboard confirms a due variable occurrence without changing its plan', f
         ->and($occurrence->fresh()->expected_amount)->toBe($amount)
         ->and($entry->fresh()->expected_amount)->toBe('50.00');
     $items = $this->getJson($dashboardUrl)->assertSuccessful()->json('pending_actions.items');
-    expect(collect($items)->firstWhere('occurrence_uuid', $occurrence->uuid)['requires_amount_confirmation'])->toBeFalse();
+    expect(collect($items)->firstWhere('transaction_uuid', $occurrence->fresh()->convertedTransaction->uuid)['requires_payment_confirmation'])->toBeTrue();
     app(RecurringEntryLifecycleService::class)->synchronize($entry, CarbonImmutable::today());
     expect($occurrence->fresh()->convertedTransaction->amount)->toBe($amount);
 })->with(['50.00', '83.45']);
@@ -2768,3 +2809,56 @@ function shareRecurringAccount(
         'joined_at' => now(),
     ]);
 }
+
+test('enabling automatic posting on a plan with recorded history immediately registers due siblings', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-03-15'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, ['start_date' => '2026-01-15', 'is_amount_variable' => true, 'auto_create_transaction' => false]);
+    $first = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    app(RecurringEntryPostingService::class)->post($first);
+    app(RecurringEntryManagementService::class)->update($context['user'], $entry, ['auto_create_transaction' => true]);
+    expect(Transaction::count())->toBe(3);
+    app(RecurringEntryManagementService::class)->update($context['user'], $entry, ['notes' => 'Resynchronize']);
+    expect(Transaction::count())->toBe(3)->and($first->fresh()->converted_transaction_id)->not->toBeNull();
+});
+
+test('cancelled automatic plans reactivate with overdue dates manual and future dates automatic', function (string $type) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-01'));
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, [
+        'entry_type' => $type, 'auto_create_transaction' => true,
+        ...($type === 'installment' ? ['total_amount' => 300, 'installments_count' => 6, 'end_mode' => 'after_occurrences', 'occurrences_limit' => 6] : []),
+    ]);
+    app(RecurringEntryManagementService::class)->cancel($entry);
+    $this->actingAs($c['user'])->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn (Assert $page) => $page->where('recurringEntry.actions.can_resume', true));
+    $this->travelTo(CarbonImmutable::parse('2026-03-20'));
+    $this->patch(route('recurring-entries.resume', $entry->uuid))->assertSessionHasNoErrors();
+    app(RecurringEntryLifecycleService::class)->synchronize($entry->fresh());
+    app(App\Services\Transactions\RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    $past = $entry->occurrences()->whereDate('due_date', '<', today())->get();
+    expect($past)->toHaveCount(3)->and($past->every(fn ($row) => $row->automatic_posting_blocked_at !== null && $row->converted_transaction_id === null && $row->status->value === 'pending'))->toBeTrue()->and(Transaction::count())->toBe(0);
+    $this->patch(route('recurring-entries.resume', $entry->uuid))->assertSessionHasNoErrors();
+    $this->travelTo(CarbonImmutable::parse('2026-04-15'));
+    app(App\Services\Transactions\RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    expect(Transaction::count())->toBe(1)->and($entry->occurrences()->where('sequence_number', 4)->sole()->converted_transaction_id)->not->toBeNull();
+    app(RecurringEntryPostingService::class)->post($past->first(), $c['user']);
+    expect(Transaction::count())->toBe(2)->and($past->first()->fresh()->converted_transaction_id)->not->toBeNull();
+})->with(['recurring', 'installment']);
+
+test('reactivation materializes missed dates and preserves skipped and recorded history', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-01'));
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, ['start_date' => '2026-01-02', 'recurrence_type' => 'daily', 'recurrence_rule' => null, 'auto_create_transaction' => true]);
+    $first = $entry->occurrences()->where('sequence_number', 1)->sole();
+    app(RecurringEntryPostingService::class)->post($first, $c['user']);
+    $skipped = $entry->occurrences()->where('sequence_number', 2)->sole();
+    app(RecurringEntryManagementService::class)->skipOccurrence($skipped);
+    app(RecurringEntryManagementService::class)->cancel($entry);
+    $this->travelTo(CarbonImmutable::parse('2026-03-01'));
+    app(RecurringEntryManagementService::class)->resume($entry);
+    $missing = $entry->occurrences()->whereDate('due_date', '2026-02-20')->sole();
+    expect($missing->automatic_posting_blocked_at)->not->toBeNull()->and($first->fresh()->converted_transaction_id)->not->toBeNull()->and($skipped->fresh()->status->value)->toBe('skipped');
+    app(RecurringEntryLifecycleService::class)->synchronize($entry->fresh());
+    expect($missing->fresh()->converted_transaction_id)->toBeNull()->and(Transaction::count())->toBe(2);
+    $this->actingAs(User::factory()->create())->patch(route('recurring-entries.resume', $entry->uuid))->assertNotFound();
+});

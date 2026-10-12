@@ -39,7 +39,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
         $account = $this->account ?? $entry?->account;
         $isDue = in_array($this->status?->value, ['pending', 'generated'], true)
             && ($this->due_date ?? $this->expected_date)?->lte(today());
-        $requiresAmountConfirmation = (bool) $entry?->is_amount_variable && $this->amount_confirmed_at === null;
+        $requiresAmountConfirmation = (bool) $entry?->is_amount_variable && ! $entry?->auto_create_transaction && $this->amount_confirmed_at === null && $this->converted_transaction_id === null && $this->matched_transaction_id === null;
         $hasAllocations = $this->resource->paymentAllocations()->exists();
         $allocatedCents = $this->resource->allocatedPaymentCents();
         $remainingCents = $this->resource->remainingPaymentCents();
@@ -92,6 +92,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'payment_failed_at' => $this->payment_failed_at?->toJSON(),
             'notes' => $this->notes,
             'can_update_amount' => $canEdit
+                && (! $entry?->salarySchedule || ! $hasAllocations)
                 && (bool) $entry?->is_amount_variable
                 && $entry?->entry_type === RecurringEntryTypeEnum::RECURRING
                 && $this->matched_transaction_id === null

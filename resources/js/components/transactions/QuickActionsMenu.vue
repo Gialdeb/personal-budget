@@ -203,7 +203,7 @@ const templateHref = (uuid: string) =>
                                         >{{ item.name }}</span
                                     >
                                     <span
-                                        class="block text-xs text-muted-foreground break-words"
+                                        class="block text-xs break-words text-muted-foreground"
                                     >
                                         {{ item.category?.full_path
                                         }}<template v-if="item.account_name">

@@ -69,3 +69,16 @@ test('admin support request badges use semantic tones with dark-mode variants', 
         /general_support:\s*'border-border bg-background\/80 text-muted-foreground'/,
     );
 });
+
+
+test('admin support filters reuse searchable selects and offer open type taps', () => {
+    const source = readFileSync(new URL('../../resources/js/components/admin/support/SupportRequestFilters.vue', import.meta.url), 'utf8');
+    assert.match(source, /SearchableSelect/);
+    assert.match(source, /:options="props.options.users"/);
+    assert.match(source, /:options="props.options.versions"/);
+    assert.match(source, /selectCategory\(category\)/);
+    assert.match(source, /props.options.openCounts\[category\]/);
+    assert.doesNotMatch(source, /v-model="form.search"/);
+    assert.match(source, /form.status === 'open' && form.category === ''/);
+    assert.match(source, /form.status === 'open' && form.category === category/);
+});

@@ -69,6 +69,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::get('settings/exchange-rates', [ExchangeRateController::class, 'edit'])->name('exchange-rates.edit');
     Route::get('settings/support', [SupportRequestController::class, 'index'])->name('support.index');
     Route::post('settings/support/requests', [SupportRequestController::class, 'store'])->name('support.requests.store');
+    Route::post('settings/support/requests/{supportRequest:uuid}/messages', [SupportRequestController::class, 'reply'])->name('support.requests.reply');
     // SETTINGS BANKS
     Route::get('settings/banks', [BankController::class, 'index'])->name('banks.edit');
     Route::post('settings/banks', [BankController::class, 'store'])->name('banks.store');

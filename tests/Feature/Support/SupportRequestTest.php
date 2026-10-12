@@ -1,8 +1,10 @@
 <?php
 
+use App\Jobs\DeliverSupportTicketMessage;
 use App\Mail\SupportRequestSubmittedMail;
 use App\Models\SupportRequest;
 use App\Models\User;
+use App\Services\Push\PushNotificationService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -96,6 +98,8 @@ it('allows an authenticated user to submit a support request and routes it inter
         ->and($supportRequest->source_url)->toBe('/help-center/articles/import-transactions')
         ->and($supportRequest->source_route)->toBe('help-center.articles.show')
         ->and($supportRequest->meta)->toHaveKey('user_agent');
+
+    (new DeliverSupportTicketMessage($supportRequest->messages()->firstOrFail()->id))->handle(app(PushNotificationService::class));
 
     Mail::assertSent(SupportRequestSubmittedMail::class, function (SupportRequestSubmittedMail $mail) use ($supportRequest, $internalAdmin): bool {
         return $mail->supportRequest->is($supportRequest)

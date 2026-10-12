@@ -33,6 +33,21 @@ class StoreRecurringEntryRequest extends FormRequest
         $userId = $this->user()?->id;
 
         return [
+            'salary' => ['nullable', 'array', Rule::prohibitedIf($this->input('direction') !== 'income' || $this->input('entry_type') !== 'recurring' || $this->boolean('is_shared_expense'))],
+            'salary.name' => ['nullable', 'string', 'max:150'],
+            'salary.employment_uuid' => ['nullable', 'uuid', Rule::exists('salary_employments', 'uuid')->where('user_id', $userId)],
+            'salary.kind' => ['required_with:salary', Rule::in(['ordinary', 'additional', 'other'])],
+            'salary.end_date' => ['exclude'],
+            'salary.annual_gross_salary' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
+            'salary.annual_gross_salary_currency' => ['nullable', 'string', 'size:3', 'required_with:salary.annual_gross_salary'],
+            'salary.additional_schedules' => ['sometimes', 'array', 'max:24'],
+            'salary.additional_schedules.*.label' => ['required', 'string', 'max:150'],
+            'salary.additional_schedules.*.amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99', 'decimal:0,2'],
+            'salary.additional_schedules.*.start_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'salary.additional_schedules.*.recurrence_type' => ['required', Rule::in(RecurringEntryRecurrenceTypeEnum::values())],
+            'salary.additional_schedules.*.recurrence_interval' => ['sometimes', 'integer', 'min:1'],
+            'salary.additional_schedules.*.recurrence_rule' => ['sometimes', 'array'],
+            'salary.additional_schedules.*.account_uuid' => ['nullable', 'uuid'],
             'title' => ['required', 'string', 'max:150'],
             'account_id' => ['required', 'integer'],
             'account_uuid' => ['nullable', 'uuid'],
@@ -97,6 +112,19 @@ class StoreRecurringEntryRequest extends FormRequest
                 'distinct:strict',
             ],
         ];
+    }
+
+    /** @return array<string, string> */
+    public function attributes(): array
+    {
+        return collect([
+            'salary' => 'salary', 'salary.name' => 'name', 'salary.employment_uuid' => 'employment',
+            'salary.kind' => 'kind', 'salary.annual_gross_salary' => 'gross', 'salary.annual_gross_salary_currency' => 'currency',
+            'salary.additional_schedules' => 'additional', 'salary.additional_schedules.*.label' => 'label',
+            'salary.additional_schedules.*.amount' => 'amount', 'salary.additional_schedules.*.start_date' => 'date',
+            'salary.additional_schedules.*.recurrence_type' => 'cadence', 'salary.additional_schedules.*.recurrence_interval' => 'cadence',
+            'salary.additional_schedules.*.recurrence_rule' => 'cadence', 'salary.additional_schedules.*.account_uuid' => 'account',
+        ])->map(fn (string $label): string => __('salary.fields.'.$label))->all();
     }
 
     protected function prepareForValidation(): void

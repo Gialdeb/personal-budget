@@ -272,11 +272,14 @@ async function createReference() {
         if (!response.ok) {
             const error = Object.values(payload.errors ?? {}).flat()[0];
 
-            throw new Error(
+            form.setError(
+                'tracked_item_uuid',
                 typeof error === 'string'
                     ? error
                     : ui('Impossibile creare il riferimento.'),
             );
+
+            return;
         }
 
         const item = payload.item;
@@ -814,26 +817,24 @@ onMounted(() => {
                             >
                                 <Button
                                     type="button"
-                                    variant="outline"
-                                    :aria-pressed="form.direction === 'income'"
-                                    :class="[
-                                        'min-h-11 justify-center rounded-2xl text-sm font-semibold transition-colors',
+                                    :variant="
                                         form.direction === 'income'
-                                            ? 'border-primary bg-primary text-primary-foreground'
-                                            : '',
-                                    ]"
+                                            ? 'default'
+                                            : 'outline'
+                                    "
+                                    :aria-pressed="form.direction === 'income'"
+                                    class="min-h-11 justify-center rounded-2xl text-sm font-semibold transition-colors"
                                     @click="form.direction = 'income'"
                                     >{{ ui('Entrata') }}</Button
                                 ><Button
                                     type="button"
-                                    variant="outline"
-                                    :aria-pressed="form.direction === 'expense'"
-                                    :class="[
-                                        'min-h-11 justify-center rounded-2xl text-sm font-semibold transition-colors',
+                                    :variant="
                                         form.direction === 'expense'
-                                            ? 'border-primary bg-primary text-primary-foreground'
-                                            : '',
-                                    ]"
+                                            ? 'default'
+                                            : 'outline'
+                                    "
+                                    :aria-pressed="form.direction === 'expense'"
+                                    class="min-h-11 justify-center rounded-2xl text-sm font-semibold transition-colors"
                                     @click="form.direction = 'expense'"
                                     >{{ ui('Uscita') }}</Button
                                 >

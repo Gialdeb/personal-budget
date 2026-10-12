@@ -159,3 +159,7 @@ test('management years UI follows the backend creation window', () => {
     );
     assert.doesNotMatch(settingsMessagesSource, /Per la v1 basta inserire/);
 });
+
+test('settings navigation overrides the ghost button dark hover surface with matching foreground', () => {
+    assert.match(settingsLayoutSource, /dark:hover:bg-foreground dark:hover:text-background/);
+});

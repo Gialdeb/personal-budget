@@ -7,6 +7,7 @@ use Database\Factories\SupportRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SupportRequest extends Model
 {
@@ -16,9 +17,11 @@ class SupportRequest extends Model
 
     public const CATEGORY_GENERAL_SUPPORT = 'general_support';
 
-    public const STATUS_NEW = 'new';
+    public const STATUS_NEW = 'waiting_admin';
 
-    public const STATUS_IN_PROGRESS = 'in_progress';
+    public const STATUS_ANSWERED = 'waiting_user';
+
+    public const STATUS_IN_PROGRESS = 'waiting_admin';
 
     public const STATUS_CLOSED = 'closed';
 
@@ -37,11 +40,11 @@ class SupportRequest extends Model
         'source_url',
         'source_route',
         'status',
-        'meta',
+        'inactivity_warned_at', 'auto_close_at', 'meta', 'app_version', 'closed_at', 'last_admin_reply_at', 'last_user_message_at',
     ];
 
     protected $casts = [
-        'meta' => 'array',
+        'inactivity_warned_at' => 'datetime', 'auto_close_at' => 'datetime', 'meta' => 'array', 'closed_at' => 'datetime', 'last_admin_reply_at' => 'datetime', 'last_user_message_at' => 'datetime',
     ];
 
     /**
@@ -63,9 +66,14 @@ class SupportRequest extends Model
     {
         return [
             self::STATUS_NEW,
-            self::STATUS_IN_PROGRESS,
+            self::STATUS_ANSWERED,
             self::STATUS_CLOSED,
         ];
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(SupportTicketMessage::class)->orderBy('created_at')->orderBy('id');
     }
 
     public function user(): BelongsTo

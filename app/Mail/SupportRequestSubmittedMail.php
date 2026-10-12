@@ -16,14 +16,17 @@ class SupportRequestSubmittedMail extends Mailable
 
     public function __construct(
         public SupportRequest $supportRequest,
+        public ?string $activityMessage = null,
     ) {}
 
     public function envelope(): Envelope
     {
         $userName = $this->supportRequest->user?->name ?? 'User';
 
+        $category = __("support.categories.{$this->supportRequest->category}.label", [], $this->supportRequest->locale);
+
         return new Envelope(
-            subject: "[Support][{$this->supportRequest->category}] {$this->supportRequest->subject}",
+            subject: "[Support][{$category}] {$this->supportRequest->subject}",
             replyTo: $this->supportRequest->user?->email
                 ? [new Address($this->supportRequest->user->email, $userName)]
                 : [],

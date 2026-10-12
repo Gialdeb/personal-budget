@@ -118,3 +118,8 @@ test('success closes confirmation and the list follows updated Inertia props', (
     );
     assert.doesNotMatch(handlers, /reload\(|location\./);
 });
+
+test('quick action direction uses the actual selected button variant in both themes', () => {
+    assert.match(source, /form.direction === 'income'\s*\? 'default'\s*: 'outline'/);
+    assert.match(source, /form.direction === 'expense'\s*\? 'default'\s*: 'outline'/);
+});

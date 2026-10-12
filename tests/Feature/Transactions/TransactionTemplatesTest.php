@@ -181,7 +181,7 @@ test('shared templates use normal self or counterparty accounting behavior', fun
     $template = TransactionTemplate::sole();
     $this->post(route('transactions.store', ['year' => 2026, 'month' => 10]), ['transaction_template_uuid' => $template->uuid, 'transaction_day' => 9, 'type_key' => 'expense', 'account_uuid' => $account->uuid, 'category_uuid' => $category->uuid, 'amount' => '100.00', 'is_shared_expense' => true, 'shared_expense_counterparty_uuid' => $counterparty->uuid, 'shared_expense_paid_by' => $payer, 'shared_expense_my_share' => '50.00', 'shared_expense_counterparty_share' => '50.00'])->assertSessionHasNoErrors();
     expect(Transaction::count())->toBe($payer === 'self' ? 1 : 0)->and(SharedExpenseLedgerEntry::count())->toBe($payer === 'counterparty' ? 1 : 0)->and($account->fresh()->current_balance)->toEqual($payer === 'self' ? 900 : 1000)->and($template->fresh()->usage_count)->toBe(1);
-})->with(['self', 'counterparty']);
+})->with(['user paid' => ['self'], 'counterparty paid' => ['counterparty']]);
 
 test('shared transaction and template positions immediately update credits debts through settlements', function (string $payer, bool $useTemplate) {
     config(['features.credits_debts.enabled' => true]);

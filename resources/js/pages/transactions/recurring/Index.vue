@@ -9,6 +9,7 @@ import {
     Pencil,
     Plus,
     Receipt,
+    Wallet,
     RotateCcw,
     Search,
     ShieldCheck,
@@ -31,6 +32,7 @@ import {
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import { convert as convertOccurrence } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
 import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
+import RecurringCalendarGrid from '@/components/recurring/RecurringCalendarGrid.vue';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringOccurrencesMobileList from '@/components/recurring/RecurringOccurrencesMobileList.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
@@ -102,9 +104,12 @@ const isHeroCollapsed = ref(false);
 const mobilePeriodAccountSelectorElement = ref<HTMLElement | null>(null);
 const isMobilePeriodAccountSelectorOutOfView = ref(false);
 let mobilePeriodAccountSelectorObserver: IntersectionObserver | null = null;
-const selectedAnchor = ref<string | null>(
-    props.monthlyCalendar.days[0]?.anchor ?? null,
-);
+const selectedDate = ref<string | null>(null);
+const filteredListElement = ref<HTMLElement | null>(null);
+
+watch([() => props.activePeriod.year, () => props.activePeriod.month], () => {
+    selectedDate.value = null;
+});
 const highlightedEntryUuid = ref<string | null>(null);
 const formOpen = ref(false);
 const selectedEntry = ref<RecurringEntryIndexCard | null>(null);
@@ -282,6 +287,17 @@ const summaryCards = computed(() => [
         tone: 'bg-rose-500/12 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
         icon: Undo2,
     },
+    {
+        key: 'installment-paid',
+        label: t('transactions.recurring.labels.installmentPaid'),
+        value: props.monthlyCalendar.summary.installment_paid_totals.length
+            ? props.monthlyCalendar.summary.installment_paid_totals
+                  .map((total) => formatMoney(total.amount, total.currency))
+                  .join(' · ')
+            : formatMoney(0),
+        tone: 'bg-violet-500/12 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+        icon: Wallet,
+    },
 ]);
 
 const accountFilterOptions = computed(() =>
@@ -328,6 +344,10 @@ const selectedAccountFilterOption = computed(
 );
 const filteredGroups = computed(() =>
     props.monthlyCalendar.days
+        .filter(
+            (day) =>
+                selectedDate.value === null || day.date === selectedDate.value,
+        )
         .map((day) => ({
             ...day,
             occurrences: day.occurrences.filter(filterOccurrence),
@@ -705,15 +725,20 @@ function focusHighlightedRecurringEntry(): Promise<void> {
     });
 }
 
-function jumpToDay(day: RecurringMonthlyCalendarDay): void {
-    selectedAnchor.value = day.anchor;
-    const targetId =
-        typeof window !== 'undefined' &&
-        window.matchMedia('(max-width: 1023px)').matches
-            ? `${day.anchor}-mobile`
-            : day.anchor;
+async function selectCalendarDay(date: string): Promise<void> {
+    selectedDate.value = selectedDate.value === date ? null : date;
 
-    document.getElementById(targetId)?.scrollIntoView({
+    if (selectedDate.value === null) {
+        return;
+    }
+
+    await nextTick();
+
+    if (selectedDate.value !== date) {
+        return;
+    }
+
+    filteredListElement.value?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
     });
@@ -1130,9 +1155,11 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                     >
                                         <SensitiveValue
                                             v-if="
-                                                ['income', 'expenses'].includes(
-                                                    card.key,
-                                                )
+                                                [
+                                                    'income',
+                                                    'expenses',
+                                                    'installment-paid',
+                                                ].includes(card.key)
                                             "
                                             variant="veil"
                                             :value="card.value"
@@ -1140,6 +1167,16 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         <template v-else>
                                             {{ card.value }}
                                         </template>
+                                    </p>
+                                    <p
+                                        v-if="card.key === 'installment-paid'"
+                                        class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.labels.installmentPaidHint',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                                 <div
@@ -1307,7 +1344,9 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         </div>
                     </div>
 
-                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div
+                        class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+                    >
                         <article
                             v-for="card in summaryCards"
                             :key="card.key"
@@ -1325,9 +1364,11 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                     >
                                         <SensitiveValue
                                             v-if="
-                                                ['income', 'expenses'].includes(
-                                                    card.key,
-                                                )
+                                                [
+                                                    'income',
+                                                    'expenses',
+                                                    'installment-paid',
+                                                ].includes(card.key)
                                             "
                                             variant="veil"
                                             :value="card.value"
@@ -1335,6 +1376,16 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         <template v-else>
                                             {{ card.value }}
                                         </template>
+                                    </p>
+                                    <p
+                                        v-if="card.key === 'installment-paid'"
+                                        class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.labels.installmentPaidHint',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                                 <div
@@ -1466,314 +1517,16 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                     </Button>
                 </div>
 
-                <div v-if="!isCalendarCollapsed" class="space-y-4 p-4 lg:p-6">
-                    <div class="space-y-2 lg:hidden">
-                        <div
-                            class="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold tracking-[0.14em] text-slate-500 uppercase dark:text-slate-400"
-                        >
-                            <div
-                                v-for="label in weekdayLabels"
-                                :key="`${label}-mobile`"
-                                class="rounded-xl bg-slate-100/80 px-1 py-2 dark:bg-white/6"
-                            >
-                                {{ label }}
-                            </div>
-                        </div>
-
-                        <div class="grid gap-1.5">
-                            <div
-                                v-for="(week, weekIndex) in calendarWeeks"
-                                :key="`mobile-week-${weekIndex}`"
-                                class="grid grid-cols-7 gap-1.5"
-                            >
-                                <button
-                                    v-for="cell in week"
-                                    :key="`mobile-${cell.date}`"
-                                    type="button"
-                                    class="min-h-[76px] rounded-[18px] border px-1.5 py-2 text-left transition-all"
-                                    :class="
-                                        cn(
-                                            cell.isCurrentMonth
-                                                ? 'border-slate-200/80 bg-white hover:border-sky-300 hover:bg-sky-50/70 dark:border-white/10 dark:bg-slate-900/70 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/8'
-                                                : 'border-dashed border-slate-200/40 bg-slate-100/35 text-slate-300 dark:border-white/6 dark:bg-slate-950/30 dark:text-slate-700',
-                                            cell.summary &&
-                                                selectedAnchor ===
-                                                    cell.summary.anchor
-                                                ? 'border-sky-400 ring-2 ring-sky-400/40'
-                                                : '',
-                                            cell.isToday &&
-                                                cell.summary &&
-                                                selectedAnchor !==
-                                                    cell.summary.anchor
-                                                ? 'shadow-[inset_0_0_0_1px_rgba(14,165,233,0.45)]'
-                                                : '',
-                                            !cell.summary ||
-                                                !cell.isCurrentMonth ||
-                                                filteredOccurrencesCount(
-                                                    cell.summary,
-                                                ) === 0
-                                                ? 'cursor-default'
-                                                : 'cursor-pointer',
-                                        )
-                                    "
-                                    :disabled="
-                                        !cell.summary ||
-                                        !cell.isCurrentMonth ||
-                                        filteredOccurrencesCount(
-                                            cell.summary,
-                                        ) === 0
-                                    "
-                                    @click="
-                                        cell.summary
-                                            ? jumpToDay(cell.summary)
-                                            : undefined
-                                    "
-                                >
-                                    <div
-                                        class="flex items-start justify-between gap-1"
-                                    >
-                                        <span
-                                            class="text-sm font-semibold"
-                                            :class="
-                                                cell.isCurrentMonth
-                                                    ? selectedAnchor ===
-                                                      cell.summary?.anchor
-                                                        ? 'text-sky-700 dark:text-sky-300'
-                                                        : 'text-slate-950 dark:text-white'
-                                                    : 'text-slate-300 dark:text-slate-700'
-                                            "
-                                        >
-                                            {{
-                                                cell.isCurrentMonth
-                                                    ? cell.dayNumber
-                                                    : ''
-                                            }}
-                                        </span>
-                                        <span
-                                            v-if="
-                                                cell.summary?.occurrences_count
-                                            "
-                                            class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                                        >
-                                            {{
-                                                filteredOccurrencesCount(
-                                                    cell.summary,
-                                                )
-                                            }}
-                                        </span>
-                                    </div>
-
-                                    <div
-                                        v-if="
-                                            cell.summary && cell.isCurrentMonth
-                                        "
-                                        class="mt-2 space-y-1"
-                                    >
-                                        <p
-                                            v-if="cell.summary.income_total > 0"
-                                            class="truncate text-[10px] leading-none font-semibold text-emerald-600 dark:text-emerald-300"
-                                        >
-                                            +<SensitiveValue
-                                                :value="
-                                                    formatMoney(
-                                                        cell.summary
-                                                            .income_total,
-                                                    )
-                                                "
-                                            />
-                                        </p>
-                                        <p
-                                            v-if="
-                                                cell.summary.expense_total > 0
-                                            "
-                                            class="truncate text-[10px] leading-none font-semibold text-rose-600 dark:text-rose-300"
-                                        >
-                                            -<SensitiveValue
-                                                :value="
-                                                    formatMoney(
-                                                        cell.summary
-                                                            .expense_total,
-                                                    )
-                                                "
-                                            />
-                                        </p>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="hidden overflow-x-auto pb-1 lg:block">
-                        <div class="min-w-[44rem] space-y-2 sm:min-w-0">
-                            <div
-                                class="grid grid-cols-7 gap-2 text-center text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase sm:text-xs dark:text-slate-400"
-                            >
-                                <div
-                                    v-for="label in weekdayLabels"
-                                    :key="label"
-                                    class="rounded-2xl bg-slate-100/80 px-2 py-3 dark:bg-white/6"
-                                >
-                                    {{ label }}
-                                </div>
-                            </div>
-
-                            <div class="grid gap-2">
-                                <div
-                                    v-for="(week, weekIndex) in calendarWeeks"
-                                    :key="`week-${weekIndex}`"
-                                    class="grid grid-cols-7 gap-2"
-                                >
-                                    <button
-                                        v-for="cell in week"
-                                        :key="cell.date"
-                                        type="button"
-                                        class="min-h-[110px] rounded-[22px] border p-2.5 text-left transition-all sm:min-h-[132px] sm:rounded-[24px] sm:p-3"
-                                        :class="
-                                            cn(
-                                                cell.isCurrentMonth
-                                                    ? 'border-slate-200/80 bg-slate-50/90 hover:border-sky-300 hover:bg-sky-50/70 dark:border-white/10 dark:bg-slate-900/70 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/8'
-                                                    : 'min-h-[92px] border-dashed border-slate-200/40 bg-slate-100/35 text-slate-300 dark:border-white/6 dark:bg-slate-950/30 dark:text-slate-700',
-                                                cell.summary &&
-                                                    selectedAnchor ===
-                                                        cell.summary.anchor
-                                                    ? 'ring-2 ring-sky-400/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
-                                                    : '',
-                                                cell.isToday
-                                                    ? 'shadow-[inset_0_0_0_1px_rgba(14,165,233,0.4)]'
-                                                    : '',
-                                                !cell.summary ||
-                                                    !cell.isCurrentMonth
-                                                    ? 'cursor-default'
-                                                    : 'cursor-pointer',
-                                            )
-                                        "
-                                        :disabled="
-                                            !cell.summary ||
-                                            !cell.isCurrentMonth ||
-                                            filteredOccurrencesCount(
-                                                cell.summary,
-                                            ) === 0
-                                        "
-                                        @click="
-                                            cell.summary
-                                                ? jumpToDay(cell.summary)
-                                                : undefined
-                                        "
-                                    >
-                                        <div
-                                            class="flex items-start justify-between gap-2"
-                                        >
-                                            <span
-                                                class="text-sm font-semibold sm:text-base"
-                                                :class="
-                                                    cell.isCurrentMonth
-                                                        ? 'text-slate-950 dark:text-white'
-                                                        : 'text-slate-300 dark:text-slate-700'
-                                                "
-                                            >
-                                                {{
-                                                    cell.isCurrentMonth
-                                                        ? cell.dayNumber
-                                                        : ''
-                                                }}
-                                            </span>
-                                            <span
-                                                v-if="
-                                                    cell.summary
-                                                        ?.occurrences_count
-                                                "
-                                                class="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm dark:bg-slate-950/80 dark:text-slate-200"
-                                            >
-                                                {{
-                                                    filteredOccurrencesCount(
-                                                        cell.summary,
-                                                    )
-                                                }}
-                                            </span>
-                                        </div>
-
-                                        <div
-                                            v-if="
-                                                cell.summary &&
-                                                cell.isCurrentMonth
-                                            "
-                                            class="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2"
-                                        >
-                                            <div
-                                                v-if="
-                                                    cell.summary.income_total >
-                                                    0
-                                                "
-                                                class="rounded-2xl bg-emerald-500/10 px-2 py-1.5 text-emerald-700 sm:px-2.5 sm:py-2 dark:bg-emerald-500/12 dark:text-emerald-300"
-                                            >
-                                                <span
-                                                    class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
-                                                >
-                                                    +
-                                                </span>
-                                                <span
-                                                    class="hidden text-[10px] tracking-[0.18em] uppercase sm:block"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.labels.plannedIncome',
-                                                        )
-                                                    }}
-                                                </span>
-                                                <span
-                                                    class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
-                                                >
-                                                    <SensitiveValue
-                                                        :value="
-                                                            formatMoney(
-                                                                cell.summary
-                                                                    .income_total,
-                                                            )
-                                                        "
-                                                    />
-                                                </span>
-                                            </div>
-                                            <div
-                                                v-if="
-                                                    cell.summary.expense_total >
-                                                    0
-                                                "
-                                                class="rounded-2xl bg-rose-500/10 px-2 py-1.5 text-rose-700 sm:px-2.5 sm:py-2 dark:bg-rose-500/12 dark:text-rose-300"
-                                            >
-                                                <span
-                                                    class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
-                                                >
-                                                    -
-                                                </span>
-                                                <span
-                                                    class="hidden text-[10px] tracking-[0.18em] uppercase sm:block"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.labels.plannedExpenses',
-                                                        )
-                                                    }}
-                                                </span>
-                                                <span
-                                                    class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
-                                                >
-                                                    <SensitiveValue
-                                                        :value="
-                                                            formatMoney(
-                                                                cell.summary
-                                                                    .expense_total,
-                                                            )
-                                                        "
-                                                    />
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <RecurringCalendarGrid
+                    v-if="!isCalendarCollapsed"
+                    :calendar-weeks="calendarWeeks"
+                    :weekday-labels="weekdayLabels"
+                    :selected-date="selectedDate"
+                    :format-money="formatMoney"
+                    :format-day-heading="formatDayHeading"
+                    :filtered-occurrences-count="filteredOccurrencesCount"
+                    @select="selectCalendarDay"
+                />
             </section>
 
             <section
@@ -2194,10 +1947,37 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                 </div>
 
                 <div
+                    v-if="selectedDate"
+                    ref="filteredListElement"
+                    class="flex scroll-mt-20 flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 px-4 py-3 text-sm lg:scroll-mt-24 lg:px-6 dark:border-white/10"
+                    role="status"
+                >
+                    <span class="font-medium text-sky-700 dark:text-sky-300">
+                        <CalendarDays class="mr-2 inline size-4" />
+                        {{ formatDayHeading(selectedDate) }}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="min-h-11 rounded-xl"
+                        @click="selectedDate = null"
+                    >
+                        <X class="mr-2 size-4" />
+                        {{ t('transactions.recurring.actions.showAllDays') }}
+                    </Button>
+                </div>
+
+                <div
                     v-if="flatFilteredOccurrences.length === 0"
                     class="px-6 py-14 text-center text-sm text-slate-600 dark:text-slate-300"
                 >
-                    {{ t('transactions.recurring.table.empty') }}
+                    {{
+                        t(
+                            selectedDate
+                                ? 'transactions.recurring.table.emptyDay'
+                                : 'transactions.recurring.table.empty',
+                        )
+                    }}
                 </div>
 
                 <div v-else class="space-y-6 p-4 lg:p-6">

@@ -190,7 +190,7 @@ test('editing a shared transaction to counterparty payment restores the account 
         ->and($account->fresh()->current_balance)->toEqual(1000)
         ->and(app(SharedExpenseSettlementService::class)->balanceCents($user, $counterparty))->toBe(-5000)
         ->and(app(MonthlyTransactionSheetService::class)->build($user, 2026, 9)['totals']['actual_expense_raw'])->toEqual(0);
-})->with(['self', 'counterparty']);
+})->with(['user paid' => ['self'], 'counterparty paid' => ['counterparty']]);
 
 test('counterparty transaction rejects invalid shares without creating accounting records', function () {
     $this->withoutMiddleware(PreventRequestForgery::class);

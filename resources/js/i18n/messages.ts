@@ -12,13 +12,17 @@ import { legalMessages } from '@/i18n/messages/legal';
 import { navMessages } from '@/i18n/messages/nav';
 import { planningMessages } from '@/i18n/messages/planning';
 import { reportsMessages } from '@/i18n/messages/reports';
+import { salaryMessages } from '@/i18n/messages/salary';
 import { settingsMessages } from '@/i18n/messages/settings';
 import { trackedItemsMessages } from '@/i18n/messages/trackedItems';
 import { transactionsMessages } from '@/i18n/messages/transactions';
 import { uiCopyMessages } from '@/i18n/ui-copy';
+import { supportTicketsMessages } from './messages/support-tickets';
 
 export const messages = {
     it: {
+        supportTickets: supportTicketsMessages.it,
+        salary: salaryMessages.it,
         uiCopy: uiCopyMessages.it,
         admin: adminMessages.it,
         app: appMessages.it,
@@ -39,6 +43,8 @@ export const messages = {
         settings: settingsMessages.it,
     },
     en: {
+        supportTickets: supportTicketsMessages.en,
+        salary: salaryMessages.en,
         uiCopy: uiCopyMessages.en,
         admin: adminMessages.en,
         app: appMessages.en,

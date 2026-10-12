@@ -9,8 +9,10 @@ use App\Enums\TransactionStatusEnum;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Salary\SalaryOccurrenceService;
 use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\Transactions\TransactionMutationService;
+use App\Services\UserYearService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -32,7 +34,7 @@ class RecurringEntryPostingService
             return $occurrence->convertedTransaction;
         }
 
-        return DB::transaction(function () use ($occurrence, $metadata): Transaction {
+        return DB::transaction(function () use ($occurrence, $actor, $metadata): Transaction {
             $occurrence = RecurringEntryOccurrence::query()
                 ->with(['recurringEntry', 'convertedTransaction'])
                 ->lockForUpdate()
@@ -43,6 +45,9 @@ class RecurringEntryPostingService
             }
 
             $entry = $occurrence->recurringEntry;
+            if (app(SalaryOccurrenceService::class)->isBeyondEmployment($occurrence)) {
+                throw ValidationException::withMessages(['occurrence' => __('salary.outside_employment')]);
+            }
             if ($entry->trial_duration && today()->lt($entry->firstBillingDate())) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.the_trial_period_is_still_active_5538e145')]);
             }
@@ -53,6 +58,9 @@ class RecurringEntryPostingService
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);
             }
             $automatic = (bool) ($metadata['automatic_posting'] ?? false);
+            if ($automatic && (! is_numeric($occurrence->expected_amount) || (float) $occurrence->expected_amount <= 0)) {
+                throw ValidationException::withMessages(['amount' => __('ui.invalid_amount_8c8c67cb')]);
+            }
             if ($automatic && $occurrence->automatic_posting_blocked_at !== null) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.the_payment_requires_manual_posting_1d0f7014')]);
             }
@@ -60,6 +68,9 @@ class RecurringEntryPostingService
             $transactionDate = $occurrence->due_date?->toDateString()
                 ?? $occurrence->expected_date->toDateString();
             $effectiveTransactionDate = (string) ($metadata['transaction_date'] ?? $transactionDate);
+            if ($entry->salarySchedule) {
+                app(UserYearService::class)->ensureDateYearIsOpen($entry->user, $effectiveTransactionDate, 'occurrence');
+            }
             $account = $occurrence->account()
                 ->with('user:id,base_currency_code')
                 ->first()

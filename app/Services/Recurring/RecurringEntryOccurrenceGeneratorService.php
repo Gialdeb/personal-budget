@@ -9,6 +9,7 @@ use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Services\Salary\SalaryOccurrenceService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -48,9 +49,10 @@ class RecurringEntryOccurrenceGeneratorService
                     continue;
                 }
 
-                $created->push(
-                    $entry->occurrences()->create($item)
-                );
+                $occurrence = $entry->occurrences()->create($item);
+                $occurrence->setRelation('recurringEntry', $entry);
+                app(SalaryOccurrenceService::class)->snapshot($occurrence);
+                $created->push($occurrence);
             }
 
             if ($updateNextOccurrenceDate) {
@@ -66,7 +68,7 @@ class RecurringEntryOccurrenceGeneratorService
      */
     public function synchronizeFutureOccurrences(RecurringEntry $entry, RecurringEntry $original): ?string
     {
-        $occurrences = $entry->occurrences()->lockForUpdate()->get();
+        $occurrences = $entry->occurrences()->with('salaryDetail.components')->lockForUpdate()->get();
         $limit = max(1, (int) $occurrences->max('sequence_number'));
         $before = collect($original->entry_type === RecurringEntryTypeEnum::INSTALLMENT
             ? $this->installmentSchedule($original)
@@ -83,6 +85,7 @@ class RecurringEntryOccurrenceGeneratorService
                 || ! $occurrence->expected_date->isAfter(today())
                 || ! in_array($occurrence->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED], true)
                 || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null
+                || $occurrence->salaryDetail?->is_overridden || $occurrence->salaryDetail?->components->isNotEmpty()
                 || $occurrence->amount_confirmed_at !== null || $occurrence->account_id !== null
                 || $occurrence->automatic_posting_blocked_at !== null
                 || $occurrence->paymentAllocations()->exists() || $occurrence->sharedExpenseLedgerEntry()->exists()
@@ -113,6 +116,7 @@ class RecurringEntryOccurrenceGeneratorService
                 'expected_date', 'due_date', 'expected_amount',
                 'shared_expense_paid_by', 'shared_expense_my_share_cents', 'shared_expense_counterparty_share_cents',
             ]))->save();
+            $occurrence->salaryDetail?->update(['base_expected_amount' => $occurrence->expected_amount]);
         }
 
         return $firstChangedAmountDate;
@@ -216,6 +220,17 @@ class RecurringEntryOccurrenceGeneratorService
     /**
      * @return array<int, CarbonImmutable>
      */
+    public function nextDateOnOrAfter(RecurringEntry $entry, CarbonImmutable $date): CarbonImmutable
+    {
+        for ($sequence = 1; $sequence <= 10000; $sequence++) {
+            $candidate = $this->resolveDateForSequence($entry, $sequence);
+            if ($candidate->gte($date) && $candidate->gte($entry->firstBillingDate())) {
+                return $candidate;
+            }
+        }
+        throw new \RuntimeException('No future recurring date found.');
+    }
+
     protected function buildRecurringDates(RecurringEntry $entry, ?CarbonImmutable $throughDate, ?int $maxOccurrences): array
     {
         $startDate = $entry->firstBillingDate();
@@ -223,6 +238,17 @@ class RecurringEntryOccurrenceGeneratorService
             ? (int) $entry->installments_count
             : ($maxOccurrences ?? $this->resolveMaxOccurrences($entry, $throughDate));
         $effectiveThroughDate = $this->resolveThroughDate($entry, $throughDate);
+        $salarySchedule = $entry->salarySchedule;
+        if ($salarySchedule?->valid_from && $salarySchedule->valid_from->gt($startDate)) {
+            $startDate = CarbonImmutable::parse($salarySchedule->valid_from);
+        }
+        $employmentEnd = $salarySchedule?->employment?->end_date;
+        if ($salarySchedule?->valid_to && ($employmentEnd === null || $salarySchedule->valid_to->lt($employmentEnd))) {
+            $employmentEnd = $salarySchedule->valid_to;
+        }
+        if ($employmentEnd !== null && ($effectiveThroughDate === null || $employmentEnd->lt($effectiveThroughDate))) {
+            $effectiveThroughDate = CarbonImmutable::parse($employmentEnd);
+        }
         $dates = [];
         $candidateSequence = 1;
 

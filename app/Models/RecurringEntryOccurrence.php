@@ -118,4 +118,9 @@ class RecurringEntryOccurrence extends Model
 
         return max(0, (int) round((float) $this->expected_amount * 100) - $this->allocatedPaymentCents());
     }
+
+    public function salaryDetail(): HasOne
+    {
+        return $this->hasOne(SalaryOccurrenceDetail::class, 'recurring_entry_occurrence_id');
+    }
 }

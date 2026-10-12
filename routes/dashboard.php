@@ -14,6 +14,7 @@ use App\Http\Controllers\RecurringEntryOccurrenceController;
 use App\Http\Controllers\RecurringEntryTransactionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Reports\AccountReportExportController;
+use App\Http\Controllers\SalaryEmploymentController;
 use App\Http\Controllers\SessionActivityController;
 use App\Http\Controllers\SharedExpenseController;
 use App\Http\Controllers\SharedExpenseSettlementController;
@@ -131,6 +132,11 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->whereNumber('month')
         ->name('transactions.force-destroy');
     // RECURRING ENTRIES
+    Route::get('salary-employments/{salaryEmployment:uuid}', [SalaryEmploymentController::class, 'show'])->name('salary-employments.show');
+    Route::patch('salary-employments/{salaryEmployment:uuid}', [SalaryEmploymentController::class, 'update'])->name('salary-employments.update');
+    Route::post('salary-employments/{salaryEmployment:uuid}/occurrences/{detail}/explain', [SalaryEmploymentController::class, 'explain'])->name('salary-employments.occurrences.explain');
+    Route::patch('salary-employments/{salaryEmployment:uuid}/end', [SalaryEmploymentController::class, 'end'])->name('salary-employments.end');
+    Route::patch('salary-employments/{salaryEmployment:uuid}/occurrences/{detail}', [SalaryEmploymentController::class, 'updateOccurrence'])->name('salary-employments.occurrences.update');
     Route::get('recurring-entries', [RecurringEntryController::class, 'index'])->name('recurring-entries.index');
     Route::post('recurring-entries', [RecurringEntryController::class, 'store'])->name('recurring-entries.store');
     Route::post('recurring-entries/exchange-preview', [RecurringEntryController::class, 'previewExchangeSnapshot'])

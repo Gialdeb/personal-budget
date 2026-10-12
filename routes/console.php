@@ -11,6 +11,7 @@ use App\Jobs\Automation\RunRecurringPipelineJob;
 use App\Jobs\Automation\RunRecurringWeeklySummaryJob;
 use App\Jobs\Automation\RunUserBackupJob;
 use App\Services\Recurring\AutomaticPaymentVerificationService;
+use App\Services\Support\SupportTicketInactivityService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
@@ -89,3 +90,6 @@ Schedule::job(new RunImportsPruneOldJob)
     ->dailyAt('04:30')
     ->withoutOverlapping()
     ->name('imports-prune-old');
+
+Schedule::call(fn () => app(SupportTicketInactivityService::class)->process())
+    ->hourly()->name('support-ticket-inactivity')->withoutOverlapping()->onOneServer();

@@ -221,7 +221,7 @@ class TransactionMutationService
                 ...$this->sharedExpenseAllocationAttributes($validated, (string) $validated['amount']),
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => $direction,
-                'kind' => TransactionKindEnum::MANUAL->value,
+                'kind' => $transaction->recurring_entry_occurrence_id !== null && $transaction->kind === TransactionKindEnum::SCHEDULED ? TransactionKindEnum::SCHEDULED->value : TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
                 'currency' => $this->accountCurrencyCode($account),
                 ...$this->exchangeSnapshotAttributes($account, $amount, (string) $validated['transaction_date']),

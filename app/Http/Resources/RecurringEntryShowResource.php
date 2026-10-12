@@ -43,6 +43,7 @@ class RecurringEntryShowResource extends JsonResource
             ])->values()->all(),
             'occurrences' => RecurringEntryOccurrenceResource::collection($occurrences)->resolve(),
             'summary' => [
+                ...$this->paidSummary(),
                 'total_occurrences' => $occurrences->count(),
                 'pending_occurrences' => $pendingOccurrences->count(),
                 'converted_occurrences' => $convertedOccurrences->count(),
@@ -51,11 +52,51 @@ class RecurringEntryShowResource extends JsonResource
             ],
             'actions' => [
                 'can_pause' => $canEdit && $this->status?->value === 'active',
-                'can_resume' => $canEdit && $this->status?->value === 'paused',
+                'can_resume' => $canEdit && in_array($this->status?->value, ['paused', 'cancelled'], true),
                 'can_cancel' => $canEdit && $this->status?->value !== 'cancelled',
-                'can_delete' => $canEdit,
+                'can_delete' => $canEdit && $this->salarySchedule === null,
                 'has_converted_occurrences' => $convertedOccurrences->isNotEmpty(),
             ],
         ];
+    }
+
+    /** @return array{paid_count: int, paid_amount: float, paid_year: int|null} */
+    protected function paidSummary(): array
+    {
+        $year = $this->entry_type?->value === 'installment' ? null : today()->year;
+        $amount = 0;
+        $count = 0;
+        $seen = [];
+        foreach ($this->occurrences as $occurrence) {
+            $transaction = $occurrence->convertedTransaction ?? $occurrence->matchedTransaction;
+            if ($transaction) {
+                if (isset($seen[$transaction->id]) || $transaction->status?->value !== 'confirmed' || $transaction->transaction_date->isAfter(today()) || ($year !== null && $transaction->transaction_date->year !== $year) || $transaction->refundTransaction?->status?->value === 'confirmed') {
+                    continue;
+                }
+                $amount += (int) round((float) $transaction->amount * 100);
+                $count++;
+                $seen[$transaction->id] = true;
+
+                continue;
+            }
+            $paid = 0;
+            $paidInPeriod = 0;
+            foreach ($occurrence->paymentAllocations as $allocation) {
+                $transaction = $allocation->transaction;
+                if (! $transaction || $transaction->status?->value !== 'confirmed' || $transaction->transaction_date->isAfter(today()) || $transaction->refundTransaction?->status?->value === 'confirmed') {
+                    continue;
+                }
+                $paid += $allocation->amount_cents;
+                if ($year === null || $transaction->transaction_date->year === $year) {
+                    $paidInPeriod += $allocation->amount_cents;
+                }
+            }
+            $amount += $paidInPeriod;
+            if ($paidInPeriod > 0 && $paid >= (int) round((float) $occurrence->expected_amount * 100)) {
+                $count++;
+            }
+        }
+
+        return ['paid_count' => $count, 'paid_amount' => $amount / 100, 'paid_year' => $year];
     }
 }

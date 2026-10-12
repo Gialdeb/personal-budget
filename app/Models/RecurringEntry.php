@@ -13,6 +13,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -201,5 +202,10 @@ class RecurringEntry extends Model
     public function amountChanges(): HasMany
     {
         return $this->hasMany(RecurringEntryAmountChange::class)->orderBy('created_at')->orderBy('id');
+    }
+
+    public function salarySchedule(): HasOne
+    {
+        return $this->hasOne(SalarySchedule::class);
     }
 }

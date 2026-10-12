@@ -9,6 +9,7 @@ use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\User;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\UserYearService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -52,14 +53,15 @@ class RecurringEntryManagementService
     /**
      * @param  array<string, mixed>  $validated
      */
-    public function store(User $user, array $validated): RecurringEntry
+    public function store(User $user, array $validated, ?\Closure $beforeGeneration = null): RecurringEntry
     {
-        return DB::transaction(function () use ($user, $validated): RecurringEntry {
+        return DB::transaction(function () use ($user, $validated, $beforeGeneration): RecurringEntry {
             $normalized = $this->validator->validate($user, $validated);
             $this->ensureSelectedFutureYearsExist($user, $normalized);
             $normalized['created_by_user_id'] = $user->id;
             $normalized['updated_by_user_id'] = $user->id;
             $entry = RecurringEntry::query()->create($normalized);
+            $beforeGeneration?->__invoke($entry);
 
             if ($entry->status === RecurringEntryStatusEnum::ACTIVE && $entry->is_active) {
                 $this->primeEntryLifecycle($entry);
@@ -85,7 +87,13 @@ class RecurringEntryManagementService
         return DB::transaction(function () use ($user, $entry, $validated): RecurringEntry {
             $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->getKey());
             $entry->load('occurrences');
+            if ($entry->salarySchedule && array_key_exists('auto_create_transaction', $validated)) {
+                $this->synchronizeSalaryRegistration($user, $entry, (bool) $validated['auto_create_transaction']);
+            }
             $originalEntry = clone $entry;
+            if ($entry->salarySchedule && (($validated['direction'] ?? 'income') !== 'income' || ($validated['entry_type'] ?? 'recurring') !== 'recurring' || ! ($validated['is_amount_variable'] ?? true) || ($validated['is_shared_expense'] ?? false))) {
+                throw ValidationException::withMessages(['entry' => __('salary.must_be_variable_income')]);
+            }
             $trialChanged = collect(['trial_duration', 'trial_unit', 'start_date'])
                 ->contains(fn (string $field): bool => array_key_exists($field, $validated) && $this->fieldChanged($entry, $field, $validated));
             $hasTrialPayment = (bool) $entry->trial_duration && $entry->occurrences()->where(function ($query): void {
@@ -173,7 +181,7 @@ class RecurringEntryManagementService
                 }
                 $effectiveFrom = $this->generator->synchronizeFutureOccurrences($entry, $originalEntry);
                 $this->amountHistory->record($entry, $originalEntry, $effectiveFrom);
-                if ($canRealignRefundedSchedule && $entry->start_date->ne($originalEntry->start_date)) {
+                if (($entry->status === RecurringEntryStatusEnum::ACTIVE && $entry->is_active) || ($canRealignRefundedSchedule && $entry->start_date->ne($originalEntry->start_date))) {
                     $this->primeEntryLifecycle($entry);
                 }
 
@@ -220,6 +228,27 @@ class RecurringEntryManagementService
                 'occurrences.convertedTransaction',
             ]);
         });
+    }
+
+    public function synchronizeSalaryRegistration(User $user, RecurringEntry $entry, bool $automatic): void
+    {
+        $employment = $entry->salarySchedule?->employment;
+        if ($employment === null) {
+            return;
+        }
+        $editable = app(AccessibleAccountsQuery::class)->editableIds($user);
+        $entries = RecurringEntry::query()->whereHas('salarySchedule', fn ($query) => $query->where('salary_employment_id', $employment->id))->lockForUpdate()->get();
+        foreach ($entries as $salaryEntry) {
+            if ((bool) $salaryEntry->auto_create_transaction !== $automatic && ! in_array((int) $salaryEntry->account_id, $editable, true)) {
+                throw ValidationException::withMessages(['auto_create_transaction' => __('salary.registration_forbidden')]);
+            }
+        }
+        foreach ($entries as $salaryEntry) {
+            $salaryEntry->forceFill(['auto_create_transaction' => $automatic, 'updated_by_user_id' => $user->id])->save();
+            if ($automatic && $salaryEntry->id !== $entry->id && $salaryEntry->is_active && $salaryEntry->status === RecurringEntryStatusEnum::ACTIVE) {
+                $this->lifecycle->synchronize($salaryEntry, CarbonImmutable::today());
+            }
+        }
     }
 
     public function skipNextOccurrences(RecurringEntry $entry, int $periods): void
@@ -271,12 +300,29 @@ class RecurringEntryManagementService
 
     public function resume(RecurringEntry $entry): RecurringEntry
     {
-        $entry->forceFill([
-            'status' => RecurringEntryStatusEnum::ACTIVE,
-            'is_active' => true,
-        ])->save();
+        return DB::transaction(function () use ($entry): RecurringEntry {
+            $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->id);
+            if (! in_array($entry->status, [RecurringEntryStatusEnum::PAUSED, RecurringEntryStatusEnum::CANCELLED], true)) {
+                return $entry->fresh(['occurrences']);
+            }
+            $wasCancelled = $entry->status === RecurringEntryStatusEnum::CANCELLED;
+            $entry->forceFill(['status' => RecurringEntryStatusEnum::ACTIVE, 'is_active' => true])->save();
+            if ($wasCancelled) {
+                $entry->occurrences()->where('status', RecurringOccurrenceStatusEnum::CANCELLED)
+                    ->whereNull('converted_transaction_id')->whereNull('matched_transaction_id')
+                    ->update(['status' => RecurringOccurrenceStatusEnum::PENDING->value]);
+            }
+            $this->generator->generate($entry, CarbonImmutable::today(), updateNextOccurrenceDate: false);
+            $this->generator->generate($entry);
+            $entry->occurrences()->whereIn('status', [RecurringOccurrenceStatusEnum::PENDING->value, RecurringOccurrenceStatusEnum::GENERATED->value])
+                ->whereNull('converted_transaction_id')->whereNull('matched_transaction_id')
+                ->whereNull('automatic_posting_blocked_at')
+                ->where(function ($dates): void {
+                    $dates->whereDate('due_date', '<', today())->orWhere(fn ($fallback) => $fallback->whereNull('due_date')->whereDate('expected_date', '<', today()));
+                })->update(['automatic_posting_blocked_at' => now()]);
 
-        return $entry->fresh(['occurrences']);
+            return $entry->fresh(['occurrences']);
+        });
     }
 
     public function cancel(RecurringEntry $entry): RecurringEntry

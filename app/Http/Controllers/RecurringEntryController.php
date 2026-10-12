@@ -20,14 +20,17 @@ use App\Models\Category;
 use App\Models\Merchant;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\SalaryEmployment;
 use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Categories\CategoryFoundationService;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\DeleteRecurringEntryService;
 use App\Services\Recurring\RecalculateInstallmentPlanAmountService;
 use App\Services\Recurring\RecurringEntryManagementService;
+use App\Services\Salary\SalaryEmploymentService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\Transactions\TransactionExchangeSnapshotService;
@@ -93,10 +96,12 @@ class RecurringEntryController extends Controller
             'occurrences.account',
             'occurrences.recurringEntry.account',
             'occurrences.convertedTransaction.refundTransaction',
+            'occurrences.matchedTransaction.refundTransaction',
             'occurrences.paymentAllocations.transaction.account',
             'occurrences.paymentAllocations.transaction.trackedItem',
             'occurrences.paymentAllocations.transaction.refundTransaction',
             'amountChanges',
+            'salarySchedule.employment',
         ]);
 
         $payload = [
@@ -115,10 +120,9 @@ class RecurringEntryController extends Controller
 
     public function store(StoreRecurringEntryRequest $request): RedirectResponse
     {
-        $entry = $this->managementService->store(
-            $request->user(),
-            $request->validated()
-        );
+        $entry = $request->filled('salary')
+            ? app(SalaryEmploymentService::class)->create($request->user(), $request->validated())
+            : $this->managementService->store($request->user(), $request->validated());
 
         if ($request->string('redirect_to')->toString() === 'index') {
             return to_route('recurring-entries.index')
@@ -163,6 +167,10 @@ class RecurringEntryController extends Controller
 
     public function destroy(Request $request, RecurringEntry $recurringEntry): RedirectResponse
     {
+        $recurringEntry = $this->editableRecurringEntry($request, $recurringEntry);
+        if ($recurringEntry->salarySchedule) {
+            throw ValidationException::withMessages(['entry' => __('salary.use_end_employment')]);
+        }
         $this->deleteRecurringEntryService->delete(
             $this->editableRecurringEntry($request, $recurringEntry)
         );
@@ -413,6 +421,7 @@ class RecurringEntryController extends Controller
                 'trackedItem:id,uuid,name,website_identity_id',
                 'trackedItem.websiteIdentity',
                 'merchant:id,uuid,name',
+                'salarySchedule.employment',
                 'createdByUser:id,uuid,name,email',
                 'updatedByUser:id,uuid,name,email',
                 'occurrences' => fn ($query) => $query
@@ -561,6 +570,7 @@ class RecurringEntryController extends Controller
                     'converted_count' => 0,
                     'planned_income_total' => 0.0,
                     'planned_expense_total' => 0.0,
+                    'installment_paid_totals' => [],
                 ],
                 'days' => [],
             ];
@@ -708,6 +718,7 @@ class RecurringEntryController extends Controller
             ...$this->activePeriodPayload($year, $month),
             'summary' => [
                 'entries_count' => $entries->count(),
+                'installment_paid_totals' => $this->installmentPaidTotals($entries),
                 'occurrences_count' => $occurrences->count(),
                 'pending_count' => $occurrences->filter(
                     fn (RecurringEntryOccurrence $occurrence): bool => in_array($occurrence->status?->value, ['pending', 'generated'], true)
@@ -732,6 +743,44 @@ class RecurringEntryController extends Controller
         ];
     }
 
+    /** @return array<int, array{currency: string, amount: float}> */
+    protected function installmentPaidTotals(EloquentCollection $entries): array
+    {
+        $ids = $entries->filter(fn (RecurringEntry $entry): bool => $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT && $entry->direction?->value === 'expense')->modelKeys();
+        if ($ids === []) {
+            return [];
+        }
+        $occurrences = RecurringEntryOccurrence::query()->whereIn('recurring_entry_id', $ids)->with([
+            'convertedTransaction.refundTransaction', 'matchedTransaction.refundTransaction',
+            'paymentAllocations' => fn ($query) => $query->valid()->with('transaction'),
+        ])->get();
+        $totals = [];
+        $seen = [];
+        foreach ($occurrences as $occurrence) {
+            $transaction = $occurrence->convertedTransaction ?? $occurrence->matchedTransaction;
+            if (! $transaction || isset($seen[$transaction->id]) || $transaction->direction?->value !== 'expense' || $transaction->status?->value !== 'confirmed' || $transaction->transaction_date->isAfter(today()) || $transaction->refundTransaction?->status?->value === 'confirmed') {
+                continue;
+            }
+            $totals[$transaction->currency] = ($totals[$transaction->currency] ?? 0) + (int) round((float) $transaction->amount * 100);
+            $seen[$transaction->id] = true;
+        }
+        foreach ($occurrences as $occurrence) {
+            if ($occurrence->converted_transaction_id || $occurrence->matched_transaction_id) {
+                continue;
+            }
+            foreach ($occurrence->paymentAllocations as $allocation) {
+                $transaction = $allocation->transaction;
+                if (! $transaction || isset($seen[$transaction->id]) || $transaction->direction?->value !== 'expense' || $transaction->transaction_date->isAfter(today())) {
+                    continue;
+                }
+                $totals[$transaction->currency] = ($totals[$transaction->currency] ?? 0) + $allocation->amount_cents;
+            }
+        }
+        ksort($totals);
+
+        return collect($totals)->map(fn (int $amount, string $currency): array => ['currency' => $currency, 'amount' => $amount / 100])->values()->all();
+    }
+
     protected function occurrenceDate(RecurringEntryOccurrence $occurrence): CarbonImmutable
     {
         return CarbonImmutable::parse(
@@ -749,7 +798,7 @@ class RecurringEntryController extends Controller
     /**
      * @return array<string, mixed>
      */
-    protected function formOptionsPayload(Request $request): array
+    public function formOptionsPayload(Request $request): array
     {
         $user = $request->user();
         $editableAccounts = $this->accessibleAccountsQuery->getEditable($user);
@@ -824,6 +873,11 @@ class RecurringEntryController extends Controller
                 ->get(['uuid', 'name'])
                 ->map(fn (TrackedItem $item): array => ['value' => $item->uuid, 'label' => $item->name])
                 ->all(),
+            'salary_employments' => SalaryEmployment::query()->where('user_id', $user->id)->with('schedules.recurringEntry.account', 'schedules.recurringEntry.trackedItem')->orderBy('name')->get()->map(function (SalaryEmployment $employment): array {
+                $entry = $employment->schedules->firstWhere('kind', 'ordinary')?->recurringEntry;
+
+                return ['uuid' => $employment->uuid, 'name' => $employment->name, 'automatic' => (bool) $entry?->auto_create_transaction, 'account_uuid' => $entry?->account?->uuid, 'reference_uuid' => $entry?->trackedItem?->uuid];
+            })->all(),
             'merchants' => Merchant::query()
                 ->whereIn('user_id', $editableAccounts->pluck('user_id')->unique()->all() !== [] ? $editableAccounts->pluck('user_id')->unique()->all() : [0])
                 ->where('is_active', true)
@@ -942,10 +996,11 @@ class RecurringEntryController extends Controller
         $categories = $this->operationalTransactionCategoryResolver->categoriesForAccount($account)
             ->values();
         $categoriesById = $categories->keyBy('id');
+        $salarySlug = CategoryFoundationService::childSlugForKey('income_salary');
 
         return HierarchyOptionLabel::withDisambiguatedLabels(
             collect(CategoryHierarchy::buildFlat($categories))
-                ->map(function (array $category) use ($categoriesById): array {
+                ->map(function (array $category) use ($categoriesById, $salarySlug): array {
                     $sourceCategory = $categoriesById->get($category['id']);
 
                     return [
@@ -953,6 +1008,8 @@ class RecurringEntryController extends Controller
                         'uuid' => $category['uuid'],
                         'full_path' => $category['full_path'],
                         'slug' => $category['slug'],
+                        'foundation_key' => $sourceCategory?->foundation_key,
+                        'is_salary_default' => $sourceCategory?->direction_type?->value === 'income' && ($sourceCategory?->foundation_key === 'income_salary' || $sourceCategory?->slug === $salarySlug),
                         'icon' => $category['icon'] ?? null,
                         'color' => $category['color'] ?? null,
                         'direction_type' => $category['direction_type'],

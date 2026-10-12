@@ -281,6 +281,7 @@ class DashboardService
                     'recurring_entry_uuid' => $occurrence->recurringEntry->uuid,
                     'occurrence_uuid' => $occurrence->uuid,
                     'requires_amount_confirmation' => $occurrence->recurringEntry->is_amount_variable
+                        && ! $occurrence->recurringEntry->auto_create_transaction
                         && $occurrence->amount_confirmed_at === null
                         && ($occurrence->due_date ?? $occurrence->expected_date)->lte($today)
                         && $occurrence->converted_transaction_id === null
@@ -333,7 +334,7 @@ class DashboardService
         return [
             'total_count' => $items->count(),
             'items' => $items->filter(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false))
-                ->concat($items->reject(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false))->take(3))
+                ->concat($items->reject(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false))->take(3)->all())
                 ->values()->all(),
         ];
     }

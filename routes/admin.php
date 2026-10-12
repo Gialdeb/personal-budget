@@ -111,6 +111,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
             ->name('support-requests.')
             ->group(function () {
                 Route::get('/', [SupportRequestController::class, 'index'])->name('index');
+                Route::post('/{supportRequest:uuid}/messages', [SupportRequestController::class, 'reply'])->name('reply');
                 Route::get('/{supportRequest:uuid}', [SupportRequestController::class, 'show'])->name('show');
                 Route::match(['put', 'patch'], '/{supportRequest:uuid}', [SupportRequestController::class, 'update'])->name('update');
             });

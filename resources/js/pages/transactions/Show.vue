@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
+    TriangleAlert,
     ArrowUpRight,
     ArrowDown,
     ArrowUp,
@@ -32,7 +33,10 @@ import {
     watch,
 } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { problem as paymentProblem } from '@/actions/App/Http/Controllers/AutomaticPaymentVerificationController';
+import {
+    confirm as confirmAutomaticPayment,
+    problem as paymentProblem,
+} from '@/actions/App/Http/Controllers/AutomaticPaymentVerificationController';
 import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
@@ -2936,22 +2940,53 @@ function requestDelete(transaction: MonthlyTransactionSheetTransaction): void {
 }
 
 const paymentProblemForm = useForm<Record<string, string>>({});
+const paymentProblemTransaction =
+    ref<MonthlyTransactionSheetTransaction | null>(null);
 function reportPaymentProblem(
     transaction: MonthlyTransactionSheetTransaction,
 ): void {
     if (
-        !window.confirm(
-            ui(
-                'Il pagamento non è avvenuto? La registrazione automatica verrà rimossa e l’occorrenza tornerà da regolarizzare.',
-            ),
-        )
+        !transaction.can_report_payment_problem ||
+        paymentProblemForm.processing
     ) {
         return;
     }
 
-    paymentProblemForm.post(paymentProblem.url(transaction.uuid), {
-        preserveScroll: true,
-    });
+    paymentProblemForm.clearErrors();
+    paymentProblemTransaction.value = transaction;
+}
+function closePaymentProblem(): void {
+    if (paymentProblemForm.processing) {
+        return;
+    }
+
+    paymentProblemTransaction.value = null;
+    paymentProblemForm.clearErrors();
+}
+function verifyAutomaticPayment(
+    transaction: MonthlyTransactionSheetTransaction,
+): void {
+    router.post(
+        confirmAutomaticPayment.url(transaction.uuid),
+        {},
+        { preserveScroll: true },
+    );
+}
+
+function confirmPaymentProblem(): void {
+    if (!paymentProblemTransaction.value || paymentProblemForm.processing) {
+        return;
+    }
+
+    paymentProblemForm.post(
+        paymentProblem.url(paymentProblemTransaction.value.uuid),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                paymentProblemTransaction.value = null;
+            },
+        },
+    );
 }
 
 function requestRefund(transaction: MonthlyTransactionSheetTransaction): void {
@@ -4220,27 +4255,6 @@ resetInlineEntry();
                             </Select>
                         </div>
 
-                        <div class="space-y-2">
-                            <p
-                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                            >
-                                {{ ui('Spese condivise') }}
-                            </p>
-                            <label
-                                class="flex h-11 cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-white/10 dark:text-slate-200"
-                            >
-                                <Checkbox
-                                    :model-value="
-                                        sharedExpenseFilter === 'shared'
-                                    "
-                                    @update:model-value="
-                                        setSharedExpenseOnly(Boolean($event))
-                                    "
-                                />
-                                <span>{{ ui('Mostra solo condivise') }}</span>
-                            </label>
-                        </div>
-
                         <div class="flex items-end">
                             <Button
                                 type="button"
@@ -4298,6 +4312,24 @@ resetInlineEntry();
                                 </p>
                             </div>
                             <div class="flex flex-wrap gap-2">
+                                <label
+                                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
+                                >
+                                    <Checkbox
+                                        :model-value="
+                                            sharedExpenseFilter === 'shared'
+                                        "
+                                        @update:model-value="
+                                            setSharedExpenseOnly(
+                                                Boolean($event),
+                                            )
+                                        "
+                                    />
+                                    <span>{{
+                                        ui('Mostra solo condivise')
+                                    }}</span>
+                                </label>
+
                                 <label
                                     class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
                                 >
@@ -5906,16 +5938,23 @@ resetInlineEntry();
                                                             </TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
-                                                    <Badge
+                                                    <Button
                                                         v-if="
-                                                            transaction.requires_payment_confirmation
+                                                            transaction.requires_payment_confirmation &&
+                                                            transaction.can_report_payment_problem
                                                         "
                                                         variant="outline"
-                                                        >{{
-                                                            ui(
-                                                                'Pagamento da confermare',
+                                                        size="sm"
+                                                        @click="
+                                                            verifyAutomaticPayment(
+                                                                transaction,
                                                             )
-                                                        }}</Badge
+                                                        "
+                                                        >{{
+                                                            t(
+                                                                'transactions.sheet.confirmRegistration',
+                                                            )
+                                                        }}</Button
                                                     >
                                                     <Button
                                                         v-if="
@@ -5932,9 +5971,12 @@ resetInlineEntry();
                                                             )
                                                         "
                                                     >
+                                                        <TriangleAlert
+                                                            class="mr-2 size-4 shrink-0 text-amber-600 dark:text-amber-400"
+                                                        />
                                                         {{
-                                                            ui(
-                                                                'Segnala problema pagamento',
+                                                            t(
+                                                                'transactions.sheet.paymentProblem.trigger',
                                                             )
                                                         }}
                                                     </Button>
@@ -7425,14 +7467,23 @@ resetInlineEntry();
                                                 </TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
-                                        <Badge
+                                        <Button
                                             v-if="
-                                                transaction.requires_payment_confirmation
+                                                transaction.requires_payment_confirmation &&
+                                                transaction.can_report_payment_problem
                                             "
                                             variant="outline"
+                                            size="sm"
+                                            @click="
+                                                verifyAutomaticPayment(
+                                                    transaction,
+                                                )
+                                            "
                                             >{{
-                                                ui('Pagamento da confermare')
-                                            }}</Badge
+                                                t(
+                                                    'transactions.sheet.confirmRegistration',
+                                                )
+                                            }}</Button
                                         >
                                         <Button
                                             v-if="
@@ -7449,8 +7500,13 @@ resetInlineEntry();
                                                 )
                                             "
                                         >
+                                            <TriangleAlert
+                                                class="mr-2 size-4 shrink-0 text-amber-600 dark:text-amber-400"
+                                            />
                                             {{
-                                                ui('Segnala problema pagamento')
+                                                t(
+                                                    'transactions.sheet.paymentProblem.trigger',
+                                                )
                                             }}
                                         </Button>
                                         <Button
@@ -7996,6 +8052,121 @@ resetInlineEntry();
                 :transaction="editingTransaction"
                 @request-refund="requestRefund"
             />
+
+            <Dialog
+                :open="paymentProblemTransaction !== null"
+                @update:open="
+                    (open) => {
+                        if (!open) closePaymentProblem();
+                    }
+                "
+            >
+                <DialogContent
+                    class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg"
+                    @escape-key-down="
+                        paymentProblemForm.processing && $event.preventDefault()
+                    "
+                    @interact-outside="
+                        paymentProblemForm.processing && $event.preventDefault()
+                    "
+                >
+                    <DialogHeader>
+                        <DialogTitle class="flex items-center gap-2 pr-5"
+                            ><TriangleAlert
+                                class="size-5 shrink-0 text-amber-600 dark:text-amber-400"
+                            />{{
+                                t('transactions.sheet.paymentProblem.title')
+                            }}</DialogTitle
+                        >
+                        <DialogDescription>{{
+                            t('transactions.sheet.paymentProblem.description')
+                        }}</DialogDescription>
+                    </DialogHeader>
+                    <div v-if="paymentProblemTransaction" class="space-y-4">
+                        <div
+                            class="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-white/10 dark:bg-slate-900/60"
+                        >
+                            <p class="font-medium break-words">
+                                {{
+                                    transactionCategoryLabel(
+                                        paymentProblemTransaction,
+                                    )
+                                }}
+                            </p>
+                            <p
+                                class="break-words text-slate-600 dark:text-slate-300"
+                            >
+                                {{
+                                    paymentProblemTransaction.detail ??
+                                    paymentProblemTransaction.description ??
+                                    t('transactions.sheet.grid.noDetail')
+                                }}
+                            </p>
+                            <p>
+                                {{
+                                    formatDateLong(
+                                        paymentProblemTransaction.date,
+                                    )
+                                }}
+                                ·
+                                <SensitiveValue
+                                    :value="
+                                        formatCurrency(
+                                            paymentProblemTransaction.amount_raw,
+                                            transactionAmountCurrency(
+                                                paymentProblemTransaction,
+                                            ),
+                                        )
+                                    "
+                                />
+                            </p>
+                        </div>
+                        <div
+                            class="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+                        >
+                            <p>
+                                {{
+                                    t(
+                                        'transactions.sheet.paymentProblem.effects',
+                                    )
+                                }}
+                            </p>
+                            <p>
+                                {{
+                                    t(
+                                        'transactions.sheet.paymentProblem.nextStep',
+                                    )
+                                }}
+                            </p>
+                        </div>
+                        <p
+                            v-if="paymentProblemForm.errors.payment"
+                            role="alert"
+                            class="text-sm text-red-600"
+                        >
+                            {{ paymentProblemForm.errors.payment }}
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            :disabled="paymentProblemForm.processing"
+                            @click="closePaymentProblem"
+                            >{{
+                                t('transactions.sheet.paymentProblem.cancel')
+                            }}</Button
+                        >
+                        <Button
+                            variant="destructive"
+                            :disabled="paymentProblemForm.processing"
+                            @click="confirmPaymentProblem"
+                            ><TriangleAlert class="mr-2 size-4" />{{
+                                t('transactions.sheet.paymentProblem.confirm')
+                            }}</Button
+                        >
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 :open="refundingTransaction !== null"

@@ -8,6 +8,7 @@ use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
 use App\Services\Recurring\RecurringEntryPostingService;
+use App\Services\Salary\SalaryOccurrenceService;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\SharedExpenses\SharedExpenseOccurrencePostingService;
 use Carbon\CarbonImmutable;
@@ -88,7 +89,7 @@ class RecurringEntryLifecycleService
             ->whereNull('recurring_entry_occurrences.converted_transaction_id')
             ->whereNull('recurring_entry_occurrences.matched_transaction_id')
             ->whereNull('recurring_entry_occurrences.automatic_posting_blocked_at')
-            ->where('recurring_entry_occurrences.status', RecurringOccurrenceStatusEnum::PENDING->value)
+            ->whereIn('recurring_entry_occurrences.status', [RecurringOccurrenceStatusEnum::PENDING->value, RecurringOccurrenceStatusEnum::GENERATED->value])
             ->where(function ($query) use ($today): void {
                 $query->whereDate('recurring_entry_occurrences.due_date', '<=', $today)
                     ->orWhere(function ($fallback) use ($today): void {
@@ -101,13 +102,16 @@ class RecurringEntryLifecycleService
             ->get()
             ->each(function (RecurringEntryOccurrence $occurrence) use (&$createdCount, &$warningCount, &$errorCount): void {
                 try {
+                    if (app(SalaryOccurrenceService::class)->isBeyondEmployment($occurrence)) {
+                        return;
+                    }
                     if ($occurrence->converted_transaction_id !== null) {
                         $warningCount++;
 
                         return;
                     }
 
-                    if ($occurrence->recurringEntry?->is_amount_variable && $occurrence->amount_confirmed_at === null) {
+                    if (! is_numeric($occurrence->expected_amount) || (float) $occurrence->expected_amount <= 0) {
                         return;
                     }
 

@@ -16,6 +16,10 @@ class SupportRequestDetailResource extends JsonResource
     {
         return [
             'uuid' => $this->uuid,
+            'app_version' => $this->app_version,
+            'closed_at' => $this->closed_at?->toJSON(),
+            'last_admin_reply_at' => $this->last_admin_reply_at?->toJSON(),
+            'last_user_message_at' => $this->last_user_message_at?->toJSON(),
             'category' => $this->category,
             'subject' => $this->subject,
             'message' => $this->message,
@@ -23,6 +27,7 @@ class SupportRequestDetailResource extends JsonResource
             'status' => $this->status,
             'source_url' => $this->source_url,
             'source_route' => $this->source_route,
+            'messages' => $this->messages->map(fn ($message): array => ['uuid' => $message->uuid, 'author_type' => $message->author_type, 'body' => $message->body, 'created_at' => $message->created_at->toJSON(), 'admin_name' => $message->admin?->name])->all(),
             'meta' => $this->meta ?? [],
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),

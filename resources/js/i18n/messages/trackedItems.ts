@@ -36,7 +36,8 @@ export const trackedItemsMessages = {
             },
             status: {
                 active: 'Attivo',
-                sharedExpenseCounterpart: 'Può essere usato nelle spese condivise',
+                sharedExpenseCounterpart:
+                    'Può essere usato nelle spese condivise',
                 archived: 'In archivio',
                 used: 'In uso ({count})',
                 unused: 'Mai usato',
@@ -149,7 +150,8 @@ export const trackedItemsMessages = {
                 compatibleCategories: 'Categorie associate',
                 status: 'Stato',
                 active: 'Attivo',
-                sharedExpenseCounterpart: 'Può essere usato nelle spese condivise',
+                sharedExpenseCounterpart:
+                    'Può essere usato nelle spese condivise',
             },
             placeholders: {
                 name: 'Es. Kia, Casa 1, Cane',

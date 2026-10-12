@@ -23,6 +23,7 @@ export function groupQuickActions(templates, uncategorizedLabel) {
 
     const result = [...groups.values()];
     const names = result.map((group) => group.name.toLocaleLowerCase());
+
     for (const group of result) {
         if (
             names.filter((name) => name === group.name.toLocaleLowerCase())
@@ -31,5 +32,6 @@ export function groupQuickActions(templates, uncategorizedLabel) {
             group.name = group.full_path;
         }
     }
+
     return result;
 }

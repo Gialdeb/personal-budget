@@ -30,6 +30,7 @@ class RecurringEntryIndexResource extends JsonResource
 
         return [
             'uuid' => $this->uuid,
+            'salary_url' => $this->salarySchedule ? route('salary-employments.show', $this->salarySchedule->employment->uuid) : null,
             'show_url' => route('recurring-entries.show', $this->uuid),
             'title' => $this->title,
             'description' => $this->description,

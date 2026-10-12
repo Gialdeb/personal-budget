@@ -224,10 +224,7 @@ test('transactions edit type selectors expose refund as a virtual option before 
 
 test('transactions account selects group payment accounts and credit cards in filters and both edit forms', () => {
     assert.match(source, /import MobileSearchableSelect/);
-    assert.match(
-        source,
-        /<MobileSearchableSelect\s+v-model="selectedAccount"/,
-    );
+    assert.match(source, /<MobileSearchableSelect\s+v-model="selectedAccount"/);
     assert.match(source, /account_type_code === 'credit_card'/);
     assert.match(source, /dashboard\.filters\.paymentAccountsGroup/);
     assert.match(source, /dashboard\.filters\.creditCardsGroup/);
@@ -1049,4 +1046,72 @@ test('desktop transaction forms expose the shared quick category create trigger 
     assert.match(source, /openQuickCreate/);
     assert.match(source, /transactions\.form\.quickCategory\.trigger/);
     assert.match(formSheetSource, /<TransactionCategoryQuickCreate/);
+});
+
+test('shared expense toggle belongs to the register display options', () => {
+    const options = source.slice(
+        source.indexOf('transactions.sheet.grid.title'),
+        source.indexOf('transactions.sheet.grid.activeFilters'),
+    );
+    assert.match(options, /setSharedExpenseOnly/);
+    assert.match(options, /setShowOpeningBalances/);
+    assert.match(options, /setShowPlannedRecurring/);
+    assert.match(options, /setShowDeletedOnly/);
+    assert.equal(
+        (source.match(/@update:model-value="\s*setSharedExpenseOnly/g) ?? [])
+            .length,
+        1,
+    );
+});
+
+test('payment issue requires a dedicated dialog before sending the existing action', async () => {
+    const ts = await import('typescript');
+    const script = source.slice(
+        source.indexOf('function reportPaymentProblem('),
+        source.indexOf('function requestRefund('),
+    );
+    const js = ts.default.transpile(script, {
+        target: ts.default.ScriptTarget.ES2022,
+    });
+    const selected = { value: null };
+    const requests = [];
+    const form = {
+        processing: false,
+        clearErrors() {},
+        post(...args) {
+            requests.push(args);
+        },
+    };
+    const handlers = new Function(
+        'paymentProblemTransaction',
+        'paymentProblemForm',
+        'paymentProblem',
+        `${js}; return { reportPaymentProblem, closePaymentProblem, confirmPaymentProblem };`,
+    )(selected, form, { url: (uuid) => `/payment-problem/${uuid}` });
+    const transaction = {
+        uuid: 'test-payment',
+        can_report_payment_problem: true,
+    };
+    handlers.reportPaymentProblem(transaction);
+    assert.equal(selected.value, transaction);
+    assert.equal(requests.length, 0);
+    handlers.closePaymentProblem();
+    handlers.confirmPaymentProblem();
+    assert.equal(requests.length, 0);
+    handlers.reportPaymentProblem(transaction);
+    handlers.confirmPaymentProblem();
+    assert.equal(requests[0][0], '/payment-problem/test-payment');
+    form.processing = true;
+    handlers.confirmPaymentProblem();
+    handlers.closePaymentProblem();
+    assert.equal(requests.length, 1);
+    assert.equal(selected.value, transaction);
+    requests[0][1].onSuccess();
+    assert.equal(selected.value, null);
+    assert.match(source, /:open="paymentProblemTransaction !== null"/);
+    assert.match(messagesSource, /eliminata definitivamente/);
+    assert.match(
+        messagesSource,
+        /non verrà registrata di nuovo automaticamente/,
+    );
 });

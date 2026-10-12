@@ -6,6 +6,7 @@ use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
+use App\Services\Salary\SalaryOccurrenceService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -30,10 +31,13 @@ class RecurringEntryLifecycleService
             $entry->load('occurrences.convertedTransaction');
 
             foreach ($entry->occurrences as $occurrence) {
+                if (app(SalaryOccurrenceService::class)->isBeyondEmployment($occurrence)) {
+                    continue;
+                }
                 if ($occurrence->automatic_posting_blocked_at !== null || $occurrence->matched_transaction_id !== null) {
                     continue;
                 }
-                if ($entry->is_amount_variable && $occurrence->amount_confirmed_at === null) {
+                if (! is_numeric($occurrence->expected_amount) || (float) $occurrence->expected_amount <= 0) {
                     continue;
                 }
                 if (in_array($occurrence->status, [RecurringOccurrenceStatusEnum::SKIPPED, RecurringOccurrenceStatusEnum::CANCELLED, RecurringOccurrenceStatusEnum::REFUNDED], true)) {

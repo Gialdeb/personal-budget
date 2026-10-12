@@ -1,15 +1,19 @@
 <?php
 
 use App\Http\Resources\RecurringEntryOccurrenceResource;
+use App\Jobs\Automation\RunRecurringPipelineJob;
 use App\Models\Account;
 use App\Models\AccountType;
+use App\Models\Category;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\UserYear;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Recurring\AutomaticPaymentVerificationService;
 use App\Services\Recurring\RecurringEntryPostingService;
+use App\Services\Recurring\UpdateRecurringOccurrenceAmountService;
 use App\Services\Transactions\RecurringEntryLifecycleService;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -22,6 +26,7 @@ beforeEach(function () {
 function paymentVerificationOccurrence(string $direction = 'expense', bool $automatic = true, string $type = 'recurring'): RecurringEntryOccurrence
 {
     $user = User::factory()->create();
+    UserYear::create(['user_id' => $user->id, 'year' => 2026, 'is_closed' => false]);
     $accountType = AccountType::query()->firstOrCreate(['code' => 'payment_account'], ['name' => 'Conto', 'balance_nature' => 'asset']);
     $account = Account::query()->create([
         'user_id' => $user->id, 'account_type_id' => $accountType->id,
@@ -126,17 +131,16 @@ test('other users cannot confirm or invalidate automatic transactions', function
     expect($transaction->fresh()->payment_verified_at)->toBeNull();
 });
 
-test('variable amount confirmation remains distinct from payment verification', function () {
+test('variable automatic amounts post before confirmation and remain correctable afterwards', function () {
     $occurrence = paymentVerificationOccurrence();
     $occurrence->recurringEntry->forceFill(['is_amount_variable' => true])->save();
     app(RecurringEntryLifecycleService::class)->runAutomationPipeline();
-    expect(Transaction::count())->toBe(0);
-    $occurrence->forceFill(['expected_amount' => 23, 'amount_confirmed_at' => now()])->save();
-    app(RecurringEntryLifecycleService::class)->runAutomationPipeline();
     $transaction = $occurrence->fresh()->convertedTransaction;
-    expect((float) $transaction->amount)->toBe(23.0)
-        ->and($transaction->payment_verified_at)->toBeNull()
-        ->and($transaction->payment_verification_started_at)->not->toBeNull();
+    expect((float) $transaction->amount)->toBe(15.0)->and($occurrence->fresh()->amount_confirmed_at)->toBeNull();
+    app(UpdateRecurringOccurrenceAmountService::class)->update($occurrence, $occurrence->recurringEntry->user, 23);
+    expect((float) $transaction->fresh()->amount)->toBe(23.0)->and($transaction->fresh()->payment_verified_at)->toBeNull();
+    app(RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    expect(Transaction::count())->toBe(1);
 });
 
 test('skipped occurrences do not enter payment verification', function () {
@@ -200,4 +204,67 @@ test('matched transactions and unconfirmed variable amounts are excluded from op
     expect(RecurringEntryOccurrence::openObligations()->count())->toBe(0);
     $variable->forceFill(['amount_confirmed_at' => now()])->save();
     expect(RecurringEntryOccurrence::openObligations()->pluck('id')->all())->toBe([$variable->id]);
+});
+
+test('automatic lifecycle posts past variable schedules and waits only for future dates', function (string $start, int $expected) {
+    $occurrence = paymentVerificationOccurrence('income');
+    $entry = $occurrence->recurringEntry;
+    $occurrence->delete();
+    $entry->update(['start_date' => $start, 'is_amount_variable' => true, 'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 1]]);
+    $lifecycle = app(App\Services\Recurring\RecurringEntryLifecycleService::class);
+    $lifecycle->synchronize($entry);
+    app(RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    app(RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    expect(Transaction::count())->toBe($expected)->and(Transaction::pluck('recurring_entry_occurrence_id')->unique()->count())->toBe($expected);
+    expect($entry->occurrences()->whereNotNull('converted_transaction_id')->whereNotNull('amount_confirmed_at')->count())->toBe(0);
+})->with([['2026-11-01', 0], ['2026-10-01', 1], ['2026-08-01', 3]]);
+
+test('invalid automatic amount waits without creating a zero transaction', function () {
+    $occurrence = paymentVerificationOccurrence();
+    $occurrence->update(['expected_amount' => null]);
+    app(RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    expect(Transaction::count())->toBe(0);
+});
+
+test('changing the actual bank date preserves scheduled verification and problem reporting', function () {
+    $occurrence = paymentVerificationOccurrence('income');
+    app(RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    $transaction = $occurrence->fresh()->convertedTransaction;
+    $user = $occurrence->recurringEntry->user;
+    $category = Category::create(['user_id' => $user->id, 'name' => 'Income', 'slug' => 'income-date-test', 'direction_type' => 'income', 'group_type' => 'income', 'is_active' => true, 'is_selectable' => true]);
+    app(TransactionMutationService::class)->update($user, $transaction, [
+        'account_id' => $transaction->account_id, 'category_id' => $category->id, 'direction' => 'income',
+        'type_key' => 'income', 'amount' => 15, 'transaction_date' => '2026-10-12', 'description' => 'Bank date correction', 'notes' => null,
+    ]);
+    expect($transaction->fresh()->transaction_date->toDateString())->toBe('2026-10-12')
+        ->and($transaction->fresh()->kind->value)->toBe('scheduled')
+        ->and($occurrence->fresh()->expected_date->toDateString())->toBe('2026-10-09');
+    app(AutomaticPaymentVerificationService::class)->confirm($transaction->fresh());
+    app(AutomaticPaymentVerificationService::class)->reportProblem($transaction->fresh());
+    app(RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    expect(Transaction::count())->toBe(0)->and($occurrence->fresh()->automatic_posting_blocked_at)->not->toBeNull();
+});
+
+test('scheduler job can run twice and also posts generated occurrences', function () {
+    $occurrence = paymentVerificationOccurrence();
+    $occurrence->update(['status' => 'generated']);
+    $job = new RunRecurringPipelineJob;
+    app()->call([$job, 'handle']);
+    app()->call([$job, 'handle']);
+    expect(Transaction::where('recurring_entry_occurrence_id', $occurrence->id)->count())->toBe(1);
+});
+
+test('the transaction endpoint permits actual date and amount corrections but protects plan fields', function () {
+    $occurrence = paymentVerificationOccurrence('income');
+    $category = Category::create(['user_id' => $occurrence->recurringEntry->user_id, 'name' => 'Salary', 'slug' => 'salary-endpoint', 'direction_type' => 'income', 'group_type' => 'income', 'is_active' => true, 'is_selectable' => true]);
+    $occurrence->recurringEntry->update(['category_id' => $category->id]);
+    app(RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    $transaction = $occurrence->fresh()->convertedTransaction;
+    $this->actingAs($occurrence->recurringEntry->user)->patch(route('transactions.update', ['year' => 2026, 'month' => 10, 'transaction' => $transaction->uuid]), [
+        'account_uuid' => $transaction->account->uuid, 'category_uuid' => $category->uuid,
+        'type_key' => 'income', 'transaction_day' => 12, 'amount' => 19, 'description' => 'Corrected', 'notes' => null,
+    ])->assertSessionHasNoErrors()->assertRedirect();
+    expect($transaction->fresh()->transaction_date->toDateString())->toBe('2026-10-12')->and((float) $transaction->fresh()->amount)->toBe(19.0)->and($transaction->fresh()->kind->value)->toBe('scheduled');
+    $this->post(route('transactions.payment-confirmation', $transaction->uuid))->assertSessionHasNoErrors();
+    expect($transaction->fresh()->payment_verified_at)->not->toBeNull();
 });

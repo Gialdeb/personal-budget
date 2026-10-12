@@ -39,6 +39,10 @@ class UpdateRecurringOccurrenceAmountService
                 ->findOrFail($lockedOccurrence->recurring_entry_id);
 
             $this->ensureAmountCanBeUpdated($lockedOccurrence, $entry);
+            $salaryDetail = $lockedOccurrence->salaryDetail;
+            if ($salaryDetail && $lockedOccurrence->paymentAllocations()->exists()) {
+                throw ValidationException::withMessages(['amount' => __('salary.composition_locked')]);
+            }
 
             $transaction = $this->lockedConvertedTransaction($lockedOccurrence);
             $effectiveDate = $transaction?->transaction_date?->toDateString()
@@ -48,9 +52,18 @@ class UpdateRecurringOccurrenceAmountService
             $this->userYearService->ensureDateYearIsOpen($entry->user, $effectiveDate, 'amount');
 
             $lockedOccurrence->forceFill([
-                'expected_amount' => $normalizedAmount,
+                'expected_amount' => $salaryDetail && $transaction !== null ? $salaryDetail->expectedTotal() : $normalizedAmount,
                 'amount_confirmed_at' => now(),
             ])->save();
+
+            if ($salaryDetail && $transaction === null) {
+                $components = (int) round((float) $salaryDetail->components()->sum('amount') * 100);
+                $base = (int) round($normalizedAmount * 100) - $components;
+                if ($base < 0) {
+                    throw ValidationException::withMessages(['amount' => __('salary.total_positive')]);
+                }
+                $salaryDetail->update(['base_expected_amount' => $base / 100, 'is_overridden' => true]);
+            }
 
             if ($transaction instanceof Transaction) {
                 $account = $transaction->account()

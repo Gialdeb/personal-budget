@@ -1026,7 +1026,8 @@ class MonthlyTransactionSheetService
             'can_edit' => $canMutate
                 && ! $isCreditDebtTransaction
                 && ! $transaction->trashed()
-                && ! in_array($transaction->kind, [TransactionKindEnum::OPENING_BALANCE, TransactionKindEnum::BALANCE_ADJUSTMENT, TransactionKindEnum::SCHEDULED, TransactionKindEnum::REFUND], true),
+                && (! in_array($transaction->kind, [TransactionKindEnum::OPENING_BALANCE, TransactionKindEnum::BALANCE_ADJUSTMENT, TransactionKindEnum::SCHEDULED, TransactionKindEnum::REFUND], true)
+                    || ($transaction->kind === TransactionKindEnum::SCHEDULED && $transaction->payment_verification_started_at !== null && $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id && ! $hasLinkedRefund)),
             'can_delete' => $canMutate && $canDelete && ! $hasLinkedRefund && ! $isCreditDebtTransaction,
             'can_restore' => $canMutate && $canRestore,
             'can_force_delete' => $canMutate && $canForceDelete && ! $hasLinkedRefund,

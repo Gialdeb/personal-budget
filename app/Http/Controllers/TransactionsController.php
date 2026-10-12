@@ -383,10 +383,23 @@ class TransactionsController extends Controller
             ]);
         }
 
-        if ($transaction->recurring_entry_occurrence_id !== null) {
+        if ($transaction->recurring_entry_occurrence_id !== null && $transaction->payment_verification_started_at === null) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.recurring_transaction_update_from_plan'),
             ]);
+        }
+
+        if ($transaction->recurring_entry_occurrence_id !== null) {
+            $data = $request->validated();
+            $structuralChanged = (int) $data['account_id'] !== (int) $transaction->account_id
+                || (int) ($data['category_id'] ?? 0) !== (int) $transaction->category_id
+                || (int) ($data['tracked_item_id'] ?? 0) !== (int) $transaction->tracked_item_id
+                || (int) ($data['scope_id'] ?? 0) !== (int) $transaction->scope_id
+                || ($data['type_key'] ?? null) !== $transaction->direction->value
+                || (bool) ($data['is_shared_expense'] ?? false) !== ($transaction->shared_expense_counterparty_id !== null);
+            if ($structuralChanged || $transaction->refundTransaction()->exists() || $transaction->recurringOccurrence?->converted_transaction_id !== $transaction->id) {
+                throw ValidationException::withMessages(['transaction' => __('transactions.validation.recurring_transaction_update_from_plan')]);
+            }
         }
 
         $this->transactionMutationService->update(

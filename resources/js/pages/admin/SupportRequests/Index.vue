@@ -49,7 +49,7 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
                     <div
                         class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
                     >
-                        <div class="space-y-3">
+                        <div class="min-w-0 space-y-3">
                             <Badge
                                 class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
@@ -92,7 +92,7 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
                             {{ t('admin.supportRequestsPage.listDescription') }}
                         </CardDescription>
                     </CardHeader>
-                    <CardContent class="space-y-3">
+                    <CardContent class="min-w-0 space-y-3">
                         <div
                             v-if="props.supportRequests.data.length === 0"
                             class="rounded-2xl border border-dashed border-border bg-muted/45 px-4 py-8 text-center text-sm text-muted-foreground"
@@ -108,17 +108,18 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
                             <div
                                 class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
                             >
-                                <div class="space-y-3">
+                                <div class="min-w-0 space-y-3">
                                     <div
                                         class="flex flex-wrap items-center gap-2"
                                     >
                                         <p
-                                            class="text-lg font-semibold tracking-tight text-foreground"
+                                            class="text-lg font-semibold tracking-tight break-words text-foreground"
                                         >
                                             {{ supportRequest.subject }}
                                         </p>
                                         <SupportRequestStatusBadge
                                             kind="status"
+                                            admin
                                             :value="supportRequest.status"
                                         />
                                         <SupportRequestStatusBadge
@@ -190,6 +191,19 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
                                         </span>
                                     </div>
 
+                                    <p class="text-xs text-muted-foreground">
+                                        {{ t('supportTickets.filterVersion') }}:
+                                        <strong>{{
+                                            supportRequest.app_version ??
+                                            t('supportTickets.unknown')
+                                        }}</strong>
+                                        · {{ t('supportTickets.activity') }}:
+                                        {{
+                                            new Date(
+                                                supportRequest.updated_at ?? '',
+                                            ).toLocaleString(locale)
+                                        }}
+                                    </p>
                                     <div
                                         class="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground"
                                     >

@@ -1127,7 +1127,9 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
             Object.entries(errors).forEach(([field, messages]) => {
                 form.setError(
                     field as
-                        'account_uuid' | 'transaction_day' | 'desired_balance',
+                        | 'account_uuid'
+                        | 'transaction_day'
+                        | 'desired_balance',
                     Array.isArray(messages)
                         ? String(messages[0] ?? '')
                         : String(messages ?? ''),
@@ -1271,7 +1273,8 @@ async function refreshExchangePreview(): Promise<void> {
 
             exchangePreviewError.value =
                 (payload?.errors?.transaction_date?.[0] as
-                    string | undefined) ??
+                    | string
+                    | undefined) ??
                 (payload?.errors?.transaction_day?.[0] as string | undefined) ??
                 (payload?.errors?.amount?.[0] as string | undefined) ??
                 (payload?.errors?.account_uuid?.[0] as string | undefined) ??
@@ -1790,6 +1793,7 @@ function submit(): void {
     const paymentDateParts = props.paymentOccurrence
         ? parseIsoDateParts(form.transaction_date)
         : null;
+
     if (
         props.paymentOccurrence &&
         (!paymentDateParts ||
@@ -1807,8 +1811,10 @@ function submit(): void {
             'transaction_date',
             t('transactions.form.labels.moveDate'),
         );
+
         return;
     }
+
     if (unresolvedTemplateIssues.value.length) {
         form.setError(
             'description',

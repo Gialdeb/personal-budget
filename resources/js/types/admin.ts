@@ -1,4 +1,5 @@
 import type { LocaleOption } from './locale';
+import type { SupportTicketMessage } from './support';
 
 export type AdminUserRole = 'admin' | 'staff' | 'user';
 
@@ -327,7 +328,7 @@ export type SupportRequestCategory =
     | 'feature_request'
     | 'general_support';
 
-export type SupportRequestStatus = 'new' | 'in_progress' | 'closed';
+export type SupportRequestStatus = 'waiting_admin' | 'waiting_user' | 'closed';
 
 export type AdminSupportRequestUser = {
     uuid: string;
@@ -336,6 +337,8 @@ export type AdminSupportRequestUser = {
 };
 
 export type AdminSupportRequestListItem = {
+    app_version: string | null;
+    updated_at: string | null;
     uuid: string;
     category: SupportRequestCategory;
     subject: string;
@@ -348,6 +351,7 @@ export type AdminSupportRequestListItem = {
 };
 
 export type AdminSupportRequestDetail = AdminSupportRequestListItem & {
+    messages: SupportTicketMessage[];
     message: string;
     updated_at: string | null;
     meta: Record<string, unknown>;
@@ -360,11 +364,17 @@ export type PaginatedAdminSupportRequests = {
 };
 
 export type AdminSupportRequestFilters = {
-    status: SupportRequestStatus | null;
+    user: string;
+    search: string;
+    version: string;
+    status: SupportRequestStatus | 'open' | 'all' | null;
     category: SupportRequestCategory | null;
 };
 
 export type AdminSupportRequestOptions = {
+    users: { value: string; label: string }[];
+    versions: { value: string; label: string }[];
+    openCounts: Record<SupportRequestCategory, number>;
     statuses: SupportRequestStatus[];
     categories: SupportRequestCategory[];
 };
