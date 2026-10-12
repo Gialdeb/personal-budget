@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AdminInvitationActions from '@/components/admin/users/AdminInvitationActions.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -328,6 +329,7 @@ const pageLinks = computed(() =>
                         >
                             {{ t('admin.users.actions.impersonate') }}
                         </Button>
+                        <AdminInvitationActions :user="user" />
                         <Button
                             variant="outline"
                             class="h-10 justify-start rounded-xl"
@@ -590,6 +592,7 @@ const pageLinks = computed(() =>
                                 >
                                     {{ t('admin.users.actions.impersonate') }}
                                 </Button>
+                                <AdminInvitationActions :user="user" />
                                 <Button
                                     size="sm"
                                     variant="outline"

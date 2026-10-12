@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ActivityLogController;
+use App\Http\Controllers\Admin\AdminInvitationController;
 use App\Http\Controllers\Admin\AutomationController;
 use App\Http\Controllers\Admin\ChangelogReleaseController;
 use App\Http\Controllers\Admin\CommunicationCategoryController;
@@ -36,6 +37,11 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
 
         // ADMIN DASHBOARD
         Route::get('/', fn () => inertia('admin/Index'))->name('index');
+
+        Route::post('/users/{user:uuid}/admin-invitations', [AdminInvitationController::class, 'store'])
+            ->whereUuid('user')->middleware('throttle:10,60')->name('users.admin-invitations.store');
+        Route::delete('/admin-invitations/{adminInvitation:uuid}', [AdminInvitationController::class, 'destroy'])
+            ->whereUuid('adminInvitation')->name('admin-invitations.destroy');
 
         // ADMIN USERS
         Route::get('/users', [UserManagementController::class, 'index'])->name('users');
