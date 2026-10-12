@@ -9,6 +9,7 @@ import { initializeTheme } from '@/composables/useAppearance';
 import { initializeAppTouchGuards } from '@/composables/useAppTouchGuards';
 import { createAppI18n } from '@/i18n';
 import { initializeAnalytics } from '@/lib/analytics';
+import { initializeSessionIsolation } from '@/lib/session-isolation';
 import {
     destroy as destroyPushTokenAction,
     store as storePushTokenAction,
@@ -29,6 +30,11 @@ createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) => resolvePageComponent(`./pages/${name}.vue`, pages),
     setup({ el, App, props, plugin }) {
+        initializeSessionIsolation(
+            props.initialPage.props.auth?.user?.uuid ?? null,
+            document.documentElement.hasAttribute('data-session-private'),
+        );
+
         const i18n = createAppI18n(props.initialPage.props);
         document.documentElement.lang = i18n.global.locale.value;
         syncMoneyPreferences(

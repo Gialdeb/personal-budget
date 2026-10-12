@@ -29,10 +29,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProfileController extends Controller
@@ -269,6 +272,8 @@ class ProfileController extends Controller
             $request->string('service_worker_version')->toString() ?: null,
         );
 
+        $request->session()->put('push_device_token_uuid', $deviceRegistration['device_token']->uuid);
+
         $this->storePushPreference($user, true);
 
         return response()->json([
@@ -451,9 +456,16 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
-        Auth::logout();
+        DB::transaction(function () use ($user): void {
+            Role::query()->where('name', 'admin')->where('guard_name', 'web')->lockForUpdate()->first();
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+            if ($user->hasRole('admin') && User::role('admin')->count() <= 1) {
+                throw ValidationException::withMessages(['password' => __('admin_invitation.last_admin')]);
+            }
+            $user->delete();
+        }, 3);
 
-        $user->delete();
+        Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

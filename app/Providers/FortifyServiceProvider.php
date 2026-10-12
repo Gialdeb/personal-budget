@@ -24,6 +24,7 @@ use Laravel\Fortify\Actions\EnsureLoginIsNotThrottled;
 use Laravel\Fortify\Actions\PrepareAuthenticatedSession;
 use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
+use Laravel\Fortify\Contracts\LogoutResponse;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
@@ -37,6 +38,7 @@ class FortifyServiceProvider extends ServiceProvider
     {
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
         $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
+        $this->app->bind(LogoutResponse::class, \App\Http\Responses\LogoutResponse::class);
     }
 
     /**

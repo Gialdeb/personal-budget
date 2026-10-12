@@ -14,8 +14,10 @@ use App\Http\Middleware\EnsureReportFeatureIsEnabled;
 use App\Http\Middleware\EnsureUserIsNotBanned;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\PreventPrivateResponseCaching;
 use App\Http\Middleware\SetApplicationLocaleMiddleware;
 use App\Support\BackendErrorResponse;
+use App\Support\PrivateResponsePolicy;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -35,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AddRequestLogContext::class);
+        $middleware->prepend(PreventPrivateResponseCaching::class);
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
         $middleware->trustProxies(at: '*');
         $middleware->validateCsrfTokens(except: [
@@ -77,7 +80,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 'user_id' => $request->user()?->getAuthIdentifier(),
             ];
         });
-        $exceptions->respond(fn ($response) => app(BackendErrorResponse::class)->render($response, request()));
+        $exceptions->respond(fn ($response) => app(PrivateResponsePolicy::class)->apply(app(BackendErrorResponse::class)->render($response, request())));
         $renderSharingException = function (Throwable $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([

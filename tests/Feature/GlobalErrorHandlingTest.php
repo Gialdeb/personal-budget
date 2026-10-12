@@ -136,7 +136,7 @@ test('deployment maintenance retains its page and automatic refresh headers', fu
     $this->get('/__test/server-error')->assertStatus(503)
         ->assertHeader('Retry-After', '15')
         ->assertHeader('Refresh', '5')
-        ->assertSee('Siamo in manutenzione')
+        ->assertSee('Stiamo aggiornando Soamco')
         ->assertDontSee('Si è verificato un problema')
         ->assertDontSee('never-expose');
 
@@ -150,5 +150,5 @@ test('maintenance page refreshes automatically even without deployment refresh o
 
     $this->get('/__test/server-error')->assertStatus(503)
         ->assertHeader('Refresh', '10')
-        ->assertSee('Siamo in manutenzione');
+        ->assertSee('Stiamo aggiornando Soamco');
 });

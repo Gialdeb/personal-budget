@@ -5,12 +5,15 @@ namespace App\Providers;
 use App\Models\Account;
 use App\Models\AccountInvitation;
 use App\Models\AccountMembership;
+use App\Models\DeviceToken;
 use App\Models\User;
 use App\Policies\AccountInvitationPolicy;
 use App\Policies\AccountMembershipPolicy;
 use App\Policies\AccountPolicy;
+use App\Support\AuthenticatedSsrGateway;
 use App\Support\Sentinel\HorizonDriver;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Support\Facades\Date;
@@ -20,6 +23,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Inertia\Ssr\Gateway;
 use Laravel\Sentinel\Sentinel;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(Gateway::class, AuthenticatedSsrGateway::class);
         Sentinel::extend('horizon', fn ($app) => new HorizonDriver(fn () => $app));
     }
 
@@ -38,6 +43,22 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        Event::listen(Logout::class, function (Logout $event): void {
+            if (! request()->hasSession() || ! $event->user instanceof User) {
+                return;
+            }
+
+            $deviceUuid = request()->session()->pull('push_device_token_uuid');
+
+            if (is_string($deviceUuid)) {
+                DeviceToken::query()->where('user_id', $event->user->id)->where('uuid', $deviceUuid)->update([
+                    'is_active' => false,
+                    'invalidated_at' => now(),
+                    'invalidation_reason' => 'session_logout',
+                ]);
+            }
+        });
 
         Gate::define('viewLogViewer', fn (?User $user): bool => $user?->isAdmin() === true);
         Gate::define('deleteLogFile', fn (): bool => false);

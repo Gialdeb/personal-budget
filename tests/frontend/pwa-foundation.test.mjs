@@ -254,9 +254,13 @@ test('banner copy covers offline state and update refresh UX', () => {
 });
 
 test('offline fallback is present and human readable', () => {
-    assert.match(offlineSource, /You are offline\./);
-    assert.match(offlineSource, /Try again/);
-    assert.match(offlineSource, /Go to home/);
+    assert.match(offlineSource, /You are offline/);
+    assert.match(offlineSource, /Retry/);
+    assert.match(offlineSource, /Riprova/);
+    assert.match(offlineSource, /class="brand-logo"/);
+    assert.match(offlineSource, /aria-label="Soamco Budget"/);
+    assert.match(offlineSource, /window.parent.location.reload/);
+    assert.doesNotMatch(offlineSource, /auth\.user|data-page/);
 });
 
 test('required PWA binary assets exist and are valid PNG files', () => {

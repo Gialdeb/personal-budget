@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminInvitationAcceptanceController;
 use App\Http\Controllers\AssetVersionController;
 use App\Http\Controllers\ChangelogFeedController;
 use App\Http\Controllers\HelpCenterArticleController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\PublicEditorialAssetController;
 use App\Http\Controllers\PublicSitemapController;
 use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\ServiceWorkerController;
+use App\Http\Controllers\SessionIdentityController;
 use App\Http\Controllers\Settings\LocaleController;
 use App\Http\Controllers\Sharing\AccountInvitationOnboardingController;
 use App\Http\Controllers\Webhooks\KofiWebhookController;
@@ -23,6 +25,8 @@ Route::get('/service-worker.js', ServiceWorkerController::class)
     ->name('pwa.service-worker');
 Route::get('/asset-version', AssetVersionController::class)
     ->name('asset-version');
+Route::get('/session/identity', SessionIdentityController::class)
+    ->name('session.identity');
 Route::get('/maintenance/status', MaintenanceStatusController::class)
     ->name('maintenance.status');
 Route::post('/webhooks/kofi', KofiWebhookController::class)
@@ -84,6 +88,13 @@ Route::prefix('account-invitations')->name('account-invitations.')->group(functi
     Route::post('/{accountInvitation}/accept-authenticated', [AccountInvitationOnboardingController::class, 'acceptAuthenticated'])
         ->middleware(['auth'])
         ->name('accept-authenticated');
+});
+
+Route::middleware(['auth', 'verified', 'not_banned'])->prefix('admin-invitations')->name('admin-invitations.')->group(function () {
+    Route::get('/{adminInvitation:uuid}', [AdminInvitationAcceptanceController::class, 'show'])
+        ->whereUuid('adminInvitation')->name('show');
+    Route::post('/{adminInvitation:uuid}', [AdminInvitationAcceptanceController::class, 'store'])
+        ->whereUuid('adminInvitation')->middleware('throttle:5,1')->name('accept');
 });
 
 require __DIR__.'/dashboard.php';

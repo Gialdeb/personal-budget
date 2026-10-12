@@ -61,7 +61,13 @@ self.addEventListener('install', (event) => {
         (async () => {
             const cache = await caches.open(STATIC_CACHE);
 
-            await cache.addAll(PRECACHE_URLS);
+            await Promise.allSettled(PRECACHE_URLS.filter((url) => url !== OFFLINE_URL).map(async (url) => {
+                const response = await fetch(new Request(new URL(url, self.location.origin), { credentials: 'omit', cache: 'no-store' }));
+
+                if (!response.redirected && response.ok && isCacheableResponse(response)) {
+                    await cache.put(url, response);
+                }
+            }));
             self.skipWaiting();
         })(),
     );
@@ -72,7 +78,7 @@ self.addEventListener('activate', (event) => {
         (async () => {
             if ('navigationPreload' in self.registration) {
                 try {
-                    await self.registration.navigationPreload.enable();
+                    await self.registration.navigationPreload.disable();
                 } catch (error) {
                     pushSwInfo(
                         '[push-sw] navigation preload skipped',
@@ -131,7 +137,11 @@ self.addEventListener('fetch', (event) => {
 
     if (isStableImageRequest(request, url.pathname)) {
         event.respondWith(handleStableImageRequest(event));
+
+        return;
     }
+
+    event.respondWith(fetch(new Request(request, { cache: 'no-store' })));
 });
 
 function isStaticAssetRequest(pathname) {
@@ -152,22 +162,12 @@ function isStableImageRequest(request, pathname) {
 
 async function handleNavigationRequest(event) {
     try {
-        const preloadResponse = await event.preloadResponse;
-
-        if (preloadResponse) {
-            return preloadResponse;
-        }
-
-        return await fetch(new Request(event.request, { cache: 'no-cache' }));
+        return await fetch(new Request(event.request, { cache: 'no-store' }));
     } catch {
-        const cache = await caches.open(STATIC_CACHE);
-        const offlineResponse = await cache.match(OFFLINE_URL);
-
-        if (offlineResponse) {
-            return offlineResponse;
-        }
-
-        return Response.error();
+        return new Response({!! \Illuminate\Support\Js::from(file_get_contents(public_path('offline.html'))) !!}, {
+            status: 503,
+            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+        });
     }
 }
 
@@ -185,7 +185,7 @@ async function handleStableImageRequest(event) {
         })
         .catch(() => null);
 
-    if (cachedResponse) {
+    if (cachedResponse && isCacheableResponse(cachedResponse)) {
         event.waitUntil(networkResponsePromise);
 
         return cachedResponse;
@@ -198,7 +198,7 @@ async function cacheFirst(request, cacheName) {
     const cache = await caches.open(cacheName);
     const cachedResponse = await cache.match(request);
 
-    if (cachedResponse) {
+    if (cachedResponse && isCacheableResponse(cachedResponse)) {
         return cachedResponse;
     }
 
@@ -212,7 +212,13 @@ async function cacheFirst(request, cacheName) {
 }
 
 function isCacheableResponse(response) {
-    return response.ok && response.type === 'basic';
+    const policy = response.headers.get('Cache-Control') || '';
+    const contentType = response.headers.get('Content-Type') || '';
+
+    return response.ok && response.type === 'basic' && !response.redirected
+        && !/no-store|private/i.test(policy)
+        && /^(text\/css|(?:application|text)\/(?:javascript|x-javascript)|image\/|font\/|application\/(?:font|x-font|vnd.ms-fontobject))/.test(contentType);
+
 }
 
 async function claimClientsWhenActive() {

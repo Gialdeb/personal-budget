@@ -26,8 +26,8 @@ dataset('localized_error_pages', [
     '429 en' => ['429', 'en', 'Too many requests', 'Too many requests were made in a short time. Please wait a moment and try again.'],
     '500 it' => ['500', 'it', 'Qualcosa è andato storto', 'Si è verificato un problema interno. Stiamo lavorando per risolverlo.'],
     '500 en' => ['500', 'en', 'Something went wrong', 'An internal problem occurred. We’re working to fix it.'],
-    '503 it' => ['503', 'it', 'Siamo in manutenzione', 'Stiamo effettuando un aggiornamento o un intervento tecnico. Torna tra poco.'],
-    '503 en' => ['503', 'en', 'We’re under maintenance', 'We’re performing an update or technical maintenance. Please check back soon.'],
+    '503 it' => ['503', 'it', 'Stiamo aggiornando Soamco', 'Torneremo disponibili tra poco. La pagina si aggiornerà automaticamente.'],
+    '503 en' => ['503', 'en', 'We are updating Soamco', 'We will be back shortly. This page will refresh automatically.'],
 ]);
 
 test('error pages render localized copy', function (
@@ -78,7 +78,9 @@ test('maintenance page avoids dashboard and home ctas', function () {
 
     expect($html)->not->toContain(route('dashboard'))
         ->not->toContain(route('home'))
-        ->toContain('window.location.reload()');
+        ->toContain('http-equiv="refresh"')
+        ->toContain('aria-label="Soamco Budget"')
+        ->toContain('prefers-reduced-motion');
 });
 
 test('error pages fall back to request preferred language when the app locale is unsupported', function () {
@@ -99,8 +101,8 @@ test('maintenance page uses browser english when no authenticated user locale is
         'HTTP_ACCEPT_LANGUAGE' => 'en-US,en;q=0.9',
     ]);
 
-    expect($html)->toContain('We’re under maintenance')
-        ->toContain('We’re performing an update or technical maintenance. Please check back soon.');
+    expect($html)->toContain('We are updating Soamco')
+        ->toContain('We will be back shortly. This page will refresh automatically.');
 });
 
 test('authenticated user locale wins over browser language in error pages', function () {

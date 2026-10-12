@@ -3,6 +3,7 @@
     use App\Support\Pwa\PwaManifestData;
     use Illuminate\Support\Facades\Vite;
 
+    $requiresSessionVerification = ($page['props']['sessionVerificationRequired'] ?? false) === true;
     $pwaVersion = app(PwaManifestData::class)->version();
     $publicSeo = is_array($page['props']['publicSeo'] ?? null) ? $page['props']['publicSeo'] : null;
     $umamiEnabled = (bool) config('analytics.umami.enabled')
@@ -10,7 +11,7 @@
         && filled(config('analytics.umami.script_url'));
     $umamiDomains = config('analytics.umami.domains', []);
 @endphp
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"  @class(['dark' => ($appearance ?? 'system') == 'dark'])>
+<html @if($requiresSessionVerification) data-session-private data-session-unverified @endif lang="{{ str_replace('_', '-', app()->getLocale()) }}"  @class(['dark' => ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -55,6 +56,13 @@
             html.dark {
                 background-color: oklch(0.145 0 0);
             }
+
+            html[data-session-unverified] #app { visibility: hidden; }
+            html[data-session-unverified] body > :not(#session-state):not(template) { display: none !important; }
+            #session-state {position:fixed;inset:0;z-index:2147483647;display:grid;place-content:center;background:#faf9f7;color:#334155;text-align:center;font:16px system-ui;padding:24px;}
+            html.dark #session-state {background:#0f172a;color:#e2e8f0;}
+            #session-state[hidden] {display:none;}
+            #session-state iframe {position:fixed;inset:0;width:100%;height:100%;border:0;}
 
             #soamco-startup {
                 position: fixed;
@@ -159,6 +167,8 @@
                 window.addEventListener('soamco:startup-error', showFallback);
             })();
         </script>
+        <div id="session-state" role="status" @if(!$requiresSessionVerification) hidden @endif><strong>Soamco</strong><p>{{ app()->getLocale() === 'it' ? 'Verifica della sessione…' : 'Checking session…' }}</p></div>
+        <template id="neutral-offline-page">{!! file_get_contents(public_path('offline.html')) !!}</template>
         @inertia
     </body>
 </html>
