@@ -285,6 +285,7 @@ test('guest login does not depend on identity fetch even offline or during ident
     let calls = 0;
     h.scope.fetch = async () => {
         calls++;
+
         throw new Error('server error');
     };
     await h.initialize(null);

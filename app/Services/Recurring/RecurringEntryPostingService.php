@@ -51,7 +51,7 @@ class RecurringEntryPostingService
             if ($entry->trial_duration && today()->lt($entry->firstBillingDate())) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.the_trial_period_is_still_active_5538e145')]);
             }
-            if ($occurrence->sharedExpenseLedgerEntry()->exists() || ($occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by) === 'counterparty') {
+            if ($occurrence->sharedExpenseLedgerEntry()->exists() || ($metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by) === 'counterparty') {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);
             }
             if ($occurrence->paymentAllocations()->exists()) {
@@ -59,6 +59,9 @@ class RecurringEntryPostingService
             }
             if ($occurrence->matched_transaction_id !== null || ! in_array($occurrence->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED], true)) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);
+            }
+            if (isset($metadata['amount']) && (int) round((float) $metadata['amount'] * 100) !== (int) round((float) $occurrence->expected_amount * 100)) {
+                throw ValidationException::withMessages(['amount' => 'Per il pagamento dal tuo conto registra l’intero importo della scadenza.']);
             }
             $automatic = (bool) ($metadata['automatic_posting'] ?? false);
             if ($automatic && (! is_numeric($occurrence->expected_amount) || (float) $occurrence->expected_amount <= 0)) {
@@ -94,7 +97,7 @@ class RecurringEntryPostingService
                 'merchant_id' => $entry->merchant_id,
                 'tracked_item_id' => $entry->tracked_item_id,
                 'shared_expense_counterparty_id' => $entry->shared_expense_counterparty_id,
-                'shared_expense_paid_by' => $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by,
+                'shared_expense_paid_by' => $metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by,
                 'shared_expense_my_share_cents' => $occurrence->shared_expense_my_share_cents ?? $entry->shared_expense_my_share_cents,
                 'shared_expense_counterparty_share_cents' => $occurrence->shared_expense_counterparty_share_cents ?? $entry->shared_expense_counterparty_share_cents,
                 'transaction_date' => $effectiveTransactionDate,

@@ -141,6 +141,33 @@ const pauseUnit = computed(() =>
     ),
 );
 const deleteDialogOpen = ref(false);
+const sharedPaymentOccurrence = ref<
+    (typeof props.recurringEntry.occurrences)[number] | null
+>(null);
+const sharedPaymentForm = useForm({
+    shared_expense_paid_by: 'self',
+    amount: '',
+    transaction_date: '',
+    confirm_future_date: true,
+});
+function submitSharedPayment(): void {
+    if (!sharedPaymentOccurrence.value) {
+        return;
+    }
+
+    sharedPaymentForm.post(
+        convertOccurrence.url([
+            props.recurringEntry.entry.uuid,
+            sharedPaymentOccurrence.value.uuid,
+        ]),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                sharedPaymentOccurrence.value = null;
+            },
+        },
+    );
+}
 const convertDialogOccurrenceUuid = ref<string | null>(null);
 const refundDialogTransactionUuid = ref<string | null>(null);
 const undoConversionOccurrenceUuid = ref<string | null>(null);
@@ -330,7 +357,9 @@ function occurrenceState(
 
     if (occurrence.converted_transaction) {
         return {
-            label: t('transactions.recurring.table.convertedBadge'),
+            label: entry.value.shared_expense_counterparty
+                ? 'Pagata da te'
+                : t('transactions.recurring.table.convertedBadge'),
             tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
         };
     }
@@ -545,6 +574,21 @@ function submitOccurrenceEdit(): void {
 function requestConvert(
     occurrence: (typeof props.recurringEntry.occurrences)[number],
 ): void {
+    if (entry.value.shared_expense_counterparty) {
+        sharedPaymentForm.clearErrors();
+        sharedPaymentForm.shared_expense_paid_by = occurrence.external_payment
+            ? 'counterparty'
+            : (entry.value.shared_expense_paid_by ?? 'self');
+        sharedPaymentForm.amount = String(
+            occurrence.remaining_amount ?? occurrence.expected_amount ?? '',
+        );
+        sharedPaymentForm.transaction_date =
+            occurrence.due_date ?? occurrence.expected_date ?? '';
+        sharedPaymentOccurrence.value = occurrence;
+
+        return;
+    }
+
     if (isFutureOccurrence(occurrence)) {
         convertDialogOccurrenceUuid.value = occurrence.uuid;
 
@@ -1257,7 +1301,11 @@ function isFutureOccurrence(
                                 @click="requestConvert(occurrence)"
                             >
                                 {{
-                                    t('transactions.recurring.actions.convert')
+                                    entry.shared_expense_counterparty
+                                        ? 'Registra pagamento'
+                                        : t(
+                                              'transactions.recurring.actions.convert',
+                                          )
                                 }}
                             </Button>
                             <Button
@@ -1680,9 +1728,11 @@ function isFutureOccurrence(
                                             @click="requestConvert(occurrence)"
                                         >
                                             {{
-                                                t(
-                                                    'transactions.recurring.actions.convert',
-                                                )
+                                                entry.shared_expense_counterparty
+                                                    ? 'Registra pagamento'
+                                                    : t(
+                                                          'transactions.recurring.actions.convert',
+                                                      )
                                             }}
                                         </Button>
                                         <Button
@@ -1943,6 +1993,129 @@ function isFutureOccurrence(
         </Dialog>
 
         <Dialog
+            :open="sharedPaymentOccurrence !== null"
+            @update:open="
+                (value) => {
+                    if (!value) sharedPaymentOccurrence = null;
+                }
+            "
+        >
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Registra pagamento condiviso</DialogTitle>
+                    <DialogDescription
+                        >Indica chi ha pagato questa scadenza. L’anticipo della
+                        controparte viene registrato nelle Spese
+                        condivise.</DialogDescription
+                    >
+                </DialogHeader>
+                <form class="space-y-4" @submit.prevent="submitSharedPayment">
+                    <fieldset class="space-y-2">
+                        <legend class="text-sm font-medium">Pagato da</legend>
+                        <div class="flex gap-2">
+                            <Button
+                                type="button"
+                                :variant="
+                                    sharedPaymentForm.shared_expense_paid_by ===
+                                    'self'
+                                        ? 'default'
+                                        : 'outline'
+                                "
+                                :aria-pressed="
+                                    sharedPaymentForm.shared_expense_paid_by ===
+                                    'self'
+                                "
+                                @click="
+                                    sharedPaymentForm.shared_expense_paid_by =
+                                        'self'
+                                "
+                                >Io</Button
+                            >
+                            <Button
+                                type="button"
+                                :variant="
+                                    sharedPaymentForm.shared_expense_paid_by ===
+                                    'counterparty'
+                                        ? 'default'
+                                        : 'outline'
+                                "
+                                :aria-pressed="
+                                    sharedPaymentForm.shared_expense_paid_by ===
+                                    'counterparty'
+                                "
+                                @click="
+                                    sharedPaymentForm.shared_expense_paid_by =
+                                        'counterparty'
+                                "
+                                >{{
+                                    entry.shared_expense_counterparty?.name
+                                }}</Button
+                            >
+                        </div>
+                    </fieldset>
+                    <div class="space-y-2">
+                        <label
+                            for="shared-occurrence-amount"
+                            class="text-sm font-medium"
+                            >Importo pagato</label
+                        >
+                        <Input
+                            id="shared-occurrence-amount"
+                            v-model="sharedPaymentForm.amount"
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            required
+                        />
+                        <InputError
+                            :message="sharedPaymentForm.errors.amount"
+                        />
+                    </div>
+                    <div class="space-y-2">
+                        <label
+                            for="shared-occurrence-date"
+                            class="text-sm font-medium"
+                            >Data del pagamento</label
+                        >
+                        <Input
+                            id="shared-occurrence-date"
+                            v-model="sharedPaymentForm.transaction_date"
+                            type="date"
+                            required
+                        />
+                        <InputError
+                            :message="sharedPaymentForm.errors.transaction_date"
+                        />
+                    </div>
+                    <InputError
+                        :message="
+                            sharedPaymentForm.errors.shared_expense_paid_by
+                        "
+                    />
+                    <InputError
+                        :message="
+                            (sharedPaymentForm.errors as Record<string, string>)
+                                .occurrence
+                        "
+                    />
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="sharedPaymentOccurrence = null"
+                            >Annulla</Button
+                        >
+                        <Button
+                            type="submit"
+                            :disabled="sharedPaymentForm.processing"
+                            >Salva pagamento</Button
+                        >
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog
             :open="convertDialogOccurrenceUuid !== null"
             @update:open="
                 (value) => {
@@ -1975,7 +2148,11 @@ function isFutureOccurrence(
                         class="rounded-xl"
                         @click="handleConvert(convertDialogOccurrenceUuid!)"
                     >
-                        {{ t('transactions.recurring.actions.convert') }}
+                        {{
+                            entry.shared_expense_counterparty
+                                ? 'Registra pagamento'
+                                : t('transactions.recurring.actions.convert')
+                        }}
                     </Button>
                 </DialogFooter>
             </DialogContent>

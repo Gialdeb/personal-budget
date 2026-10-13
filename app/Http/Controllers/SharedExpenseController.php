@@ -8,11 +8,13 @@ use App\Models\SharedExpenseSettlement;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\SharedExpenses\SharedExpenseSettlementService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
@@ -76,6 +78,7 @@ class SharedExpenseController extends Controller
             ->when($counterpartyUuid, fn ($query) => $query->whereHas('counterparty', fn ($counterpartyQuery) => $counterpartyQuery->where('uuid', $counterpartyUuid)))
             ->get()
             ->map(fn (SharedExpenseLedgerEntry $entry): array => [
+                'can_cancel_payment' => $entry->recurring_entry_occurrence_id !== null,
                 'uuid' => $entry->uuid, 'date' => $entry->entry_date?->toDateString(), 'title' => $entry->title,
                 'counterparty' => $entry->counterparty?->name, 'counterparty_uuid' => $entry->counterparty?->uuid,
                 'category' => null, 'reference' => null,
@@ -171,6 +174,7 @@ class SharedExpenseController extends Controller
         $balances = $counterparties->mapWithKeys(fn (TrackedItem $item): array => [$item->uuid => $this->sharedExpenseSettlementService->balanceCents($user, $item)])->all();
 
         return Inertia::render('SharedExpenses', [
+            'selectedEntryUuid' => $entryUuid,
             'filters' => ['month' => $month, 'year' => $year, 'counterparty' => $counterpartyUuid, 'search' => $search, 'date_from' => $dateFrom, 'date_to' => $dateTo, 'effect' => $effect],
             'counterparties' => $counterparties->filter(fn (TrackedItem $item): bool => $item->is_active && $item->is_shared_expense_counterpart)->map(fn (TrackedItem $item) => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
             'historicalCounterparties' => $counterparties->map(fn (TrackedItem $item): array => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
@@ -196,6 +200,17 @@ class SharedExpenseController extends Controller
                 'references' => $editableAccounts->mapWithKeys(fn ($account): array => [$account->uuid => $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection($this->operationalTransactionCategoryResolver->trackedItemsForAccount($account))]),
             ],
         ]);
+    }
+
+    public function destroyLedger(Request $request, SharedExpenseLedgerEntry $ledger, UndoRecurringOccurrenceConversionService $undo): RedirectResponse
+    {
+        abort_unless($ledger->user_id === $request->user()->id && $ledger->occurrence !== null, 404);
+        $entry = $ledger->occurrence->recurringEntry;
+        abort_unless($this->accessibleAccountsQuery->canEditAccountId($request->user(), $entry->account_id), 404);
+        $uuid = $ledger->occurrence->uuid;
+        $undo->undo($ledger->occurrence);
+
+        return to_route('recurring-entries.show', ['recurringEntry' => $entry, 'highlight' => $uuid]);
     }
 
     public function storeCounterparty(StoreSharedExpenseCounterpartyRequest $request): JsonResponse

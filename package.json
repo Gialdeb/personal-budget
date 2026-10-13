@@ -15,7 +15,12 @@
         "types:check": "vue-tsc --noEmit"
     },
     "lint-staged": {
-        "resources/**/*.{vue,js,cjs,mjs,ts,cts,mts,jsx,tsx,json,jsonc,css,scss,less,md,mdx,html,yml,yaml,graphql,gql}": "prettier --write"
+        "**/*.{vue,js,cjs,mjs,ts,cts,mts,jsx,tsx}": [
+            "eslint --fix --no-warn-ignored",
+            "prettier --write",
+            "eslint --no-warn-ignored"
+        ],
+        "resources/**/*.{json,jsonc,css,scss,less,md,mdx,html,yml,yaml,graphql,gql}": "prettier --write"
     },
     "devDependencies": {
         "@eslint/js": "^9.19.0",

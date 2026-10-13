@@ -43,6 +43,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::get('support', fn (Request $request) => redirect()->route('support.index', $request->query()));
     Route::post('support/requests', [SupportRequestController::class, 'store']);
     Route::get('entry-search', [EntrySearchController::class, 'index'])->name('entry-search.index');
+    Route::delete('shared-expenses/ledger/{ledger:uuid}', [SharedExpenseController::class, 'destroyLedger'])->name('shared-expenses.ledger.destroy');
     Route::get('shared-expenses', [SharedExpenseController::class, 'index'])->name('shared-expenses.index');
     Route::post('shared-expenses/counterparties', [SharedExpenseController::class, 'storeCounterparty'])->name('shared-expenses.counterparties.store');
     Route::post('shared-expenses/{counterparty}/settlements', [SharedExpenseSettlementController::class, 'store'])->name('shared-expenses.settlements.store');

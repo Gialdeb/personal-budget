@@ -59,12 +59,10 @@ function fixture(t) {
         'package.json',
         '.husky/pre-commit',
         '.husky/install.mjs',
-        'resources/js/pages/Dashboard.vue',
     ]) {
         copyFileSync(join(project, file), join(directory, file));
     }
 
-    git('add', '--', 'resources/js/pages/Dashboard.vue');
     const install = run('npm', ['run', 'prepare']);
     assert.equal(install.status, 0, install.stdout + install.stderr);
     assert.equal(git('config', '--get', 'core.hooksPath'), '.husky/_');
@@ -100,9 +98,17 @@ test('git commit formats and stages only matching frontend files', (t) => {
     const ignored = 'resources/js/components/ui/hook-ignored.ts';
     write(frontend, unformatted);
     write(ignored, unformatted);
-    write('hook-outside.ts', unformatted);
+    write('hook-outside.mjs', unformatted);
     write('resources/js/hook-unstaged.ts', unformatted);
-    git('add', '--', frontend, ignored, 'hook-outside.ts');
+    write('resources/hook-data.json', '{"value":"staged"}\n');
+    git(
+        'add',
+        '--',
+        frontend,
+        ignored,
+        'hook-outside.mjs',
+        'resources/hook-data.json',
+    );
     const result = commit();
     assert.match(result.stdout + result.stderr, /prettier --write/);
     assert.ok(existsSync(join(directory, '.hook-verified')));
@@ -110,13 +116,20 @@ test('git commit formats and stages only matching frontend files', (t) => {
     assert.equal(git('show', `:${frontend}`), formatted.trim());
     assert.equal(readFileSync(join(directory, frontend), 'utf8'), formatted);
 
-    for (const file of [
-        ignored,
-        'hook-outside.ts',
-        'resources/js/hook-unstaged.ts',
-    ]) {
+    for (const file of [ignored, 'resources/js/hook-unstaged.ts']) {
         assert.equal(readFileSync(join(directory, file), 'utf8'), unformatted);
     }
+
+    assert.equal(git('show', ':hook-outside.mjs'), formatted.trim());
+    assert.equal(
+        readFileSync(join(directory, 'hook-outside.mjs'), 'utf8'),
+        formatted,
+    );
+    assert.match(result.stdout + result.stderr, /eslint --fix/);
+    assert.equal(
+        git('show', ':resources/hook-data.json'),
+        '{ "value": "staged" }',
+    );
 
     rmSync(join(directory, 'resources/js/hook-unstaged.ts'));
     const check = run('npm', ['run', 'format:check']);
@@ -125,7 +138,7 @@ test('git commit formats and stages only matching frontend files', (t) => {
 
 test('partially staged frontend files retain their unstaged changes', (t) => {
     const { directory, git, write, commit } = fixture(t);
-    const file = 'resources/js/app.ts';
+    const file = 'tests/frontend/session-isolation.test.mjs';
     const original = readFileSync(join(directory, file), 'utf8');
     write(file, `export const hook={value:"staged"}\n${original}`);
     git('add', '--', file);
@@ -147,10 +160,23 @@ test('partially staged frontend files retain their unstaged changes', (t) => {
     );
 });
 
-test('formatter failures stop git commit and restore the original index', (t) => {
+test('syntax errors stop git commit and restore the original index', (t) => {
     const { directory, git, write, commit } = fixture(t);
     const file = 'resources/js/hook-invalid.ts';
     const invalid = 'export const broken = {\n';
+    write(file, invalid);
+    git('add', '--', file);
+    const result = commit();
+    assert.match(result.stdout + result.stderr, /eslint --fix/);
+    assert.ok(!existsSync(join(directory, '.hook-verified')));
+    assert.equal(git('show', `:${file}`), invalid.trim());
+    assert.equal(readFileSync(join(directory, file), 'utf8'), invalid);
+});
+
+test('Prettier failures on non-script resources stop the commit', (t) => {
+    const { directory, git, write, commit } = fixture(t);
+    const file = 'resources/css/hook-invalid.css';
+    const invalid = 'a {\n';
     write(file, invalid);
     git('add', '--', file);
     const result = commit();
@@ -160,18 +186,69 @@ test('formatter failures stop git commit and restore the original index', (t) =>
     assert.equal(readFileSync(join(directory, file), 'utf8'), invalid);
 });
 
-test('commits without matching frontend files do not run Prettier', (t) => {
+test('commits without matching frontend files do not run frontend tools', (t) => {
     const { directory, git, write, commit } = fixture(t);
-    git('reset', '--', 'resources/js/pages/Dashboard.vue');
-    write('hook-outside.ts', 'export const untouched={value:"outside"}\n');
-    git('add', '--', 'hook-outside.ts');
+    write('hook-outside.txt', 'untouched text\n');
+    git('add', '--', 'hook-outside.txt');
     const result = commit();
     assert.ok(existsSync(join(directory, '.hook-verified')));
     assert.doesNotMatch(result.stdout + result.stderr, /prettier --write/);
-    assert.equal(
-        git('show', ':hook-outside.ts'),
-        'export const untouched={value:"outside"}',
+    assert.doesNotMatch(result.stdout + result.stderr, /eslint/);
+    assert.equal(git('show', ':hook-outside.txt'), 'untouched text');
+});
+
+test('staged frontend tests and root config scripts receive ESLint and Prettier fixes', (t) => {
+    const { directory, run, git, write, commit } = fixture(t);
+    const file = 'tests/frontend/hook-padding.test.mjs';
+    const config = 'hook-probe.config.mjs';
+    write(
+        file,
+        'export function hook(){const value=1;throw new Error(String(value));}\n',
     );
+    write(
+        config,
+        'import {join} from "node:path";\nimport assert from "node:assert/strict";\nexport const hook={join,assert}\n',
+    );
+    git('add', '--', file, config);
+    const result = commit();
+    assert.ok(existsSync(join(directory, '.hook-verified')));
+    assert.match(result.stdout + result.stderr, /eslint --fix/);
+    assert.match(result.stdout + result.stderr, /prettier --write/);
+    assert.match(git('show', `:${file}`), /const value = 1;\n\n {4}throw/);
+    assert.match(
+        git('show', `:${config}`),
+        /^import assert from 'node:assert\/strict';/,
+    );
+
+    for (const [command, args] of [
+        ['npm', ['exec', '--no', '--', 'eslint', file, config]],
+        ['npm', ['exec', '--no', '--', 'prettier', '--check', file, config]],
+    ]) {
+        const check = run(command, args);
+        assert.equal(check.status, 0, check.stdout + check.stderr);
+    }
+});
+
+test('nonfixable ESLint errors stop the commit and roll back fixes to staged files', (t) => {
+    const { directory, git, write, commit } = fixture(t);
+    const invalid = 'tests/frontend/hook-unused.test.mjs';
+    const valid = 'resources/js/hook-rollback.ts';
+    const unused = 'const unusedHookValue=1\n';
+    const unformatted = 'export const hook={value:"staged"}\n';
+    write(invalid, unused);
+    write(valid, unformatted);
+    git('add', '--', invalid, valid);
+    const result = commit();
+    assert.match(result.stdout + result.stderr, /no-unused-vars/);
+    assert.ok(!existsSync(join(directory, '.hook-verified')));
+
+    for (const [file, content] of [
+        [invalid, unused],
+        [valid, unformatted],
+    ]) {
+        assert.equal(git('show', `:${file}`), content.trim());
+        assert.equal(readFileSync(join(directory, file), 'utf8'), content);
+    }
 });
 
 test('hook installation safely skips CI and production without dev dependencies', (t) => {

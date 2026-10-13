@@ -40,7 +40,9 @@ const ui = useUiCopy();
             />
             <span class="text-primary">Spesa condivisa →</span>
         </Link>
-        <h4 class="font-semibold">{{ ui('Pagamenti') }}</h4>
+        <h4 v-if="payments?.length" class="font-semibold">
+            {{ ui('Pagamenti') }}
+        </h4>
         <Link
             v-for="payment in payments"
             :key="payment.uuid"

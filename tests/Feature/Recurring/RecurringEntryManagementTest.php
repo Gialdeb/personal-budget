@@ -21,6 +21,7 @@ use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\ReminderDelivery;
 use App\Models\Scope;
+use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
@@ -2977,4 +2978,70 @@ test('changing a scheduled payment to counterparty retains the occurrence and re
     expect($occurrence->fresh()->status->value)->toBe('completed');
     $ledger->delete();
     expect($occurrence->fresh()->status->value)->toBe('pending');
+});
+
+test('a shared occurrence chooses its actual payer independently of the plan default', function (string $payer) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $context = recurringManagementContext();
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $context['user']->id, 'name' => 'Mario Rossi', 'slug' => 'actual-payer',
+        'is_active' => true, 'is_shared_expense_counterpart' => true,
+    ]);
+    $entry = createManagedRecurringEntry($context, [
+        'shared_expense_counterparty_id' => $counterparty->id,
+        'shared_expense_paid_by' => $payer === 'self' ? 'counterparty' : 'self',
+        'shared_expense_my_share' => 15, 'shared_expense_counterparty_share' => 35,
+    ]);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $balance = $context['account']->fresh()->current_balance;
+    $this->actingAs($context['user'])->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [
+        'shared_expense_paid_by' => $payer, 'amount' => '50.00', 'transaction_date' => '2026-01-14',
+    ])->assertSessionHasNoErrors();
+    expect($occurrence->fresh()->status->value)->toBe('completed')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(0);
+    if ($payer === 'counterparty') {
+        $ledger = $occurrence->fresh()->sharedExpenseLedgerEntry;
+        expect($ledger->total_cents)->toBe(5000)
+            ->and($ledger->my_share_cents)->toBe(1500)
+            ->and($ledger->entry_date->toDateString())->toBe('2026-01-14')
+            ->and(Transaction::withTrashed()->count())->toBe(0)
+            ->and($context['account']->fresh()->current_balance)->toBe($balance);
+        $this->delete(route('shared-expenses.ledger.destroy', $ledger->uuid))->assertRedirect();
+        expect($occurrence->fresh()->status->value)->toBe('pending')
+            ->and($occurrence->fresh()->remainingPaymentCents())->toBe(5000)
+            ->and($occurrence->fresh()->automatic_posting_blocked_at)->not->toBeNull()
+            ->and(Transaction::withTrashed()->count())->toBe(0);
+    } else {
+        expect(Transaction::query()->sole()->shared_expense_paid_by)->toBe('self')
+            ->and($occurrence->fresh()->sharedExpenseLedgerEntry)->toBeNull();
+    }
+})->with(['self', 'counterparty']);
+
+test('partial counterparty payments accumulate on the linked ledger until the occurrence is settled', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $context = recurringManagementContext();
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $context['user']->id, 'name' => 'Mario', 'slug' => 'partial-payer',
+        'is_active' => true, 'is_shared_expense_counterpart' => true,
+    ]);
+    $entry = createManagedRecurringEntry($context, [
+        'shared_expense_counterparty_id' => $counterparty->id, 'shared_expense_paid_by' => 'self',
+        'shared_expense_my_share' => 25, 'shared_expense_counterparty_share' => 25,
+    ]);
+    $occurrence = $entry->occurrences()->firstOrFail();
+    $route = route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]);
+    $this->actingAs($context['user'])->post($route, ['shared_expense_paid_by' => 'counterparty', 'amount' => '10.00'])->assertSessionHasNoErrors();
+    $ledger = $occurrence->fresh()->sharedExpenseLedgerEntry;
+    expect($occurrence->fresh()->status->value)->toBe('pending')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(4000)
+        ->and($ledger->my_share_cents)->toBe(500);
+    $this->post($route, ['shared_expense_paid_by' => 'counterparty', 'amount' => '41.00'])->assertSessionHasErrors('occurrence');
+    $this->post($route, ['shared_expense_paid_by' => 'counterparty', 'amount' => '40.00'])->assertSessionHasNoErrors();
+    expect($occurrence->fresh()->status->value)->toBe('completed')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(0)
+        ->and($ledger->fresh()->total_cents)->toBe(5000)
+        ->and(SharedExpenseLedgerEntry::query()->count())->toBe(1)
+        ->and(Transaction::withTrashed()->count())->toBe(0);
+    $this->actingAs(User::factory()->create())->delete(route('shared-expenses.ledger.destroy', $ledger->uuid))->assertNotFound();
+    $this->assertModelExists($ledger);
 });

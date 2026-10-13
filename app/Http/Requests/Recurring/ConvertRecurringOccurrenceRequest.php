@@ -22,6 +22,8 @@ class ConvertRecurringOccurrenceRequest extends FormRequest
             'value_date' => ['nullable', 'date'],
             'description' => ['nullable', 'string', 'max:4000'],
             'notes' => ['nullable', 'string', 'max:4000'],
+            'shared_expense_paid_by' => ['nullable', 'in:self,counterparty'],
+            'amount' => ['nullable', 'numeric', 'decimal:0,2', 'gt:0'],
             'confirm_future_date' => ['nullable', 'boolean'],
         ];
     }

@@ -48,9 +48,9 @@ class RecurringEntryOccurrenceController extends Controller
             ]);
         }
 
-        $paidBy = $ownedOccurrence->shared_expense_paid_by ?? $ownedOccurrence->recurringEntry?->shared_expense_paid_by;
+        $paidBy = $request->validated('shared_expense_paid_by') ?? $ownedOccurrence->shared_expense_paid_by ?? $ownedOccurrence->recurringEntry?->shared_expense_paid_by;
         if ($paidBy === SharedExpenseAllocation::PAID_BY_COUNTERPARTY) {
-            $this->sharedExpenseOccurrencePostingService->post($ownedOccurrence, $request->user());
+            $this->sharedExpenseOccurrencePostingService->post($ownedOccurrence, $request->user(), $request->validated());
 
             return to_route('recurring-entries.show', $recurringEntry->uuid)
                 ->with('success', __('ui.shared_occurrence_recorded_a6f8d380'));

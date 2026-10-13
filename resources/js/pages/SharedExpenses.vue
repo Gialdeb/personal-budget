@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { destroyLedger } from '@/actions/App/Http/Controllers/SharedExpenseController';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
@@ -37,9 +38,23 @@ import {
 import { store as storeTrackedItem } from '@/routes/transactions/tracked-items';
 import type { TransactionsNavigation } from '@/types';
 
+const cancelLedgerEntry = ref<Entry | null>(null);
+function cancelLedger(entry: Entry): void {
+    cancelLedgerEntry.value = entry;
+}
+function confirmCancelLedger(): void {
+    if (!cancelLedgerEntry.value) {
+        return;
+    }
+
+    router.delete(destroyLedger.url(cancelLedgerEntry.value.uuid), {
+        preserveScroll: true,
+    });
+}
 const ui = useUiCopy();
 
 type Entry = {
+    can_cancel_payment?: boolean;
     uuid: string;
     date: string | null;
     title: string | null;
@@ -81,6 +96,7 @@ type ReferenceOption = {
     logo_url?: string | null;
 };
 const props = defineProps<{
+    selectedEntryUuid?: string | null;
     filters: {
         month: number;
         year: number;
@@ -107,6 +123,20 @@ const props = defineProps<{
         references?: Record<string, ReferenceOption[]>;
     };
 }>();
+watch(
+    () => props.selectedEntryUuid,
+    async (uuid) => {
+        if (!uuid) {
+            return;
+        }
+
+        await nextTick();
+        document
+            .getElementById(`shared-entry-${uuid}`)
+            ?.scrollIntoView({ block: 'center' });
+    },
+    { immediate: true, flush: 'post' },
+);
 const page = usePage();
 const isMobile = useMediaQuery('(max-width: 767px)');
 const newReferenceOpen = ref(false);
@@ -710,6 +740,7 @@ function deleteSettlement(entry: Entry): void {
                         </div>
                         <article
                             v-for="entry in group.entries"
+                            :id="`shared-entry-${entry.uuid}`"
                             :key="entry.uuid"
                             class="m-3 grid min-w-0 gap-3 rounded-2xl border bg-card p-3 sm:m-4 sm:p-4"
                         >
@@ -855,6 +886,12 @@ function deleteSettlement(entry: Entry): void {
                                     class="inline-flex min-h-11 items-center text-xs font-medium text-primary hover:underline"
                                     >{{ entry.origin_label }} →</Link
                                 ><Button
+                                    v-if="entry.can_cancel_payment"
+                                    size="sm"
+                                    variant="outline"
+                                    @click="cancelLedger(entry)"
+                                    >Annulla pagamento</Button
+                                ><Button
                                     v-if="entry.is_settlement"
                                     size="sm"
                                     variant="outline"
@@ -916,6 +953,36 @@ function deleteSettlement(entry: Entry): void {
                 </nav>
             </section>
         </div>
+        <Dialog
+            :open="cancelLedgerEntry !== null"
+            @update:open="
+                (value) => {
+                    if (!value) cancelLedgerEntry = null;
+                }
+            "
+        >
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle
+                        >Annulla pagamento della controparte</DialogTitle
+                    >
+                    <DialogDescription
+                        >Il movimento condiviso verrà eliminato e la scadenza
+                        tornerà da pagare. Non verrà creata una
+                        transazione.</DialogDescription
+                    >
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" @click="cancelLedgerEntry = null"
+                        >Indietro</Button
+                    >
+                    <Button @click="confirmCancelLedger"
+                        >Conferma annullamento</Button
+                    >
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
         <Dialog
             :open="settlementCounterparty !== null"
             @update:open="

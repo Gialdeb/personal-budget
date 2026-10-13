@@ -171,10 +171,28 @@ test('derived filters compose search type reference and status', function () {
 test('a shared posted occurrence contributes only its net shared position', function () {
     $user = User::factory()->create();
     $occurrence = aggregateOccurrence($user, 'expense');
+    $occurrence->update(['expected_amount' => 30]);
     $ledger = aggregateShared($user, 'counterparty');
     $ledger->forceFill(['recurring_entry_occurrence_id' => $occurrence->id])->save();
     $positions = app(DerivedObligationsService::class)->positions($user);
     expect($positions)->toHaveCount(1)
         ->and($positions->first()['origin'])->toBe('shared')
-        ->and($positions->first()['remaining_amount'])->toBe('15.00');
+        ->and($positions->first()['remaining_amount'])->toBe('15.00')
+        ->and($occurrence->fresh()->status->value)->toBe('completed')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(0);
+});
+
+test('a partial external shared payment preserves the unpaid recurring obligation', function () {
+    $user = User::factory()->create();
+    $occurrence = aggregateOccurrence($user, 'expense');
+    $ledger = aggregateShared($user, 'counterparty');
+    $ledger->update(['recurring_entry_occurrence_id' => $occurrence->id]);
+
+    $positions = app(DerivedObligationsService::class)->positions($user);
+
+    expect($positions)->toHaveCount(2)
+        ->and($positions->firstWhere('origin', 'recurring')['remaining_amount'])->toBe('470.00')
+        ->and($positions->firstWhere('origin', 'shared')['remaining_amount'])->toBe('15.00')
+        ->and($occurrence->fresh()->status->value)->toBe('pending')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(47000);
 });

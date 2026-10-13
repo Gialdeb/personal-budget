@@ -95,7 +95,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 && $entry?->shared_expense_counterparty_id === null
                 && $this->resource->newQuery()->openObligations()->whereKey($this->id)->exists(),
             'remaining_amount' => $remainingCents / 100,
-            'settlement_status' => $hasAllocations && $remainingCents === 0 ? 'settled' : ($allocatedCents > 0 ? 'partial' : ($this->converted_transaction_id !== null || $this->matched_transaction_id !== null || $this->status?->value === 'completed'
+            'settlement_status' => $allocatedCents > 0 && $remainingCents === 0 ? 'settled' : ($allocatedCents > 0 ? 'partial' : ($this->converted_transaction_id !== null || $this->matched_transaction_id !== null || $this->status?->value === 'completed'
                 ? 'settled'
                 : ($isDue ? ($requiresAmountConfirmation ? 'amount_confirmation' : 'due') : null))),
             'automatic_posting_blocked_at' => $this->automatic_posting_blocked_at?->toJSON(),
@@ -113,7 +113,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 ),
             'can_convert' => $canEdit
                 && ! $hasAllocations
-                && $ledger === null
+                && ($ledger === null || $remainingCents > 0)
                 && $this->converted_transaction_id === null
                 && $this->matched_transaction_id === null
                 && in_array($this->status?->value, ['pending', 'generated'], true),
@@ -136,6 +136,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 && $this->convertedTransaction->kind?->value === 'scheduled'
                 && $this->convertedTransaction->refundTransaction === null)),
             'converted_transaction' => $this->convertedTransaction === null ? null : [
+                'payer' => $this->convertedTransaction->shared_expense_paid_by === 'self' ? 'Io' : null,
                 'uuid' => $this->convertedTransaction->uuid,
                 'kind' => $this->convertedTransaction->kind?->value,
                 'transaction_date' => $this->convertedTransaction->transaction_date?->toDateString(),
