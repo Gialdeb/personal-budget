@@ -45,7 +45,7 @@ class SharedExpenseSettlementService
                     'counterparty_share_cents' => $transaction->shared_expense_counterparty_share_cents ?? ($totalCents - intdiv($totalCents, 2)),
                 ]);
             });
-        $ledgerEffect = SharedExpenseLedgerEntry::query()
+        $ledgerEffect = SharedExpenseLedgerEntry::query()->recorded()
             ->where('user_id', $user->id)
             ->where('counterparty_id', $counterparty->id)
             ->get(['paid_by', 'my_share_cents', 'counterparty_share_cents'])

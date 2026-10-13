@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import OccurrencePayments from '@/components/recurring/OccurrencePayments.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +68,13 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
     label: string;
     tone: string;
 } {
+    if (occurrence.external_payment?.settled) {
+        return {
+            label: `Pagata da ${occurrence.external_payment.payer ?? 'controparte'}`,
+            tone: 'bg-primary/10 text-primary',
+        };
+    }
+
     if (occurrence.status === 'skipped') {
         return {
             label: t('transactions.recurring.enums.occurrenceStatus.skipped'),
@@ -329,8 +337,17 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                         )
                                     }}
                                 </dt>
+                                <dd v-if="occurrence.external_payment">
+                                    <OccurrencePayments
+                                        :payments="[]"
+                                        :external-payment="
+                                            occurrence.external_payment
+                                        "
+                                        :currency="occurrence.currency"
+                                    />
+                                </dd>
                                 <dd
-                                    v-if="occurrence.converted_transaction"
+                                    v-else-if="occurrence.converted_transaction"
                                     class="space-y-1"
                                 >
                                     <Link

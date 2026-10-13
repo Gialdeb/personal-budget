@@ -179,14 +179,26 @@ class TransactionMutationService
             $originalTransactionDate = $transaction->transaction_date?->toDateString();
             $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
             if ($this->isSharedExpensePaidByCounterparty($validated)) {
-                $this->ensureDeletionAllowed($transaction);
+                if ($transaction->kind !== TransactionKindEnum::SCHEDULED || $transaction->recurringOccurrence === null) {
+                    $this->ensureDeletionAllowed($transaction);
+                } elseif ($transaction->refundTransaction()->exists()) {
+                    throw ValidationException::withMessages(['transaction' => __('transactions.validation.delete_refunded_original_blocked')]);
+                }
                 if ($transaction->sharedExpenseSettlement()->exists()) {
                     throw ValidationException::withMessages([
                         'transaction' => __('transactions.validation.delete_blocked'),
                     ]);
                 }
 
+                $occurrence = RecurringEntryOccurrence::query()
+                    ->where(function ($query) use ($transaction): void {
+                        $query->where('converted_transaction_id', $transaction->id)->orWhere('matched_transaction_id', $transaction->id);
+                    })->lockForUpdate()->first();
                 $ledgerEntry = $this->storeCounterpartySharedExpense($user, $account, $validated);
+                if ($occurrence !== null) {
+                    $occurrence->forceFill(['converted_transaction_id' => null, 'matched_transaction_id' => null])->save();
+                    $ledgerEntry->update(['recurring_entry_occurrence_id' => $occurrence->id]);
+                }
                 $originalAccount = $this->accessibleAccount($user, (int) $originalAccountId, true);
                 $transaction->forceDelete();
                 $this->recalculateAffectedAccounts([$originalAccount]);

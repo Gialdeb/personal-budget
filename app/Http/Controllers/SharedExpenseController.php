@@ -35,6 +35,7 @@ class SharedExpenseController extends Controller
         ['year' => $year, 'month' => $contextMonth] = $this->managementContextResolver->resolveDashboard($request, $user);
         $month = $contextMonth ?? now()->month;
         $this->managementContextResolver->persist($user, $year, $month);
+        $entryUuid = $request->query('entry');
         $search = trim((string) $request->query('search', ''));
         $counterpartyUuid = $request->query('counterparty');
         $dateFrom = $request->date('date_from')?->toDateString();
@@ -65,6 +66,7 @@ class SharedExpenseController extends Controller
 
         $ledgerEntries = SharedExpenseLedgerEntry::query()
             ->where('user_id', $user->id)
+            ->when($entryUuid, fn ($query) => $query->where('uuid', $entryUuid))
             ->whereIn('counterparty_id', $counterpartyIds)
             ->whereYear('entry_date', $year)
             ->whereMonth('entry_date', $month)
@@ -78,12 +80,12 @@ class SharedExpenseController extends Controller
                 'counterparty' => $entry->counterparty?->name, 'counterparty_uuid' => $entry->counterparty?->uuid,
                 'category' => null, 'reference' => null,
                 'origin' => $entry->occurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.installment_c9bb1db2') : __('ui.recurring_entry_258b334d'),
-                'origin_url' => $entry->occurrence?->recurringEntry ? route('recurring-entries.show', $entry->occurrence->recurringEntry) : null,
+                'origin_url' => $entry->occurrence?->recurringEntry ? route('recurring-entries.show', ['recurringEntry' => $entry->occurrence->recurringEntry, 'highlight' => $entry->occurrence->uuid]) : null,
                 'origin_label' => $entry->occurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.open_installment_plan_2a24ad10') : __('ui.open_recurring_plan_2a2d853f'),
-                'amount' => $entry->total_cents / 100, 'currency' => $entry->currency, 'status' => __('ui.posted_bf13fd0a'),
+                'amount' => $entry->total_cents / 100, 'currency' => $entry->currency, 'status' => $entry->isRecorded() ? __('ui.posted_bf13fd0a') : 'Annullata',
                 'paid_by' => $entry->paid_by, 'my_share_cents' => $entry->my_share_cents,
                 'counterparty_share_cents' => $entry->counterparty_share_cents,
-                'effect_cents' => $this->sharedExpenseAllocation->balanceEffectCents([
+                'effect_cents' => ! $entry->isRecorded() ? 0 : $this->sharedExpenseAllocation->balanceEffectCents([
                     'paid_by' => $entry->paid_by,
                     'my_share_cents' => $entry->my_share_cents,
                     'counterparty_share_cents' => $entry->counterparty_share_cents,
@@ -150,7 +152,7 @@ class SharedExpenseController extends Controller
                 ],
             ]);
 
-        $filteredEntries = $recordedEntries->concat($ledgerEntries)->concat($settlements)
+        $filteredEntries = ($entryUuid ? $ledgerEntries : $recordedEntries->concat($ledgerEntries)->concat($settlements))
             ->when($effect === 'receivable', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) > 0))
             ->when($effect === 'payable', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) < 0))
             ->when($effect === 'settled', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) === 0))

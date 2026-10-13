@@ -94,6 +94,7 @@ class RecurringEntryController extends Controller
                 ->orderBy('id'),
             'occurrences.recurringEntry',
             'occurrences.account',
+            'occurrences.sharedExpenseLedgerEntry.counterparty',
             'occurrences.recurringEntry.account',
             'occurrences.convertedTransaction.refundTransaction',
             'occurrences.matchedTransaction.refundTransaction',
@@ -594,6 +595,7 @@ class RecurringEntryController extends Controller
                 'recurringEntry.trackedItem:id,uuid,name,website_identity_id',
                 'recurringEntry.trackedItem.websiteIdentity',
                 'recurringEntry.sharedExpenseCounterparty:id,uuid,name',
+                'sharedExpenseLedgerEntry.counterparty',
                 'convertedTransaction:id,uuid,transaction_date,amount,currency,kind',
                 'convertedTransaction.refundTransaction:id,uuid,transaction_date,amount,currency,refunded_transaction_id',
             ])
@@ -636,6 +638,15 @@ class RecurringEntryController extends Controller
                             'uuid' => $occurrence->uuid,
                             'sequence_number' => $occurrence->sequence_number,
                             'status' => $status,
+                            'external_payment' => $occurrence->sharedExpenseLedgerEntry === null ? null : [
+                                'uuid' => $occurrence->sharedExpenseLedgerEntry->uuid,
+                                'payer' => $occurrence->sharedExpenseLedgerEntry->counterparty?->name,
+                                'amount' => $occurrence->sharedExpenseLedgerEntry->total_cents / 100,
+                                'date' => $occurrence->sharedExpenseLedgerEntry->entry_date->toDateString(),
+                                'currency' => $occurrence->sharedExpenseLedgerEntry->currency,
+                                'settled' => $occurrence->externalPaymentCents() > 0 && $occurrence->remainingPaymentCents() === 0,
+                                'show_url' => route('shared-expenses.index', ['year' => $occurrence->sharedExpenseLedgerEntry->entry_date->year, 'month' => $occurrence->sharedExpenseLedgerEntry->entry_date->month, 'entry' => $occurrence->sharedExpenseLedgerEntry->uuid]),
+                            ],
                             'expected_date' => $occurrence->expected_date?->toDateString(),
                             'due_date' => $occurrence->due_date?->toDateString(),
                             'display_date' => $this->occurrenceDate($occurrence)->toDateString(),
@@ -647,6 +658,7 @@ class RecurringEntryController extends Controller
                             'title' => $entry?->title,
                             'description' => $entry?->description,
                             'can_convert' => $canEdit
+                                && $occurrence->sharedExpenseLedgerEntry === null
                                 && $occurrence->converted_transaction_id === null
                                 && in_array($status, ['pending', 'generated'], true),
                             'can_skip' => $canEdit && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null && in_array($status, ['pending', 'generated'], true),
@@ -753,10 +765,15 @@ class RecurringEntryController extends Controller
         $occurrences = RecurringEntryOccurrence::query()->whereIn('recurring_entry_id', $ids)->with([
             'convertedTransaction.refundTransaction', 'matchedTransaction.refundTransaction',
             'paymentAllocations' => fn ($query) => $query->valid()->with('transaction'),
+            'sharedExpenseLedgerEntry',
         ])->get();
         $totals = [];
         $seen = [];
         foreach ($occurrences as $occurrence) {
+            $ledger = $occurrence->sharedExpenseLedgerEntry;
+            if ($occurrence->externalPaymentCents() > 0 && $ledger->entry_date->lte(today())) {
+                $totals[$ledger->currency] = ($totals[$ledger->currency] ?? 0) + $occurrence->externalPaymentCents();
+            }
             $transaction = $occurrence->convertedTransaction ?? $occurrence->matchedTransaction;
             if (! $transaction || isset($seen[$transaction->id]) || $transaction->direction?->value !== 'expense' || $transaction->status?->value !== 'confirmed' || $transaction->transaction_date->isAfter(today()) || $transaction->refundTransaction?->status?->value === 'confirmed') {
                 continue;

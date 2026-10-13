@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class RecurringEntryOccurrence extends Model
@@ -18,6 +19,14 @@ class RecurringEntryOccurrence extends Model
     protected static function booted(): void
     {
         static::updating(function (self $occurrence): void {
+            if ($occurrence->isDirty('expected_amount') && $occurrence->sharedExpenseLedgerEntry()->exists()
+                && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null) {
+                $occurrence->status = $occurrence->externalPaymentCents() > 0 && $occurrence->externalPaymentCents() >= (int) round((float) $occurrence->expected_amount * 100)
+                    ? RecurringOccurrenceStatusEnum::COMPLETED : RecurringOccurrenceStatusEnum::PENDING;
+                if ($occurrence->status === RecurringOccurrenceStatusEnum::PENDING) {
+                    $occurrence->automatic_posting_blocked_at = now();
+                }
+            }
             if ($occurrence->isDirty('expected_amount') && (int) round((float) $occurrence->expected_amount * 100) < $occurrence->allocatedPaymentCents()) {
                 throw ValidationException::withMessages(['amount' => __('ui.the_amount_is_less_than_the_payments_already_allocated_e0ae57fd')]);
             }
@@ -88,7 +97,9 @@ class RecurringEntryOccurrence extends Model
             ->whereRaw('ROUND('.$this->qualifyColumn('expected_amount').' * 100) > ('.$allocated->toSql().')', $allocated->getBindings())
             ->whereNull('converted_transaction_id')
             ->whereNull('matched_transaction_id')
-            ->whereDoesntHave('sharedExpenseLedgerEntry')
+            ->whereDoesntHave('sharedExpenseLedgerEntry', fn (Builder $ledger) => $ledger
+                ->recorded()->where('paid_by', 'counterparty')
+                ->whereColumn('total_cents', '>=', DB::raw('ROUND(recurring_entry_occurrences.expected_amount * 100)')))
             ->where('expected_amount', '>', 0)
             ->where(function (Builder $dates): void {
                 $dates->whereDate('due_date', '<=', today())
@@ -110,13 +121,21 @@ class RecurringEntryOccurrence extends Model
         return (int) $this->paymentAllocations()->valid()->sum('amount_cents');
     }
 
+    public function externalPaymentCents(): int
+    {
+        $ledger = $this->sharedExpenseLedgerEntry;
+
+        return $ledger !== null && $ledger->isRecorded() && $ledger->paid_by === 'counterparty'
+            ? $ledger->total_cents : 0;
+    }
+
     public function remainingPaymentCents(): int
     {
         if ($this->convertedTransaction()->exists() || $this->matchedTransaction()->exists()) {
             return 0;
         }
 
-        return max(0, (int) round((float) $this->expected_amount * 100) - $this->allocatedPaymentCents());
+        return max(0, (int) round((float) $this->expected_amount * 100) - $this->allocatedPaymentCents() - $this->externalPaymentCents());
     }
 
     public function salaryDetail(): HasOne

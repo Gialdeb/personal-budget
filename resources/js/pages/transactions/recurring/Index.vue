@@ -32,6 +32,7 @@ import {
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import { convert as convertOccurrence } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
 import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
+import OccurrencePayments from '@/components/recurring/OccurrencePayments.vue';
 import RecurringCalendarGrid from '@/components/recurring/RecurringCalendarGrid.vue';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringOccurrencesMobileList from '@/components/recurring/RecurringOccurrencesMobileList.vue';
@@ -537,7 +538,7 @@ function filterOccurrence(occurrence: RecurringMonthlyOccurrence): boolean {
         return false;
     }
 
-    const isConverted = occurrence.converted_transaction !== null;
+    const isConverted = occurrence.status === 'completed';
     const isRefunded =
         occurrence.status === 'refunded' ||
         occurrence.converted_transaction?.is_refunded === true;
@@ -772,6 +773,13 @@ function recurrenceState(occurrence: RecurringMonthlyOccurrence): {
     label: string;
     tone: string;
 } {
+    if (occurrence.external_payment?.settled) {
+        return {
+            label: `Pagata da ${occurrence.external_payment.payer ?? 'controparte'}`,
+            tone: 'bg-primary/10 text-primary',
+        };
+    }
+
     if (occurrence.status === 'skipped') {
         return {
             label: t('transactions.recurring.enums.occurrenceStatus.skipped'),
@@ -2336,8 +2344,18 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                             </Badge>
                                         </td>
                                         <td class="px-4 py-4">
-                                            <div
+                                            <OccurrencePayments
                                                 v-if="
+                                                    occurrence.external_payment
+                                                "
+                                                :payments="[]"
+                                                :external-payment="
+                                                    occurrence.external_payment
+                                                "
+                                                :currency="occurrence.currency"
+                                            />
+                                            <div
+                                                v-else-if="
                                                     occurrence.converted_transaction
                                                 "
                                                 class="space-y-2"

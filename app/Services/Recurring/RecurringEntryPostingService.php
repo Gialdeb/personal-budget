@@ -51,6 +51,9 @@ class RecurringEntryPostingService
             if ($entry->trial_duration && today()->lt($entry->firstBillingDate())) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.the_trial_period_is_still_active_5538e145')]);
             }
+            if ($occurrence->sharedExpenseLedgerEntry()->exists() || ($occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by) === 'counterparty') {
+                throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);
+            }
             if ($occurrence->paymentAllocations()->exists()) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.record_payments_against_the_remaining_balance_through_allocation_c3f34351')]);
             }

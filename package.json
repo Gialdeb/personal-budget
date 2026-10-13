@@ -6,11 +6,16 @@
         "build": "vite build",
         "build:ssr": "vite build && vite build --ssr",
         "dev": "vite",
+        "prepare": "node .husky/install.mjs",
+        "test:hooks": "node --test tests/frontend-pre-commit.test.mjs",
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
         "types:check": "vue-tsc --noEmit"
+    },
+    "lint-staged": {
+        "resources/**/*.{vue,js,cjs,mjs,ts,cts,mts,jsx,tsx,json,jsonc,css,scss,less,md,mdx,html,yml,yaml,graphql,gql}": "prettier --write"
     },
     "devDependencies": {
         "@eslint/js": "^9.19.0",
@@ -26,6 +31,8 @@
         "eslint-import-resolver-typescript": "^4.4.4",
         "eslint-plugin-import": "^2.32.0",
         "eslint-plugin-vue": "^9.32.0",
+        "husky": "9.1.7",
+        "lint-staged": "16.4.0",
         "prettier": "3.8.3",
         "prettier-plugin-tailwindcss": "^0.6.11",
         "shadcn-vue": "^2.4.3",

@@ -155,6 +155,13 @@ const editingOccurrence = ref<
 const occurrenceForm = useForm({ due_date: '', account_uuid: '' });
 
 const auth = computed(() => page.props.auth as Auth);
+const undoingExternalPayment = computed(() =>
+    props.recurringEntry.occurrences.some(
+        (occurrence) =>
+            occurrence.uuid === undoConversionOccurrenceUuid.value &&
+            occurrence.external_payment != null,
+    ),
+);
 const entry = computed(() => props.recurringEntry.entry);
 const highlightedOccurrenceUuid = computed(() => {
     const query = page.url.split('?')[1] ?? '';
@@ -227,7 +234,7 @@ const summaryCards = computed(() => [
             entry.value.entry_type === 'installment'
                 ? t('transactions.recurring.labels.installmentProgress')
                 : t('transactions.recurring.labels.recurringProgress'),
-        value: `${props.recurringEntry.summary.converted_occurrences} / ${progressTotal.value}`,
+        value: `${props.recurringEntry.summary.settled_occurrences} / ${progressTotal.value}`,
         tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
         icon: ShieldCheck,
     },
@@ -269,6 +276,13 @@ function occurrenceState(
     label: string;
     tone: string;
 } {
+    if (occurrence.external_payment?.settled) {
+        return {
+            label: `Pagata da ${occurrence.external_payment.payer ?? 'controparte'}`,
+            tone: 'bg-primary/10 text-primary',
+        };
+    }
+
     if (occurrence.status === 'skipped') {
         return {
             label: t('transactions.recurring.enums.occurrenceStatus.skipped'),
@@ -1175,7 +1189,10 @@ function isFutureOccurrence(
                                 }}
                             </p>
                             <p
-                                v-if="!occurrence.converted_transaction"
+                                v-if="
+                                    !occurrence.converted_transaction &&
+                                    !occurrence.external_payment
+                                "
                                 class="text-xs text-slate-500 dark:text-slate-400"
                             >
                                 {{
@@ -1188,6 +1205,7 @@ function isFutureOccurrence(
 
                         <OccurrencePayments
                             :payments="occurrence.payments"
+                            :external-payment="occurrence.external_payment"
                             :currency="entry.currency"
                         />
                         <div class="flex flex-wrap gap-2">
@@ -1252,9 +1270,11 @@ function isFutureOccurrence(
                                 "
                             >
                                 {{
-                                    t(
-                                        'transactions.recurring.actions.undoConversion',
-                                    )
+                                    occurrence.external_payment
+                                        ? 'Annulla pagamento'
+                                        : t(
+                                              'transactions.recurring.actions.undoConversion',
+                                          )
                                 }}
                             </Button>
                             <Button
@@ -1590,6 +1610,9 @@ function isFutureOccurrence(
                                     </span>
                                     <OccurrencePayments
                                         :payments="occurrence.payments"
+                                        :external-payment="
+                                            occurrence.external_payment
+                                        "
                                         :currency="entry.currency"
                                     />
                                 </td>
@@ -1674,9 +1697,11 @@ function isFutureOccurrence(
                                             "
                                         >
                                             {{
-                                                t(
-                                                    'transactions.recurring.actions.undoConversion',
-                                                )
+                                                occurrence.external_payment
+                                                    ? 'Annulla pagamento'
+                                                    : t(
+                                                          'transactions.recurring.actions.undoConversion',
+                                                      )
                                             }}
                                         </Button>
                                         <Button
@@ -1967,13 +1992,19 @@ function isFutureOccurrence(
             <DialogContent class="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle>{{
-                        t('transactions.recurring.dialogs.undoConversionTitle')
+                        undoingExternalPayment
+                            ? 'Annulla pagamento della controparte'
+                            : t(
+                                  'transactions.recurring.dialogs.undoConversionTitle',
+                              )
                     }}</DialogTitle>
                     <DialogDescription>
                         {{
-                            t(
-                                'transactions.recurring.dialogs.undoConversionDescription',
-                            )
+                            undoingExternalPayment
+                                ? 'Il movimento condiviso verrà eliminato e la scadenza tornerà da pagare.'
+                                : t(
+                                      'transactions.recurring.dialogs.undoConversionDescription',
+                                  )
                         }}
                     </DialogDescription>
                 </DialogHeader>
@@ -1986,7 +2017,13 @@ function isFutureOccurrence(
                         {{ t('app.common.cancel') }}
                     </Button>
                     <Button class="rounded-xl" @click="handleUndoConversion">
-                        {{ t('transactions.recurring.actions.undoConversion') }}
+                        {{
+                            undoingExternalPayment
+                                ? 'Annulla pagamento'
+                                : t(
+                                      'transactions.recurring.actions.undoConversion',
+                                  )
+                        }}
                     </Button>
                 </DialogFooter>
             </DialogContent>

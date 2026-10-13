@@ -45,6 +45,7 @@ class RecurringEntryShowResource extends JsonResource
             'summary' => [
                 ...$this->paidSummary(),
                 'total_occurrences' => $occurrences->count(),
+                'settled_occurrences' => $occurrences->filter(fn ($occurrence): bool => ($occurrence->externalPaymentCents() > 0 || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->allocatedPaymentCents() > 0) && $occurrence->remainingPaymentCents() === 0)->count(),
                 'pending_occurrences' => $pendingOccurrences->count(),
                 'converted_occurrences' => $convertedOccurrences->count(),
                 'converted_amount' => round((float) $convertedOccurrences->sum(fn ($occurrence) => (float) ($occurrence->expected_amount ?? 0)), 2),
@@ -78,6 +79,11 @@ class RecurringEntryShowResource extends JsonResource
                 $seen[$transaction->id] = true;
 
                 continue;
+            }
+            $ledger = $occurrence->sharedExpenseLedgerEntry;
+            if ($occurrence->externalPaymentCents() > 0 && $ledger->entry_date->lte(today()) && ($year === null || $ledger->entry_date->year === $year)) {
+                $amount += $occurrence->externalPaymentCents();
+                $count += $occurrence->remainingPaymentCents() === 0 ? 1 : 0;
             }
             $paid = 0;
             $paidInPeriod = 0;

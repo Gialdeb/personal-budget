@@ -41,7 +41,8 @@ class RecurringEntryOccurrenceResource extends JsonResource
             && ($this->due_date ?? $this->expected_date)?->lte(today());
         $requiresAmountConfirmation = (bool) $entry?->is_amount_variable && ! $entry?->auto_create_transaction && $this->amount_confirmed_at === null && $this->converted_transaction_id === null && $this->matched_transaction_id === null;
         $hasAllocations = $this->resource->paymentAllocations()->exists();
-        $allocatedCents = $this->resource->allocatedPaymentCents();
+        $allocatedCents = $this->resource->allocatedPaymentCents() + $this->resource->externalPaymentCents();
+        $ledger = $this->sharedExpenseLedgerEntry;
         $remainingCents = $this->resource->remainingPaymentCents();
         $paidCents = 0;
         $payments = $this->resource->paymentAllocations->filter(fn ($allocation): bool => $allocation->transaction !== null
@@ -80,6 +81,15 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'status' => $this->status?->value,
             'allocated_amount' => $allocatedCents / 100,
             'payments' => $payments,
+            'external_payment' => $ledger === null ? null : [
+                'uuid' => $ledger->uuid,
+                'payer' => $ledger->counterparty?->name,
+                'amount' => $ledger->total_cents / 100,
+                'date' => $ledger->entry_date?->toDateString(),
+                'currency' => $ledger->currency,
+                'settled' => $this->resource->externalPaymentCents() > 0 && $remainingCents === 0,
+                'show_url' => route('shared-expenses.index', ['year' => $ledger->entry_date->year, 'month' => $ledger->entry_date->month, 'entry' => $ledger->uuid]),
+            ],
             'can_register_payment' => $canEdit
                 && $entry?->user_id === $request->user()?->id
                 && $entry?->shared_expense_counterparty_id === null
@@ -103,15 +113,18 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 ),
             'can_convert' => $canEdit
                 && ! $hasAllocations
+                && $ledger === null
                 && $this->converted_transaction_id === null
                 && $this->matched_transaction_id === null
                 && in_array($this->status?->value, ['pending', 'generated'], true),
             'can_update_occurrence' => $canUpdateOccurrence,
             'can_skip' => $canEdit
+                && $ledger === null
                 && $allocatedCents === 0
                 && $this->converted_transaction_id === null
                 && $this->status?->value === 'pending',
             'can_cancel' => $canEdit
+                && $ledger === null
                 && $allocatedCents === 0
                 && $this->converted_transaction_id === null
                 && in_array($this->status?->value, ['pending', 'generated'], true),
@@ -119,10 +132,9 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 && $this->matched_transaction_id === null
                 && $this->converted_transaction_id === null
                 && $this->status?->value === 'skipped',
-            'can_undo_conversion' => $canEdit
-                && $this->convertedTransaction !== null
+            'can_undo_conversion' => $canEdit && ($ledger !== null || ($this->convertedTransaction !== null
                 && $this->convertedTransaction->kind?->value === 'scheduled'
-                && $this->convertedTransaction->refundTransaction === null,
+                && $this->convertedTransaction->refundTransaction === null)),
             'converted_transaction' => $this->convertedTransaction === null ? null : [
                 'uuid' => $this->convertedTransaction->uuid,
                 'kind' => $this->convertedTransaction->kind?->value,

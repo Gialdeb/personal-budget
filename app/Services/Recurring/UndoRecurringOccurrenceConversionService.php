@@ -20,6 +20,15 @@ class UndoRecurringOccurrenceConversionService
 
     public function undo(RecurringEntryOccurrence $occurrence): RecurringEntryOccurrence
     {
+        if ($occurrence->sharedExpenseLedgerEntry()->exists()) {
+            return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
+                $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->id);
+                $occurrence->sharedExpenseLedgerEntry()->firstOrFail()->delete();
+                $this->refreshEntryState($occurrence->recurringEntry, ($occurrence->due_date ?? $occurrence->expected_date)?->toDateString());
+
+                return $occurrence->fresh();
+            });
+        }
         $occurrence->loadMissing(
             'recurringEntry',
             'convertedTransaction.account',

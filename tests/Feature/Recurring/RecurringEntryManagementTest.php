@@ -26,13 +26,18 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
 use App\Services\Accounts\AccountOpeningBalanceService;
+use App\Services\Dashboard\DashboardService;
+use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\TransactionRefundService;
+use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
 use App\Services\Recurring\UpdateRecurringOccurrenceAmountService;
 use App\Services\SharedExpenses\SharedExpenseOccurrencePostingService;
+use App\Services\SharedExpenses\SharedExpenseSettlementService;
+use App\Services\Transactions\TransactionMutationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -2861,4 +2866,115 @@ test('reactivation materializes missed dates and preserves skipped and recorded 
     app(RecurringEntryLifecycleService::class)->synchronize($entry->fresh());
     expect($missing->fresh()->converted_transaction_id)->toBeNull()->and(Transaction::count())->toBe(2);
     $this->actingAs(User::factory()->create())->patch(route('recurring-entries.resume', $entry->uuid))->assertNotFound();
+});
+
+test('external shared payment settles the obligation without cash and can be reversed', function (string $type) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $context = recurringManagementContext();
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $context['user']->id, 'name' => 'Emanuela', 'slug' => 'external-emanuela',
+        'is_active' => true, 'is_shared_expense_counterpart' => true,
+    ]);
+    $entry = createManagedRecurringEntry($context, [
+        'entry_type' => $type,
+        'expected_amount' => $type === 'installment' ? null : 50,
+        'total_amount' => $type === 'installment' ? 100 : null,
+        'installments_count' => $type === 'installment' ? 2 : null,
+        'shared_expense_counterparty_id' => $counterparty->id,
+        'shared_expense_paid_by' => 'counterparty',
+        'shared_expense_my_share' => $type === 'installment' ? 50 : 25,
+        'shared_expense_counterparty_share' => $type === 'installment' ? 50 : 25,
+    ]);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $balance = $context['account']->fresh()->current_balance;
+    expect($occurrence->newQuery()->openObligations()->whereKey($occurrence->id)->exists())->toBeTrue();
+    $this->actingAs($context['user'])->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]))->assertSessionHasNoErrors();
+    $ledger = $occurrence->fresh()->sharedExpenseLedgerEntry;
+    expect($occurrence->fresh()->status->value)->toBe('completed')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(0)
+        ->and($occurrence->newQuery()->openObligations()->whereKey($occurrence->id)->exists())->toBeFalse()
+        ->and(Transaction::withTrashed()->count())->toBe(0)
+        ->and($context['account']->fresh()->current_balance)->toBe($balance);
+    $this->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn (Assert $page) => $page
+        ->where('recurringEntry.occurrences.0.external_payment.payer', 'Emanuela')
+        ->where('recurringEntry.occurrences.0.external_payment.settled', true)
+        ->where('recurringEntry.occurrences.0.remaining_amount', 0)
+        ->where('recurringEntry.summary.paid_count', 1)
+        ->where('recurringEntry.summary.settled_occurrences', 1)
+        ->where('recurringEntry.summary.paid_amount', 50));
+    $this->get(route('shared-expenses.index', ['year' => 2026, 'month' => 1, 'entry' => $ledger->uuid]))->assertInertia(fn (Assert $page) => $page
+        ->has('entries', 1)->where('entries.0.uuid', $ledger->uuid)
+        ->where('entries.0.origin_url', route('recurring-entries.show', ['recurringEntry' => $entry, 'highlight' => $occurrence->uuid])));
+    $dashboard = app(DashboardService::class)->build($context['user'], 2026, 1);
+    expect($dashboard['recurring_summary']['pending_count'])->toBe(0)
+        ->and($dashboard['recurring_summary']['overdue_count'])->toBe(0);
+    $sheet = app(MonthlyTransactionSheetService::class)->build($context['user'], 2026, 1);
+    expect($sheet['planned_occurrences'])->toBeEmpty()
+        ->and($sheet['totals']['actual_expense_raw'])->toEqual(0);
+    $this->get(route('recurring-entries.index', ['year' => 2026, 'month' => 1]))->assertInertia(fn (Assert $page) => $page
+        ->where('monthlyCalendar.summary.pending_count', 0)
+        ->where('monthlyCalendar.days.0.occurrences.0.external_payment.settled', true));
+    app(RecurringEntryOccurrenceGeneratorService::class)->generate($entry);
+    expect($entry->occurrences()->whereKey($occurrence->id)->sole()->sharedExpenseLedgerEntry->id)->toBe($ledger->id);
+    $ledger->update(['total_cents' => 2000, 'my_share_cents' => 1000, 'counterparty_share_cents' => 1000]);
+    expect($occurrence->fresh()->status->value)->toBe('pending')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(3000)
+        ->and($occurrence->newQuery()->openObligations()->whereKey($occurrence->id)->exists())->toBeTrue();
+    $ledger->update(['total_cents' => 5000, 'my_share_cents' => 2500, 'counterparty_share_cents' => 2500]);
+    expect($occurrence->fresh()->status->value)->toBe('completed');
+    app(UndoRecurringOccurrenceConversionService::class)->undo($occurrence->fresh());
+    expect($occurrence->fresh()->status->value)->toBe('pending')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(5000)
+        ->and($occurrence->fresh()->automatic_posting_blocked_at)->not->toBeNull()
+        ->and($occurrence->newQuery()->openObligations()->whereKey($occurrence->id)->exists())->toBeTrue()
+        ->and(Transaction::withTrashed()->count())->toBe(0);
+    app(App\Services\Transactions\RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    expect($occurrence->fresh()->status->value)->toBe('pending')
+        ->and($occurrence->fresh()->sharedExpenseLedgerEntry)->toBeNull();
+})->with(['recurring', 'installment']);
+
+test('changing a scheduled payment to counterparty retains the occurrence and restores cash', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $context = recurringManagementContext();
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $context['user']->id, 'name' => 'Emanuela', 'slug' => 'changed-payer',
+        'is_active' => true, 'is_shared_expense_counterpart' => true,
+    ]);
+    $entry = createManagedRecurringEntry($context);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $balance = $context['account']->fresh()->current_balance;
+    $transaction = app(RecurringEntryPostingService::class)->post($occurrence, $context['user']);
+    $ledger = app(TransactionMutationService::class)->update($context['user'], $transaction, [
+        'account_id' => $context['account']->id, 'category_id' => $context['category']->id,
+        'amount' => '50.00', 'transaction_date' => '2026-01-15', 'type_key' => 'expense',
+        'description' => 'Pagata da Emanuela', 'notes' => null, 'is_shared_expense' => true,
+        'shared_expense_counterparty_id' => $counterparty->id, 'shared_expense_paid_by' => 'counterparty',
+        'shared_expense_my_share' => '25.00', 'shared_expense_counterparty_share' => '25.00',
+    ]);
+    expect($ledger->recurring_entry_occurrence_id)->toBe($occurrence->id)
+        ->and($occurrence->fresh()->status->value)->toBe('completed')
+        ->and($occurrence->fresh()->converted_transaction_id)->toBeNull()
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(0)
+        ->and(Transaction::withTrashed()->count())->toBe(0)
+        ->and($context['account']->fresh()->current_balance)->toBe($balance);
+    $occurrence->fresh()->update(['expected_amount' => '60.00']);
+    expect($occurrence->fresh()->status->value)->toBe('pending')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(1000);
+    $occurrence->fresh()->update(['expected_amount' => '50.00']);
+    $ledger->update(['paid_by' => 'self']);
+    expect($occurrence->fresh()->status->value)->toBe('pending')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(5000);
+    $ledger->update(['paid_by' => 'counterparty']);
+    expect($occurrence->fresh()->status->value)->toBe('completed');
+    $ledger->update(['status' => 'cancelled']);
+    expect(app(SharedExpenseSettlementService::class)->balanceCents($context['user'], $counterparty))->toBe(0);
+    expect($occurrence->fresh()->status->value)->toBe('pending')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(5000);
+    $ledger->update(['status' => 'recorded']);
+    $occurrence->forceFill(['status' => 'pending'])->save();
+    $migration = require database_path('migrations/2026_10_13_090848_reconcile_external_recurring_settlements.php');
+    $migration->up();
+    expect($occurrence->fresh()->status->value)->toBe('completed');
+    $ledger->delete();
+    expect($occurrence->fresh()->status->value)->toBe('pending');
 });

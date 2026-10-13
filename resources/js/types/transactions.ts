@@ -440,6 +440,7 @@ export type RecurringLinkedTransaction = {
 };
 
 export type RecurringMonthlyOccurrence = {
+    external_payment?: RecurringEntryShowPayload['occurrences'][number]['external_payment'];
     uuid: string;
     sequence_number: number;
     status: string | null;
@@ -618,6 +619,15 @@ export type RecurringEntryShowPayload = {
         } | null;
         expected_amount: number | null;
         status: string | null;
+        external_payment?: {
+            uuid: string;
+            payer: string | null;
+            amount: number;
+            date: string;
+            currency: string;
+            settled: boolean;
+            show_url: string;
+        } | null;
         settlement_status?:
             | 'settled'
             | 'partial'
@@ -652,6 +662,7 @@ export type RecurringEntryShowPayload = {
         total_occurrences: number;
         pending_occurrences: number;
         converted_occurrences: number;
+        settled_occurrences: number;
         converted_amount: number;
         remaining_amount: number;
         paid_count: number;

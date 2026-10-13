@@ -29,7 +29,7 @@ class SharedExpenseOccurrencePostingService
             }
 
             $totalCents = (int) round((float) $occurrence->expected_amount * 100);
-            if (! in_array($occurrence->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED], true)) {
+            if ($totalCents <= 0 || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->paymentAllocations()->exists() || ! in_array($occurrence->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED], true)) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_recorded_in_its_current_state_57f7acb0')]);
             }
             $ledgerEntry = SharedExpenseLedgerEntry::query()->create([
@@ -45,8 +45,6 @@ class SharedExpenseOccurrencePostingService
                 'counterparty_share_cents' => $occurrence->shared_expense_counterparty_share_cents ?? ($totalCents - intdiv($totalCents, 2)),
                 'status' => 'recorded',
             ]);
-
-            $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::COMPLETED])->save();
 
             return $ledgerEntry;
         });
