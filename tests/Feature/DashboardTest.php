@@ -2224,3 +2224,67 @@ function formatMoney(float $amount, string $currency = 'EUR'): string
 
     return $formatter->formatCurrency($amount, $currency);
 }
+
+test('dashboard arrears retain recent and old unpaid occurrences independently of reminder expiry', function () {
+    config(['features.credits_debts.enabled' => true]);
+    $this->travelTo(CarbonImmutable::parse('2026-10-13'));
+    $user = User::factory()->create();
+    $account = seedDashboardFixture($user);
+    $entry = RecurringEntry::create(['user_id' => $user->id, 'account_id' => $account->id,
+        'title' => 'Dashboard arrears', 'direction' => 'expense', 'currency' => 'EUR', 'entry_type' => 'recurring',
+        'status' => 'active', 'is_active' => true, 'start_date' => '2026-09-01', 'recurrence_type' => 'monthly',
+        'recurrence_interval' => 1, 'end_mode' => 'never', 'expected_amount' => 32,
+        'is_amount_variable' => false, 'auto_create_transaction' => false, 'auto_generate_occurrences' => false]);
+    $rows = collect(['2026-09-01', '2026-10-01', '2026-10-12', '2026-10-02', '2026-10-03'])->map(fn (string $date, int $index): RecurringEntryOccurrence => $entry->occurrences()->create([
+        'sequence_number' => $index + 1, 'expected_date' => $date, 'due_date' => $date, 'expected_amount' => 32,
+        'status' => $index === 4 ? 'cancelled' : 'pending',
+    ]));
+    app(RecurringEntryPostingService::class)->post($rows[3], $user);
+    $expected = $rows->take(3)->map(fn (RecurringEntryOccurrence $row): string => 'recurring:'.$row->uuid)->all();
+    $this->actingAs($user);
+    foreach (['2026-10-13', '2026-11-13'] as $date) {
+        $this->travelTo(CarbonImmutable::parse($date));
+        $this->get(route('dashboard', ['year' => 2026, 'month' => (int) now()->month]))->assertSuccessful()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('dashboard.credits_debts.arrears', fn ($items): bool => collect($items)->pluck('uuid')->all() === $expected));
+    }
+});
+
+test('dashboard upcoming events use the canonical residual for every recurring settlement', function (string $settlement) {
+    $this->travelTo(CarbonImmutable::parse('2026-10-13'));
+    $user = User::factory()->create();
+    $account = seedDashboardFixture($user);
+    $entry = RecurringEntry::create(['user_id' => $user->id, 'account_id' => $account->id,
+        'title' => 'Dashboard future expense', 'direction' => 'expense', 'currency' => 'EUR', 'entry_type' => 'recurring',
+        'status' => 'active', 'is_active' => true, 'start_date' => '2026-10-14', 'recurrence_type' => 'monthly',
+        'recurrence_interval' => 1, 'end_mode' => 'never', 'expected_amount' => 32,
+        'is_amount_variable' => false, 'auto_create_transaction' => false, 'auto_generate_occurrences' => false]);
+    $occurrence = $entry->occurrences()->create(['sequence_number' => 1, 'expected_date' => '2026-10-14',
+        'due_date' => '2026-10-14', 'expected_amount' => 32, 'status' => 'pending']);
+    if (in_array($settlement, ['transaction', 'allocation'], true)) {
+        $transaction = Transaction::create(['user_id' => $user->id, 'account_id' => $account->id, 'amount' => 32,
+            'currency' => 'EUR', 'direction' => 'expense', 'transaction_date' => '2026-10-13',
+            'kind' => 'manual', 'source_type' => 'manual', 'status' => 'confirmed']);
+        if ($settlement === 'allocation') {
+            $occurrence->paymentAllocations()->create(['transaction_id' => $transaction->id, 'amount_cents' => 3200]);
+        } else {
+            $occurrence->update(['matched_transaction_id' => $transaction->id]);
+        }
+    } elseif ($settlement === 'external') {
+        $person = TrackedItem::create(['user_id' => $user->id, 'name' => 'Mario', 'slug' => 'mario-dashboard',
+            'is_active' => true, 'is_shared_expense_counterpart' => true]);
+        $occurrence->sharedExpenseLedgerEntry()->create(['user_id' => $user->id, 'counterparty_id' => $person->id,
+            'entry_date' => '2026-10-13', 'title' => $entry->title, 'currency' => 'EUR', 'total_cents' => 3200,
+            'paid_by' => 'counterparty', 'my_share_cents' => 1600, 'counterparty_share_cents' => 1600, 'status' => 'recorded']);
+        $occurrence->update(['status' => 'generated']);
+    } elseif ($settlement === 'completed') {
+        $occurrence->update(['status' => 'completed']);
+    }
+    $visible = $settlement === 'unpaid';
+    $this->actingAs($user)->get(route('dashboard', ['year' => 2026, 'month' => 10]))->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.scheduled_summary.upcoming', fn ($items): bool => collect($items)->contains('id', 'recurring-'.$occurrence->id) === $visible)
+            ->where('dashboard.pending_actions.items', fn ($items): bool => collect($items)->contains('id', 'recurring-'.$occurrence->id) === $visible)
+            ->where('dashboard.recurring_summary.planned_count', $visible ? 1 : 0)
+            ->where('dashboard.credits_debts.arrears', []));
+})->with(['unpaid', 'completed', 'transaction', 'allocation', 'external']);
