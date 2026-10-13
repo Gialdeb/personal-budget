@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RecurringEntryStatusEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Builder;
@@ -9,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class RecurringEntryOccurrence extends Model
@@ -93,13 +93,22 @@ class RecurringEntryOccurrence extends Model
             ->selectRaw('COALESCE(SUM(amount_cents), 0)')
             ->whereColumn('occurrence_id', $this->qualifyColumn('id'));
 
-        return $query->whereIn('status', ['pending', 'generated'])
-            ->whereRaw('ROUND('.$this->qualifyColumn('expected_amount').' * 100) > ('.$allocated->toSql().')', $allocated->getBindings())
-            ->whereNull('converted_transaction_id')
-            ->whereNull('matched_transaction_id')
-            ->whereDoesntHave('sharedExpenseLedgerEntry', fn (Builder $ledger) => $ledger
-                ->recorded()->where('paid_by', 'counterparty')
-                ->whereColumn('total_cents', '>=', DB::raw('ROUND(recurring_entry_occurrences.expected_amount * 100)')))
+        $external = SharedExpenseLedgerEntry::query()->recorded()->where('paid_by', 'counterparty')
+            ->selectRaw('COALESCE(SUM(total_cents), 0)')->whereColumn('recurring_entry_occurrence_id', $this->qualifyColumn('id'));
+        $personal = Transaction::query()->where('status', 'confirmed')->whereIn('kind', ['manual', 'scheduled'])
+            ->where(function (Builder $transactions): void {
+                $transactions->whereColumn('recurring_entry_occurrence_id', $this->qualifyColumn('id'))
+                    ->orWhereColumn('transactions.id', $this->qualifyColumn('converted_transaction_id'))
+                    ->orWhereColumn('transactions.id', $this->qualifyColumn('matched_transaction_id'));
+            })->whereDoesntHave('occurrencePaymentAllocations', fn (Builder $allocations) => $allocations->whereColumn('occurrence_id', $this->qualifyColumn('id')))
+            ->selectRaw("COALESCE(SUM(ROUND(transactions.amount * 100) - COALESCE((SELECT ROUND(refunds.amount * 100) FROM transactions AS refunds WHERE refunds.refunded_transaction_id = transactions.id AND refunds.status = 'confirmed' AND refunds.deleted_at IS NULL), 0)), 0)");
+
+        return $query->where(function (Builder $history): void {
+            $history->whereHas('recurringEntry', fn (Builder $entry) => $entry->whereColumn('start_date', '<=', $this->qualifyColumn('expected_date')))
+                ->orWhereDoesntHave('convertedTransaction.refundTransaction', fn (Builder $refund) => $refund->where('status', 'confirmed'));
+        })
+            ->whereIn('status', ['pending', 'generated', 'refunded'])
+            ->whereRaw('ROUND('.$this->qualifyColumn('expected_amount').' * 100) > ('.$allocated->toSql().') + ('.$external->toSql().') + ('.$personal->toSql().')', [...$allocated->getBindings(), ...$external->getBindings(), ...$personal->getBindings()])
             ->where('expected_amount', '>', 0)
             ->where(function (Builder $dates): void {
                 $dates->whereDate('due_date', '<=', today())
@@ -129,13 +138,59 @@ class RecurringEntryOccurrence extends Model
             ? $ledger->total_cents : 0;
     }
 
+    public function settlementTransactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class, 'recurring_entry_occurrence_id');
+    }
+
+    public function personalSettlementTransactions(): Builder
+    {
+        return Transaction::query()->where(function (Builder $query): void {
+            $query->where('recurring_entry_occurrence_id', $this->id)
+                ->orWhereIn('id', array_filter([$this->converted_transaction_id, $this->matched_transaction_id]));
+        })->whereIn('kind', ['manual', 'scheduled'])->where('status', 'confirmed')
+            ->whereDoesntHave('occurrencePaymentAllocations', fn (Builder $query) => $query->where('occurrence_id', $this->id));
+    }
+
+    public function personalPaymentCents(): int
+    {
+        return (int) $this->personalSettlementTransactions()->with('refundTransaction')->get()->sum(fn (Transaction $transaction): int => $transaction->activeAmountCents());
+    }
+
     public function remainingPaymentCents(): int
     {
-        if ($this->convertedTransaction()->exists() || $this->matchedTransaction()->exists()) {
-            return 0;
-        }
+        return max(0, (int) round((float) $this->expected_amount * 100)
+            - $this->allocatedPaymentCents() - $this->externalPaymentCents() - $this->personalPaymentCents());
+    }
 
-        return max(0, (int) round((float) $this->expected_amount * 100) - $this->allocatedPaymentCents() - $this->externalPaymentCents());
+    public function isRetiredRefundedHistory(): bool
+    {
+        return $this->convertedTransaction?->refundTransaction?->status?->value === 'confirmed'
+            && $this->expected_date->lt($this->recurringEntry->firstBillingDate());
+    }
+
+    public function synchronizeSettlementState(): void
+    {
+        $this->unsetRelation('sharedExpenseLedgerEntry');
+        if (in_array($this->status, [RecurringOccurrenceStatusEnum::SKIPPED, RecurringOccurrenceStatusEnum::CANCELLED], true)) {
+            return;
+        }
+        $settled = $this->remainingPaymentCents() === 0 && (float) $this->expected_amount > 0;
+        $this->forceFill([
+            'status' => $settled ? RecurringOccurrenceStatusEnum::COMPLETED : RecurringOccurrenceStatusEnum::PENDING,
+            'automatic_posting_blocked_at' => $settled ? $this->automatic_posting_blocked_at : now(),
+        ])->save();
+        $entry = $this->recurringEntry;
+        if (! $settled && $entry !== null) {
+            if ($entry->status === RecurringEntryStatusEnum::COMPLETED) {
+                $entry->status = $entry->is_active ? RecurringEntryStatusEnum::ACTIVE : RecurringEntryStatusEnum::PAUSED;
+            }
+            $date = $this->due_date ?? $this->expected_date;
+            if ($entry->next_occurrence_date === null || $date->lt($entry->next_occurrence_date)) {
+                $entry->next_occurrence_date = $date;
+            }
+            $entry->save();
+        }
     }
 
     public function salaryDetail(): HasOne

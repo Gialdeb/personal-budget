@@ -440,6 +440,7 @@ export type RecurringLinkedTransaction = {
 };
 
 export type RecurringMonthlyOccurrence = {
+    remaining_amount?: number;
     external_payment?: RecurringEntryShowPayload['occurrences'][number]['external_payment'];
     uuid: string;
     sequence_number: number;
@@ -636,6 +637,14 @@ export type RecurringEntryShowPayload = {
             | null;
         allocated_amount?: number;
         can_register_payment: boolean;
+        payment_history?: Array<{
+            uuid: string;
+            date: string;
+            amount: number;
+            show_url: string;
+            refunded: boolean;
+            refund_url: string | null;
+        }>;
         payments: Array<{
             uuid: string;
             date: string;

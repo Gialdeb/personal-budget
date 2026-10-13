@@ -18,9 +18,9 @@ class UndoRecurringOccurrenceConversionService
         protected TransactionMutationService $transactionMutationService
     ) {}
 
-    public function undo(RecurringEntryOccurrence $occurrence): RecurringEntryOccurrence
+    public function undo(RecurringEntryOccurrence $occurrence, bool $externalOnly = false): RecurringEntryOccurrence
     {
-        if ($occurrence->sharedExpenseLedgerEntry()->exists()) {
+        if ($occurrence->sharedExpenseLedgerEntry()->exists() && ($externalOnly || $occurrence->convertedTransaction === null || $occurrence->convertedTransaction->refundTransaction !== null)) {
             return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
                 $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->id);
                 $occurrence->sharedExpenseLedgerEntry()->firstOrFail()->delete();
@@ -93,6 +93,7 @@ class UndoRecurringOccurrenceConversionService
             ])->save();
 
             $currentTransaction->forceDelete();
+            $occurrence->synchronizeSettlementState();
 
             if ($account !== null) {
                 $this->transactionMutationService->recalculateAccount($account);

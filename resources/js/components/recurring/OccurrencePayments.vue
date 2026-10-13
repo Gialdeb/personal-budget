@@ -8,6 +8,7 @@ import type { RecurringEntryShowPayload } from '@/types';
 defineProps<{
     payments: RecurringEntryShowPayload['occurrences'][number]['payments'];
     currency: string | null;
+    history?: RecurringEntryShowPayload['occurrences'][number]['payment_history'];
     externalPayment?: RecurringEntryShowPayload['occurrences'][number]['external_payment'];
 }>();
 const ui = useUiCopy();
@@ -15,7 +16,7 @@ const ui = useUiCopy();
 
 <template>
     <section
-        v-if="payments?.length || externalPayment"
+        v-if="payments?.length || externalPayment || history?.length"
         class="min-w-0 space-y-2 text-xs"
     >
         <Link
@@ -40,6 +41,29 @@ const ui = useUiCopy();
             />
             <span class="text-primary">Spesa condivisa →</span>
         </Link>
+        <div
+            v-for="payment in history"
+            :key="payment.uuid"
+            class="rounded-xl border border-border px-3 py-2 text-muted-foreground"
+        >
+            <Link
+                :href="payment.show_url"
+                class="inline-flex min-h-11 items-center gap-2"
+                >{{ payment.date }} ·
+                {{ formatCurrency(payment.amount, currency ?? 'EUR') }} ·
+                {{
+                    payment.refunded
+                        ? 'Pagamento rimborsato'
+                        : 'Pagamento precedente'
+                }}</Link
+            >
+            <Link
+                v-if="payment.refund_url"
+                :href="payment.refund_url"
+                class="inline-flex min-h-11 items-center text-primary"
+                >Apri rimborso →</Link
+            >
+        </div>
         <h4 v-if="payments?.length" class="font-semibold">
             {{ ui('Pagamenti') }}
         </h4>

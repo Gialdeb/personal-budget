@@ -18,6 +18,7 @@ class ConvertRecurringOccurrenceRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'account_uuid' => ['nullable', 'uuid'],
             'transaction_date' => ['nullable', 'date'],
             'value_date' => ['nullable', 'date'],
             'description' => ['nullable', 'string', 'max:4000'],

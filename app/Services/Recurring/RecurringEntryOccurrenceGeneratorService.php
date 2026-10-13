@@ -191,7 +191,7 @@ class RecurringEntryOccurrenceGeneratorService
         if ($entry->entry_type !== RecurringEntryTypeEnum::RECURRING) {
             return 0;
         }
-        $hasRefundedHistory = $entry->occurrences()->where('status', RecurringOccurrenceStatusEnum::REFUNDED)
+        $hasRefundedHistory = $entry->occurrences()
             ->whereDate('expected_date', '<', $entry->firstBillingDate())
             ->whereHas('convertedTransaction.refundTransaction')->exists();
 

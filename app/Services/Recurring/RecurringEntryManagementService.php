@@ -114,13 +114,11 @@ class RecurringEntryManagementService
                 ->exists();
             $canRealignRefundedSchedule = $entry->entry_type === RecurringEntryTypeEnum::RECURRING
                 && ! $entry->trial_duration
-                && $entry->occurrences()->where('status', RecurringOccurrenceStatusEnum::REFUNDED)
+                && $entry->occurrences()
                     ->whereHas('convertedTransaction.refundTransaction')->exists();
 
             if ($hasConvertedOccurrences || $hasTrialPayment) {
-                if ($entry->trial_duration) {
-                    $validated = $this->validator->validate($user, [...$entry->getAttributes(), ...$validated]);
-                }
+                $validated = $this->validator->validate($user, [...$entry->getAttributes(), ...$validated]);
                 if (
                     $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT
                     && (bool) ($validated['is_amount_variable'] ?? false)
@@ -162,6 +160,10 @@ class RecurringEntryManagementService
                     'auto_generate_occurrences',
                     'is_amount_variable',
                     'reminder_days_before',
+                    'shared_expense_counterparty_id',
+                    'shared_expense_paid_by',
+                    'shared_expense_my_share_cents',
+                    'shared_expense_counterparty_share_cents',
                 ]));
                 $entry->forceFill([
                     'updated_by_user_id' => $user->id,

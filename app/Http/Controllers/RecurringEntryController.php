@@ -6,7 +6,6 @@ use App\Enums\RecurringEndModeEnum;
 use App\Enums\RecurringEntryRecurrenceTypeEnum;
 use App\Enums\RecurringEntryStatusEnum;
 use App\Enums\RecurringEntryTypeEnum;
-use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Http\Requests\Recurring\PauseRecurringEntryRequest;
 use App\Http\Requests\Recurring\PreviewRecurringEntryExchangeRequest;
@@ -626,7 +625,7 @@ class RecurringEntryController extends Controller
                             $expenseTotal += $amount;
                         }
 
-                        if (in_array($status, [RecurringOccurrenceStatusEnum::PENDING->value, RecurringOccurrenceStatusEnum::GENERATED->value], true)) {
+                        if (in_array($status, ['pending', 'generated', 'refunded'], true) && $occurrence->remainingPaymentCents() > 0 && ! $occurrence->isRetiredRefundedHistory()) {
                             $pendingCount++;
                         }
 
@@ -644,12 +643,13 @@ class RecurringEntryController extends Controller
                                 'amount' => $occurrence->sharedExpenseLedgerEntry->total_cents / 100,
                                 'date' => $occurrence->sharedExpenseLedgerEntry->entry_date->toDateString(),
                                 'currency' => $occurrence->sharedExpenseLedgerEntry->currency,
-                                'settled' => $occurrence->externalPaymentCents() > 0 && $occurrence->remainingPaymentCents() === 0,
+                                'settled' => $occurrence->externalPaymentCents() >= (int) round((float) $occurrence->expected_amount * 100),
                                 'show_url' => route('shared-expenses.index', ['year' => $occurrence->sharedExpenseLedgerEntry->entry_date->year, 'month' => $occurrence->sharedExpenseLedgerEntry->entry_date->month, 'entry' => $occurrence->sharedExpenseLedgerEntry->uuid]),
                             ],
                             'expected_date' => $occurrence->expected_date?->toDateString(),
                             'due_date' => $occurrence->due_date?->toDateString(),
                             'display_date' => $this->occurrenceDate($occurrence)->toDateString(),
+                            'remaining_amount' => $occurrence->remainingPaymentCents() / 100,
                             'expected_amount' => $occurrence->expected_amount !== null ? (float) $occurrence->expected_amount : null,
                             'currency' => $entry?->currency,
                             'notes' => $occurrence->notes,
@@ -658,9 +658,10 @@ class RecurringEntryController extends Controller
                             'title' => $entry?->title,
                             'description' => $entry?->description,
                             'can_convert' => $canEdit
-                                && $occurrence->sharedExpenseLedgerEntry === null
-                                && $occurrence->converted_transaction_id === null
-                                && in_array($status, ['pending', 'generated'], true),
+                                && ! $occurrence->paymentAllocations()->exists()
+                                && $occurrence->remainingPaymentCents() > 0
+                                && ! $occurrence->isRetiredRefundedHistory()
+                                && in_array($status, ['pending', 'generated', 'refunded'], true),
                             'can_skip' => $canEdit && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null && in_array($status, ['pending', 'generated'], true),
                             'can_restore' => $canEdit && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null && $status === 'skipped',
                             'converted_transaction' => $occurrence->convertedTransaction === null ? null : [

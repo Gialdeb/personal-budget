@@ -35,15 +35,17 @@ class SharedExpenseSettlementService
         $transactionEffect = Transaction::query()
             ->whereIn('account_id', $this->accessibleAccountsQuery->ids($user))
             ->where('shared_expense_counterparty_id', $counterparty->id)
-            ->get(['amount', 'shared_expense_paid_by', 'shared_expense_my_share_cents', 'shared_expense_counterparty_share_cents'])
+            ->with('refundTransaction')->get()
             ->sum(function (Transaction $transaction): int {
                 $totalCents = $this->sharedExpenseAllocation->toCents((string) $transaction->amount);
 
-                return $this->sharedExpenseAllocation->balanceEffectCents([
+                $effect = $this->sharedExpenseAllocation->balanceEffectCents([
                     'paid_by' => $transaction->shared_expense_paid_by ?? SharedExpenseAllocation::PAID_BY_SELF,
                     'my_share_cents' => $transaction->shared_expense_my_share_cents ?? intdiv($totalCents, 2),
                     'counterparty_share_cents' => $transaction->shared_expense_counterparty_share_cents ?? ($totalCents - intdiv($totalCents, 2)),
                 ]);
+
+                return $totalCents > 0 ? (int) round($effect * $transaction->activeAmountCents() / $totalCents) : 0;
             });
         $ledgerEffect = SharedExpenseLedgerEntry::query()->recorded()
             ->where('user_id', $user->id)

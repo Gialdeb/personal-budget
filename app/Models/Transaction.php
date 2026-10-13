@@ -8,6 +8,7 @@ use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Concerns\HasPublicUuid;
 use App\Models\Concerns\LogsDomainActivity;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -27,9 +28,29 @@ class Transaction extends Model
         static::updating(function (self $transaction): void {
             $transaction->validateOccurrenceAllocations();
         });
+        static::created(function (self $transaction): void {
+            if ($transaction->recurring_entry_occurrence_id !== null || $transaction->refunded_transaction_id !== null) {
+                $transaction->synchronizeRecurringSettlement();
+            }
+        });
+        static::updated(fn (self $transaction) => $transaction->synchronizeRecurringSettlement());
+        static::deleted(fn (self $transaction) => $transaction->synchronizeRecurringSettlement());
+        static::restored(fn (self $transaction) => $transaction->synchronizeRecurringSettlement());
         static::restoring(function (self $transaction): void {
             $transaction->validateOccurrenceAllocations();
         });
+    }
+
+    protected function synchronizeRecurringSettlement(): void
+    {
+        $sourceId = $this->refunded_transaction_id ?? $this->id;
+        $occurrenceId = $this->recurring_entry_occurrence_id ?? ($this->refunded_transaction_id === null ? null : $this->refundedTransaction?->recurring_entry_occurrence_id);
+        RecurringEntryOccurrence::query()->where(function (Builder $query) use ($sourceId, $occurrenceId): void {
+            $query->where('converted_transaction_id', $sourceId)->orWhere('matched_transaction_id', $sourceId);
+            if ($occurrenceId !== null) {
+                $query->orWhere('id', $occurrenceId);
+            }
+        })->lockForUpdate()->get()->each(fn (RecurringEntryOccurrence $occurrence) => $occurrence->synchronizeSettlementState());
     }
 
     protected function validateOccurrenceAllocations(): void
@@ -54,6 +75,17 @@ class Transaction extends Model
                 throw ValidationException::withMessages(['amount' => __('ui.the_allocation_exceeds_the_remaining_balance_or_is_incompatible_5d9801ff')]);
             }
         }
+    }
+
+    public function activeAmountCents(): int
+    {
+        if ($this->trashed() || $this->status !== TransactionStatusEnum::CONFIRMED) {
+            return 0;
+        }
+        $refund = $this->refundTransaction;
+
+        return max(0, (int) round((float) $this->amount * 100)
+            - ($refund?->status === TransactionStatusEnum::CONFIRMED ? (int) round((float) $refund->amount * 100) : 0));
     }
 
     public function occurrencePaymentAllocations(): HasMany

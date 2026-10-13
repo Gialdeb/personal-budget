@@ -787,6 +787,13 @@ function recurrenceState(occurrence: RecurringMonthlyOccurrence): {
         };
     }
 
+    if (occurrence.can_convert && (occurrence.remaining_amount ?? 0) > 0) {
+        return {
+            label: 'Da regolarizzare',
+            tone: 'bg-primary/10 text-primary',
+        };
+    }
+
     if (
         occurrence.status === 'refunded' ||
         occurrence.converted_transaction?.is_refunded === true
@@ -812,6 +819,20 @@ function recurrenceState(occurrence: RecurringMonthlyOccurrence): {
 
 function convertRow(occurrence: RecurringMonthlyOccurrence): void {
     if (!occurrence.recurring_entry || !occurrence.can_convert) {
+        return;
+    }
+
+    if (
+        occurrence.recurring_entry.shared_expense_counterparty ||
+        occurrence.converted_transaction?.is_refunded ||
+        occurrence.external_payment
+    ) {
+        router.visit(
+            showRecurringEntry.url(occurrence.recurring_entry.uuid, {
+                query: { highlight: occurrence.uuid },
+            }),
+        );
+
         return;
     }
 

@@ -54,7 +54,7 @@ class SharedExpenseController extends Controller
             ->whereMonth('transaction_date', $month)
             ->when($dateFrom, fn ($query) => $query->whereDate('transaction_date', '>=', $dateFrom))
             ->when($dateTo, fn ($query) => $query->whereDate('transaction_date', '<=', $dateTo))
-            ->with(['category:id,uuid,name', 'trackedItem:id,uuid,name', 'sharedExpenseCounterparty:id,uuid,name', 'recurringOccurrence.recurringEntry:id,uuid,entry_type'])
+            ->with(['refundTransaction', 'category:id,uuid,name', 'trackedItem:id,uuid,name', 'sharedExpenseCounterparty:id,uuid,name', 'recurringOccurrence.recurringEntry:id,uuid,entry_type'])
             ->when($counterpartyUuid, fn ($query) => $query->whereHas('sharedExpenseCounterparty', fn ($counterpartyQuery) => $counterpartyQuery->where('uuid', $counterpartyUuid)))
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($searchQuery) use ($search): void {
@@ -116,9 +116,9 @@ class SharedExpenseController extends Controller
                 'origin' => $transaction->recurringOccurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.installment_c9bb1db2') : ($transaction->recurring_entry_occurrence_id ? __('ui.recurring_entry_258b334d') : __('ui.transaction_680db696')),
                 'origin_url' => route('transactions.show', ['year' => $transaction->transaction_date?->year, 'month' => $transaction->transaction_date?->month]),
                 'origin_label' => __('ui.open_transaction_ed56aaa7'),
-                'amount' => (float) $transaction->amount, 'currency' => $transaction->currency, 'status' => __('ui.posted_bf13fd0a'),
+                'amount' => (float) $transaction->amount, 'currency' => $transaction->currency, 'status' => $transaction->refundTransaction !== null ? __('transactions.enums.recurring_transaction_status.refunded') : __('ui.posted_bf13fd0a'),
                 'paid_by' => $allocation['paid_by'], 'my_share_cents' => $allocation['my_share_cents'], 'counterparty_share_cents' => $allocation['counterparty_share_cents'],
-                'effect_cents' => $this->sharedExpenseAllocation->balanceEffectCents($allocation),
+                'effect_cents' => $totalCents > 0 ? (int) round($this->sharedExpenseAllocation->balanceEffectCents($allocation) * $transaction->activeAmountCents() / $totalCents) : 0,
             ];
         });
         $settlements = $counterpartyIds->isEmpty() ? collect() : SharedExpenseSettlement::query()
@@ -208,7 +208,7 @@ class SharedExpenseController extends Controller
         $entry = $ledger->occurrence->recurringEntry;
         abort_unless($this->accessibleAccountsQuery->canEditAccountId($request->user(), $entry->account_id), 404);
         $uuid = $ledger->occurrence->uuid;
-        $undo->undo($ledger->occurrence);
+        $undo->undo($ledger->occurrence, externalOnly: true);
 
         return to_route('recurring-entries.show', ['recurringEntry' => $entry, 'highlight' => $uuid]);
     }

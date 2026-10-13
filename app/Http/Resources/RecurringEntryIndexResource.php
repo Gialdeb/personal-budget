@@ -22,7 +22,8 @@ class RecurringEntryIndexResource extends JsonResource
             return in_array($occurrence->status, [
                 RecurringOccurrenceStatusEnum::PENDING,
                 RecurringOccurrenceStatusEnum::GENERATED,
-            ], true);
+                RecurringOccurrenceStatusEnum::REFUNDED,
+            ], true) && $occurrence->remainingPaymentCents() > 0 && ! $occurrence->isRetiredRefundedHistory();
         });
         $convertedOccurrences = $occurrences->filter(
             fn ($occurrence): bool => $occurrence->converted_transaction_id !== null
@@ -116,11 +117,10 @@ class RecurringEntryIndexResource extends JsonResource
                 'converted_occurrences' => $convertedOccurrences->count(),
                 'can_realign_refunded_schedule' => $this->entry_type?->value === 'recurring'
                     && ! $this->trial_duration
-                    && $occurrences->contains(fn ($occurrence): bool => $occurrence->status === RecurringOccurrenceStatusEnum::REFUNDED
-                        && $occurrence->convertedTransaction?->refundTransaction !== null),
+                    && $occurrences->contains(fn ($occurrence): bool => $occurrence->convertedTransaction?->refundTransaction !== null),
                 'remaining_occurrences' => $pendingOccurrences->count(),
                 'remaining_amount' => $this->entry_type?->value === 'installment'
-                    ? round((float) $pendingOccurrences->sum(fn ($occurrence) => (float) ($occurrence->expected_amount ?? 0)), 2)
+                    ? round((float) $pendingOccurrences->sum(fn ($occurrence) => $occurrence->remainingPaymentCents() / 100), 2)
                     : null,
             ],
         ];

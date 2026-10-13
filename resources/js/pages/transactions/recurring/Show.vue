@@ -24,6 +24,7 @@ import {
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import {
     convert as convertOccurrence,
+    undoConversion,
     skip as skipOccurrence,
     restore as restoreOccurrence,
     updateAmount,
@@ -148,6 +149,7 @@ const sharedPaymentForm = useForm({
     shared_expense_paid_by: 'self',
     amount: '',
     transaction_date: '',
+    account_uuid: '',
     confirm_future_date: true,
 });
 function submitSharedPayment(): void {
@@ -186,7 +188,9 @@ const undoingExternalPayment = computed(() =>
     props.recurringEntry.occurrences.some(
         (occurrence) =>
             occurrence.uuid === undoConversionOccurrenceUuid.value &&
-            occurrence.external_payment != null,
+            occurrence.external_payment != null &&
+            (!occurrence.converted_transaction ||
+                occurrence.converted_transaction.is_refunded),
     ),
 );
 const entry = computed(() => props.recurringEntry.entry);
@@ -574,7 +578,10 @@ function submitOccurrenceEdit(): void {
 function requestConvert(
     occurrence: (typeof props.recurringEntry.occurrences)[number],
 ): void {
-    if (entry.value.shared_expense_counterparty) {
+    if (
+        entry.value.shared_expense_counterparty ||
+        occurrence.converted_transaction?.is_refunded
+    ) {
         sharedPaymentForm.clearErrors();
         sharedPaymentForm.shared_expense_paid_by = occurrence.external_payment
             ? 'counterparty'
@@ -584,6 +591,8 @@ function requestConvert(
         );
         sharedPaymentForm.transaction_date =
             occurrence.due_date ?? occurrence.expected_date ?? '';
+        sharedPaymentForm.account_uuid =
+            occurrence.resource?.uuid ?? entry.value.account?.uuid ?? '';
         sharedPaymentOccurrence.value = occurrence;
 
         return;
@@ -621,7 +630,10 @@ function handleUndoConversion(): void {
     }
 
     router.delete(
-        `/recurring-entries/${entry.value.uuid}/occurrences/${undoConversionOccurrenceUuid.value}/conversion`,
+        undoConversion.url([
+            entry.value.uuid,
+            undoConversionOccurrenceUuid.value,
+        ]),
         {
             preserveScroll: true,
             onFinish: () => {
@@ -1250,6 +1262,7 @@ function isFutureOccurrence(
                         <OccurrencePayments
                             :payments="occurrence.payments"
                             :external-payment="occurrence.external_payment"
+                            :history="occurrence.payment_history"
                             :currency="entry.currency"
                         />
                         <div class="flex flex-wrap gap-2">
@@ -1318,7 +1331,10 @@ function isFutureOccurrence(
                                 "
                             >
                                 {{
-                                    occurrence.external_payment
+                                    occurrence.external_payment &&
+                                    (!occurrence.converted_transaction ||
+                                        occurrence.converted_transaction
+                                            .is_refunded)
                                         ? 'Annulla pagamento'
                                         : t(
                                               'transactions.recurring.actions.undoConversion',
@@ -1657,6 +1673,7 @@ function isFutureOccurrence(
                                         }}
                                     </span>
                                     <OccurrencePayments
+                                        :history="occurrence.payment_history"
                                         :payments="occurrence.payments"
                                         :external-payment="
                                             occurrence.external_payment
@@ -1747,7 +1764,11 @@ function isFutureOccurrence(
                                             "
                                         >
                                             {{
-                                                occurrence.external_payment
+                                                occurrence.external_payment &&
+                                                (!occurrence.converted_transaction ||
+                                                    occurrence
+                                                        .converted_transaction
+                                                        .is_refunded)
                                                     ? 'Annulla pagamento'
                                                     : t(
                                                           'transactions.recurring.actions.undoConversion',
@@ -2002,7 +2023,7 @@ function isFutureOccurrence(
         >
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Registra pagamento condiviso</DialogTitle>
+                    <DialogTitle>Registra pagamento</DialogTitle>
                     <DialogDescription
                         >Indica chi ha pagato questa scadenza. L’anticipo della
                         controparte viene registrato nelle Spese
@@ -2010,7 +2031,10 @@ function isFutureOccurrence(
                     >
                 </DialogHeader>
                 <form class="space-y-4" @submit.prevent="submitSharedPayment">
-                    <fieldset class="space-y-2">
+                    <fieldset
+                        v-if="entry.shared_expense_counterparty"
+                        class="space-y-2"
+                    >
                         <legend class="text-sm font-medium">Pagato da</legend>
                         <div class="flex gap-2">
                             <Button
@@ -2085,6 +2109,35 @@ function isFutureOccurrence(
                         />
                         <InputError
                             :message="sharedPaymentForm.errors.transaction_date"
+                        />
+                    </div>
+                    <div
+                        v-if="
+                            sharedPaymentForm.shared_expense_paid_by === 'self'
+                        "
+                        class="space-y-2"
+                    >
+                        <label
+                            for="recurring-payment-account"
+                            class="text-sm font-medium"
+                            >Conto del pagamento</label
+                        >
+                        <Select v-model="sharedPaymentForm.account_uuid">
+                            <SelectTrigger id="recurring-payment-account"
+                                ><SelectValue
+                            /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="account in props.formOptions
+                                        .accounts"
+                                    :key="account.value"
+                                    :value="account.value"
+                                    >{{ account.label }}</SelectItem
+                                >
+                            </SelectContent>
+                        </Select>
+                        <InputError
+                            :message="sharedPaymentForm.errors.account_uuid"
                         />
                     </div>
                     <InputError

@@ -9,6 +9,7 @@ use App\Enums\TransactionStatusEnum;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Salary\SalaryOccurrenceService;
 use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\Transactions\TransactionMutationService;
@@ -28,41 +29,40 @@ class RecurringEntryPostingService
      */
     public function post(RecurringEntryOccurrence $occurrence, ?User $actor = null, array $metadata = []): Transaction
     {
-        $occurrence->loadMissing('recurringEntry', 'convertedTransaction');
-
-        if ($occurrence->convertedTransaction instanceof Transaction) {
-            return $occurrence->convertedTransaction;
-        }
-
         return DB::transaction(function () use ($occurrence, $actor, $metadata): Transaction {
             $occurrence = RecurringEntryOccurrence::query()
                 ->with(['recurringEntry', 'convertedTransaction'])
                 ->lockForUpdate()
                 ->findOrFail($occurrence->getKey());
 
-            if ($occurrence->convertedTransaction instanceof Transaction) {
+            if ($occurrence->convertedTransaction instanceof Transaction && $occurrence->remainingPaymentCents() === 0) {
                 return $occurrence->convertedTransaction;
             }
 
             $entry = $occurrence->recurringEntry;
+            if ($occurrence->isRetiredRefundedHistory()) {
+                throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);
+            }
             if (app(SalaryOccurrenceService::class)->isBeyondEmployment($occurrence)) {
                 throw ValidationException::withMessages(['occurrence' => __('salary.outside_employment')]);
             }
             if ($entry->trial_duration && today()->lt($entry->firstBillingDate())) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.the_trial_period_is_still_active_5538e145')]);
             }
-            if ($occurrence->sharedExpenseLedgerEntry()->exists() || ($metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by) === 'counterparty') {
+            if (($metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by) === 'counterparty') {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);
             }
             if ($occurrence->paymentAllocations()->exists()) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.record_payments_against_the_remaining_balance_through_allocation_c3f34351')]);
             }
-            if ($occurrence->matched_transaction_id !== null || ! in_array($occurrence->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED], true)) {
+            if (($occurrence->matchedTransaction !== null && $occurrence->matchedTransaction->refundTransaction === null) || ! in_array($occurrence->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED, RecurringOccurrenceStatusEnum::REFUNDED], true)) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);
             }
-            if (isset($metadata['amount']) && (int) round((float) $metadata['amount'] * 100) !== (int) round((float) $occurrence->expected_amount * 100)) {
-                throw ValidationException::withMessages(['amount' => 'Per il pagamento dal tuo conto registra l’intero importo della scadenza.']);
+            $paymentCents = $occurrence->remainingPaymentCents();
+            if ($paymentCents <= 0 || (isset($metadata['amount']) && (int) round((float) $metadata['amount'] * 100) !== $paymentCents)) {
+                throw ValidationException::withMessages(['amount' => 'Registra l’importo residuo della scadenza.']);
             }
+            $paymentAmount = $paymentCents / 100;
             $automatic = (bool) ($metadata['automatic_posting'] ?? false);
             if ($automatic && (! is_numeric($occurrence->expected_amount) || (float) $occurrence->expected_amount <= 0)) {
                 throw ValidationException::withMessages(['amount' => __('ui.invalid_amount_8c8c67cb')]);
@@ -81,9 +81,19 @@ class RecurringEntryPostingService
                 ->with('user:id,base_currency_code')
                 ->first()
                 ?? $entry->account()->with('user:id,base_currency_code')->firstOrFail();
+            if (! empty($metadata['account_uuid'])) {
+                $account = app(AccessibleAccountsQuery::class)->editable($actor ?? $entry->user)
+                    ->where('accounts.uuid', $metadata['account_uuid'])->where('currency', $entry->currency)
+                    ->with('user:id,base_currency_code')->first();
+                if ($account === null) {
+                    throw ValidationException::withMessages(['account_uuid' => 'Seleziona un conto modificabile nella valuta del piano.']);
+                }
+            }
+            $expectedCents = (int) round((float) $occurrence->expected_amount * 100);
+            $myShareCents = $entry->shared_expense_counterparty_id === null ? null : intdiv($paymentCents * ($occurrence->shared_expense_my_share_cents ?? $entry->shared_expense_my_share_cents ?? intdiv($expectedCents, 2)), $expectedCents);
             $snapshot = $this->transactionExchangeSnapshotService->buildForAccount(
                 $account,
-                (float) $occurrence->expected_amount,
+                $paymentAmount,
                 $effectiveTransactionDate,
             );
 
@@ -97,14 +107,14 @@ class RecurringEntryPostingService
                 'merchant_id' => $entry->merchant_id,
                 'tracked_item_id' => $entry->tracked_item_id,
                 'shared_expense_counterparty_id' => $entry->shared_expense_counterparty_id,
-                'shared_expense_paid_by' => $metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by,
-                'shared_expense_my_share_cents' => $occurrence->shared_expense_my_share_cents ?? $entry->shared_expense_my_share_cents,
-                'shared_expense_counterparty_share_cents' => $occurrence->shared_expense_counterparty_share_cents ?? $entry->shared_expense_counterparty_share_cents,
+                'shared_expense_paid_by' => $entry->shared_expense_counterparty_id === null ? null : ($metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by),
+                'shared_expense_my_share_cents' => $myShareCents,
+                'shared_expense_counterparty_share_cents' => $myShareCents === null ? null : $paymentCents - $myShareCents,
                 'transaction_date' => $effectiveTransactionDate,
                 'value_date' => $metadata['value_date'] ?? $effectiveTransactionDate,
                 'direction' => $entry->direction->value,
                 'kind' => TransactionKindEnum::SCHEDULED->value,
-                'amount' => $occurrence->expected_amount,
+                'amount' => $paymentAmount,
                 'currency' => $account->currency,
                 ...$snapshot,
                 'description' => $metadata['description'] ?? $entry->title,

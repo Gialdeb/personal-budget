@@ -32,7 +32,7 @@ class SharedExpenseOccurrencePostingService
             $expectedCents = (int) round((float) $occurrence->expected_amount * 100);
             $paymentCents = isset($metadata['amount']) ? (int) round((float) $metadata['amount'] * 100) : $expectedCents;
             $totalCents = $paymentCents + $occurrence->externalPaymentCents();
-            if ($paymentCents <= 0 || $paymentCents > $occurrence->remainingPaymentCents() || $expectedCents <= 0 || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->paymentAllocations()->exists() || ! in_array($occurrence->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED], true)) {
+            if ($paymentCents <= 0 || $paymentCents > $occurrence->remainingPaymentCents() || $expectedCents <= 0 || $occurrence->paymentAllocations()->exists() || ! in_array($occurrence->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED, RecurringOccurrenceStatusEnum::REFUNDED], true)) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_recorded_in_its_current_state_57f7acb0')]);
             }
             $myShare = $occurrence->shared_expense_my_share_cents ?? $entry->shared_expense_my_share_cents ?? intdiv($expectedCents, 2);

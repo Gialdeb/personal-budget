@@ -417,7 +417,8 @@ test('refund service creates a correct one to one refund for a scheduled transac
         ->and($refund->account_id)->toBe($scheduledTransaction->account_id)
         ->and($refund->currency)->toBe($scheduledTransaction->currency)
         ->and($refund->refunded_transaction_id)->toBe($scheduledTransaction->id)
-        ->and($occurrence->fresh()->status)->toBe(RecurringOccurrenceStatusEnum::REFUNDED)
+        ->and($occurrence->fresh()->status)->toBe(RecurringOccurrenceStatusEnum::PENDING)
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe((int) round((float) $scheduledTransaction->amount * 100))
         ->and($scheduledTransaction->fresh()->recurringOccurrence?->is($occurrence))->toBeTrue();
 });
 

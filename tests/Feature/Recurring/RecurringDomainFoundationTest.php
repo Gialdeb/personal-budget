@@ -169,7 +169,7 @@ test('occurrence sequence number is unique within a recurring entry', function (
     ]))->toThrow(QueryException::class);
 });
 
-test('a recurring occurrence can be linked to at most one real transaction', function () {
+test('a recurring occurrence retains refunded transactions alongside replacement payments', function () {
     $user = User::factory()->create();
     $account = userAccount($user);
     $entry = recurringEntryForDomain($user, $account);
@@ -181,16 +181,24 @@ test('a recurring occurrence can be linked to at most one real transaction', fun
         'status' => RecurringOccurrenceStatusEnum::PENDING->value,
     ]);
 
-    transactionForRecurringDomain($user, $account, [
+    $original = transactionForRecurringDomain($user, $account, [
         'kind' => TransactionKindEnum::SCHEDULED->value,
         'recurring_entry_occurrence_id' => $occurrence->id,
     ]);
-
-    expect(fn () => transactionForRecurringDomain($user, $account, [
+    $refund = transactionForRecurringDomain($user, $account, [
+        'kind' => TransactionKindEnum::REFUND->value,
+        'refunded_transaction_id' => $original->id,
+    ]);
+    $replacement = transactionForRecurringDomain($user, $account, [
         'kind' => TransactionKindEnum::SCHEDULED->value,
         'recurring_entry_occurrence_id' => $occurrence->id,
-        'description' => 'Duplicate occurrence link',
-    ]))->toThrow(QueryException::class);
+        'description' => 'Replacement payment',
+    ]);
+    $occurrence->update(['converted_transaction_id' => $replacement->id]);
+    expect($occurrence->settlementTransactions()->count())->toBe(2)
+        ->and($original->fresh()->refundTransaction->id)->toBe($refund->id)
+        ->and($occurrence->fresh()->converted_transaction_id)->toBe($replacement->id);
+
 });
 
 test('a transaction can be refunded only once in v1', function () {
@@ -215,6 +223,8 @@ test('a transaction can be refunded only once in v1', function () {
 });
 
 test('the migration backfills coherent defaults for legacy recurring data', function () {
+    $settlementHistoryMigration = require base_path('database/migrations/2026_10_13_111406_allow_multiple_transactions_per_recurring_occurrence.php');
+    $settlementHistoryMigration->down();
     $migration = require base_path('database/migrations/2026_03_23_155854_evolve_recurring_domain_foundations.php');
     $migration->down();
 
@@ -277,6 +287,7 @@ test('the migration backfills coherent defaults for legacy recurring data', func
     ]);
 
     $migration->up();
+    $settlementHistoryMigration->up();
 
     $entry = RecurringEntry::query()->findOrFail($entryId);
     $occurrences = RecurringEntryOccurrence::query()

@@ -142,6 +142,14 @@ class RecurringEntryValidatorService
         $amount = $attributes['entry_type'] === RecurringEntryTypeEnum::INSTALLMENT->value
             ? (string) ($attributes['total_amount'] ?? '')
             : (string) ($attributes['expected_amount'] ?? '');
+        if (! array_key_exists('shared_expense_my_share', $attributes) && ! array_key_exists('shared_expense_counterparty_share', $attributes)
+            && isset($attributes['shared_expense_my_share_cents'], $attributes['shared_expense_counterparty_share_cents'])) {
+            $oldTotal = (int) $attributes['shared_expense_my_share_cents'] + (int) $attributes['shared_expense_counterparty_share_cents'];
+            $total = $this->sharedExpenseAllocation->toCents($amount);
+            $myShare = $oldTotal > 0 ? intdiv($total * (int) $attributes['shared_expense_my_share_cents'], $oldTotal) : intdiv($total, 2);
+            $attributes['shared_expense_my_share'] = number_format($myShare / 100, 2, '.', '');
+            $attributes['shared_expense_counterparty_share'] = number_format(($total - $myShare) / 100, 2, '.', '');
+        }
         $allocation = $this->sharedExpenseAllocation->normalize(
             $amount,
             $attributes['shared_expense_paid_by'] ?? null,

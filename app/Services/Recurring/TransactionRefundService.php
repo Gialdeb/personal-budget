@@ -2,7 +2,6 @@
 
 namespace App\Services\Recurring;
 
-use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
@@ -88,9 +87,8 @@ class TransactionRefundService
             ]);
 
             if ($transaction->recurringOccurrence !== null) {
-                $transaction->recurringOccurrence->forceFill([
-                    'status' => RecurringOccurrenceStatusEnum::REFUNDED,
-                ])->save();
+                $occurrence = $transaction->recurringOccurrence->newQuery()->lockForUpdate()->findOrFail($transaction->recurringOccurrence->id);
+                $occurrence->synchronizeSettlementState();
             }
 
             $this->transactionMutationService->recalculateAccount($refund->account);
@@ -120,13 +118,12 @@ class TransactionRefundService
         }
 
         return DB::transaction(function () use ($refund, $originalTransaction): Transaction {
-            if ($originalTransaction->recurringOccurrence !== null) {
-                $originalTransaction->recurringOccurrence->forceFill([
-                    'status' => RecurringOccurrenceStatusEnum::COMPLETED,
-                ])->save();
+            $occurrence = $originalTransaction->recurringOccurrence?->newQuery()->lockForUpdate()->find($originalTransaction->recurringOccurrence->id);
+            if ($occurrence !== null && (int) round((float) $refund->amount * 100) > $occurrence->remainingPaymentCents()) {
+                throw ValidationException::withMessages(['transaction' => __('transactions.validation.undo_refund_blocked')]);
             }
-
             $refund->forceDelete();
+            $occurrence?->synchronizeSettlementState();
 
             $this->transactionMutationService->recalculateAccount($originalTransaction->account);
             $this->transactionMutationService->reconcileProcessedCreditCardCyclesForTransactions([$originalTransaction, $refund]);

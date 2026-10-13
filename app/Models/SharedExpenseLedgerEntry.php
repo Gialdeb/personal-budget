@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -33,14 +32,7 @@ class SharedExpenseLedgerEntry extends Model
             return;
         }
         $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->find($occurrenceId);
-        if ($occurrence === null || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null) {
-            return;
-        }
-        $settled = $occurrence->externalPaymentCents() > 0 && $occurrence->externalPaymentCents() >= (int) round((float) $occurrence->expected_amount * 100);
-        $occurrence->forceFill([
-            'status' => $settled ? RecurringOccurrenceStatusEnum::COMPLETED : RecurringOccurrenceStatusEnum::PENDING,
-            'automatic_posting_blocked_at' => $settled ? $occurrence->automatic_posting_blocked_at : now(),
-        ])->save();
+        $occurrence?->synchronizeSettlementState();
     }
 
     protected $fillable = ['user_id', 'counterparty_id', 'recurring_entry_occurrence_id', 'entry_date', 'title', 'currency', 'total_cents', 'paid_by', 'my_share_cents', 'counterparty_share_cents', 'status', 'transaction_context'];

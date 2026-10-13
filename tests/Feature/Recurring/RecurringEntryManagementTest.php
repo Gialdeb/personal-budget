@@ -79,7 +79,7 @@ test('installment paid summary counts actual historical and partial payments and
 test('indefinite recurring detail only counts payments received in the current year', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-12'));
     $c = recurringManagementContext();
-    $entry = createManagedRecurringEntry($c);
+    $entry = createManagedRecurringEntry($c, ['expected_amount' => 9.99]);
     $rows = $entry->occurrences()->orderBy('sequence_number')->get();
     foreach (['2025-12-15', '2026-03-15', '2026-11-15'] as $index => $date) {
         $transaction = Transaction::create(['user_id' => $c['user']->id, 'account_id' => $c['account']->id, 'direction' => 'expense', 'amount' => 9.99, 'currency' => 'EUR', 'transaction_date' => $date, 'kind' => 'manual', 'source_type' => 'manual', 'status' => 'confirmed']);
@@ -1726,7 +1726,7 @@ test('a refunded automatic occurrence remains history when its future schedule i
     app(RecurringEntryManagementService::class)->update($context['user'], $entry->fresh(), ['title' => 'Corrected schedule']);
 
     expect($history->fresh()->getAttributes())->toBe($historicalAttributes)
-        ->and($history->fresh()->status->value)->toBe('refunded')
+        ->and($history->fresh()->status->value)->toBe('pending')
         ->and($transaction->fresh()->getAttributes())->toBe($transactionAttributes)
         ->and($refund->fresh()->getAttributes())->toBe($refundAttributes)
         ->and($custom->fresh()->getAttributes())->toBe($customAttributes)
@@ -2508,7 +2508,9 @@ test('refund endpoint refunds eligible transactions and blocks forbidden cases',
         ->get(route('recurring-entries.show', $entry->uuid))
         ->assertInertia(fn (Assert $page) => $page
             ->where('recurringEntry.occurrences.0.converted_transaction.is_refunded', true)
-            ->where('recurringEntry.occurrences.0.status', 'refunded')
+            ->where('recurringEntry.occurrences.0.status', 'pending')
+            ->where('recurringEntry.occurrences.0.remaining_amount', 50)
+            ->where('recurringEntry.occurrences.0.can_convert', true)
         );
 
     $this->actingAs($context['user'])
@@ -3044,4 +3046,120 @@ test('partial counterparty payments accumulate on the linked ledger until the oc
         ->and(Transaction::withTrashed()->count())->toBe(0);
     $this->actingAs(User::factory()->create())->delete(route('shared-expenses.ledger.destroy', $ledger->uuid))->assertNotFound();
     $this->assertModelExists($ledger);
+});
+
+test('existing plans can enable and disable sharing without rewriting settled history', function (bool $withHistory) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, ['expected_amount' => 32]);
+    $first = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $oldTransaction = $withHistory ? app(RecurringEntryPostingService::class)->post($first, $c['user']) : null;
+    $snapshot = $first->fresh()->getAttributes();
+    $counterparty = TrackedItem::create(['user_id' => $c['user']->id, 'name' => 'Mario Rossi', 'slug' => 'mario-rossi', 'type' => 'person', 'is_active' => true, 'is_shared_expense_counterpart' => true]);
+    $this->actingAs($c['user'])->patch(route('recurring-entries.update', $entry->uuid), recurringManagementPayload($c, [
+        'expected_amount' => 32, 'is_shared_expense' => true, 'shared_expense_counterparty_uuid' => $counterparty->uuid,
+        'shared_expense_paid_by' => 'self', 'shared_expense_my_share' => '16.00', 'shared_expense_counterparty_share' => '16.00',
+    ]))->assertSessionHasNoErrors();
+    expect($entry->fresh()->shared_expense_counterparty_id)->toBe($counterparty->id)
+        ->and($entry->fresh()->shared_expense_my_share_cents)->toBe(1600)
+        ->and($entry->occurrences()->where('sequence_number', 2)->sole()->shared_expense_paid_by)->toBe('self');
+    if ($withHistory) {
+        expect($first->fresh()->getAttributes())->toBe($snapshot)->and($oldTransaction->fresh()->shared_expense_counterparty_id)->toBeNull();
+    }
+    $this->patch(route('recurring-entries.update', $entry->uuid), recurringManagementPayload($c, [
+        'expected_amount' => 32, 'is_shared_expense' => false, 'shared_expense_counterparty_uuid' => null,
+        'shared_expense_paid_by' => null, 'shared_expense_my_share' => null, 'shared_expense_counterparty_share' => null,
+    ]))->assertSessionHasNoErrors();
+    expect($entry->fresh()->shared_expense_counterparty_id)->toBeNull()->and($entry->fresh()->shared_expense_paid_by)->toBeNull()
+        ->and($entry->fresh()->shared_expense_my_share_cents)->toBeNull()
+        ->and($entry->occurrences()->where('sequence_number', 2)->sole()->shared_expense_paid_by)->toBeNull();
+    if ($withHistory) {
+        expect($first->fresh()->getAttributes())->toBe($snapshot);
+    }
+})->with([false, true]);
+
+test('refund reopens the correct residual and accepts a replacement while retaining monetary history', function (bool $mixed) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $c = recurringManagementContext();
+    $counterparty = TrackedItem::create(['user_id' => $c['user']->id, 'name' => 'Mario Rossi', 'slug' => 'mario-rossi', 'type' => 'person', 'is_active' => true, 'is_shared_expense_counterpart' => true]);
+    $entry = createManagedRecurringEntry($c, ['expected_amount' => 32, 'shared_expense_counterparty_id' => $counterparty->id,
+        'shared_expense_paid_by' => 'self', 'shared_expense_my_share' => 16, 'shared_expense_counterparty_share' => 16]);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $route = route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]);
+    $this->actingAs($c['user']);
+    if ($mixed) {
+        $this->post($route, ['amount' => 16, 'shared_expense_paid_by' => 'counterparty'])->assertSessionHasNoErrors();
+    }
+    $amount = $mixed ? 16 : 32;
+    $this->post($route, ['amount' => $amount, 'shared_expense_paid_by' => 'self'])->assertSessionHasNoErrors();
+    $original = $occurrence->fresh()->convertedTransaction;
+    expect($original->amount)->toBe(number_format($amount, 2, '.', ''))->and($occurrence->fresh()->remainingPaymentCents())->toBe(0);
+    $this->post(route('recurring-transactions.refund', $original->uuid), [])->assertSessionHasNoErrors();
+    expect($occurrence->fresh()->status->value)->toBe('pending')->and($occurrence->fresh()->remainingPaymentCents())->toBe($amount * 100)
+        ->and($occurrence->newQuery()->openObligations()->whereKey($occurrence->id)->exists())->toBeTrue();
+    $this->getJson(route('recurring-entries.show', $entry->uuid))->assertJsonPath('recurringEntry.occurrences.0.can_convert', true)
+        ->assertJsonPath('recurringEntry.occurrences.0.remaining_amount', $amount);
+    $this->post($route, ['amount' => $amount, 'shared_expense_paid_by' => 'self', 'transaction_date' => '2026-01-16', 'account_uuid' => $c['account']->uuid])->assertSessionHasNoErrors();
+    expect(Transaction::count())->toBe(3);
+    $replacement = $occurrence->fresh()->convertedTransaction;
+    expect($replacement->id)->not->toBe($original->id)->and($replacement->transaction_date->toDateString())->toBe('2026-01-16')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(0)->and($occurrence->fresh()->status->value)->toBe('completed')
+        ->and($original->fresh()->refundTransaction)->not->toBeNull()->and($occurrence->fresh()->externalPaymentCents())->toBe($mixed ? 1600 : 0);
+    expect(fn () => app(TransactionRefundService::class)->undo($original->fresh()->refundTransaction))->toThrow(ValidationException::class);
+    $this->getJson(route('recurring-entries.show', $entry->uuid))->assertJsonPath('recurringEntry.occurrences.0.payment_history.0.uuid', $original->uuid);
+    expect(app(SharedExpenseSettlementService::class)->balanceCents($c['user'], $counterparty))->toBe($mixed ? 0 : 1600);
+    if ($mixed) {
+        $ledger = $occurrence->fresh()->sharedExpenseLedgerEntry;
+        $this->delete(route('shared-expenses.ledger.destroy', $ledger->uuid))->assertRedirect();
+        expect($replacement->fresh())->not->toBeNull()->and($occurrence->fresh()->remainingPaymentCents())->toBe(1600)
+            ->and($occurrence->newQuery()->openObligations()->whereKey($occurrence->id)->exists())->toBeTrue();
+    }
+})->with([false, true]);
+
+test('partial refunds and transaction state changes keep only active settlements in the residual', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, ['expected_amount' => 32]);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $original = app(RecurringEntryPostingService::class)->post($occurrence, $c['user']);
+    $refund = app(TransactionRefundService::class)->refund($original, ['amount' => 10]);
+    expect($occurrence->fresh()->remainingPaymentCents())->toBe(1000)->and($occurrence->fresh()->status->value)->toBe('pending');
+    $replacement = app(RecurringEntryPostingService::class)->post($occurrence->fresh(), $c['user'], ['amount' => 10, 'transaction_date' => '2026-01-14']);
+    expect($occurrence->fresh()->remainingPaymentCents())->toBe(0)->and($original->fresh()->refundTransaction->id)->toBe($refund->id);
+    $replacement->update(['status' => 'ignored']);
+    expect($occurrence->fresh()->remainingPaymentCents())->toBe(1000)->and($occurrence->fresh()->status->value)->toBe('pending');
+    $replacement->update(['status' => 'confirmed']);
+    expect($occurrence->fresh()->remainingPaymentCents())->toBe(0)->and($occurrence->fresh()->status->value)->toBe('completed');
+});
+
+test('replacement payment rejects inaccessible accounts and accepts a different editable account', function () {
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, ['expected_amount' => 32]);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $original = app(RecurringEntryPostingService::class)->post($occurrence, $c['user']);
+    app(TransactionRefundService::class)->refund($original);
+    $other = $c['account']->replicate(['uuid']);
+    $other->name = 'Other account';
+    $other->save();
+    $forbidden = $c['account']->replicate(['uuid']);
+    $forbidden->user_id = User::factory()->create()->id;
+    $forbidden->save();
+    $route = route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]);
+    $this->actingAs($c['user'])->post($route, ['account_uuid' => $forbidden->uuid])->assertSessionHasErrors('account_uuid');
+    expect(Transaction::count())->toBe(2);
+    $this->post($route, ['account_uuid' => $other->uuid])->assertSessionHasNoErrors();
+    expect($occurrence->fresh()->convertedTransaction->account_id)->toBe($other->id)->and($occurrence->fresh()->remainingPaymentCents())->toBe(0);
+});
+
+test('unrelated updates preserve custom sharing ratios on a plan with settled history', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $c = recurringManagementContext();
+    $person = TrackedItem::create(['user_id' => $c['user']->id, 'name' => 'Mario', 'slug' => 'mario', 'is_active' => true, 'is_shared_expense_counterpart' => true]);
+    $entry = createManagedRecurringEntry($c, ['shared_expense_counterparty_id' => $person->id, 'shared_expense_paid_by' => 'self',
+        'shared_expense_my_share' => 10, 'shared_expense_counterparty_share' => 40]);
+    app(RecurringEntryPostingService::class)->post($entry->occurrences()->orderBy('sequence_number')->firstOrFail());
+    app(RecurringEntryManagementService::class)->update($c['user'], $entry, ['title' => 'Updated title']);
+    expect($entry->fresh()->shared_expense_my_share_cents)->toBe(1000)->and($entry->fresh()->shared_expense_counterparty_share_cents)->toBe(4000);
+    app(RecurringEntryManagementService::class)->update($c['user'], $entry, ['expected_amount' => 60]);
+    expect($entry->fresh()->shared_expense_my_share_cents)->toBe(1200)->and($entry->fresh()->shared_expense_counterparty_share_cents)->toBe(4800);
 });

@@ -22,7 +22,8 @@ class RecurringEntryShowResource extends JsonResource
             return in_array($occurrence->status, [
                 RecurringOccurrenceStatusEnum::PENDING,
                 RecurringOccurrenceStatusEnum::GENERATED,
-            ], true);
+                RecurringOccurrenceStatusEnum::REFUNDED,
+            ], true) && $occurrence->remainingPaymentCents() > 0 && ! $occurrence->isRetiredRefundedHistory();
         });
         $convertedOccurrences = $occurrences->filter(
             fn ($occurrence): bool => $occurrence->converted_transaction_id !== null
@@ -69,36 +70,27 @@ class RecurringEntryShowResource extends JsonResource
         $count = 0;
         $seen = [];
         foreach ($this->occurrences as $occurrence) {
-            $transaction = $occurrence->convertedTransaction ?? $occurrence->matchedTransaction;
-            if ($transaction) {
-                if (isset($seen[$transaction->id]) || $transaction->status?->value !== 'confirmed' || $transaction->transaction_date->isAfter(today()) || ($year !== null && $transaction->transaction_date->year !== $year) || $transaction->refundTransaction?->status?->value === 'confirmed') {
+            $paidInPeriod = 0;
+            foreach ($occurrence->personalSettlementTransactions()->with('refundTransaction')->get() as $transaction) {
+                if (isset($seen[$transaction->id]) || $transaction->transaction_date->isAfter(today()) || ($year !== null && $transaction->transaction_date->year !== $year)) {
                     continue;
                 }
-                $amount += (int) round((float) $transaction->amount * 100);
-                $count++;
+                $paidInPeriod += $transaction->activeAmountCents();
                 $seen[$transaction->id] = true;
-
-                continue;
             }
             $ledger = $occurrence->sharedExpenseLedgerEntry;
             if ($occurrence->externalPaymentCents() > 0 && $ledger->entry_date->lte(today()) && ($year === null || $ledger->entry_date->year === $year)) {
-                $amount += $occurrence->externalPaymentCents();
-                $count += $occurrence->remainingPaymentCents() === 0 ? 1 : 0;
+                $paidInPeriod += $occurrence->externalPaymentCents();
             }
-            $paid = 0;
-            $paidInPeriod = 0;
             foreach ($occurrence->paymentAllocations as $allocation) {
                 $transaction = $allocation->transaction;
-                if (! $transaction || $transaction->status?->value !== 'confirmed' || $transaction->transaction_date->isAfter(today()) || $transaction->refundTransaction?->status?->value === 'confirmed') {
+                if (! $transaction || $transaction->status?->value !== 'confirmed' || $transaction->transaction_date->isAfter(today()) || $transaction->refundTransaction?->status?->value === 'confirmed' || ($year !== null && $transaction->transaction_date->year !== $year)) {
                     continue;
                 }
-                $paid += $allocation->amount_cents;
-                if ($year === null || $transaction->transaction_date->year === $year) {
-                    $paidInPeriod += $allocation->amount_cents;
-                }
+                $paidInPeriod += $allocation->amount_cents;
             }
             $amount += $paidInPeriod;
-            if ($paidInPeriod > 0 && $paid >= (int) round((float) $occurrence->expected_amount * 100)) {
+            if ($paidInPeriod > 0 && $occurrence->remainingPaymentCents() === 0) {
                 $count++;
             }
         }
