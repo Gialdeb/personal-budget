@@ -94,10 +94,10 @@ test('credits debts navigation is gated by the shared feature flag', () => {
 });
 
 test('credits debts page exposes the requested desktop and mobile structure', () => {
-    assert.match(pageSource, /props\.summary\.credits_remaining_total/);
-    assert.match(pageSource, /props\.summary\.debts_remaining_total/);
-    assert.match(pageSource, /props\.summary\.overdue_count/);
-    assert.match(pageSource, /props\.summary\.net_expected_total/);
+    assert.match(pageSource, /displayedSummary\.credits_remaining_total/);
+    assert.match(pageSource, /displayedSummary\.debts_remaining_total/);
+    assert.match(pageSource, /displayedSummary\.overdue_count/);
+    assert.match(pageSource, /displayedSummary\.net_expected_total/);
     assert.match(
         pageSource,
         /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)_minmax\(360px,0\.95fr\)]/,
@@ -172,7 +172,7 @@ test('credits debts forms reuse mobile amount input, privacy masking, Wayfinder,
     assert.match(pageSource, /option\.value === itemForm\.reference_uuid/);
     assert.match(
         pageSource,
-        /router\.reload\(\{\s*only: \['items', 'summary']/,
+        /router\.reload\(\{\s*only: \[[\s\S]*?'items',[\s\S]*?'summary',[\s\S]*?'counterpartyBalances'/,
     );
 });
 
@@ -250,4 +250,16 @@ test('credits debts translations include Italian and English labels', () => {
     ]) {
         assert.match(contextualHelpSeederSource, new RegExp(key));
     }
+});
+
+test('manual forms use the common person picker and allow clearing a due date', () => {
+    assert.match(
+        pageSource,
+        /<CounterpartySelect[\s\S]*v-model="itemForm.counterparty_uuid"/,
+    );
+    assert.match(pageSource, /due_date: data.due_date \|\| null/);
+    assert.doesNotMatch(pageSource, /if \(!itemForm.due_date\)/);
+    assert.match(pageSource, /Senza scadenza/);
+    assert.match(pageSource, /summariesByCurrency/);
+    assert.match(pageSource, /CounterpartyBalanceSummary/);
 });

@@ -25,6 +25,7 @@ class TransactionRefundService
     public function refund(Transaction $transaction, array $attributes = []): Transaction
     {
         $transaction->refresh();
+        $this->transactionMutationService->ensureNoLinkedObligation($transaction);
         $transaction->load('refundTransaction', 'recurringOccurrence');
         $refundAmount = isset($attributes['amount']) ? round((float) $attributes['amount'], 2) : round((float) $transaction->amount, 2);
 
@@ -116,6 +117,8 @@ class TransactionRefundService
                 'transaction' => __('transactions.validation.undo_refund_blocked'),
             ]);
         }
+
+        $this->transactionMutationService->ensureNoLinkedObligation($originalTransaction);
 
         return DB::transaction(function () use ($refund, $originalTransaction): Transaction {
             $occurrence = $originalTransaction->recurringOccurrence?->newQuery()->lockForUpdate()->find($originalTransaction->recurringOccurrence->id);

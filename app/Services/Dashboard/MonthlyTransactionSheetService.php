@@ -185,6 +185,7 @@ class MonthlyTransactionSheetService
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
                 'creditDebtPayment.item',
+                'sharedExpenseSettlement',
                 'createdByUser:id,uuid,name,email',
                 'updatedByUser:id,uuid,name,email',
             ])
@@ -220,6 +221,7 @@ class MonthlyTransactionSheetService
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
                 'creditDebtPayment.item',
+                'sharedExpenseSettlement',
                 'createdByUser:id,uuid,name,email',
                 'updatedByUser:id,uuid,name,email',
             ])
@@ -824,7 +826,7 @@ class MonthlyTransactionSheetService
                     'shared_expense_my_share_cents' => $entry->my_share_cents,
                     'shared_expense_counterparty_share_cents' => $entry->counterparty_share_cents,
                 ]);
-                foreach (['merchant', 'relatedTransaction', 'recurringOccurrence', 'refundTransaction', 'refundedTransaction', 'creditDebtPayment', 'createdByUser', 'updatedByUser'] as $relation) {
+                foreach (['merchant', 'relatedTransaction', 'recurringOccurrence', 'refundTransaction', 'refundedTransaction', 'creditDebtPayment', 'sharedExpenseSettlement', 'createdByUser', 'updatedByUser'] as $relation) {
                     $projection->setRelation($relation, null);
                 }
                 $projection->setRelation('account', $account);
@@ -876,7 +878,8 @@ class MonthlyTransactionSheetService
         $canForceDelete = $transaction->trashed() && $isDeleteAllowedKind;
         $recurringEntryUuid = $transaction->recurringOccurrence?->recurringEntry?->uuid;
         $canMutate = in_array((int) $transaction->account_id, $editableAccountIds, true);
-        $canRefund = $canMutate
+        $isLinkedObligation = $transaction->creditDebtPayment !== null || $transaction->sharedExpenseSettlement !== null;
+        $canRefund = ! $isLinkedObligation && $canMutate
             && ! $transaction->trashed()
             && ! $transaction->is_transfer
             && $transaction->refundTransaction === null
@@ -1023,14 +1026,14 @@ class MonthlyTransactionSheetService
             'last_modified_at' => $transaction->updated_at?->toJSON(),
             'created_by' => $this->mapAuditActor($transaction->createdByUser),
             'updated_by' => $this->mapAuditActor($transaction->updatedByUser),
-            'can_edit' => $canMutate
+            'can_edit' => ! $isLinkedObligation && $canMutate
                 && ! $isCreditDebtTransaction
                 && ! $transaction->trashed()
                 && (! in_array($transaction->kind, [TransactionKindEnum::OPENING_BALANCE, TransactionKindEnum::BALANCE_ADJUSTMENT, TransactionKindEnum::SCHEDULED, TransactionKindEnum::REFUND], true)
                     || ($transaction->kind === TransactionKindEnum::SCHEDULED && $transaction->payment_verification_started_at !== null && $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id && ! $hasLinkedRefund)),
-            'can_delete' => $canMutate && $canDelete && ! $hasLinkedRefund && ! $isCreditDebtTransaction,
-            'can_restore' => $canMutate && $canRestore,
-            'can_force_delete' => $canMutate && $canForceDelete && ! $hasLinkedRefund,
+            'can_delete' => ! $isLinkedObligation && $canMutate && $canDelete && ! $hasLinkedRefund && ! $isCreditDebtTransaction,
+            'can_restore' => ! $isLinkedObligation && $canMutate && $canRestore,
+            'can_force_delete' => ! $isLinkedObligation && $canMutate && $canForceDelete && ! $hasLinkedRefund,
         ];
     }
 

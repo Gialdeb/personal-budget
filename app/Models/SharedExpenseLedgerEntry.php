@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPublicUuid;
+use App\Services\Counterparties\CounterpartySourceGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,8 @@ class SharedExpenseLedgerEntry extends Model
 
     protected static function booted(): void
     {
+        static::updating(fn (self $ledger) => app(CounterpartySourceGuard::class)->assertChange($ledger));
+        static::deleting(fn (self $ledger) => app(CounterpartySourceGuard::class)->assertChange($ledger, true));
         static::saved(function (self $ledger): void {
             $ledger->synchronizeOccurrence();
             if ($ledger->wasChanged('recurring_entry_occurrence_id')) {

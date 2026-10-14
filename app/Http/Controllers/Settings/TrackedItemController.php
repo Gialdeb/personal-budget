@@ -214,7 +214,7 @@ class TrackedItemController extends Controller
             ->with(['compatibleCategories:id,uuid', 'websiteIdentity'])
             ->withCount([
                 'children',
-                'transactions',
+                'transactions' => fn ($query) => $query->withTrashed(),
                 'budgets',
                 'recurringEntries',
                 'scheduledEntries',
@@ -455,7 +455,12 @@ class TrackedItemController extends Controller
             'budgets',
             'recurringEntries',
             'scheduledEntries',
-            'creditDebtItems',
+            'creditDebtItems' => fn ($query) => $query->withTrashed(),
+            'counterpartyCreditDebtItems' => fn ($query) => $query->withTrashed(),
+            'sharedExpenseTransactions' => fn ($query) => $query->withTrashed(),
+            'sharedExpenseRecurringEntries',
+            'sharedExpenseLedgerEntries',
+            'sharedExpenseSettlements',
         ]);
 
         $reasons = [];
@@ -471,6 +476,11 @@ class TrackedItemController extends Controller
             'budgets_count' => __('tracked_items.blocking_labels.budgets'),
             'recurring_entries_count' => __('tracked_items.blocking_labels.recurring_entries'),
             'scheduled_entries_count' => __('tracked_items.blocking_labels.scheduled_entries'),
+            'counterparty_credit_debt_items_count' => __('tracked_items.blocking_labels.credit_debt_items'),
+            'shared_expense_transactions_count' => __('tracked_items.blocking_labels.transactions'),
+            'shared_expense_recurring_entries_count' => __('tracked_items.blocking_labels.recurring_entries'),
+            'shared_expense_ledger_entries_count' => __('tracked_items.blocking_labels.transactions'),
+            'shared_expense_settlements_count' => __('tracked_items.blocking_labels.transactions'),
             'credit_debt_items_count' => __('tracked_items.blocking_labels.credit_debt_items'),
         ];
 

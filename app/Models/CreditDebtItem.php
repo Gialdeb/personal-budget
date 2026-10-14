@@ -5,6 +5,12 @@ namespace App\Models;
 use App\Enums\CreditDebtStatusEnum;
 use App\Enums\CreditDebtTypeEnum;
 use App\Models\Concerns\HasPublicUuid;
+use App\Services\Counterparties\CounterpartyAuthority;
+use App\Services\Counterparties\CounterpartyProjectionService;
+use App\Services\Counterparties\CounterpartySourceGuard;
+use App\Services\Counterparties\ManualCreditDebtShadowService;
+use App\Support\CurrencyMinorUnits;
+use App\Support\MoneyAmount;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +25,7 @@ class CreditDebtItem extends Model
     protected $fillable = [
         'user_id',
         'reference_id',
+        'counterparty_id',
         'account_id',
         'category_id',
         'type',
@@ -35,6 +42,23 @@ class CreditDebtItem extends Model
         'due_date' => 'date',
         'deleted_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::updating(fn (self $item) => app(CounterpartySourceGuard::class)->assertChange($item));
+        static::deleting(fn (self $item) => app(CounterpartySourceGuard::class)->assertChange($item, true));
+        static::saved(function (self $item): void {
+            if (app(CounterpartyAuthority::class)->activeRelation($item->user_id, $item->counterparty_id, $item->currency_code) !== null) {
+                $shadow = app(ManualCreditDebtShadowService::class);
+                $item->wasRecentlyCreated ? $shadow->itemCreated($item) : $shadow->itemChanged($item);
+            }
+        });
+        static::deleted(function (self $item): void {
+            if (app(CounterpartyAuthority::class)->activeRelation($item->user_id, $item->counterparty_id, $item->currency_code) !== null) {
+                app(ManualCreditDebtShadowService::class)->itemChanged($item, true);
+            }
+        });
+    }
 
     public function getRouteKeyName(): string
     {
@@ -66,30 +90,65 @@ class CreditDebtItem extends Model
         return $this->hasMany(CreditDebtPayment::class);
     }
 
+    public function counterparty(): BelongsTo
+    {
+        return $this->belongsTo(TrackedItem::class, 'counterparty_id');
+    }
+
+    public function paidCents(): int
+    {
+        $authority = app(CounterpartyAuthority::class);
+        $obligation = $authority->itemObligation($this);
+
+        return $obligation === null ? $this->legacyPaidCents() : MoneyAmount::cents(CurrencyMinorUnits::toDecimal($authority->paid($obligation), $this->currency_code));
+    }
+
+    public function compensatedAmount(): string
+    {
+        $authority = app(CounterpartyAuthority::class);
+        $obligation = $authority->itemObligation($this);
+
+        return $obligation === null ? '0.00' : CurrencyMinorUnits::toDecimal($authority->compensated($obligation), $this->currency_code);
+    }
+
+    public function legacyPaidCents(): int
+    {
+        $payments = $this->relationLoaded('payments') ? $this->payments : $this->payments()->get();
+
+        return $payments->sum(fn (CreditDebtPayment $payment): int => MoneyAmount::cents((string) $payment->amount));
+    }
+
+    public function remainingCents(): int
+    {
+        $obligation = app(CounterpartyAuthority::class)->itemObligation($this);
+
+        return $obligation === null ? $this->legacyRemainingCents() : MoneyAmount::cents(CurrencyMinorUnits::toDecimal(app(CounterpartyProjectionService::class)->remaining($obligation), $this->currency_code));
+    }
+
+    public function legacyRemainingCents(): int
+    {
+        return max(0, MoneyAmount::cents((string) $this->total_amount) - $this->legacyPaidCents());
+    }
+
     public function paidAmount(): string
     {
-        return number_format((float) $this->payments()->sum('amount'), 2, '.', '');
+        return MoneyAmount::decimal($this->paidCents());
     }
 
     public function remainingAmount(): string
     {
-        return number_format(max(0, (float) $this->total_amount - (float) $this->paidAmount()), 2, '.', '');
+        return MoneyAmount::decimal($this->remainingCents());
     }
 
     public function status(): CreditDebtStatusEnum
     {
-        $paidAmount = (float) $this->paidAmount();
-        $totalAmount = (float) $this->total_amount;
+        $paidCents = $this->paidCents() + MoneyAmount::cents($this->compensatedAmount());
 
-        if ($paidAmount <= 0.0) {
+        if ($paidCents <= 0) {
             return CreditDebtStatusEnum::OPEN;
         }
 
-        if ($paidAmount < $totalAmount) {
-            return CreditDebtStatusEnum::PARTIAL;
-        }
-
-        return CreditDebtStatusEnum::SETTLED;
+        return $this->remainingCents() > 0 ? CreditDebtStatusEnum::PARTIAL : CreditDebtStatusEnum::SETTLED;
     }
 
     public function isSettled(): bool
@@ -104,12 +163,14 @@ class CreditDebtItem extends Model
 
     public function canBeDeleted(): bool
     {
-        return ! $this->payments()->exists();
+        $obligation = app(CounterpartyAuthority::class)->itemObligation($this);
+
+        return ! $this->payments()->exists() && ($obligation === null || app(CounterpartyProjectionService::class)->allocatedToObligation($obligation) === 0);
     }
 
     public function canAcceptPayment(float|string $amount): bool
     {
-        return (float) $amount > 0.0 && (float) $amount <= (float) $this->remainingAmount();
+        return MoneyAmount::cents((string) $amount) > 0 && MoneyAmount::cents((string) $amount) <= $this->remainingCents();
     }
 
     public function scopeForUser(Builder $query, User $user): Builder

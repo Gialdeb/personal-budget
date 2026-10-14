@@ -297,6 +297,14 @@ test('reports accounts page implements the account vision section with mobile na
 });
 
 test('desktop quick actions expose the planning shortcut alongside the new report shell', () => {
-    assert.match(headerSource, /t\('app\.shell\.actions\.openPlanning'\)/);
-    assert.match(headerSource, /href:\s*budgetPlanning\(\)/);
+    const sidebar = readFileSync(
+        new URL(
+            '../../resources/js/components/AppSidebar.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(sidebar, /t\('nav\.planning'\)/);
+    assert.match(sidebar, /href:\s*budgetPlanning\(\)/);
+    assert.match(headerSource, /<QuickActionsMenu/);
 });

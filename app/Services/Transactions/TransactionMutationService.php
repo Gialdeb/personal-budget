@@ -20,6 +20,8 @@ use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Accounts\AccountBalanceConstraintService;
 use App\Services\Categories\CategoryFoundationService;
+use App\Services\Counterparties\CounterpartyBankMutation;
+use App\Services\Counterparties\SharedCounterpartyShadowService;
 use App\Services\Recurring\AllocateOccurrencePaymentService;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use Carbon\CarbonImmutable;
@@ -38,6 +40,7 @@ class TransactionMutationService
         protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
         protected AccountBalanceConstraintService $accountBalanceConstraintService,
         protected SharedExpenseAllocation $sharedExpenseAllocation,
+        protected SharedCounterpartyShadowService $counterpartyShadow,
     ) {}
 
     /**
@@ -166,6 +169,7 @@ class TransactionMutationService
      */
     public function update(User $user, Transaction $transaction, array $validated): Transaction|SharedExpenseLedgerEntry
     {
+        $this->ensureNoLinkedObligation($transaction);
         if ($this->isMovePayload($validated)) {
             return $this->move($user, $transaction, $validated);
         }
@@ -190,23 +194,25 @@ class TransactionMutationService
                     ]);
                 }
 
-                $occurrence = RecurringEntryOccurrence::query()
-                    ->where(function ($query) use ($transaction): void {
-                        $query->where('converted_transaction_id', $transaction->id)->orWhere('matched_transaction_id', $transaction->id);
-                    })->lockForUpdate()->first();
-                $ledgerEntry = $this->storeCounterpartySharedExpense($user, $account, $validated);
-                if ($occurrence !== null) {
-                    $occurrence->forceFill(['converted_transaction_id' => null, 'matched_transaction_id' => null])->save();
-                    $ledgerEntry->update(['recurring_entry_occurrence_id' => $occurrence->id]);
-                }
-                $originalAccount = $this->accessibleAccount($user, (int) $originalAccountId, true);
-                $transaction->forceDelete();
-                $this->recalculateAffectedAccounts([$originalAccount]);
-                $this->reconcileProcessedCreditCardCyclesForCandidates([
-                    $this->cycleCandidateForAccountAndDateId((int) $originalAccountId, $originalTransactionDate),
-                ]);
+                return $this->counterpartyShadow->convert($transaction, function () use ($user, $transaction, $account, $validated, $originalAccountId, $originalTransactionDate): SharedExpenseLedgerEntry {
+                    $occurrence = RecurringEntryOccurrence::query()
+                        ->where(function ($query) use ($transaction): void {
+                            $query->where('converted_transaction_id', $transaction->id)->orWhere('matched_transaction_id', $transaction->id);
+                        })->lockForUpdate()->first();
+                    $ledgerEntry = $this->storeCounterpartySharedExpense($user, $account, $validated);
+                    if ($occurrence !== null) {
+                        $occurrence->forceFill(['converted_transaction_id' => null, 'matched_transaction_id' => null])->save();
+                        $ledgerEntry->update(['recurring_entry_occurrence_id' => $occurrence->id]);
+                    }
+                    $originalAccount = $this->accessibleAccount($user, (int) $originalAccountId, true);
+                    $transaction->forceDelete();
+                    $this->recalculateAffectedAccounts([$originalAccount]);
+                    $this->reconcileProcessedCreditCardCyclesForCandidates([
+                        $this->cycleCandidateForAccountAndDateId((int) $originalAccountId, $originalTransactionDate),
+                    ]);
 
-                return $ledgerEntry;
+                    return $ledgerEntry;
+                });
             }
             $categoryId = $this->resolvedCategoryIdForAccount($account, (int) $validated['category_id']);
             $amount = round((float) $validated['amount'], 2);
@@ -317,10 +323,13 @@ class TransactionMutationService
                 || ! in_array($validated['type_key'], ['expense', 'bill', 'debt', 'saving'], true)) {
                 throw ValidationException::withMessages(['shared_expense_paid_by' => __('ui.select_a_payer_for_the_shared_expense_fc570456')]);
             }
-            $transaction = $this->store($user, $validated);
-            $entry->delete();
 
-            return $transaction;
+            return $this->counterpartyShadow->convert($entry, function () use ($user, $validated, $entry): Transaction {
+                $transaction = $this->store($user, $validated);
+                $entry->delete();
+
+                return $transaction;
+            });
         });
     }
 
@@ -1637,8 +1646,20 @@ class TransactionMutationService
         ];
     }
 
+    public function ensureNoLinkedObligation(Transaction $transaction): void
+    {
+        app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction);
+        if ($transaction->creditDebtPayment()->exists() || $transaction->sharedExpenseSettlement()->exists()) {
+            throw ValidationException::withMessages(['transaction' => __('transactions.validation.linked_obligation_locked')]);
+        }
+    }
+
     protected function ensureDeletionAllowed(Transaction $transaction, bool $allowCreditDebtLinked = false): void
     {
+        app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction);
+        if ($transaction->sharedExpenseSettlement()->exists()) {
+            throw ValidationException::withMessages(['transaction' => __('transactions.validation.linked_obligation_locked')]);
+        }
         if ($transaction->refundTransaction()->exists()) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.delete_refunded_original_blocked'),
@@ -1707,6 +1728,7 @@ class TransactionMutationService
 
     protected function ensureRestoreAllowed(Transaction $transaction): void
     {
+        $this->ensureNoLinkedObligation($transaction);
         if (! $transaction->trashed()) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.restore_not_deleted'),
@@ -1728,6 +1750,7 @@ class TransactionMutationService
 
     protected function ensureForceDeleteAllowed(Transaction $transaction): void
     {
+        $this->ensureNoLinkedObligation($transaction);
         if (! $transaction->trashed()) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.force_delete_not_deleted'),

@@ -77,6 +77,7 @@ return [
         ],
     ],
     'validation' => [
+        'linked_obligation_locked' => 'Questa transazione è collegata a un pagamento o pareggio. Gestiscila dalla sezione di origine.',
         'date_invalid' => 'La data movimento deve essere valida.',
         'account_unavailable' => 'Il conto selezionato non è disponibile.',
         'account_read_only' => 'Hai accesso in sola lettura al conto selezionato.',

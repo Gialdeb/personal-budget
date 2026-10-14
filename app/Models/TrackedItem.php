@@ -9,12 +9,31 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 class TrackedItem extends Model
 {
     use HasPublicUuid, LogsActivity, LogsDomainActivity;
+
+    protected static function booted(): void
+    {
+        static::deleting(function (self $item): void {
+            if ($item->transactions()->withTrashed()->exists()
+                || $item->creditDebtItems()->withTrashed()->exists()
+                || $item->recurringEntries()->exists()
+                || $item->scheduledEntries()->exists()
+                || $item->budgets()->exists()
+                || $item->sharedExpenseTransactions()->withTrashed()->exists()
+                || $item->sharedExpenseRecurringEntries()->exists()
+                || $item->sharedExpenseLedgerEntries()->exists()
+                || $item->sharedExpenseSettlements()->exists()
+                || $item->counterpartyCreditDebtItems()->withTrashed()->exists()) {
+                throw ValidationException::withMessages(['delete' => __('credit_debts.validation.counterparty_in_use')]);
+            }
+        });
+    }
 
     protected $fillable = [
         'user_id',
@@ -130,6 +149,16 @@ class TrackedItem extends Model
         return $this->hasMany(CreditDebtItem::class, 'reference_id');
     }
 
+    public function counterpartyCreditDebtItems(): HasMany
+    {
+        return $this->hasMany(CreditDebtItem::class, 'counterparty_id');
+    }
+
+    public function sharedExpenseLedgerEntries(): HasMany
+    {
+        return $this->hasMany(SharedExpenseLedgerEntry::class, 'counterparty_id');
+    }
+
     public function scopeOwnedBy(Builder $query, int $userId): Builder
     {
         return $query
@@ -158,7 +187,8 @@ class TrackedItem extends Model
                     ->where('is_shared_expense_counterpart', true)
                     ->orWhereIn('id', Transaction::query()->select('shared_expense_counterparty_id')->whereNotNull('shared_expense_counterparty_id'))
                     ->orWhereIn('id', SharedExpenseLedgerEntry::query()->select('counterparty_id'))
-                    ->orWhereIn('id', SharedExpenseSettlement::query()->select('counterparty_id'));
+                    ->orWhereIn('id', SharedExpenseSettlement::query()->select('counterparty_id'))
+                    ->orWhereIn('id', CreditDebtItem::query()->select('counterparty_id')->whereNotNull('counterparty_id'));
             });
     }
 

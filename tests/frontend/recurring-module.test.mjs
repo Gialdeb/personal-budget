@@ -114,9 +114,17 @@ test('recurring index exposes the plan type filter and visible labels for filter
 
 test('recurring index renders a dedicated mobile list component', () => {
     assert.match(indexSource, /RecurringOccurrencesMobileList/);
-    assert.match(indexSource, /overflow-x-auto pb-1/);
-    assert.match(indexSource, /min-w-\[44rem] space-y-2 sm:min-w-0/);
-    assert.match(indexSource, /grid grid-cols-7 gap-2 text-center/);
+    assert.match(indexSource, /<RecurringCalendarGrid/);
+    assert.match(indexSource, /:calendar-weeks="calendarWeeks"/);
+    const calendar = readFileSync(
+        new URL(
+            '../../resources/js/components/recurring/RecurringCalendarGrid.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(calendar, /grid-cols-7/);
+    assert.match(calendar, /@click="emit\('select', cell.date\)"/);
     assert.match(indexSource, /hidden scroll-mt-28.*lg:block/s);
     assert.match(mobileSource, /lg:hidden/);
 });
@@ -137,7 +145,7 @@ test('recurring plans expose paid progress and confirmed permanent deletion', ()
         'utf8',
     );
 
-    assert.match(showSource, /converted_occurrences.*progressTotal\.value/s);
+    assert.match(showSource, /settled_occurrences.*progressTotal\.value/s);
     assert.match(showSource, /installmentProgress/);
     assert.match(showSource, /destroy\.url\(entry\.value\.uuid\)/);
     assert.match(showSource, /dialogs\.deleteDescription/);
@@ -342,7 +350,7 @@ test('variable recurring amounts are opt-in and editable only on eligible occurr
 
     assert.match(formSource, /is_amount_variable: false/);
     assert.match(formSource, /form\.is_amount_variable/);
-    assert.match(formSource, /:model-value="form\.is_amount_variable"/);
+    assert.match(formSource, /:model-value="\s*form\.is_amount_variable\s*"/);
     assert.match(
         formSource,
         /@update:model-value="[\s\S]*?'is_amount_variable',[\s\S]*?\$event/,
@@ -361,11 +369,11 @@ test('variable recurring amounts are opt-in and editable only on eligible occurr
     assert.match(showSource, /amountForm\.patch/);
     assert.match(
         transactionsMessagesSource,
-        /Attivalo per utenze o movimenti il cui importo cambia/,
+        /Attivalo per importi che cambiano a ogni scadenza/,
     );
     assert.match(
         transactionsMessagesSource,
-        /Enable this for utilities or movements whose amount changes/,
+        /Enable this for amounts that change at each due date/,
     );
 });
 
@@ -389,7 +397,10 @@ test('recurring index enables a lightweight month selector only for the create f
     assert.match(formSource, /const selectedStartMonth = computed/);
     assert.match(formSource, /function updateStartDateMonth/);
     assert.match(formSource, /v-if="showStartMonthSelector && !isEditing"/);
-    assert.match(formSource, /@update:model-value="updateStartDateMonth"/);
+    assert.match(
+        formSource,
+        /@update:model-value="\s*updateStartDateMonth\s*"/,
+    );
 });
 
 test('recurring index exposes instant month navigation on the page for desktop and mobile', () => {
@@ -474,7 +485,7 @@ test('recurring form keeps scope hidden while leaving tracked item reference vis
 test('recurring inline reference creation maps backend slug validation errors onto the visible reference field', () => {
     assert.match(formSource, /payload\?\.errors\?\.slug/);
     assert.match(formSource, /form\.setError\(\s*'tracked_item_uuid'/);
-    assert.match(formSource, /\/recurring-entries\/tracked-items/);
+    assert.match(formSource, /storeTrackedItemOption\.url\(\)/);
     assert.match(formSource, /trackedItemCatalog\.value = \{/);
     assert.match(formSource, /form\.tracked_item_uuid = optionValue/);
 });
@@ -517,7 +528,7 @@ test('custom recurring UX exposes a human-readable live preview and less technic
     assert.match(formSource, /const safeCode = isOrdinalValue/);
     assert.match(formSource, /const safeWeekday = isWeekdayValue/);
     assert.match(formSource, /function blurCurrentTarget\(event: Event\)/);
-    assert.match(formSource, /blurCurrentTarget\(\$event\);/);
+    assert.match(formSource, /blurCurrentTarget\(\s*\$event,?\s*\);/);
     assert.match(
         transactionsMessagesSource,
         /Si ripeterà ogni \{interval} \{unit} il giorno \{day}\./,

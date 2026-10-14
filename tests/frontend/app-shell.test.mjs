@@ -100,15 +100,24 @@ const transactionsPageSource = readFileSync(
     'utf8',
 );
 
-test('global shell header exposes quick actions and status chips', () => {
-    assert.match(headerSource, /app\.shell\.actions\.newTransaction/);
-    assert.match(headerSource, /app\.shell\.actions\.newRecurringEntry/);
-    assert.match(headerSource, /app\.shell\.actions\.newBank/);
+test('global shell header exposes template quick actions and status chips', () => {
     assert.match(
         headerSource,
-        /recurringEntries\(\{\s*query:\s*\{\s*create:\s*'1'/,
+        /import QuickActionsMenu from '@\/components\/transactions\/QuickActionsMenu.vue'/,
     );
-    assert.match(headerSource, /banks\(\{\s*query:\s*\{\s*create:\s*'1'/);
+    assert.equal((headerSource.match(/<QuickActionsMenu/g) ?? []).length, 2);
+    const quickActions = readFileSync(
+        new URL(
+            '../../resources/js/components/transactions/QuickActionsMenu.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(quickActions, /fetch\(active.url\(\)/);
+    assert.match(
+        quickActions,
+        /show\(\s*\{ year: props.year, month: props.month \},\s*\{ query: \{ create: 1, template: uuid \} \}/,
+    );
     assert.match(headerSource, /app\.shell\.statusBaseCurrency/);
     assert.match(headerSource, /app\.shell\.statusFormatLocale/);
     assert.doesNotMatch(headerSource, /quickActions\.slice\(0,\s*3\)/);

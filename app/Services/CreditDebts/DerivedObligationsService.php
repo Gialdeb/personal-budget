@@ -9,18 +9,18 @@ use App\Models\CreditDebtItem;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\TrackedItem;
 use App\Models\User;
-use App\Services\SharedExpenses\SharedExpenseSettlementService;
+use App\Support\MoneyAmount;
 use Illuminate\Support\Collection;
 
 class DerivedObligationsService
 {
-    public function __construct(protected SharedExpenseSettlementService $settlements) {}
+    public function __construct(protected CounterpartyBalanceService $counterpartyBalances) {}
 
     /** @return Collection<int, array<string, mixed>> */
     public function openPositions(User $user, ?array $accountIds = null, ?Collection $derived = null): Collection
     {
         $manual = CreditDebtItem::query()->forUser($user)
-            ->with(['payments', 'account', 'category', 'reference'])->withCount('payments')
+            ->with(['payments', 'account', 'category', 'reference', 'counterparty'])->withCount('payments')
             ->when($accountIds !== null, fn ($query) => $query->whereIn('account_id', $accountIds))
             ->get()->filter(fn (CreditDebtItem $item): bool => ! $item->isSettled())
             ->map(function (CreditDebtItem $item): array {
@@ -43,21 +43,21 @@ class DerivedObligationsService
     /** @return array<string, mixed> */
     public function openSummary(Collection $positions): array
     {
-        $sum = fn (string $type): string => number_format($positions->where('type', $type)->sum('remaining_amount'), 2, '.', '');
+        $sum = fn (string $type): string => MoneyAmount::decimal($positions->where('type', $type)->sum(fn (array $item): int => MoneyAmount::cents($item['remaining_amount'])));
         $overdue = $positions->filter(fn (array $item): bool => $item['due_date'] !== null && $item['due_date'] < today()->toDateString());
 
         return [
             'credits_remaining_total' => $sum('credit'),
             'debts_remaining_total' => $sum('debit'),
-            'net_expected_total' => number_format((float) $sum('credit') - (float) $sum('debit'), 2, '.', ''),
+            'net_expected_total' => MoneyAmount::decimal(MoneyAmount::cents($sum('credit')) - MoneyAmount::cents($sum('debit'))),
             'overdue_count' => $overdue->count(),
-            'overdue_credits_total' => number_format($overdue->where('type', 'credit')->sum('remaining_amount'), 2, '.', ''),
-            'overdue_debts_total' => number_format($overdue->where('type', 'debit')->sum('remaining_amount'), 2, '.', ''),
+            'overdue_credits_total' => MoneyAmount::decimal($overdue->where('type', 'credit')->sum(fn (array $item): int => MoneyAmount::cents($item['remaining_amount']))),
+            'overdue_debts_total' => MoneyAmount::decimal($overdue->where('type', 'debit')->sum(fn (array $item): int => MoneyAmount::cents($item['remaining_amount']))),
         ];
     }
 
     /** @return Collection<int, array<string, mixed>> */
-    public function positions(User $user): Collection
+    public function positions(User $user, ?array $balances = null): Collection
     {
         $recurring = RecurringEntryOccurrence::query()->openObligations()
             ->whereHas('recurringEntry', fn ($query) => $query->where('user_id', $user->id))
@@ -70,33 +70,39 @@ class DerivedObligationsService
                 $position = $this->position(
                     $origin.':'.$occurrence->uuid, $origin,
                     $entry->direction->value === 'income' ? 'credit' : 'debit',
-                    $entry->title, number_format($occurrence->remainingPaymentCents() / 100, 2, '.', ''), $entry->currency,
+                    $entry->title, MoneyAmount::decimal($occurrence->remainingPaymentCents()), $entry->currency,
                     ($occurrence->due_date ?? $occurrence->expected_date)->toDateString(),
                     route('recurring-entries.show', ['recurringEntry' => $entry->uuid, 'highlight' => $occurrence->uuid]),
                     $entry->trackedItem, $account, $entry->category,
                 );
                 $paid = $occurrence->allocatedPaymentCents();
                 $position['total_amount'] = (string) $occurrence->expected_amount;
-                $position['paid_amount'] = number_format($paid / 100, 2, '.', '');
+                $position['paid_amount'] = MoneyAmount::decimal($paid);
                 $position['status'] = $paid > 0 ? 'partial' : 'open';
                 $position['payments_count'] = $occurrence->paymentAllocations()->valid()->count();
 
                 return $position;
             });
 
-        $shared = TrackedItem::query()->sharedExpenseHistory($user->id)->orderBy('name')->get()
-            ->map(function (TrackedItem $counterparty) use ($user): ?array {
-                $balance = $this->settlements->balanceCents($user, $counterparty);
-                if ($balance === 0) {
-                    return null;
-                }
+        $balances ??= $this->counterpartyBalances->forUser($user);
+        $counterparties = TrackedItem::query()->ownedBy($user->id)->whereIn('uuid', array_keys($balances))->get()->keyBy('uuid');
+        $shared = collect($balances)->flatMap(function (array $balances, string $uuid) use ($counterparties): array {
+            $counterparty = $counterparties->get($uuid);
+            if ($counterparty === null) {
+                return [];
+            }
 
-                return $this->position(
-                    'shared:'.$counterparty->uuid, 'shared', $balance > 0 ? 'credit' : 'debit',
-                    $counterparty->name, number_format(abs($balance) / 100, 2, '.', ''), 'EUR', null,
+            return collect($balances)->filter(fn (array $balance): bool => $balance['shared_cents'] !== 0)->map(function (array $balance) use ($counterparty): array {
+                $position = $this->position(
+                    'shared:'.$counterparty->uuid.($balance['currency'] === 'EUR' ? '' : ':'.$balance['currency']), 'shared', $balance['shared_cents'] > 0 ? 'credit' : 'debit',
+                    $counterparty->name, MoneyAmount::decimal(abs($balance['shared_cents'])), $balance['currency'], null,
                     route('shared-expenses.index', ['counterparty' => $counterparty->uuid]), $counterparty,
                 );
-            })->filter();
+                $position['counterparty'] = ['uuid' => $counterparty->uuid, 'name' => $counterparty->name];
+
+                return $position;
+            })->values()->all();
+        });
 
         return $recurring->concat($shared)->values();
     }

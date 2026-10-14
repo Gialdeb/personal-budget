@@ -7,22 +7,31 @@ const settingsLayoutSource = readFileSync(
     'utf8',
 );
 const headerSource = readFileSync(
-    new URL('../../resources/js/components/AppSidebarHeader.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/AppSidebarHeader.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const footerSource = readFileSync(
-    new URL('../../resources/js/components/AppShellFooter.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/AppShellFooter.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 
 test('settings navigation only exposes imports when the shared feature flag is enabled', () => {
-    assert.match(settingsLayoutSource, /page\.props\.features\?\.imports_enabled/);
+    assert.match(
+        settingsLayoutSource,
+        /page\.props\.features\?\.imports_enabled/,
+    );
     assert.match(settingsLayoutSource, /importsEnabled\.value/);
 });
 
 test('global shell only exposes import shortcuts when the shared feature flag is enabled', () => {
-    assert.match(headerSource, /page\.props\.features\?\.imports_enabled/);
-    assert.match(headerSource, /importsEnabled\.value/);
+    assert.doesNotMatch(headerSource, /from '@\/routes\/imports'/);
+    assert.doesNotMatch(headerSource, /href:\s*imports\(/);
     assert.match(footerSource, /page\.props\.features\?\.imports_enabled/);
     assert.match(footerSource, /importsEnabled\.value/);
 });

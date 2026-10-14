@@ -39,7 +39,7 @@ const ui = useUiCopy();
                     )
                 "
             />
-            <span class="text-primary">Spesa condivisa →</span>
+            <span class="text-primary"> {{ ui('Spesa condivisa →') }} </span>
         </Link>
         <div
             v-for="payment in history"
@@ -61,8 +61,9 @@ const ui = useUiCopy();
                 v-if="payment.refund_url"
                 :href="payment.refund_url"
                 class="inline-flex min-h-11 items-center text-primary"
-                >Apri rimborso →</Link
             >
+                {{ ui('Apri rimborso →') }}
+            </Link>
         </div>
         <h4 v-if="payments?.length" class="font-semibold">
             {{ ui('Pagamenti') }}

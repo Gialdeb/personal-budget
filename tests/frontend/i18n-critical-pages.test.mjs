@@ -68,23 +68,53 @@ test('bank form uses localized copy instead of hardcoded Italian strings', () =>
     assert.match(bankFormSource, /settings\.banks\.form\.fields\.name/);
     assert.match(bankFormSource, /settings\.banks\.form\.toggles\.active/);
     assert.match(bankFormSource, /settings\.banks\.form\.actions\.create/);
-    assert.match(settingsMessagesSource, /titleCreate: 'Nuova banca personalizzata'/);
+    assert.match(
+        settingsMessagesSource,
+        /titleCreate: 'Nuova banca personalizzata'/,
+    );
     assert.match(settingsMessagesSource, /titleCreate: 'New custom bank'/);
-    assert.match(settingsMessagesSource, /created: 'Banca personalizzata creata con successo\.'/);
-    assert.match(settingsMessagesSource, /created: 'Custom bank created successfully\.'/);
+    assert.match(
+        settingsMessagesSource,
+        /created: 'Banca personalizzata creata con successo\.'/,
+    );
+    assert.match(
+        settingsMessagesSource,
+        /created: 'Custom bank created successfully\.'/,
+    );
 });
 
 test('admin support requests page and filters are localized through admin messages', () => {
-    assert.match(supportFiltersSource, /admin\.supportRequestsPage\.filters\.status/);
-    assert.match(supportFiltersSource, /admin\.supportRequestsPage\.filters\.allStatuses/);
-    assert.match(supportFiltersSource, /admin\.supportRequestsPage\.filters\.apply/);
+    assert.match(
+        supportFiltersSource,
+        /admin\.supportRequestsPage\.filters\.status/,
+    );
+    assert.match(
+        supportFiltersSource,
+        /admin\.supportRequestsPage\.filters\.allStatuses/,
+    );
+    assert.match(
+        supportFiltersSource,
+        /admin\.supportRequestsPage\.filters\.apply/,
+    );
     assert.match(supportIndexSource, /admin\.supportRequestsPage\.title/);
     assert.match(supportIndexSource, /admin\.supportRequestsPage\.summary/);
-    assert.match(supportIndexSource, /admin\.supportRequestsPage\.pagination\.page/);
-    assert.match(supportShowSource, /admin\.supportRequestsPage\.detail\.updateStatusTitle/);
-    assert.match(supportShowSource, /admin\.supportRequestsPage\.actions\.saveStatus/);
-    assert.match(supportDetailSource, /admin\.supportRequestsPage\.detail\.message/);
-    assert.match(supportDetailSource, /admin\.supportRequestsPage\.detail\.userCardTitle/);
+    assert.match(
+        supportIndexSource,
+        /admin\.supportRequestsPage\.pagination\.page/,
+    );
+    assert.match(
+        supportShowSource,
+        /admin\.supportRequestsPage\.detail\.updateStatusTitle/,
+    );
+    assert.match(supportShowSource, /supportTickets\.close/);
+    assert.match(
+        supportDetailSource,
+        /admin\.supportRequestsPage\.detail\.message/,
+    );
+    assert.match(
+        supportDetailSource,
+        /admin\.supportRequestsPage\.detail\.userCardTitle/,
+    );
     assert.match(supportIndexSource, /toLocaleString\(\s*locale/s);
     assert.match(adminMessagesSource, /supportRequestsPage: \{/);
     assert.match(adminMessagesSource, /title: 'Richieste supporto'/);

@@ -77,6 +77,7 @@ return [
         ],
     ],
     'validation' => [
+        'linked_obligation_locked' => 'This transaction belongs to a payment or settlement. Manage it from its original section.',
         'date_invalid' => 'The transaction date must be valid.',
         'account_unavailable' => 'The selected account is not available.',
         'account_read_only' => 'You only have read-only access to the selected account.',

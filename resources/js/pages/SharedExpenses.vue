@@ -3,10 +3,14 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { show as commonCounterpartyShow } from '@/actions/App/Http/Controllers/CounterpartyPaymentController';
 import { destroyLedger } from '@/actions/App/Http/Controllers/SharedExpenseController';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
+import CommonCounterpartyLinks from '@/components/shared-expenses/CommonCounterpartyLinks.vue';
+import type { CommonRelation } from '@/components/shared-expenses/CommonCounterpartyLinks.vue';
+import CounterpartyBalanceSummary from '@/components/shared-expenses/CounterpartyBalanceSummary.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Button } from '@/components/ui/button';
@@ -72,6 +76,13 @@ type Entry = {
     my_share_cents?: number;
     counterparty_share_cents?: number;
     effect_cents?: number;
+    common_settlement?: {
+        relation_uuid: string;
+        paid: string;
+        compensated: string;
+        remaining: string;
+        economic_group: boolean;
+    } | null;
     is_settlement?: boolean;
     settlement?: {
         account_uuid: string | null;
@@ -96,6 +107,7 @@ type ReferenceOption = {
     logo_url?: string | null;
 };
 const props = defineProps<{
+    commonRelations: CommonRelation[];
     selectedEntryUuid?: string | null;
     filters: {
         month: number;
@@ -109,6 +121,15 @@ const props = defineProps<{
     historicalCounterparties: { uuid: string; name: string }[];
     entries: Entry[];
     balances: Record<string, number>;
+    counterpartyBalances: Record<
+        string,
+        {
+            currency: string;
+            manual_cents: number;
+            shared_cents: number;
+            total_cents: number;
+        }[]
+    >;
     counterpartyEntryCounts: Record<string, number>;
     pagination: {
         current_page: number;
@@ -351,8 +372,13 @@ const quickReferences = computed(() => {
 
     return choices;
 });
+const settlementAccounts = computed(() =>
+    props.settlementOptions.accounts.filter(
+        (account) => account.currency === 'EUR',
+    ),
+);
 const accountChoices = computed(() =>
-    props.settlementOptions.accounts.map((item) => ({
+    settlementAccounts.value.map((item) => ({
         value: item.uuid,
         label: `${item.name} (${item.currency})`,
     })),
@@ -430,13 +456,29 @@ function openSettlement(counterpartyItem: {
     uuid: string;
     name: string;
 }): void {
+    const common = props.commonRelations.find(
+        (r) =>
+            r.counterparty_uuid === counterpartyItem.uuid &&
+            r.active &&
+            r.currency === 'EUR',
+    );
+
+    if (common) {
+        router.visit(
+            commonCounterpartyShow.url(common.uuid, {
+                query: { scope: 'shared' },
+            }),
+        );
+
+        return;
+    }
+
     const balance = props.balances[counterpartyItem.uuid];
     settlementCounterparty.value = { ...counterpartyItem, balance };
     settlementForm.reset();
     settlementForm.amount = (Math.abs(balance) / 100).toFixed(2);
     settlementForm.settled_at = new Date().toISOString().slice(0, 10);
-    settlementForm.account_uuid =
-        props.settlementOptions.accounts[0]?.uuid ?? '';
+    settlementForm.account_uuid = settlementAccounts.value[0]?.uuid ?? '';
     settlementForm.clearErrors();
 }
 function submitSettlement(): void {
@@ -462,6 +504,23 @@ function submitSettlement(): void {
     }
 }
 function editSettlement(entry: Entry): void {
+    const common = props.commonRelations.find(
+        (r) =>
+            r.counterparty_uuid === entry.counterparty_uuid &&
+            r.active &&
+            r.currency === entry.currency,
+    );
+
+    if (common) {
+        router.visit(
+            commonCounterpartyShow.url(common.uuid, {
+                query: { scope: 'shared' },
+            }),
+        );
+
+        return;
+    }
+
     if (!entry.settlement || !entry.counterparty_uuid || !entry.counterparty) {
         return;
     }
@@ -515,7 +574,8 @@ function deleteSettlement(entry: Entry): void {
                     <p
                         class="text-xs font-semibold tracking-wide text-emerald-800 uppercase dark:text-emerald-200"
                     >
-                        {{ ui('Da ricevere') }}
+                        {{ ui('Da ricevere') }} · {{ ui('Spese condivise') }} ·
+                        EUR
                     </p>
                     <p class="mt-2 text-2xl font-semibold">
                         {{ cents(receivableCents) }}
@@ -535,7 +595,8 @@ function deleteSettlement(entry: Entry): void {
                     <p
                         class="text-xs font-semibold tracking-wide text-rose-800 uppercase dark:text-rose-200"
                     >
-                        {{ ui('Da restituire') }}
+                        {{ ui('Da restituire') }} ·
+                        {{ ui('Spese condivise') }} · EUR
                     </p>
                     <p class="mt-2 text-2xl font-semibold">
                         {{ cents(payableCents) }}
@@ -551,7 +612,7 @@ function deleteSettlement(entry: Entry): void {
                     <p
                         class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
                     >
-                        {{ ui('Saldo netto') }}
+                        {{ ui('Saldo spese condivise') }} · EUR
                     </p>
                     <p class="mt-2 text-2xl font-semibold">
                         {{ netCents > 0 ? '+' : netCents < 0 ? '−' : ''
@@ -562,8 +623,8 @@ function deleteSettlement(entry: Entry): void {
                             netCents === 0
                                 ? ui('In pari')
                                 : netCents > 0
-                                  ? ui('Credito complessivo')
-                                  : ui('Debito complessivo')
+                                  ? ui('Credito da spese condivise')
+                                  : ui('Debito da spese condivise')
                         }}
                     </p>
                 </div>
@@ -579,6 +640,9 @@ function deleteSettlement(entry: Entry): void {
                     class="flex min-w-0 flex-col rounded-2xl border bg-card p-4 text-sm"
                 >
                     <p class="font-medium">{{ item.name }}</p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        {{ ui('Saldo spese condivise') }} · EUR
+                    </p>
                     <p class="mt-1 text-base font-semibold">
                         {{
                             balances[item.uuid] === 0
@@ -594,12 +658,31 @@ function deleteSettlement(entry: Entry): void {
                                     })
                         }}
                     </p>
+                    <CommonCounterpartyLinks
+                        :relations="
+                            commonRelations.filter(
+                                (r) => r.counterparty_uuid === item.uuid,
+                            )
+                        "
+                        shared
+                    />
+                    <CounterpartyBalanceSummary
+                        class="mt-3"
+                        :balances="counterpartyBalances[item.uuid] ?? []"
+                    />
                     <p class="mt-1 text-muted-foreground">
                         {{ counterpartyEntryCounts[item.uuid] ?? 0 }}
                         {{ ui('movimenti nel periodo') }}
                     </p>
                     <Button
                         v-if="
+                            !commonRelations.some(
+                                (r) =>
+                                    r.active &&
+                                    !r.can_manage &&
+                                    r.counterparty_uuid === item.uuid &&
+                                    r.currency === 'EUR',
+                            ) &&
                             balances[item.uuid] !== 0 &&
                             counterparties.some(
                                 (counterparty) =>
@@ -785,6 +868,22 @@ function deleteSettlement(entry: Entry): void {
                                               : ui('Hai pagato tu')
                                     }}
                                 </p>
+                                <p
+                                    v-if="entry.common_settlement"
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    {{
+                                        entry.common_settlement.economic_group
+                                            ? 'Quota dell’occorrenza'
+                                            : 'Quota regolata'
+                                    }}: {{ entry.common_settlement.paid }}
+                                    {{ entry.currency }} {{ ui('pagato') }} ·
+                                    {{ entry.common_settlement.compensated }}
+                                    {{ entry.currency }}
+                                    {{ ui('compensato') }} ·
+                                    {{ entry.common_settlement.remaining }}
+                                    {{ entry.currency }} {{ ui('residuo') }}
+                                </p>
                                 <dl
                                     v-if="entry.my_share_cents !== undefined"
                                     class="grid grid-cols-2 gap-3 py-2"
@@ -890,15 +989,34 @@ function deleteSettlement(entry: Entry): void {
                                     size="sm"
                                     variant="outline"
                                     @click="cancelLedger(entry)"
-                                    >Annulla pagamento</Button
+                                >
+                                    {{ ui('Annulla pagamento') }} </Button
                                 ><Button
-                                    v-if="entry.is_settlement"
+                                    v-if="
+                                        entry.is_settlement &&
+                                        !commonRelations.some(
+                                            (r) =>
+                                                r.active &&
+                                                r.counterparty_uuid ===
+                                                    entry.counterparty_uuid &&
+                                                r.currency === entry.currency,
+                                        )
+                                    "
                                     size="sm"
                                     variant="outline"
                                     @click="editSettlement(entry)"
                                     >{{ ui('Modifica') }}</Button
                                 ><Button
-                                    v-if="entry.is_settlement"
+                                    v-if="
+                                        entry.is_settlement &&
+                                        !commonRelations.some(
+                                            (r) =>
+                                                r.active &&
+                                                r.counterparty_uuid ===
+                                                    entry.counterparty_uuid &&
+                                                r.currency === entry.currency,
+                                        )
+                                    "
                                     size="sm"
                                     variant="destructive"
                                     @click="deleteSettlement(entry)"
@@ -963,22 +1081,24 @@ function deleteSettlement(entry: Entry): void {
         >
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle
-                        >Annulla pagamento della controparte</DialogTitle
-                    >
-                    <DialogDescription
-                        >Il movimento condiviso verrà eliminato e la scadenza
-                        tornerà da pagare. Non verrà creata una
-                        transazione.</DialogDescription
-                    >
+                    <DialogTitle>
+                        {{ ui('Annulla pagamento della controparte') }}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {{
+                            ui(
+                                'Il movimento condiviso verrà eliminato e la scadenza tornerà da pagare. Non verrà creata una transazione.',
+                            )
+                        }}
+                    </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" @click="cancelLedgerEntry = null"
-                        >Indietro</Button
-                    >
-                    <Button @click="confirmCancelLedger"
-                        >Conferma annullamento</Button
-                    >
+                    <Button variant="outline" @click="cancelLedgerEntry = null">
+                        {{ ui('Indietro') }}
+                    </Button>
+                    <Button @click="confirmCancelLedger">
+                        {{ ui('Conferma annullamento') }}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -1079,7 +1199,7 @@ function deleteSettlement(entry: Entry): void {
                                 {{ ui('Seleziona un conto') }}
                             </option>
                             <option
-                                v-for="account in settlementOptions.accounts"
+                                v-for="account in settlementAccounts"
                                 :key="account.uuid"
                                 :value="account.uuid"
                             >

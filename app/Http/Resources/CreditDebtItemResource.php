@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\Counterparties\CounterpartyAuthority;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,12 +21,15 @@ class CreditDebtItemResource extends JsonResource
             'type' => $this->type?->value,
             'description' => $this->description,
             'total_amount' => (string) $this->total_amount,
+            'compensated_amount' => $this->compensatedAmount(),
+            'common_relation_uuid' => app(CounterpartyAuthority::class)->activeRelation($this->user_id, $this->counterparty_id, $this->currency_code)?->uuid,
             'paid_amount' => $this->paidAmount(),
             'remaining_amount' => $this->remainingAmount(),
             'currency_code' => $this->currency_code,
             'status' => $this->status()->value,
             'due_date' => $this->due_date?->toDateString(),
             'note' => $this->note,
+            'counterparty' => $this->whenLoaded('counterparty', fn () => $this->counterparty === null ? null : ['uuid' => $this->counterparty->uuid, 'name' => $this->counterparty->name]),
             'reference' => $this->whenLoaded('reference', fn () => $this->reference === null ? null : [
                 'uuid' => $this->reference->uuid,
                 'name' => $this->reference->name,

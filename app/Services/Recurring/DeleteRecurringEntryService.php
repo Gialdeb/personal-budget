@@ -6,7 +6,10 @@ use App\Models\Account;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\ReminderDelivery;
+use App\Models\SharedExpenseLedgerEntry;
 use App\Models\Transaction;
+use App\Services\Counterparties\CounterpartySourceGuard;
+use App\Services\Counterparties\SharedCounterpartyShadowService;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Support\Facades\DB;
 
@@ -58,6 +61,10 @@ class DeleteRecurringEntryService
                 ->get()
                 ->each->forceDelete();
 
+            SharedExpenseLedgerEntry::query()->whereIn('recurring_entry_occurrence_id', $occurrenceIds)->get()->each(function (SharedExpenseLedgerEntry $source): void {
+                app(CounterpartySourceGuard::class)->assertChange($source, true);
+                app(SharedCounterpartyShadowService::class)->changed($source, true);
+            });
             $entry->delete();
 
             Account::query()

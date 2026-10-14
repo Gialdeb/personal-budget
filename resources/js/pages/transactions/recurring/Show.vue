@@ -2023,19 +2023,23 @@ function isFutureOccurrence(
         >
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Registra pagamento</DialogTitle>
-                    <DialogDescription
-                        >Indica chi ha pagato questa scadenza. L’anticipo della
-                        controparte viene registrato nelle Spese
-                        condivise.</DialogDescription
-                    >
+                    <DialogTitle> {{ ui('Registra pagamento') }} </DialogTitle>
+                    <DialogDescription>
+                        {{
+                            ui(
+                                'Indica chi ha pagato questa scadenza. L’anticipo della controparte viene registrato nelle Spese condivise.',
+                            )
+                        }}
+                    </DialogDescription>
                 </DialogHeader>
                 <form class="space-y-4" @submit.prevent="submitSharedPayment">
                     <fieldset
                         v-if="entry.shared_expense_counterparty"
                         class="space-y-2"
                     >
-                        <legend class="text-sm font-medium">Pagato da</legend>
+                        <legend class="text-sm font-medium">
+                            {{ ui('Pagato da') }}
+                        </legend>
                         <div class="flex gap-2">
                             <Button
                                 type="button"
@@ -2081,8 +2085,9 @@ function isFutureOccurrence(
                         <label
                             for="shared-occurrence-amount"
                             class="text-sm font-medium"
-                            >Importo pagato</label
                         >
+                            {{ ui('Importo pagato') }}
+                        </label>
                         <Input
                             id="shared-occurrence-amount"
                             v-model="sharedPaymentForm.amount"
@@ -2099,8 +2104,9 @@ function isFutureOccurrence(
                         <label
                             for="shared-occurrence-date"
                             class="text-sm font-medium"
-                            >Data del pagamento</label
                         >
+                            {{ ui('Data del pagamento') }}
+                        </label>
                         <Input
                             id="shared-occurrence-date"
                             v-model="sharedPaymentForm.transaction_date"
@@ -2120,8 +2126,9 @@ function isFutureOccurrence(
                         <label
                             for="recurring-payment-account"
                             class="text-sm font-medium"
-                            >Conto del pagamento</label
                         >
+                            {{ ui('Conto del pagamento') }}
+                        </label>
                         <Select v-model="sharedPaymentForm.account_uuid">
                             <SelectTrigger id="recurring-payment-account"
                                 ><SelectValue
@@ -2156,13 +2163,15 @@ function isFutureOccurrence(
                             type="button"
                             variant="outline"
                             @click="sharedPaymentOccurrence = null"
-                            >Annulla</Button
                         >
+                            {{ ui('Annulla') }}
+                        </Button>
                         <Button
                             type="submit"
                             :disabled="sharedPaymentForm.processing"
-                            >Salva pagamento</Button
                         >
+                            {{ ui('Salva pagamento') }}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

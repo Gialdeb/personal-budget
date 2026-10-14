@@ -2,19 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\CreditDebtTypeEnum;
 use App\Http\Requests\CreditDebts\StoreCreditDebtItemRequest;
 use App\Http\Requests\CreditDebts\UpdateCreditDebtItemRequest;
 use App\Http\Resources\CreditDebtItemResource;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\CreditDebtItem;
+use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Counterparties\CounterpartyViewService;
+use App\Services\CreditDebts\CounterpartyBalanceService;
 use App\Services\CreditDebts\CreditDebtItemService;
 use App\Services\CreditDebts\DerivedObligationsService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use App\Support\Banks\BankNamePresenter;
+use App\Support\MoneyAmount;
 use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
 use App\Supports\PeriodOptions;
@@ -36,6 +39,7 @@ class CreditDebtController extends Controller
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected UserYearService $userYearService,
         protected DerivedObligationsService $derivedObligationsService,
+        protected CounterpartyBalanceService $counterpartyBalanceService,
     ) {}
 
     public function index(Request $request): JsonResponse|InertiaResponse
@@ -48,6 +52,7 @@ class CreditDebtController extends Controller
                 'account',
                 'category',
                 'reference',
+                'counterparty',
                 'payments.account',
                 'payments.transaction',
             ])
@@ -57,9 +62,10 @@ class CreditDebtController extends Controller
         $this->applyIndexFilters($query, $request);
 
         $periodStart = CarbonImmutable::create($this->selectedYear($request), $this->selectedMonth($request) ?? 1, 1)->startOfDay();
-        $items = $this->filterItemsByComputedStatus($query->get()->filter(fn (CreditDebtItem $item): bool => ($item->due_date !== null && $item->due_date->gte($periodStart)) || ! $item->isSettled()
+        $items = $this->filterItemsByComputedStatus($query->get()->filter(fn (CreditDebtItem $item): bool => $item->due_date === null || $item->due_date->gte($periodStart) || ! $item->isSettled()
         ), $request);
-        $derived = $this->derivedObligationsService->positions($request->user());
+        $counterpartyBalances = $this->counterpartyBalanceService->forUser($request->user());
+        $derived = $this->derivedObligationsService->positions($request->user(), $counterpartyBalances);
         $payload = collect(CreditDebtItemResource::collection($items)->resolve($request))
             ->concat($this->filterDerivedPositions($derived, $request))->values()->all();
 
@@ -67,9 +73,14 @@ class CreditDebtController extends Controller
             return response()->json(['data' => $payload]);
         }
 
+        $openPositions = $this->derivedObligationsService->openPositions($request->user(), derived: $derived);
+
         return Inertia::render('credits-debts/Index', [
             'items' => $payload,
-            'summary' => $this->aggregateSummary($this->summaryPayload($request), $derived, $request),
+            'summary' => $this->summaryForCurrency($request, $openPositions, $request->user()->base_currency_code ?? 'EUR'),
+            'summariesByCurrency' => $this->summariesByCurrency($request, $openPositions),
+            'commonRelations' => app(CounterpartyViewService::class)->forUser($request->user()),
+            'counterpartyBalances' => $counterpartyBalances,
             'filters' => [
                 ...$request->only([
                     'search',
@@ -97,6 +108,7 @@ class CreditDebtController extends Controller
         Gate::authorize('view', $creditDebtItem);
 
         return CreditDebtItemResource::make($creditDebtItem->load([
+            'counterparty',
             'account',
             'category',
             'reference',
@@ -192,9 +204,8 @@ class CreditDebtController extends Controller
                 'current_month' => $query
                     ->whereDate('due_date', '>=', $today->toDateString())
                     ->whereBetween('due_date', [$periodStart->toDateString(), $endOfMonth->toDateString()]),
-                'future' => $query->where(function ($query) use ($today): void {
-                    $query->whereNull('due_date')->orWhereDate('due_date', '>', $today->toDateString());
-                }),
+                'future' => $query->whereDate('due_date', '>', $today->toDateString()),
+                'undated' => $query->whereNull('due_date'),
                 default => null,
             };
         }
@@ -214,6 +225,7 @@ class CreditDebtController extends Controller
                     'CAST((total_amount - COALESCE((select sum(amount) from credit_debt_payments where credit_debt_payments.credit_debt_item_id = credit_debt_items.id and credit_debt_payments.deleted_at is null), 0)) AS TEXT) LIKE ?',
                     [$like],
                 )
+                ->orWhereHas('counterparty', fn (Builder $query) => $query->whereRaw('LOWER(name) LIKE ?', [$like]))
                 ->orWhereHas('reference', function (Builder $query) use ($like): void {
                     $query
                         ->whereRaw('LOWER(name) LIKE ?', [$like])
@@ -259,8 +271,9 @@ class CreditDebtController extends Controller
 
                 return match ($request->input('due_bucket')) {
                     'overdue' => $date !== null && $date < $today,
-                    'current_month' => $date !== null && $date >= $today,
-                    'future' => false,
+                    'current_month' => $date !== null && $date >= $today && substr($date, 0, 7) === sprintf('%04d-%02d', $this->selectedYear($request), $this->selectedMonth($request) ?? (int) now()->month),
+                    'future' => $date !== null && $date > $today,
+                    'undated' => $date === null,
                     default => true,
                 };
             }
@@ -269,29 +282,30 @@ class CreditDebtController extends Controller
         })->values();
     }
 
-    /** @return array<string, string|int> */
-    protected function aggregateSummary(array $summary, Collection $positions, Request $request): array
+    /** @return array<string, array<string, string|int>> */
+    protected function summariesByCurrency(Request $request, Collection $positions): array
     {
-        foreach ($positions as $item) {
-            $side = $item['type'] === 'credit' ? 'credits' : 'debts';
-            $amount = (float) $item['remaining_amount'];
-            $key = $side.'_remaining_total';
-            $summary[$key] = number_format((float) $summary[$key] + $amount, 2, '.', '');
-            if ($item['due_date'] !== null && $item['due_date'] < today()->toDateString()) {
-                $summary['overdue_count']++;
-                $key = 'overdue_'.$side.'_total';
-                $summary[$key] = number_format((float) $summary[$key] + $amount, 2, '.', '');
-            } elseif ($item['due_date'] === today()->toDateString()
-                && ($this->selectedMonth($request) === null || ($this->selectedYear($request) === (int) now()->year && $this->selectedMonth($request) === (int) now()->month))) {
-                $key = 'current_month_'.$side.'_total';
-                $summary[$key] = number_format((float) $summary[$key] + $amount, 2, '.', '');
-            }
-        }
-        $summary['net_expected_total'] = number_format((float) $summary['credits_remaining_total'] - (float) $summary['debts_remaining_total'], 2, '.', '');
+        $currencies = $positions->pluck('currency_code')->concat(CreditDebtItem::query()->forUser($request->user())->pluck('currency_code'))->push($request->user()->base_currency_code ?? 'EUR')->unique()->sort();
 
-        return array_replace($summary, $this->derivedObligationsService->openSummary(
-            $this->derivedObligationsService->openPositions($request->user(), derived: $positions),
-        ));
+        return $currencies->mapWithKeys(fn (string $currency): array => [$currency => $this->summaryForCurrency($request, $positions, $currency)])->all();
+    }
+
+    /** @return array<string, string|int> */
+    protected function summaryForCurrency(Request $request, Collection $positions, string $currency): array
+    {
+        $positions = $positions->where('currency_code', $currency);
+        $summary = $this->derivedObligationsService->openSummary($positions);
+        $today = today()->toDateString();
+        $month = sprintf('%04d-%02d', $this->selectedYear($request), $this->selectedMonth($request) ?? (int) now()->month);
+        foreach (['credit' => 'credits', 'debit' => 'debts'] as $type => $side) {
+            $typed = $positions->where('type', $type);
+            $sum = fn (Collection $items): string => MoneyAmount::decimal($items->sum(fn (array $item): int => MoneyAmount::cents($item['remaining_amount'])));
+            $summary['current_month_'.$side.'_total'] = $sum($typed->filter(fn (array $item): bool => $item['due_date'] !== null && $item['due_date'] >= $today && substr($item['due_date'], 0, 7) === $month));
+            $summary['future_'.$side.'_total'] = $sum($typed->filter(fn (array $item): bool => $item['due_date'] !== null && $item['due_date'] > $today));
+            $summary['undated_'.$side.'_total'] = $sum($typed->whereNull('due_date'));
+        }
+
+        return $summary;
     }
 
     /**
@@ -310,53 +324,6 @@ class CreditDebtController extends Controller
     }
 
     /**
-     * @return array<string, string|int>
-     */
-    protected function summaryPayload(Request $request): array
-    {
-        $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
-        $periodStart = $this->selectedMonth($request) === null
-            ? $today
-            : CarbonImmutable::create($this->selectedYear($request), $this->selectedMonth($request), 1, 0, 0, 0, config('app.timezone'));
-        $endOfMonth = $periodStart->endOfMonth();
-        $items = CreditDebtItem::query()
-            ->forUser($request->user())
-            ->with('payments')
-            ->whereYear('due_date', $this->selectedYear($request));
-
-        if ($this->selectedMonth($request) !== null) {
-            $items->whereMonth('due_date', $this->selectedMonth($request));
-        }
-
-        $items = $items->get();
-
-        $remaining = fn (CreditDebtItem $item): float => (float) $item->remainingAmount();
-        $credits = $items->where('type', CreditDebtTypeEnum::CREDIT);
-        $debts = $items->where('type', CreditDebtTypeEnum::DEBIT);
-        $overdue = $items->filter(fn (CreditDebtItem $item): bool => $item->due_date !== null && $item->due_date->lt($today) && ! $item->isSettled());
-        $currentMonth = $items->filter(fn (CreditDebtItem $item): bool => $item->due_date !== null && $item->due_date->gte($today) && $item->due_date->betweenIncluded($periodStart, $endOfMonth) && ! $item->isSettled());
-        $future = $items->filter(fn (CreditDebtItem $item): bool => ($item->due_date === null || $item->due_date->gt($today)) && ! $item->isSettled());
-
-        $sum = fn (Collection $collection): string => number_format($collection->sum(fn (CreditDebtItem $item): float => $remaining($item)), 2, '.', '');
-
-        $creditsRemaining = (float) $sum($credits);
-        $debtsRemaining = (float) $sum($debts);
-
-        return [
-            'credits_remaining_total' => number_format($creditsRemaining, 2, '.', ''),
-            'debts_remaining_total' => number_format($debtsRemaining, 2, '.', ''),
-            'overdue_count' => $overdue->count(),
-            'overdue_credits_total' => $sum($overdue->where('type', CreditDebtTypeEnum::CREDIT)),
-            'overdue_debts_total' => $sum($overdue->where('type', CreditDebtTypeEnum::DEBIT)),
-            'current_month_credits_total' => $sum($currentMonth->where('type', CreditDebtTypeEnum::CREDIT)),
-            'current_month_debts_total' => $sum($currentMonth->where('type', CreditDebtTypeEnum::DEBIT)),
-            'future_credits_total' => $sum($future->where('type', CreditDebtTypeEnum::CREDIT)),
-            'future_debts_total' => $sum($future->where('type', CreditDebtTypeEnum::DEBIT)),
-            'net_expected_total' => number_format($creditsRemaining - $debtsRemaining, 2, '.', ''),
-        ];
-    }
-
-    /**
      * @return array<string, mixed>
      */
     protected function formOptionsPayload(Request $request): array
@@ -369,6 +336,11 @@ class CreditDebtController extends Controller
             ->groupBy('account_id');
 
         return [
+            'counterparties' => TrackedItem::query()->ownedBy($request->user()->id)
+                ->where(function ($query) use ($request): void {
+                    $query->where(fn ($active) => $active->where('is_active', true)->where('is_shared_expense_counterpart', true))
+                        ->orWhereIn('id', CreditDebtItem::query()->forUser($request->user())->select('counterparty_id')->whereNotNull('counterparty_id'));
+                })->orderBy('name')->get()->map(fn (TrackedItem $item): array => ['value' => $item->uuid, 'label' => $item->name, 'is_selectable' => $item->is_active && $item->is_shared_expense_counterpart])->all(),
             'accounts' => $accounts->map(fn (Account $account): array => [
                 'value' => $account->uuid,
                 'uuid' => $account->uuid,

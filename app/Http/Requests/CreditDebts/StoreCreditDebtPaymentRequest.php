@@ -19,7 +19,7 @@ class StoreCreditDebtPaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
+            'amount' => ['required', 'numeric', 'regex:/^\d+(?:\.\d{1,2})?$/', 'gt:0', 'max:999999999999.99'],
             'account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('user_id', (int) $this->user()->id)],
             'paid_at' => ['required', 'date'],
             'note' => ['nullable', 'string'],

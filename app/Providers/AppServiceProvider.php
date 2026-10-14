@@ -6,10 +6,16 @@ use App\Models\Account;
 use App\Models\AccountInvitation;
 use App\Models\AccountMembership;
 use App\Models\DeviceToken;
+use App\Models\SharedExpenseLedgerEntry;
+use App\Models\SharedExpenseSettlement;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Observers\CounterpartySharedSourceObserver;
 use App\Policies\AccountInvitationPolicy;
 use App\Policies\AccountMembershipPolicy;
 use App\Policies\AccountPolicy;
+use App\Services\Counterparties\CounterpartyBankMutation;
+use App\Services\Counterparties\SharedCounterpartyShadowService;
 use App\Support\AuthenticatedSsrGateway;
 use App\Support\Sentinel\HorizonDriver;
 use Carbon\CarbonImmutable;
@@ -33,6 +39,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->scoped(SharedCounterpartyShadowService::class);
+        $this->app->scoped(CounterpartyBankMutation::class);
         $this->app->bind(Gateway::class, AuthenticatedSsrGateway::class);
         Sentinel::extend('horizon', fn ($app) => new HorizonDriver(fn () => $app));
     }
@@ -43,6 +51,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        foreach ([Transaction::class, SharedExpenseLedgerEntry::class, SharedExpenseSettlement::class] as $source) {
+            $source::observe(CounterpartySharedSourceObserver::class);
+        }
 
         Event::listen(Logout::class, function (Logout $event): void {
             if (! request()->hasSession() || ! $event->user instanceof User) {

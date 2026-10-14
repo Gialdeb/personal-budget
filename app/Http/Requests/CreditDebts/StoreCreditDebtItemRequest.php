@@ -5,6 +5,7 @@ namespace App\Http\Requests\CreditDebts;
 use App\Enums\CreditDebtTypeEnum;
 use App\Models\Account;
 use App\Models\Category;
+use App\Models\CreditDebtItem;
 use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
@@ -42,12 +43,19 @@ class StoreCreditDebtItemRequest extends FormRequest
         return [
             'type' => ['required', Rule::in(CreditDebtTypeEnum::values())],
             'description' => ['required', 'string', 'max:255'],
-            'total_amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
+            'total_amount' => ['required', 'numeric', 'regex:/^\d+(?:\.\d{1,2})?$/', 'gt:0', 'max:999999999999.99'],
             'currency_code' => ['required', 'string', 'size:3', Rule::in(array_keys(config('currencies.supported', [])))],
+            'counterparty_id' => ['nullable', 'integer', Rule::exists('tracked_items', 'id')->where(fn ($query) => $query->where('user_id', $this->user()->id)->whereNull('account_id')->where(function ($eligible): void {
+                $eligible->where(fn ($active) => $active->where('is_active', true)->where('is_shared_expense_counterpart', true));
+                if ($this->route('creditDebtItem') instanceof CreditDebtItem) {
+                    $eligible->orWhere('id', $this->route('creditDebtItem')->counterparty_id);
+                }
+            }))],
+            'counterparty_uuid' => ['nullable', 'uuid'],
             'reference_id' => ['nullable', 'integer', Rule::in($referenceIds)],
             'account_id' => ['required', 'integer', Rule::in($editableAccountIds)],
             'category_id' => ['required', 'integer', Rule::in($categoryIds)],
-            'due_date' => ['required', 'date'],
+            'due_date' => ['nullable', 'date'],
             'note' => ['nullable', 'string'],
         ];
     }
@@ -71,7 +79,7 @@ class StoreCreditDebtItemRequest extends FormRequest
             'category_id.required' => __('credit_debts.validation.category_required'),
             'category_id.in' => __('credit_debts.validation.category_unavailable'),
             'reference_id.in' => __('credit_debts.validation.reference_unavailable'),
-            'due_date.required' => __('credit_debts.validation.due_date_required'),
+            'counterparty_id.exists' => __('credit_debts.validation.counterparty_unavailable'),
             'due_date.date' => __('credit_debts.validation.date_invalid'),
         ];
     }
@@ -94,6 +102,12 @@ class StoreCreditDebtItemRequest extends FormRequest
 
         if ($this->filled('reference_uuid') && ! $this->filled('reference_id')) {
             $prepared['reference_id'] = TrackedItem::query()->where('uuid', $this->input('reference_uuid'))->value('id');
+        }
+
+        if ($this->exists('counterparty_uuid') && ! $this->exists('counterparty_id')) {
+            $prepared['counterparty_id'] = $this->filled('counterparty_uuid')
+                ? TrackedItem::query()->where('uuid', $this->input('counterparty_uuid'))->value('id') ?? 0
+                : null;
         }
 
         $this->merge($prepared);

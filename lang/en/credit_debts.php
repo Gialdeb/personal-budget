@@ -2,6 +2,10 @@
 
 return [
     'validation' => [
+        'counterparty_in_use' => 'The counterparty has linked movements or obligations. You can deactivate it, but cannot delete it.',
+        'settlement_direction_changed' => 'The balance changed direction. Cancel the settlement and record it again.',
+        'settlement_currency_mismatch' => 'The settlement account must use EUR.',
+        'counterparty_unavailable' => 'The selected counterparty is unavailable.',
         'type_required' => 'Select credit or debt.',
         'type_invalid' => 'The selected type is not valid.',
         'description_required' => 'Enter a description.',

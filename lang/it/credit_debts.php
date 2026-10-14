@@ -2,6 +2,10 @@
 
 return [
     'validation' => [
+        'counterparty_in_use' => 'La controparte ha movimenti o obbligazioni collegati. Puoi disattivarla, ma non eliminarla.',
+        'settlement_direction_changed' => 'Il saldo ha cambiato direzione. Annulla il pareggio e registralo nuovamente.',
+        'settlement_currency_mismatch' => 'Il conto del pareggio deve essere in EUR.',
+        'counterparty_unavailable' => 'La controparte selezionata non è disponibile.',
         'type_required' => 'Seleziona credito o debito.',
         'type_invalid' => 'Il tipo selezionato non è valido.',
         'description_required' => 'Inserisci una descrizione.',

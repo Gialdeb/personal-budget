@@ -17,7 +17,7 @@ class UpdateCreditDebtItemRequest extends StoreCreditDebtItemRequest
         $rules['currency_code'][0] = 'sometimes';
         $rules['account_id'][0] = 'sometimes';
         $rules['category_id'][0] = 'sometimes';
-        $rules['due_date'][0] = 'sometimes';
+        $rules['due_date'] = ['sometimes', 'nullable', 'date'];
 
         return $rules;
     }

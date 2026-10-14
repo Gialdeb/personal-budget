@@ -42,11 +42,16 @@ test('shared eligibility is opt-in and the common picker explains an empty catal
     );
     assert.match(shared, /v-if="counterparties.length === 0"/);
     assert.match(shared, /Nessuna controparte abilitata/);
-    assert.equal(
-        (shared.match(/@create-option="createCounterparty"/g) ?? []).length,
-        2,
+    assert.match(shared, /<CounterpartySelect/);
+    const picker = readFileSync(
+        new URL(
+            '../../resources/js/components/shared-expenses/CounterpartySelect.vue',
+            import.meta.url,
+        ),
+        'utf8',
     );
-    assert.match(shared, /fetch\(storeCounterparty\.url\(\)/);
+    assert.match(picker, /@create-option="createCounterparty"/);
+    assert.match(picker, /fetch\(storeCounterparty\.url\(\)/);
     const quickActions = readFileSync(
         new URL(
             '../../resources/js/pages/settings/QuickActions.vue',

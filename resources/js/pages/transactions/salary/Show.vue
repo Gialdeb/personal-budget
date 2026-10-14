@@ -39,6 +39,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import type {
@@ -80,6 +81,7 @@ type Period = {
     actual: number | null;
     difference: number | null;
 };
+const ui = useUiCopy();
 const props = defineProps<{
     employment: {
         uuid: string;
@@ -851,7 +853,7 @@ function changePeriod(year: string, month: string): void {
                 <nav
                     v-if="details.last_page > 1"
                     class="flex items-center justify-between gap-3"
-                    aria-label="Pagination"
+                    :aria-label="ui('Paginazione')"
                 >
                     <Link
                         v-if="details.prev_page_url"

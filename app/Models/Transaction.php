@@ -8,6 +8,8 @@ use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Concerns\HasPublicUuid;
 use App\Models\Concerns\LogsDomainActivity;
+use App\Services\Counterparties\CounterpartyBankMutation;
+use App\Services\Counterparties\CounterpartySourceGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,7 +27,18 @@ class Transaction extends Model
 
     protected static function booted(): void
     {
+        static::creating(fn (self $transaction) => app(CounterpartySourceGuard::class)->assertRefund($transaction));
+        static::deleting(function (self $transaction): void {
+            app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction);
+            app(CounterpartySourceGuard::class)->assertChange($transaction, true);
+        });
+        static::restoring(fn (self $transaction) => app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction));
         static::updating(function (self $transaction): void {
+            if ($transaction->isDirty(['amount', 'direction', 'currency', 'currency_code', 'account_id', 'user_id', 'status', 'transaction_date', 'value_date', 'kind', 'source_type', 'is_transfer', 'shared_expense_counterparty_id', 'shared_expense_paid_by', 'shared_expense_my_share_cents', 'shared_expense_counterparty_share_cents', 'refunded_transaction_id', 'related_transaction_id', 'deleted_at'])) {
+                app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction);
+                app(CounterpartySourceGuard::class)->assertRefund($transaction);
+                app(CounterpartySourceGuard::class)->assertChange($transaction);
+            }
             $transaction->validateOccurrenceAllocations();
         });
         static::created(function (self $transaction): void {
@@ -37,6 +50,9 @@ class Transaction extends Model
         static::deleted(fn (self $transaction) => $transaction->synchronizeRecurringSettlement());
         static::restored(fn (self $transaction) => $transaction->synchronizeRecurringSettlement());
         static::restoring(function (self $transaction): void {
+            $restored = clone $transaction;
+            $restored->deleted_at = null;
+            app(CounterpartySourceGuard::class)->assertRefund($restored);
             $transaction->validateOccurrenceAllocations();
         });
     }

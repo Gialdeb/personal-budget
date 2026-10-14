@@ -37,10 +37,14 @@ test('desktop and mobile transaction actions allow reporting problems beyond the
         ).length,
         2,
     );
-    assert.equal((page.match(/Segnala problema\s+pagamento/g) ?? []).length, 2);
+    assert.equal(
+        (page.match(/transactions\.sheet\.paymentProblem\.trigger/g) ?? [])
+            .length,
+        2,
+    );
     assert.match(
         page,
-        /paymentProblemForm\.post\(paymentProblem\.url\(transaction\.uuid\)/,
+        /paymentProblemForm\.post\(\s*paymentProblem\.url\(paymentProblemTransaction\.value\.uuid\)/,
     );
     const sheet = source(
         'app/Services/Dashboard/MonthlyTransactionSheetService.php',

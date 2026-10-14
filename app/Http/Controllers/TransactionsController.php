@@ -619,7 +619,7 @@ class TransactionsController extends Controller
 
     protected function canRefundTransaction(Transaction $transaction): bool
     {
-        if ($transaction->trashed() || $transaction->is_transfer) {
+        if ($transaction->trashed() || $transaction->is_transfer || $transaction->creditDebtPayment()->exists() || $transaction->sharedExpenseSettlement()->exists()) {
             return false;
         }
 

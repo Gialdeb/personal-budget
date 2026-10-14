@@ -18,6 +18,7 @@ use App\Models\UserSetting;
 use App\Models\UserYear;
 use App\Services\CreditDebts\CreditDebtPaymentService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -365,7 +366,7 @@ test('item validation blocks invalid type amount currency and foreign owned rela
         'account_id' => $otherAccount->id,
         'category_id' => $otherCategory->id,
     ])->assertUnprocessable()
-        ->assertJsonValidationErrors(['type', 'total_amount', 'currency_code', 'account_id', 'category_id', 'due_date']);
+        ->assertJsonValidationErrors(['type', 'total_amount', 'currency_code', 'account_id', 'category_id']);
 });
 
 test('item with payments cannot change locked fields or total amount', function () {
@@ -549,7 +550,7 @@ test('a credit with a deleted legacy reference can still be settled without a fo
         'reference_id' => $reference->id,
     ]);
 
-    $reference->delete();
+    DB::table('tracked_items')->where('id', $reference->id)->delete();
 
     expect($item->fresh()->reference_id)->toBeNull();
 

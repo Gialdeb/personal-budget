@@ -238,8 +238,8 @@ test('recurring option cards have decorative icons and preserve existing models'
     assert.match(source, /<Gift[\s\S]*?aria-hidden="true"/);
     assert.match(source, /<SlidersHorizontal[\s\S]*?aria-hidden="true"/);
     assert.match(source, /v-model="form.trial_enabled"/);
-    assert.match(source, /:model-value="form.is_amount_variable"/);
-    assert.match(source, /<SharedExpenseFields\s+decorated/);
+    assert.match(source, /:model-value="\s*form\.is_amount_variable\s*"/);
+    assert.match(source, /<SharedExpenseFields\b[^>]*\bdecorated\b/);
     assert.ok(source.includes('[&_button:not([role=checkbox])]:min-h-11'));
     assert.ok(source.includes('[&_input:not([type=checkbox])]:min-h-11'));
     const shared = readFileSync(sharedPath, 'utf8');

@@ -9,7 +9,10 @@ use App\Models\CreditDebtItem;
 use App\Models\CreditDebtPayment;
 use App\Models\TrackedItem;
 use App\Models\User;
+use App\Services\Counterparties\CounterpartyAuthority;
+use App\Services\Counterparties\ManualCreditDebtShadowService;
 use App\Services\Transactions\TransactionMutationService;
+use App\Support\MoneyAmount;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -17,6 +20,7 @@ class CreditDebtPaymentService
 {
     public function __construct(
         private readonly TransactionMutationService $transactionMutationService,
+        private readonly ManualCreditDebtShadowService $shadow,
     ) {}
 
     /**
@@ -24,18 +28,31 @@ class CreditDebtPaymentService
      */
     public function create(User $user, CreditDebtItem $item, array $data): CreditDebtPayment
     {
+        if (app(CounterpartyAuthority::class)->activeRelation($user->id, $item->counterparty_id, $item->currency_code) !== null) {
+            throw ValidationException::withMessages(['counterparty' => 'Usa Registra pagamento nel rapporto della controparte.']);
+        }
         abort_unless((bool) config('features.credits_debts.enabled'), 404);
 
         $this->ensureItemOwnedBy($user, $item);
+        $item = $item->fresh();
 
-        $amount = round((float) $data['amount'], 2);
+        $amount = MoneyAmount::decimal(MoneyAmount::cents((string) $data['amount']));
 
         return DB::transaction(function () use ($user, $item, $data, $amount): CreditDebtPayment {
+            if ($item->counterparty_id !== null) {
+                TrackedItem::query()->whereKey($item->counterparty_id)->lockForUpdate()->firstOrFail();
+            }
             $lockedItem = CreditDebtItem::query()
                 ->forUser($user)
                 ->lockForUpdate()
                 ->findOrFail($item->id);
 
+            if ((string) $lockedItem->counterparty_id !== (string) $item->counterparty_id) {
+                throw ValidationException::withMessages(['counterparty' => 'La controparte è cambiata. Ricarica la posizione prima di registrare il pagamento.']);
+            }
+            if (app(CounterpartyAuthority::class)->activeRelation($user->id, $lockedItem->counterparty_id, $lockedItem->currency_code) !== null) {
+                throw ValidationException::withMessages(['counterparty' => 'Usa Registra pagamento nel rapporto della controparte.']);
+            }
             if (! $lockedItem->canAcceptPayment($amount)) {
                 throw ValidationException::withMessages([
                     'amount' => __('credit_debts.validation.payment_exceeds_remaining'),
@@ -70,7 +87,7 @@ class CreditDebtPaymentService
                 user: $user,
                 account: $account,
                 direction: $direction,
-                amount: $amount,
+                amount: (float) $amount,
                 transactionDate: (string) $data['paid_at'],
                 categoryId: $lockedItem->category_id,
                 trackedItemId: $trackedItemId,
@@ -89,6 +106,8 @@ class CreditDebtPaymentService
                 'note' => $data['note'] ?? null,
             ]);
 
+            $this->shadow->paymentCreated($payment);
+
             return $payment->fresh(['account', 'transaction']);
         });
     }
@@ -98,20 +117,17 @@ class CreditDebtPaymentService
         abort_unless((bool) config('features.credits_debts.enabled'), 404);
 
         $this->ensurePaymentOwnedBy($user, $payment);
-        $payment->loadMissing('item', 'transaction');
-
-        $latestPaymentId = CreditDebtPayment::query()
-            ->where('credit_debt_item_id', $payment->credit_debt_item_id)
-            ->latestFirst()
-            ->value('id');
-
-        if ($latestPaymentId !== $payment->id) {
-            throw ValidationException::withMessages([
-                'payment' => __('credit_debts.validation.delete_latest_payment_required'),
-            ]);
-        }
-
         DB::transaction(function () use ($user, $payment): void {
+            CreditDebtItem::query()->forUser($user)->whereKey($payment->credit_debt_item_id)->lockForUpdate()->firstOrFail();
+            $payment = CreditDebtPayment::query()->forUser($user)->whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            $latestPaymentId = CreditDebtPayment::query()
+                ->where('credit_debt_item_id', $payment->credit_debt_item_id)
+                ->latestFirst()->value('id');
+            if ($latestPaymentId !== $payment->id) {
+                throw ValidationException::withMessages(['payment' => __('credit_debts.validation.delete_latest_payment_required')]);
+            }
+
+            $this->shadow->paymentDeleted($payment);
             $this->transactionMutationService->forceDeleteCreditDebtPaymentTransaction($user, $payment);
             $payment->delete();
         });

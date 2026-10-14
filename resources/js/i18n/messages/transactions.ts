@@ -1115,7 +1115,7 @@ export const transactionsMessages = {
                     fxPreviewInformative:
                         'This is only an indicative preview. The definitive rate will be fixed when the recurring entry generates the real transaction.',
                     variableAmount:
-                        'Enable this for utilities or movements whose amount changes at each due date. On that day, you will receive a reminder and can correct only that occurrence.',
+                        'Enable this for amounts that change at each due date. Automatic registration uses the expected amount, which you can check and correct afterwards; in manual mode you confirm the amount before recording.',
                     descriptionPrimary:
                         'This text identifies the scheduled movement and will also be reused on the real transaction.',
                     trackedItem:

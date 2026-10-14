@@ -8,10 +8,13 @@ use App\Models\SharedExpenseSettlement;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Counterparties\CounterpartyViewService;
+use App\Services\CreditDebts\CounterpartyBalanceService;
 use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\SharedExpenses\SharedExpenseSettlementService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
+use App\Support\MoneyAmount;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -29,6 +32,7 @@ class SharedExpenseController extends Controller
         protected SharedExpenseSettlementService $sharedExpenseSettlementService,
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected ManagementContextResolver $managementContextResolver,
+        protected CounterpartyBalanceService $counterpartyBalanceService,
     ) {}
 
     public function index(Request $request): Response
@@ -43,7 +47,7 @@ class SharedExpenseController extends Controller
         $dateFrom = $request->date('date_from')?->toDateString();
         $dateTo = $request->date('date_to')?->toDateString();
         $effect = $request->string('effect')->toString();
-        $counterparties = TrackedItem::query()->sharedExpenseHistory($user->id)->orderBy('name')->get(['id', 'uuid', 'name', 'is_active', 'is_shared_expense_counterpart']);
+        $counterparties = TrackedItem::query()->sharedExpenseHistory($user->id)->orderBy('name')->get(['id', 'uuid', 'user_id', 'account_id', 'name', 'is_active', 'is_shared_expense_counterpart']);
         $counterpartyIds = $counterparties->pluck('id');
         $accountIds = $this->accessibleAccountsQuery->get($user)->pluck('id');
         $editableAccounts = $this->accessibleAccountsQuery->getEditable($user);
@@ -79,6 +83,7 @@ class SharedExpenseController extends Controller
             ->get()
             ->map(fn (SharedExpenseLedgerEntry $entry): array => [
                 'can_cancel_payment' => $entry->recurring_entry_occurrence_id !== null,
+                'common_settlement' => app(CounterpartyViewService::class)->sourceSettlement($user->id, $entry->uuid, 'shared_ledger_share'),
                 'uuid' => $entry->uuid, 'date' => $entry->entry_date?->toDateString(), 'title' => $entry->title,
                 'counterparty' => $entry->counterparty?->name, 'counterparty_uuid' => $entry->counterparty?->uuid,
                 'category' => null, 'reference' => null,
@@ -102,7 +107,7 @@ class SharedExpenseController extends Controller
                 return str_contains(mb_strtolower(implode(' ', [$entry['title'], $entry['category'], $entry['reference'], $entry['counterparty']])), mb_strtolower($search));
             });
 
-        $recordedEntries = $transactions->map(function (Transaction $transaction): array {
+        $recordedEntries = $transactions->map(function (Transaction $transaction) use ($user): array {
             $totalCents = $this->sharedExpenseAllocation->toCents((string) $transaction->amount);
             $allocation = [
                 'paid_by' => $transaction->shared_expense_paid_by ?? SharedExpenseAllocation::PAID_BY_SELF,
@@ -111,6 +116,7 @@ class SharedExpenseController extends Controller
             ];
 
             return [
+                'common_settlement' => app(CounterpartyViewService::class)->sourceSettlement($user->id, $transaction->uuid, 'shared_transaction_share'),
                 'uuid' => $transaction->uuid, 'date' => $transaction->transaction_date?->toDateString(), 'title' => $transaction->description, 'counterparty' => $transaction->sharedExpenseCounterparty?->name,
                 'counterparty_uuid' => $transaction->sharedExpenseCounterparty?->uuid, 'category' => $transaction->category?->name, 'reference' => $transaction->trackedItem?->name,
                 'origin' => $transaction->recurringOccurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.installment_c9bb1db2') : ($transaction->recurring_entry_occurrence_id ? __('ui.recurring_entry_258b334d') : __('ui.transaction_680db696')),
@@ -118,7 +124,7 @@ class SharedExpenseController extends Controller
                 'origin_label' => __('ui.open_transaction_ed56aaa7'),
                 'amount' => (float) $transaction->amount, 'currency' => $transaction->currency, 'status' => $transaction->refundTransaction !== null ? __('transactions.enums.recurring_transaction_status.refunded') : __('ui.posted_bf13fd0a'),
                 'paid_by' => $allocation['paid_by'], 'my_share_cents' => $allocation['my_share_cents'], 'counterparty_share_cents' => $allocation['counterparty_share_cents'],
-                'effect_cents' => $totalCents > 0 ? (int) round($this->sharedExpenseAllocation->balanceEffectCents($allocation) * $transaction->activeAmountCents() / $totalCents) : 0,
+                'effect_cents' => $totalCents > 0 ? MoneyAmount::proportional($this->sharedExpenseAllocation->balanceEffectCents($allocation), $this->sharedExpenseSettlementService->activeTransactionCents($transaction), $totalCents) : 0,
             ];
         });
         $settlements = $counterpartyIds->isEmpty() ? collect() : SharedExpenseSettlement::query()
@@ -128,7 +134,7 @@ class SharedExpenseController extends Controller
             ->whereMonth('settled_at', $month)
             ->when($dateFrom, fn ($query) => $query->whereDate('settled_at', '>=', $dateFrom))
             ->when($dateTo, fn ($query) => $query->whereDate('settled_at', '<=', $dateTo))
-            ->with(['counterparty:id,uuid,name', 'transaction.account:id,uuid,name', 'transaction.category:id,uuid,name'])
+            ->with(['counterparty:id,uuid,name', 'transaction.account:id,uuid,user_id,name,currency_code', 'transaction.category:id,uuid,name', 'transaction.refundTransaction'])
             ->when($counterpartyUuid, fn ($query) => $query->whereHas('counterparty', fn ($counterpartyQuery) => $counterpartyQuery->where('uuid', $counterpartyUuid)))
             ->get()
             ->map(fn (SharedExpenseSettlement $settlement): array => [
@@ -144,7 +150,9 @@ class SharedExpenseController extends Controller
                 'origin_label' => __('ui.open_transaction_ed56aaa7'),
                 'amount' => $settlement->amount_cents / 100,
                 'currency' => 'EUR',
-                'status' => 'Registrato',
+                'status' => $this->sharedExpenseSettlementService->settlementEffectCents($settlement) === 0
+                    ? __('transactions.enums.status.review_needed')
+                    : ($settlement->transaction?->refundTransaction !== null ? __('transactions.enums.recurring_transaction_status.refunded') : 'Registrato'),
                 'effect_cents' => $this->sharedExpenseSettlementService->settlementEffectCents($settlement),
                 'is_settlement' => true,
                 'settlement' => [
@@ -171,6 +179,7 @@ class SharedExpenseController extends Controller
         ))->withQueryString();
 
         $entryCounts = $filteredEntries->countBy('counterparty_uuid');
+        $counterpartyBalances = $this->counterpartyBalanceService->forUser($user, $counterparties);
         $balances = $counterparties->mapWithKeys(fn (TrackedItem $item): array => [$item->uuid => $this->sharedExpenseSettlementService->balanceCents($user, $item)])->all();
 
         return Inertia::render('SharedExpenses', [
@@ -188,9 +197,11 @@ class SharedExpenseController extends Controller
             ],
             'counterpartyEntryCounts' => $entryCounts->all(),
             'visibleCounterparties' => $counterparties
-                ->filter(fn (TrackedItem $item): bool => ($entryCounts[$item->uuid] ?? 0) > 0 || $balances[$item->uuid] !== 0)
+                ->filter(fn (TrackedItem $item): bool => ($entryCounts[$item->uuid] ?? 0) > 0 || $balances[$item->uuid] !== 0 || collect($counterpartyBalances[$item->uuid] ?? [])->contains(fn (array $balance): bool => $balance['manual_cents'] !== 0 || $balance['shared_cents'] !== 0))
                 ->map(fn (TrackedItem $item): array => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
             'balances' => $balances,
+            'commonRelations' => app(CounterpartyViewService::class)->forUser($request->user()),
+            'counterpartyBalances' => $counterpartyBalances,
             'settlementOptions' => [
                 'accounts' => $editableAccounts->map(fn ($account): array => ['uuid' => $account->uuid, 'name' => $account->name, 'currency' => $account->currency_code])->values(),
                 'categories' => $editableAccounts->mapWithKeys(fn ($account): array => [$account->uuid => $this->operationalTransactionCategoryResolver->categoriesForAccount($account)

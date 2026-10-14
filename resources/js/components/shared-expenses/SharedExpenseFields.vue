@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { UsersRound } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
-import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
-import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
+import CounterpartySelect from '@/components/shared-expenses/CounterpartySelect.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUiCopy } from '@/i18n/ui-copy';
-import { store as storeCounterparty } from '@/routes/shared-expenses/counterparties';
 
 const ui = useUiCopy();
 
@@ -44,8 +42,6 @@ const counterpartyShare = defineModel<string>('counterpartyShare', {
 });
 const custom = defineModel<boolean>('custom', { default: false });
 const createdCounterparties = ref<NormalizedOption[]>([]);
-const creatingCounterparty = ref(false);
-const counterpartyCreationError = ref<string | null>(null);
 const counterparties = computed(() =>
     [...props.counterparties, ...createdCounterparties.value]
         .map(
@@ -146,68 +142,6 @@ watch(counterparty, () => {
     myShare.value = '';
     counterpartyShare.value = '';
 });
-
-function readCsrfToken(): string {
-    return (
-        document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute('content') ?? ''
-    );
-}
-
-async function createCounterparty(name: string): Promise<void> {
-    const normalizedName = name.trim();
-
-    if (normalizedName === '') {
-        return;
-    }
-
-    creatingCounterparty.value = true;
-    counterpartyCreationError.value = null;
-
-    try {
-        const response = await fetch(storeCounterparty.url(), {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': readCsrfToken(),
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify({ name: normalizedName }),
-        });
-        const payload = (await response.json()) as {
-            uuid?: string;
-            name?: string;
-            message?: string;
-            errors?: Record<string, string[]>;
-        };
-
-        if (!response.ok || !payload.uuid || !payload.name) {
-            counterpartyCreationError.value =
-                payload.errors?.name?.[0] ??
-                payload.message ??
-                ui('Impossibile creare la controparte.');
-
-            return;
-        }
-
-        const option = { value: payload.uuid, label: payload.name };
-
-        if (!counterparties.value.some((item) => item.value === option.value)) {
-            createdCounterparties.value.push(option);
-        }
-
-        counterparty.value = option.value;
-        paidBy.value = 'self';
-    } catch {
-        counterpartyCreationError.value = ui(
-            'Impossibile creare la controparte.',
-        );
-    } finally {
-        creatingCounterparty.value = false;
-    }
-}
 </script>
 
 <template>
@@ -277,45 +211,18 @@ async function createCounterparty(name: string): Promise<void> {
                         )
                     }}
                 </p>
-                <div class="hidden md:block">
-                    <SearchableSelect
-                        v-model="counterparty"
-                        :options="counterparties"
-                        :placeholder="ui('Cerca una controparte')"
-                        clearable
-                        creatable
-                        :creating="creatingCounterparty"
-                        :create-label="ui('Aggiungi controparte')"
-                        :side="dropdownSide"
-                        :teleport="dropdownTeleport"
-                        @create-option="createCounterparty"
-                    />
-                </div>
-                <div class="md:hidden">
-                    <MobileSearchableSelect
-                        v-model="counterparty"
-                        :options="counterparties"
-                        :placeholder="ui('Cerca una controparte')"
-                        :search-placeholder="ui('Cerca una controparte')"
-                        :empty-label="ui('Nessuna controparte')"
-                        :mobile-title="ui('Scegli una controparte')"
-                        :mobile-description="
-                            ui(
-                                'Cerca o seleziona la persona con cui condividi la spesa.',
-                            )
-                        "
-                        creatable
-                        :creating="creatingCounterparty"
-                        :create-label="ui('Aggiungi controparte')"
-                        @create-option="createCounterparty"
-                    />
-                </div>
-                <p
-                    v-if="counterpartyCreationError"
-                    class="text-sm text-destructive"
-                >
-                    {{ counterpartyCreationError }}
-                </p>
+                <CounterpartySelect
+                    v-model="counterparty"
+                    :counterparties="counterparties"
+                    :side="dropdownSide"
+                    :teleport="dropdownTeleport"
+                    @created="
+                        (option) => {
+                            createdCounterparties.push(option);
+                            paidBy = 'self';
+                        }
+                    "
+                />
                 <p
                     v-if="errors?.shared_expense_counterparty_uuid"
                     class="text-sm text-destructive"

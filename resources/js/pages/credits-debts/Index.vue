@@ -25,10 +25,15 @@ import {
 } from 'vue';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { show as commonCounterpartyShow } from '@/actions/App/Http/Controllers/CounterpartyPaymentController';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
+import CommonCounterpartyLinks from '@/components/shared-expenses/CommonCounterpartyLinks.vue';
+import type { CommonRelation } from '@/components/shared-expenses/CommonCounterpartyLinks.vue';
+import CounterpartyBalanceSummary from '@/components/shared-expenses/CounterpartyBalanceSummary.vue';
+import CounterpartySelect from '@/components/shared-expenses/CounterpartySelect.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -111,11 +116,14 @@ type CreditDebtItem = {
     description: string;
     total_amount: string;
     paid_amount: string;
+    compensated_amount?: string;
+    common_relation_uuid?: string | null;
     remaining_amount: string;
     currency_code: string;
     status: 'open' | 'partial' | 'settled';
     due_date: string | null;
     note: string | null;
+    counterparty?: { uuid: string; name: string } | null;
     reference: { uuid?: string; name?: string; label?: string } | null;
     account: Option | null;
     category: Option | null;
@@ -146,14 +154,26 @@ function originLabel(item: CreditDebtItem): string {
 }
 
 const props = defineProps<{
+    commonRelations: CommonRelation[];
     items: CreditDebtItem[];
     summary: Summary;
+    summariesByCurrency: Record<string, Summary>;
+    counterpartyBalances: Record<
+        string,
+        {
+            currency: string;
+            manual_cents: number;
+            shared_cents: number;
+            total_cents: number;
+        }[]
+    >;
     filters: Record<string, string | null>;
     options: {
         accounts: Option[];
         categories: Record<string, Option[]>;
         references: Record<string, Option[]>;
         currencies: Option[];
+        counterparties: Option[];
         years: Array<{ value: number; label: string }>;
         months: Array<{ value: number | null; label: string }>;
     };
@@ -191,6 +211,14 @@ watch(isItemSheetOpen, () => {
     newReferenceWebsite.value = '';
 });
 const isHydratingItemForm = ref(false);
+const localCounterparties = ref<Option[]>([...props.options.counterparties]);
+watch(
+    () => props.options.counterparties,
+    (options) => {
+        localCounterparties.value = [...options];
+    },
+);
+
 const localReferences = ref<Record<string, Option[]>>({
     ...props.options.references,
 });
@@ -217,6 +245,13 @@ const filters = ref({
 const authUser = computed(() => page.props.auth?.user ?? {});
 const formatLocale = computed(() => authUser.value.format_locale ?? 'it-IT');
 const dateFormat = computed(() => authUser.value.date_format ?? 'D MMM YYYY');
+const summaryCurrency = ref<string>(
+    page.props.auth?.user?.base_currency_code ?? 'EUR',
+);
+const displayedSummary = computed(
+    () => props.summariesByCurrency[summaryCurrency.value] ?? props.summary,
+);
+
 const fallbackCurrency = computed(
     () => authUser.value.base_currency_code ?? 'EUR',
 );
@@ -233,6 +268,7 @@ const itemForm = useForm({
     total_amount: '',
     currency_code: fallbackCurrency.value,
     reference_uuid: '',
+    counterparty_uuid: '',
     account_uuid: '',
     category_uuid: '',
     due_date: '',
@@ -560,7 +596,7 @@ function money(
 
 function amount(
     value: string | number | null,
-    currency = fallbackCurrency.value,
+    currency = summaryCurrency.value,
 ): string {
     return money(value, currency);
 }
@@ -578,7 +614,7 @@ function numericMoney(value: string | number | null): number {
 
 function formatDate(value: string | null): string {
     if (!value) {
-        return '—';
+        return ui('Senza scadenza');
     }
 
     const date = new Date(`${value}T00:00:00`);
@@ -600,7 +636,11 @@ function formatDate(value: string | null): string {
 }
 
 function referenceName(item: CreditDebtItem): string {
-    return item.reference?.label ?? item.reference?.name ?? item.description;
+    const reference = item.reference?.label ?? item.reference?.name;
+
+    return item.counterparty
+        ? `${item.counterparty.name}${reference ? ` · ${reference}` : ''}`
+        : (reference ?? item.description);
 }
 
 function initials(item: CreditDebtItem): string {
@@ -677,10 +717,6 @@ function isOverdue(item: CreditDebtItem): boolean {
 function dueBucket(
     item: CreditDebtItem,
 ): 'overdue' | 'current_month' | 'future' | 'settled' | 'undated' {
-    if (item.read_only && !item.due_date) {
-        return 'undated';
-    }
-
     if (item.status === 'settled') {
         return 'settled';
     }
@@ -690,11 +726,7 @@ function dueBucket(
     }
 
     if (item.due_date === null) {
-        return 'future';
-    }
-
-    if (item.due_date > props.today) {
-        return 'future';
+        return 'undated';
     }
 
     const due = new Date(`${item.due_date}T00:00:00`);
@@ -779,14 +811,25 @@ function groupedItems(items: CreditDebtItem[]) {
     return groups.filter((group) => group.items.length > 0);
 }
 
-function groupTotal(items: CreditDebtItem[]): string {
-    const currency = items[0]?.currency_code ?? fallbackCurrency.value;
-    const total = items.reduce(
-        (sum, item) => sum + Number(item.remaining_amount),
-        0,
-    );
+function moneyCents(value: string): number {
+    const [whole, fraction = ''] = value.split('.');
 
-    return amount(total.toFixed(2), currency);
+    return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+}
+function groupTotal(items: CreditDebtItem[]): string {
+    const totals = new Map<string, number>();
+
+    for (const item of items) {
+        totals.set(
+            item.currency_code,
+            (totals.get(item.currency_code) ?? 0) +
+                moneyCents(item.remaining_amount),
+        );
+    }
+
+    return [...totals]
+        .map(([currency, total]) => amount(total / 100, currency))
+        .join(' · ');
 }
 
 function applyFilters(): void {
@@ -833,6 +876,7 @@ function resetItemForm(type: 'credit' | 'debit' = 'credit'): void {
         total_amount: '',
         currency_code: fallbackCurrency.value,
         reference_uuid: '',
+        counterparty_uuid: '',
         account_uuid: '',
         category_uuid: '',
         due_date: '',
@@ -910,6 +954,7 @@ async function openEdit(item: CreditDebtItem): Promise<void> {
     itemForm.total_amount = item.total_amount;
     itemForm.currency_code = item.currency_code;
     itemForm.reference_uuid = item.reference?.uuid ?? '';
+    itemForm.counterparty_uuid = item.counterparty?.uuid ?? '';
     itemForm.account_uuid = item.account?.value ?? item.account?.uuid ?? '';
     itemForm.category_uuid = item.category?.value ?? item.category?.uuid ?? '';
     itemForm.due_date = item.due_date ?? '';
@@ -980,14 +1025,6 @@ function validateItemForm(): boolean {
         isValid = false;
     }
 
-    if (!itemForm.due_date) {
-        itemForm.setError(
-            'due_date',
-            t('creditsDebts.validation.dueDateRequired'),
-        );
-        isValid = false;
-    }
-
     return isValid;
 }
 
@@ -1052,6 +1089,12 @@ function submitItem(): void {
         return;
     }
 
+    itemForm.transform((data) => ({
+        ...data,
+        due_date: data.due_date || null,
+        counterparty_uuid: data.counterparty_uuid || null,
+    }));
+
     const options = {
         preserveScroll: true,
         onSuccess: () => {
@@ -1071,6 +1114,12 @@ function submitItem(): void {
 }
 
 function openPayment(item: CreditDebtItem, settle = false): void {
+    if (item.common_relation_uuid) {
+        router.visit(commonCounterpartyShow.url(item.common_relation_uuid));
+
+        return;
+    }
+
     if (item.read_only) {
         return;
     }
@@ -1109,7 +1158,12 @@ function submitPayment(): void {
             });
             paymentForm.reset();
             router.reload({
-                only: ['items', 'summary'],
+                only: [
+                    'items',
+                    'summary',
+                    'summariesByCurrency',
+                    'counterpartyBalances',
+                ],
             });
         },
     });
@@ -1176,7 +1230,12 @@ function confirmDeletePayment(): void {
                 deletingPayment.value = null;
                 paymentDeleteForm.clearErrors();
                 router.reload({
-                    only: ['items', 'summary'],
+                    only: [
+                        'items',
+                        'summary',
+                        'summariesByCurrency',
+                        'counterpartyBalances',
+                    ],
                 });
             },
         },
@@ -1467,7 +1526,7 @@ const ListColumn = defineComponent({
                                                       {
                                                           class: 'mt-1 text-xs text-slate-500',
                                                       },
-                                                      `${amount(item.paid_amount, item.currency_code)} / ${amount(item.total_amount, item.currency_code)} · ${formatDate(item.due_date)} · ${dueText(item)}`,
+                                                      `${amount(item.paid_amount, item.currency_code)} pagato · ${amount(item.compensated_amount ?? '0', item.currency_code)} compensato / ${amount(item.total_amount, item.currency_code)} · ${formatDate(item.due_date)} · ${dueText(item)}`,
                                                   ),
                                               ],
                                           ),
@@ -1601,6 +1660,48 @@ const ListColumn = defineComponent({
                 </div>
             </header>
 
+            <div class="flex items-center gap-3">
+                <Label for="summary-currency">{{
+                    ui('Valuta dei riepiloghi')
+                }}</Label>
+                <select
+                    id="summary-currency"
+                    v-model="summaryCurrency"
+                    class="rounded-lg border bg-background p-2 text-sm"
+                >
+                    <option
+                        v-for="currency in Object.keys(summariesByCurrency)"
+                        :key="currency"
+                        :value="currency"
+                    >
+                        {{ currency }}
+                    </option>
+                </select>
+            </div>
+            <section
+                v-if="selectedItem?.counterparty"
+                class="rounded-2xl border bg-card p-4"
+            >
+                <p class="mb-3 font-semibold">
+                    {{ ui('Controparte') }}:
+                    {{ selectedItem.counterparty.name }}
+                </p>
+                <CommonCounterpartyLinks
+                    :relations="
+                        commonRelations.filter(
+                            (r) =>
+                                r.counterparty_uuid ===
+                                selectedItem?.counterparty?.uuid,
+                        )
+                    "
+                />
+                <CounterpartyBalanceSummary
+                    :balances="
+                        counterpartyBalances[selectedItem.counterparty.uuid] ??
+                        []
+                    "
+                />
+            </section>
             <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div
                     class="rounded-3xl bg-emerald-50 p-5 text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20"
@@ -1612,7 +1713,7 @@ const ListColumn = defineComponent({
                     <p class="mt-5 text-4xl font-bold">
                         <SensitiveValue
                             :value="
-                                amount(props.summary.credits_remaining_total)
+                                amount(displayedSummary.credits_remaining_total)
                             "
                         />
                     </p>
@@ -1620,7 +1721,7 @@ const ListColumn = defineComponent({
                         {{ t('creditsDebts.periodTotal') }}
                         <SensitiveValue
                             :value="
-                                amount(props.summary.credits_remaining_total)
+                                amount(displayedSummary.credits_remaining_total)
                             "
                         />
                     </p>
@@ -1631,13 +1732,17 @@ const ListColumn = defineComponent({
                             >{{ t('creditsDebts.overduePlural')
                             }}<br /><SensitiveValue
                                 :value="
-                                    amount(props.summary.overdue_credits_total)
+                                    amount(
+                                        displayedSummary.overdue_credits_total,
+                                    )
                                 "
                         /></span>
                         <span
                             >{{ t('creditsDebts.future') }}<br /><SensitiveValue
                                 :value="
-                                    amount(props.summary.future_credits_total)
+                                    amount(
+                                        displayedSummary.future_credits_total,
+                                    )
                                 "
                         /></span>
                     </div>
@@ -1652,13 +1757,17 @@ const ListColumn = defineComponent({
                     </div>
                     <p class="mt-5 text-4xl font-bold">
                         <SensitiveValue
-                            :value="amount(props.summary.debts_remaining_total)"
+                            :value="
+                                amount(displayedSummary.debts_remaining_total)
+                            "
                         />
                     </p>
                     <p class="mt-3 text-sm">
                         {{ t('creditsDebts.periodTotal') }}
                         <SensitiveValue
-                            :value="amount(props.summary.debts_remaining_total)"
+                            :value="
+                                amount(displayedSummary.debts_remaining_total)
+                            "
                         />
                     </p>
                     <div
@@ -1668,13 +1777,13 @@ const ListColumn = defineComponent({
                             >{{ t('creditsDebts.overduePlural')
                             }}<br /><SensitiveValue
                                 :value="
-                                    amount(props.summary.overdue_debts_total)
+                                    amount(displayedSummary.overdue_debts_total)
                                 "
                         /></span>
                         <span
                             >{{ t('creditsDebts.future') }}<br /><SensitiveValue
                                 :value="
-                                    amount(props.summary.future_debts_total)
+                                    amount(displayedSummary.future_debts_total)
                                 "
                         /></span>
                     </div>
@@ -1688,18 +1797,19 @@ const ListColumn = defineComponent({
                         {{ t('creditsDebts.overdue') }}
                     </div>
                     <p class="mt-5 text-4xl font-bold">
-                        {{ props.summary.overdue_count }}
+                        {{ displayedSummary.overdue_count }}
                     </p>
                     <p class="mt-3 text-sm">
                         <SensitiveValue
                             :value="
                                 amount(
-                                    Number(
-                                        props.summary.overdue_credits_total,
+                                    (moneyCents(
+                                        displayedSummary.overdue_credits_total,
                                     ) +
-                                        Number(
-                                            props.summary.overdue_debts_total,
-                                        ),
+                                        moneyCents(
+                                            displayedSummary.overdue_debts_total,
+                                        )) /
+                                        100,
                                 )
                             "
                         />
@@ -1711,14 +1821,16 @@ const ListColumn = defineComponent({
                             >{{ t('creditsDebts.creditsLabel')
                             }}<br /><SensitiveValue
                                 :value="
-                                    amount(props.summary.overdue_credits_total)
+                                    amount(
+                                        displayedSummary.overdue_credits_total,
+                                    )
                                 "
                         /></span>
                         <span
                             >{{ t('creditsDebts.debtsLabel')
                             }}<br /><SensitiveValue
                                 :value="
-                                    amount(props.summary.overdue_debts_total)
+                                    amount(displayedSummary.overdue_debts_total)
                                 "
                         /></span>
                     </div>
@@ -1733,7 +1845,7 @@ const ListColumn = defineComponent({
                     </div>
                     <p class="mt-5 text-4xl font-bold">
                         <SensitiveValue
-                            :value="amount(props.summary.net_expected_total)"
+                            :value="amount(displayedSummary.net_expected_total)"
                         />
                     </p>
                     <p class="mt-3 text-sm">
@@ -1747,7 +1859,7 @@ const ListColumn = defineComponent({
                             }}<br /><SensitiveValue
                                 :value="
                                     amount(
-                                        props.summary.credits_remaining_total,
+                                        displayedSummary.credits_remaining_total,
                                     )
                                 "
                         /></span>
@@ -1755,7 +1867,9 @@ const ListColumn = defineComponent({
                             >{{ t('creditsDebts.debtsLabel')
                             }}<br /><SensitiveValue
                                 :value="
-                                    amount(props.summary.debts_remaining_total)
+                                    amount(
+                                        displayedSummary.debts_remaining_total,
+                                    )
                                 "
                         /></span>
                     </div>
@@ -2057,6 +2171,9 @@ const ListColumn = defineComponent({
                                         "
                                     />
                                     <Button
+                                        v-if="
+                                            !selectedItem.common_relation_uuid
+                                        "
                                         variant="ghost"
                                         size="icon"
                                         class="rounded-xl text-rose-500"
@@ -2565,6 +2682,10 @@ const ListColumn = defineComponent({
                                 label: t('creditsDebts.allPeriods'),
                             },
                             {
+                                value: 'undated',
+                                label: ui('Senza scadenza'),
+                            },
+                            {
                                 value: 'overdue',
                                 label: t('creditsDebts.overdue'),
                             },
@@ -2957,9 +3078,36 @@ const ListColumn = defineComponent({
                         />
                         <InputError :message="itemReferenceError" />
                     </div>
+                    <div class="grid gap-2">
+                        <Label>{{ ui('Controparte (opzionale)') }}</Label>
+                        <CounterpartySelect
+                            v-model="itemForm.counterparty_uuid"
+                            :counterparties="localCounterparties"
+                            @created="
+                                (option) => {
+                                    localCounterparties = [
+                                        ...localCounterparties.filter(
+                                            (item) =>
+                                                item.value !== option.value,
+                                        ),
+                                        option,
+                                    ];
+                                }
+                            "
+                            :disabled="(editingItem?.payments_count ?? 0) > 0"
+                            :teleport="false"
+                        />
+                        <InputError
+                            :message="
+                                itemForm.errors.counterparty_uuid ||
+                                (itemForm.errors as Record<string, string>)
+                                    .counterparty_id
+                            "
+                        />
+                    </div>
                     <div>
                         <Label for="credit-debt-due-date">{{
-                            t('creditsDebts.dueDate')
+                            ui('Scadenza (opzionale)')
                         }}</Label>
                         <Input
                             id="credit-debt-due-date"

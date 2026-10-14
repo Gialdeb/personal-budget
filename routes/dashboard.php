@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AutomaticPaymentVerificationController;
 use App\Http\Controllers\BudgetPlanningController;
+use App\Http\Controllers\CounterpartyPaymentController;
 use App\Http\Controllers\CreditDebtController;
 use App\Http\Controllers\CreditDebtPaymentController;
 use App\Http\Controllers\DashboardController;
@@ -25,6 +26,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {
+    Route::get('counterparties/{relation:uuid}', [CounterpartyPaymentController::class, 'show'])->name('counterparties.show');
+    Route::post('counterparties/{relation:uuid}/activate', [CounterpartyPaymentController::class, 'activate'])->name('counterparties.activate');
+    Route::post('counterparties/{relation:uuid}/payments', [CounterpartyPaymentController::class, 'store'])->name('counterparties.payments.store');
+    Route::patch('counterparties/{relation:uuid}/payments/{payment:uuid}', [CounterpartyPaymentController::class, 'update'])->name('counterparties.payments.update');
+    Route::patch('counterparties/{relation:uuid}/payments/{payment:uuid}/allocations', [CounterpartyPaymentController::class, 'allocations'])->name('counterparties.payments.allocations');
+    Route::delete('counterparties/{relation:uuid}/payments/{payment:uuid}', [CounterpartyPaymentController::class, 'destroy'])->name('counterparties.payments.destroy');
+    Route::post('counterparties/{relation:uuid}/payments/{payment:uuid}/returns', [CounterpartyPaymentController::class, 'returnMoney'])->name('counterparties.payments.returns');
+    Route::post('counterparties/{relation:uuid}/compensations', [CounterpartyPaymentController::class, 'compensate'])->name('counterparties.compensations.store');
+    Route::post('counterparties/{relation:uuid}/compensations/{entry:uuid}/reverse', [CounterpartyPaymentController::class, 'reverseCompensation'])->name('counterparties.compensations.reverse');
     // DASHBOARD
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
