@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+test -f /var/www/html/artisan
+test -f /var/www/html/vendor/autoload.php
+SCRIPT_FILENAME=/var/www/html/public/index.php \
+SCRIPT_NAME=/index.php REQUEST_URI=/up REQUEST_METHOD=GET \
+REMOTE_ADDR=127.0.0.1 SERVER_ADDR=127.0.0.1 SERVER_PORT=80 \
+HTTP_HOST=localhost SERVER_NAME=localhost SERVER_PROTOCOL=HTTP/1.1 \
+cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q 'Application up'

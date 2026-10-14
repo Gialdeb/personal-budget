@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
+      target: development
     pull_policy: build
     volumes:
       - ./:/var/www/html
@@ -38,6 +39,7 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
+      target: development
     pull_policy: build
     volumes:
       - ./:/var/www/html
@@ -46,6 +48,7 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
+      target: development
     pull_policy: build
     volumes:
       - ./:/var/www/html
@@ -54,6 +57,7 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
+      target: development
     pull_policy: build
     volumes:
       - ./:/var/www/html

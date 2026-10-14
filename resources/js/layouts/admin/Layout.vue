@@ -34,7 +34,6 @@ import { index as contextualHelpIndex } from '@/routes/admin/contextual-help';
 import { index as knowledgeArticlesIndex } from '@/routes/admin/knowledge-articles';
 import { index as pushBroadcastsIndex } from '@/routes/admin/push-broadcasts';
 import { index as supportRequestsIndex } from '@/routes/admin/support-requests';
-import { index as logViewer } from '@/routes/log-viewer';
 import type { NavItem } from '@/types';
 
 const ui = useUiCopy();
@@ -65,7 +64,7 @@ const sidebarNavItems = computed<(NavItem & { fullPage?: boolean })[]>(() => [
         ? [
               {
                   title: ui('Log di sistema'),
-                  href: logViewer.url(),
+                  href: '/admin/logs',
                   icon: FileText,
                   fullPage: true,
               },

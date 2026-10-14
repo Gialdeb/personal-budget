@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+if [[ "${1:-}" != '--skip-pull' ]]; then
+    git diff --quiet && git diff --cached --quiet || { echo 'Commit or stash tracked changes before deployment.' >&2; exit 1; }
+    git pull --ff-only
+fi
+release="$(git rev-parse --short=12 HEAD)-$(date -u +%Y%m%d%H%M%S)"
+export SOAMCO_PHP_IMAGE="${SOAMCO_PHP_IMAGE:-soamco-budget-php:$release}"
+export SOAMCO_WEB_IMAGE="${SOAMCO_WEB_IMAGE:-soamco-budget-web:$release}"
+env_file="${SOAMCO_ENV_FILE:-.env}"
+env_args=(--env-file "$env_file")
+if [[ -n "${SOAMCO_COMPOSE_ENV_FILE:-}" ]]; then
+    env_args+=(--env-file "$SOAMCO_COMPOSE_ENV_FILE")
+fi
+compose() { docker compose "${env_args[@]}" -f docker-compose.yml -f docker-compose.production.yml "$@"; }
+maintenance=false
+cleanup() {
+    status=$?
+    trap - EXIT
+    if $maintenance; then
+        compose exec -T app php artisan up || true
+        compose run --rm --no-deps app php artisan up || true
+        compose start horizon scheduler reverb || true
+    fi
+    if (( status != 0 )); then
+        echo 'Deploy failed. Attempted artisan up; inspect service health before resuming. Previous images and all volumes were preserved.' >&2
+    fi
+    exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+compose config --quiet
+for service in app web; do
+    previous="$(compose ps --status running -q "$service")"
+    if [[ -n "$previous" ]]; then
+        printf 'Previous %s image ID: ' "$service"
+        docker inspect --format '{{.Image}}' "$previous"
+    fi
+done
+compose build app web
+compose run --rm --no-deps --entrypoint sh app -c 'test -f artisan && test -f vendor/autoload.php && test -s public/build/manifest.json'
+# Initialize permissions only after every image (including frontend) has built successfully.
+compose run --rm --no-deps logs-init
+maintenance=true
+if [[ -n "$(compose ps --status running -q app)" ]]; then
+    compose exec -T app php artisan down --retry=60
+fi
+# Shared Redis maintenance survives container recreation, unlike the old file driver.
+compose run --rm --no-deps app php artisan down --retry=60
+compose stop horizon scheduler reverb
+compose run --rm --no-deps app php artisan migrate --force --no-interaction
+compose up -d --no-deps --no-build --force-recreate --wait --wait-timeout 180 app web
+compose up -d --no-deps --no-build --force-recreate --wait --wait-timeout 180 horizon scheduler reverb
+compose exec -T app php artisan up
+maintenance=false
+compose ps
+printf 'Deployed PHP=%s WEB=%s\n' "$SOAMCO_PHP_IMAGE" "$SOAMCO_WEB_IMAGE"

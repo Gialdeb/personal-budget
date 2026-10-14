@@ -30,14 +30,18 @@ test('admin layout exposes a clear contextual help navigation entry', () => {
 test('system logs have one admin-only navigation entry and use full-page navigation on desktop and mobile', () => {
     assert.match(adminLayoutSource, /page\.props\.auth\.user\.is_admin/);
     assert.match(adminLayoutSource, /title: ui\('Log di sistema'\)/);
-    assert.match(adminLayoutSource, /href: logViewer\.url\(\)/);
+    assert.match(adminLayoutSource, /href: '\/admin\/logs'/);
     assert.equal(
         (adminLayoutSource.match(/item\.fullPage \? 'a' : Link/g) ?? []).length,
         2,
     );
     assert.equal(
-        (adminLayoutSource.match(/href: logViewer\.url\(\)/g) ?? []).length,
+        (adminLayoutSource.match(/href: '\/admin\/logs'/g) ?? []).length,
         1,
     );
-    assert.doesNotMatch(adminLayoutSource, /:href="logViewer\.url\(\)"/);
+    assert.doesNotMatch(adminLayoutSource, /@\/routes\/log-viewer/);
+    assert.match(
+        adminLayoutSource,
+        /admin\.sections\.activityLog[\s\S]*href: '\/admin\/logs'[\s\S]*fullPage: true,[\s\S]*admin\.sections\.automation/,
+    );
 });
