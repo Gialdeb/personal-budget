@@ -472,3 +472,59 @@ test('real manual and shared documents can be represented without replacing the 
         ->and($projection->reconcile($relation)['consistent'])->toBeTrue()->and(Transaction::count())->toBe(2)
         ->and(app(CounterpartyBalanceService::class)->balance($user, $party, 'EUR')['total_cents'])->toBe(25000);
 });
+
+test('batch obligation projections match fresh reads with a fixed query budget including revisions and reversals', function () {
+    [, , $relation] = counterpartyDomain();
+    $ledger = app(CounterpartyLedgerService::class);
+    $projection = app(CounterpartyProjectionService::class);
+    $first = domainObligation($relation);
+    $payment = domainPayment($relation);
+    $allocation = $ledger->allocate($payment, $first, 7000, '2026-10-03', 'batch-allocation');
+    $ledger->reverseAllocation($allocation, '2026-10-04', 'batch-reverse');
+    $ledger->revise($first, 25000, '2026-10-05', 'batch-revision');
+    foreach (range(1, 20) as $index) {
+        domainObligation($relation, 10000, 'batch-'.$index);
+    }
+    $obligations = $relation->obligations()->get();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    try {
+        $batched = $projection->obligations($obligations);
+        expect(DB::getQueryLog())->toHaveCount(2);
+    } finally {
+        DB::disableQueryLog();
+    }
+    expect($batched->all())->toBe($obligations->map(fn ($obligation): array => $projection->obligation($obligation))->all());
+    expect($batched->first()['remaining_minor'])->toBe(25000);
+});
+
+test('batch payment totals preserve documents allocations and reversals with a fixed query budget', function () {
+    [, , $relation] = counterpartyDomain();
+    $ledger = app(CounterpartyLedgerService::class);
+    $projection = app(CounterpartyProjectionService::class);
+    $obligation = domainObligation($relation);
+    $payment = domainPayment($relation);
+    $allocation = $ledger->allocate($payment, $obligation, 7000, '2026-10-03', 'totals-allocation');
+    $ledger->reverseAllocation($allocation, '2026-10-04', 'totals-reverse-allocation');
+    $ledger->reversePayment($payment, '2026-10-05', 'totals-reverse-payment');
+    foreach (range(1, 20) as $index) {
+        domainPayment($relation, 5000, key: 'totals-'.$index);
+    }
+    $payments = $relation->payments()->get();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    try {
+        $batched = $projection->paymentTotals($payments);
+        expect(DB::getQueryLog())->toHaveCount(2);
+    } finally {
+        DB::disableQueryLog();
+    }
+    foreach ($payments as $document) {
+        expect($batched[$document->id])->toBe([
+            'effective_minor' => $projection->effectivePayment($document),
+            'allocated_minor' => $projection->allocatedToPayment($document),
+            'unallocated_minor' => $projection->unallocated($document),
+            'document' => $projection->paymentDocument($document),
+        ]);
+    }
+});

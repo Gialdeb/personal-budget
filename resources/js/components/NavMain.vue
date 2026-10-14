@@ -9,6 +9,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
+import { useNavigationFeedback } from '@/composables/useNavigationFeedback';
 import type { NavItem } from '@/types';
 
 defineProps<{
@@ -16,6 +17,7 @@ defineProps<{
 }>();
 
 const { isCurrentUrl } = useCurrentUrl();
+const { isPending } = useNavigationFeedback();
 const { t } = useI18n();
 
 function routeUrl(href: NavItem['href']): string {
@@ -37,6 +39,10 @@ function routeUrl(href: NavItem['href']): string {
                         type="button"
                         class="app-touch-interactive"
                         data-app-touch-target
+                        :aria-busy="isPending(routeUrl(item.href)) || undefined"
+                        :class="{
+                            'opacity-70': isPending(routeUrl(item.href)),
+                        }"
                         @click="router.visit(routeUrl(item.href))"
                     >
                         <component :is="item.icon" />

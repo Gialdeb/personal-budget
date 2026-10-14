@@ -71,6 +71,11 @@ class TrackedItem extends Model
         ]);
     }
 
+    public function activeCommonRelations(): HasMany
+    {
+        return $this->hasMany(CounterpartyRelation::class, 'counterparty_id')->whereNotNull('activated_at');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

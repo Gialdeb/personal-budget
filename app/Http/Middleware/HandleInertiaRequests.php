@@ -351,8 +351,9 @@ class HandleInertiaRequests extends Middleware
         }
 
         $accessibleAccountsQuery = app(AccessibleAccountsQuery::class);
-        $accessibleAccountIds = $accessibleAccountsQuery->ids($user);
-        $accessibleOwnerIds = $accessibleAccountsQuery->ownerIds($user);
+        $accounts = $accessibleAccountsQuery->get($user);
+        $accessibleAccountIds = $accounts->pluck('id')->unique()->all();
+        $accessibleOwnerIds = $accounts->pluck('user_id')->unique()->all();
         $categoryOptions = [];
 
         if ($accessibleOwnerIds !== [] || $accessibleAccountIds !== []) {
@@ -401,10 +402,10 @@ class HandleInertiaRequests extends Middleware
         }
 
         return [
-            'account_options' => collect($accessibleAccountsQuery->dashboardFilterOptions($user))
-                ->map(fn (array $account): array => [
-                    'value' => (string) $account['value'],
-                    'label' => (string) $account['label'],
+            'account_options' => $accounts
+                ->map(fn ($account): array => [
+                    'value' => (string) $account->uuid,
+                    'label' => (string) $account->name,
                 ])
                 ->unique('value')
                 ->values()

@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CreditDebtItem extends Model
@@ -93,6 +94,13 @@ class CreditDebtItem extends Model
     public function counterparty(): BelongsTo
     {
         return $this->belongsTo(TrackedItem::class, 'counterparty_id');
+    }
+
+    public function activeCommonObligation(): HasOne
+    {
+        return $this->hasOne(CounterpartyObligation::class, 'source_identity', 'uuid')
+            ->where('source_type', 'credit_debt_item')
+            ->whereHas('relation', fn (Builder $query) => $query->whereNotNull('activated_at'));
     }
 
     public function paidCents(): int

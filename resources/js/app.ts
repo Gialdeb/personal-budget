@@ -4,9 +4,11 @@ import type { DefineComponent } from 'vue';
 import { createApp, h, nextTick, watch } from 'vue';
 import '../css/app.css';
 import MaintenanceStateOverlay from '@/components/MaintenanceStateOverlay.vue';
+import NavigationProgress from '@/components/NavigationProgress.vue';
 import PwaStatusBanner from '@/components/PwaStatusBanner.vue';
 import { initializeTheme } from '@/composables/useAppearance';
 import { initializeAppTouchGuards } from '@/composables/useAppTouchGuards';
+import { initializeNavigationFeedback } from '@/composables/useNavigationFeedback';
 import { createAppI18n } from '@/i18n';
 import { initializeAnalytics } from '@/lib/analytics';
 import { initializeSessionIsolation } from '@/lib/session-isolation';
@@ -30,6 +32,7 @@ createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) => resolvePageComponent(`./pages/${name}.vue`, pages),
     setup({ el, App, props, plugin }) {
+        initializeNavigationFeedback();
         initializeSessionIsolation(
             props.initialPage.props.auth?.user?.uuid ?? null,
             document.documentElement.hasAttribute('data-session-private'),
@@ -66,6 +69,7 @@ createInertiaApp({
                         [h(App, props), h(PwaStatusBanner)],
                     ),
                     h(MaintenanceStateOverlay),
+                    h(NavigationProgress),
                 ]),
         })
             .use(plugin)
@@ -84,9 +88,7 @@ createInertiaApp({
             });
         });
     },
-    progress: {
-        color: '#4B5563',
-    },
+    progress: false,
 }).catch(() => {
     window.dispatchEvent(new Event('soamco:startup-error'));
 });

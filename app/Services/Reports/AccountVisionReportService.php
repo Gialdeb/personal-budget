@@ -453,20 +453,13 @@ class AccountVisionReportService
             ->orderBy('transaction_date')
             ->get(['transaction_date', 'direction', 'amount']);
 
+        $effectsByBucket = [];
+        foreach ($transactions as $transaction) {
+            $key = $this->bucketKeyForDate(CarbonImmutable::parse($transaction->transaction_date), $periodDefinition['granularity']);
+            $effectsByBucket[$key] = ($effectsByBucket[$key] ?? 0.0) + $this->signedTransactionAmount($transaction);
+        }
         foreach ($bucketMap as $bucketKey => $bucket) {
-            foreach ($transactions as $transaction) {
-                $transactionKey = $this->bucketKeyForDate(
-                    CarbonImmutable::parse($transaction->transaction_date),
-                    $periodDefinition['granularity'],
-                );
-
-                if ($transactionKey !== $bucketKey) {
-                    continue;
-                }
-
-                $runningBalance += $this->signedTransactionAmount($transaction);
-            }
-
+            $runningBalance += $effectsByBucket[$bucketKey] ?? 0.0;
             $bucketMap[$bucketKey]['balance_raw'] = round($runningBalance, 2);
         }
 

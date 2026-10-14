@@ -20,6 +20,11 @@ test('production images package Laravel and share internally built assets while 
     assert.match(php, /FROM dependencies AS frontend/);
     assert.match(php, /npm ci --include=dev && npm run build/);
     assert.match(php, /FROM runtime AS production/);
+    assert.match(php, /ENTRYPOINT \["production-entrypoint"\]/);
+    assert.match(
+        read('docker/php/production-entrypoint'),
+        /set -eu[\s\S]*php artisan config:cache --no-interaction\nphp artisan event:cache --no-interaction\nphp artisan route:cache --no-interaction\nphp artisan view:cache --no-interaction\nexec docker-php-entrypoint "\$@"/,
+    );
     assert.match(php, /COPY --from=dependencies --chown=www-data:www-data/);
     assert.match(php, /COPY --from=frontend/);
     assert.match(php, /zip gd exif/);

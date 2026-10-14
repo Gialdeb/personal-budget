@@ -14,8 +14,10 @@ use App\Observers\CounterpartySharedSourceObserver;
 use App\Policies\AccountInvitationPolicy;
 use App\Policies\AccountMembershipPolicy;
 use App\Policies\AccountPolicy;
+use App\Services\Counterparties\CounterpartyAuthority;
 use App\Services\Counterparties\CounterpartyBankMutation;
 use App\Services\Counterparties\SharedCounterpartyShadowService;
+use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Support\AuthenticatedSsrGateway;
 use App\Support\Sentinel\HorizonDriver;
 use Carbon\CarbonImmutable;
@@ -41,6 +43,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->scoped(SharedCounterpartyShadowService::class);
         $this->app->scoped(CounterpartyBankMutation::class);
+        $this->app->scoped(CounterpartyAuthority::class);
+        $this->app->scoped(RecurringOccurrenceReadService::class);
         $this->app->bind(Gateway::class, AuthenticatedSsrGateway::class);
         Sentinel::extend('horizon', fn ($app) => new HorizonDriver(fn () => $app));
     }

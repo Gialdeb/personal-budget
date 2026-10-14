@@ -14,6 +14,7 @@ use App\Models\UserYear;
 use App\Services\CreditDebts\DerivedObligationsService;
 use App\Services\Recurring\AllocateOccurrencePaymentService;
 use App\Services\Recurring\RecurringEntryPostingService;
+use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Services\Transactions\RecurringEntryLifecycleService;
 use App\Support\Pwa\PwaManifestData;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -328,4 +329,23 @@ test('refunded allocated payments no longer reduce the occurrence residual', fun
     $refund->forceFill(['refunded_transaction_id' => $transaction->id, 'kind' => 'refund', 'direction' => 'expense'])->save();
     expect($occurrence->remainingPaymentCents())->toBe(50000)
         ->and((new RecurringEntryOccurrenceResource($occurrence->fresh()))->toArray(request())['payments'])->toBe([]);
+});
+
+test('batched rendering snapshots match fresh payment reads without influencing payment mutations', function () {
+    $occurrence = partialPaymentOccurrence();
+    $user = $occurrence->recurringEntry->user;
+    $read = app(RecurringOccurrenceReadService::class);
+    $read->prepare(collect([$occurrence]));
+    expect($read->remaining($occurrence))->toBe(50000);
+    $transaction = partialPaymentTransaction($occurrence, 300);
+    app(AllocateOccurrencePaymentService::class)->allocate($occurrence, $transaction, $user, '300');
+    expect($occurrence->remainingPaymentCents())->toBe(20000);
+    $read->prepare(collect([$occurrence]));
+    expect($read->remaining($occurrence))->toBe($occurrence->remainingPaymentCents())
+        ->and($read->allocated($occurrence))->toBe($occurrence->allocatedPaymentCents())
+        ->and($read->count($occurrence))->toBe(1);
+    $another = partialPaymentTransaction($occurrence, 200);
+    app(AllocateOccurrencePaymentService::class)->allocate($occurrence, $another, $user, '200');
+    $read->prepare(collect([$occurrence]));
+    expect($read->remaining($occurrence))->toBe(0)->and($read->count($occurrence))->toBe(2);
 });

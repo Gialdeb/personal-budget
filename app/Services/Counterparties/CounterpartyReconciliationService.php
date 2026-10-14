@@ -5,7 +5,6 @@ namespace App\Services\Counterparties;
 use App\Enums\CreditDebtTypeEnum;
 use App\Models\CounterpartyAllocationEntry;
 use App\Models\CounterpartyLedgerEntry;
-use App\Models\CounterpartyObligation;
 use App\Models\CounterpartyOperation;
 use App\Models\CounterpartyPayment;
 use App\Models\CounterpartyRelation;
@@ -100,10 +99,14 @@ class CounterpartyReconciliationService
                 }
             }
         }
-        $newObligations = $relation?->obligations()->get()->map(fn (CounterpartyObligation $obligation): array => $this->projections->obligation($obligation))->all() ?? [];
-        $payments = $relation?->payments()->get()->map(fn (CounterpartyPayment $payment): array => [...$this->projections->paymentDocument($payment), 'uuid' => $payment->uuid, 'direction' => $payment->direction->value,
-            'effective_minor' => $this->projections->effectivePayment($payment), 'allocated_minor' => $this->projections->allocatedToPayment($payment), 'unallocated_minor' => $this->projections->unallocated($payment),
-            'legacy_source_type' => $payment->legacy_source_type, 'legacy_source_identity' => $payment->legacy_source_identity, 'transaction_uuid' => $payment->transaction_uuid, 'returned_minor' => app(CounterpartyAuthority::class)->returned($payment), 'allocation_status' => $payment->metadata['allocation_status'] ?? null])->all() ?? [];
+        $capturedObligations = $relation?->obligations()->get()->keyBy('uuid') ?? collect();
+        $newObligations = $this->projections->obligations($capturedObligations->values())->all();
+        $paymentModels = $relation?->payments()->get() ?? collect();
+        $paymentTotals = $this->projections->paymentTotals($paymentModels);
+        $returned = app(CounterpartyAuthority::class)->returnedForPayments($paymentModels);
+        $payments = $paymentModels->map(fn (CounterpartyPayment $payment): array => [...$paymentTotals[$payment->id]['document'], 'uuid' => $payment->uuid, 'direction' => $payment->direction->value,
+            'effective_minor' => $paymentTotals[$payment->id]['effective_minor'], 'allocated_minor' => $paymentTotals[$payment->id]['allocated_minor'], 'unallocated_minor' => $paymentTotals[$payment->id]['unallocated_minor'],
+            'legacy_source_type' => $payment->legacy_source_type, 'legacy_source_identity' => $payment->legacy_source_identity, 'transaction_uuid' => $payment->transaction_uuid, 'returned_minor' => $returned->get($payment->id, 0), 'allocation_status' => $payment->metadata['allocation_status'] ?? null])->all();
         $publicIds = $relation?->activated_at === null ? ['ledger' => [], 'allocations' => []] : app(CounterpartyAuthority::class)->publicEntryIds($relation);
         $publicAllocationDeltas = CounterpartyAllocationEntry::query()->whereIn('id', $publicIds['allocations'])->get()->groupBy('obligation_id')->map(fn ($entries): int => CurrencyMinorUnits::sum($entries->pluck('amount_minor')));
         $publicEffect = CurrencyMinorUnits::sum(CounterpartyLedgerEntry::query()->whereIn('id', $publicIds['ledger'])->with('payment')->get()->filter(fn ($entry): bool => $entry->payment_id === null || $entry->payment?->legacy_source_type !== 'shared_expense_settlement')->pluck('signed_minor'));
@@ -131,7 +134,7 @@ class CounterpartyReconciliationService
                 }
             }
             $legacyResidual = isset($source['remaining_minor']) ? $source['remaining_minor'] * $source['direction_sign'] : $expected;
-            $capturedModel = $captured === null ? null : $relation?->obligations()->where('uuid', $captured['uuid'])->first();
+            $capturedModel = $captured === null ? null : $capturedObligations->get($captured['uuid']);
             $publicAllocated = $capturedModel === null ? 0 : ($publicAllocationDeltas[$capturedModel->id] ?? 0);
             $expectedResidual = $legacyResidual === null ? null : CurrencyMinorUnits::add($legacyResidual, -$publicAllocated * ($captured['direction_sign'] ?? ($expected < 0 ? -1 : 1)));
             $ledgerResidual = ($captured['remaining_minor'] ?? 0) * ($captured['direction_sign'] ?? 1);
@@ -162,6 +165,7 @@ class CounterpartyReconciliationService
                 $anomalies[] = ['code' => 'duplicate_legacy_payment_source', 'source' => $identity];
             }
         }
+        $publicOverrides = $relation?->activated_at === null ? collect() : CounterpartyOperation::query()->where('relation_id', $relation->id)->whereIn('kind', ['cancel', 'revise'])->get();
         foreach ($legacyPayments as $source) {
             $captured = collect($payments)->first(fn (array $entry): bool => $entry['legacy_source_type'] === $source['source_type'] && $entry['legacy_source_identity'] === $source['source_identity']);
             if ($captured === null) {
@@ -171,7 +175,7 @@ class CounterpartyReconciliationService
             }
             $expected = $source['effective_signed_minor'] ?? (isset($source['amount_minor']) ? $source['amount_minor'] * ($captured['direction'] === 'received' ? -1 : 1) : null);
             $actual = $captured['effective_minor'] * ($captured['direction'] === 'received' ? -1 : 1);
-            $nativeOverride = $relation?->activated_at !== null && CounterpartyOperation::query()->where('relation_id', $relation->id)->whereIn('kind', ['cancel', 'revise'])->get()->contains(fn ($operation): bool => ($operation->result['payment_uuid'] ?? null) === $captured['uuid'] || ($operation->result['previous_payment_uuid'] ?? null) === $captured['uuid']);
+            $nativeOverride = $publicOverrides->contains(fn ($operation): bool => ($operation->result['payment_uuid'] ?? null) === $captured['uuid'] || ($operation->result['previous_payment_uuid'] ?? null) === $captured['uuid']);
             if ($expected !== null && $actual !== $expected && ! $nativeOverride) {
                 $anomalies[] = ['code' => 'legacy_payment_effect_mismatch', 'source' => $source['source_identity']];
             }

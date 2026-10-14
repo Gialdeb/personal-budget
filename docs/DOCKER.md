@@ -63,7 +63,7 @@ The deploy command:
 3. Verifies Artisan, vendor autoload and the build manifest inside the new image, then initializes persistent volume permissions.
 4. Enters maintenance on the old app and on the shared Redis store, and gracefully stops Horizon, scheduler and Reverb. It never recreates DB/Redis.
 5. Runs migrations with the new image while the old web app remains in maintenance.
-6. Recreates app/web, then the workers, waits for healthchecks and runs `artisan up`. Runtime entrypoints cache config, routes and views using the injected production environment.
+6. Recreates app/web, then the workers, waits for healthchecks and runs `artisan up`. Runtime entrypoints cache config, events, routes and views using the injected production environment. These caches are regenerated in each new PHP container before its main process starts; a cache failure stops startup. After deployment, verify all four report `CACHED` with `php artisan about --only=cache` inside the running app container.
 
 A build failure leaves the current services untouched. An error after maintenance triggers best-effort `artisan up` on the running app and the new image, and attempts to restart stopped workers. The script exits nonzero. It does not undo migrations or silently roll back incompatible code: inspect the failure and use the printed old image IDs only after checking schema compatibility. Previous images are preserved; no automatic pruning or volume deletion occurs.
 

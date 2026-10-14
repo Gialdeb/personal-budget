@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
+use App\Services\Recurring\RecurringOccurrenceReadService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -23,7 +24,7 @@ class RecurringEntryIndexResource extends JsonResource
                 RecurringOccurrenceStatusEnum::PENDING,
                 RecurringOccurrenceStatusEnum::GENERATED,
                 RecurringOccurrenceStatusEnum::REFUNDED,
-            ], true) && $occurrence->remainingPaymentCents() > 0 && ! $occurrence->isRetiredRefundedHistory();
+            ], true) && app(RecurringOccurrenceReadService::class)->remaining($occurrence) > 0 && ! $occurrence->isRetiredRefundedHistory();
         });
         $convertedOccurrences = $occurrences->filter(
             fn ($occurrence): bool => $occurrence->converted_transaction_id !== null
@@ -120,7 +121,7 @@ class RecurringEntryIndexResource extends JsonResource
                     && $occurrences->contains(fn ($occurrence): bool => $occurrence->convertedTransaction?->refundTransaction !== null),
                 'remaining_occurrences' => $pendingOccurrences->count(),
                 'remaining_amount' => $this->entry_type?->value === 'installment'
-                    ? round((float) $pendingOccurrences->sum(fn ($occurrence) => $occurrence->remainingPaymentCents() / 100), 2)
+                    ? round((float) $pendingOccurrences->sum(fn ($occurrence) => app(RecurringOccurrenceReadService::class)->remaining($occurrence) / 100), 2)
                     : null,
             ],
         ];

@@ -29,6 +29,7 @@ use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\DeleteRecurringEntryService;
 use App\Services\Recurring\RecalculateInstallmentPlanAmountService;
 use App\Services\Recurring\RecurringEntryManagementService;
+use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Services\Salary\SalaryEmploymentService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
@@ -422,6 +423,8 @@ class RecurringEntryController extends Controller
                 'trackedItem.websiteIdentity',
                 'merchant:id,uuid,name',
                 'salarySchedule.employment',
+                'sharedExpenseCounterparty:id,uuid,name',
+                'occurrences.convertedTransaction.refundTransaction',
                 'createdByUser:id,uuid,name,email',
                 'updatedByUser:id,uuid,name,email',
                 'occurrences' => fn ($query) => $query
@@ -434,6 +437,7 @@ class RecurringEntryController extends Controller
                         'expected_amount',
                         'status',
                         'converted_transaction_id',
+                        'matched_transaction_id',
                     ])
                     ->orderByRaw('COALESCE(due_date, expected_date)')
                     ->orderBy('sequence_number')
@@ -508,6 +512,10 @@ class RecurringEntryController extends Controller
         );
 
         $entries = $query->get();
+        $occurrences = $entries->flatMap(function (RecurringEntry $entry) {
+            return $entry->occurrences->each(fn (RecurringEntryOccurrence $occurrence) => $occurrence->setRelation('recurringEntry', $entry));
+        });
+        app(RecurringOccurrenceReadService::class)->prepare($occurrences);
 
         return [
             'activePeriod' => $this->activePeriodPayload($year, $month),
@@ -588,7 +596,7 @@ class RecurringEntryController extends Controller
                     });
             })
             ->with([
-                'recurringEntry:id,uuid,title,description,direction,entry_type,status,currency,auto_create_transaction,account_id,category_id,tracked_item_id,shared_expense_counterparty_id',
+                'recurringEntry:id,uuid,title,description,direction,entry_type,status,currency,auto_create_transaction,account_id,category_id,tracked_item_id,shared_expense_counterparty_id,start_date,trial_duration,trial_unit',
                 'recurringEntry.account:id,uuid,name,currency',
                 'recurringEntry.category:id,uuid,name',
                 'recurringEntry.trackedItem:id,uuid,name,website_identity_id',
@@ -601,6 +609,7 @@ class RecurringEntryController extends Controller
             ->orderByRaw('COALESCE(due_date, expected_date)')
             ->orderBy('sequence_number')
             ->get();
+        app(RecurringOccurrenceReadService::class)->prepare($occurrences);
 
         $groupedDays = $occurrences
             ->groupBy(fn (RecurringEntryOccurrence $occurrence): string => $this->occurrenceDate($occurrence)->toDateString())
@@ -625,7 +634,7 @@ class RecurringEntryController extends Controller
                             $expenseTotal += $amount;
                         }
 
-                        if (in_array($status, ['pending', 'generated', 'refunded'], true) && $occurrence->remainingPaymentCents() > 0 && ! $occurrence->isRetiredRefundedHistory()) {
+                        if (in_array($status, ['pending', 'generated', 'refunded'], true) && app(RecurringOccurrenceReadService::class)->remaining($occurrence) > 0 && ! $occurrence->isRetiredRefundedHistory()) {
                             $pendingCount++;
                         }
 
@@ -649,7 +658,7 @@ class RecurringEntryController extends Controller
                             'expected_date' => $occurrence->expected_date?->toDateString(),
                             'due_date' => $occurrence->due_date?->toDateString(),
                             'display_date' => $this->occurrenceDate($occurrence)->toDateString(),
-                            'remaining_amount' => $occurrence->remainingPaymentCents() / 100,
+                            'remaining_amount' => app(RecurringOccurrenceReadService::class)->remaining($occurrence) / 100,
                             'expected_amount' => $occurrence->expected_amount !== null ? (float) $occurrence->expected_amount : null,
                             'currency' => $entry?->currency,
                             'notes' => $occurrence->notes,
@@ -659,7 +668,7 @@ class RecurringEntryController extends Controller
                             'description' => $entry?->description,
                             'can_convert' => $canEdit
                                 && ! $occurrence->paymentAllocations()->exists()
-                                && $occurrence->remainingPaymentCents() > 0
+                                && app(RecurringOccurrenceReadService::class)->remaining($occurrence) > 0
                                 && ! $occurrence->isRetiredRefundedHistory()
                                 && in_array($status, ['pending', 'generated', 'refunded'], true),
                             'can_skip' => $canEdit && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null && in_array($status, ['pending', 'generated'], true),

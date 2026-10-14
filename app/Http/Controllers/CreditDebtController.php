@@ -55,6 +55,9 @@ class CreditDebtController extends Controller
                 'counterparty',
                 'payments.account',
                 'payments.transaction',
+                'counterparty.activeCommonRelations', 'activeCommonObligation.relation',
+                'activeCommonObligation.ledgerEntries',
+                'activeCommonObligation.allocationEntries',
             ])
             ->withCount('payments')
             ->latest();
@@ -62,11 +65,12 @@ class CreditDebtController extends Controller
         $this->applyIndexFilters($query, $request);
 
         $periodStart = CarbonImmutable::create($this->selectedYear($request), $this->selectedMonth($request) ?? 1, 1)->startOfDay();
-        $items = $this->filterItemsByComputedStatus($query->get()->filter(fn (CreditDebtItem $item): bool => $item->due_date === null || $item->due_date->gte($periodStart) || ! $item->isSettled()
-        ), $request);
+        $items = collect(CreditDebtItemResource::collection($query->get())->resolve($request))
+            ->filter(fn (array $item): bool => $item['due_date'] === null || $item['due_date'] >= $periodStart->toDateString() || $item['status'] !== 'settled');
+        $items = $this->filterItemsByComputedStatus($items, $request);
         $counterpartyBalances = $this->counterpartyBalanceService->forUser($request->user());
         $derived = $this->derivedObligationsService->positions($request->user(), $counterpartyBalances);
-        $payload = collect(CreditDebtItemResource::collection($items)->resolve($request))
+        $payload = $items
             ->concat($this->filterDerivedPositions($derived, $request))->values()->all();
 
         if ($request->expectsJson()) {
@@ -319,7 +323,7 @@ class CreditDebtController extends Controller
         }
 
         return $items
-            ->filter(fn (CreditDebtItem $item): bool => $item->status()->value === $request->string('status')->toString())
+            ->filter(fn (array $item): bool => $item['status'] === $request->string('status')->toString())
             ->values();
     }
 

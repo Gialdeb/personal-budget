@@ -87,11 +87,11 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::middleware('feature.credits-debts')->group(function () {
         Route::get('credits-debts', [CreditDebtController::class, 'index'])->name('credits-debts.index');
         Route::post('credits-debts', [CreditDebtController::class, 'store'])->name('credits-debts.store');
-        Route::get('credits-debts/{creditDebtItem:uuid}', [CreditDebtController::class, 'show'])->name('credits-debts.show');
-        Route::put('credits-debts/{creditDebtItem:uuid}', [CreditDebtController::class, 'update'])->name('credits-debts.update');
-        Route::delete('credits-debts/{creditDebtItem:uuid}', [CreditDebtController::class, 'destroy'])->name('credits-debts.destroy');
-        Route::post('credits-debts/{creditDebtItem:uuid}/payments', [CreditDebtPaymentController::class, 'store'])->name('credits-debts.payments.store');
-        Route::delete('credits-debts/{creditDebtItem:uuid}/payments/{payment:uuid}', [CreditDebtPaymentController::class, 'destroy'])->name('credits-debts.payments.destroy');
+        Route::get('credits-debts/{creditDebtItem:uuid}', [CreditDebtController::class, 'show'])->whereUuid('creditDebtItem')->name('credits-debts.show');
+        Route::put('credits-debts/{creditDebtItem:uuid}', [CreditDebtController::class, 'update'])->whereUuid('creditDebtItem')->name('credits-debts.update');
+        Route::delete('credits-debts/{creditDebtItem:uuid}', [CreditDebtController::class, 'destroy'])->whereUuid('creditDebtItem')->name('credits-debts.destroy');
+        Route::post('credits-debts/{creditDebtItem:uuid}/payments', [CreditDebtPaymentController::class, 'store'])->whereUuid('creditDebtItem')->name('credits-debts.payments.store');
+        Route::delete('credits-debts/{creditDebtItem:uuid}/payments/{payment:uuid}', [CreditDebtPaymentController::class, 'destroy'])->whereUuid('creditDebtItem')->name('credits-debts.payments.destroy');
     });
 
     // TRANSACTIONS

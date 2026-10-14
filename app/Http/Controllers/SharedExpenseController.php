@@ -80,25 +80,26 @@ class SharedExpenseController extends Controller
             ->when($dateTo, fn ($query) => $query->whereDate('entry_date', '<=', $dateTo))
             ->with(['counterparty:id,uuid,name', 'occurrence.recurringEntry:id,uuid,entry_type'])
             ->when($counterpartyUuid, fn ($query) => $query->whereHas('counterparty', fn ($counterpartyQuery) => $counterpartyQuery->where('uuid', $counterpartyUuid)))
-            ->get()
-            ->map(fn (SharedExpenseLedgerEntry $entry): array => [
-                'can_cancel_payment' => $entry->recurring_entry_occurrence_id !== null,
-                'common_settlement' => app(CounterpartyViewService::class)->sourceSettlement($user->id, $entry->uuid, 'shared_ledger_share'),
-                'uuid' => $entry->uuid, 'date' => $entry->entry_date?->toDateString(), 'title' => $entry->title,
-                'counterparty' => $entry->counterparty?->name, 'counterparty_uuid' => $entry->counterparty?->uuid,
-                'category' => null, 'reference' => null,
-                'origin' => $entry->occurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.installment_c9bb1db2') : __('ui.recurring_entry_258b334d'),
-                'origin_url' => $entry->occurrence?->recurringEntry ? route('recurring-entries.show', ['recurringEntry' => $entry->occurrence->recurringEntry, 'highlight' => $entry->occurrence->uuid]) : null,
-                'origin_label' => $entry->occurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.open_installment_plan_2a24ad10') : __('ui.open_recurring_plan_2a2d853f'),
-                'amount' => $entry->total_cents / 100, 'currency' => $entry->currency, 'status' => $entry->isRecorded() ? __('ui.posted_bf13fd0a') : 'Annullata',
-                'paid_by' => $entry->paid_by, 'my_share_cents' => $entry->my_share_cents,
+            ->get();
+        $ledgerSettlements = app(CounterpartyViewService::class)->sourceSettlements($user->id, $ledgerEntries->pluck('uuid')->all(), 'shared_ledger_share');
+        $ledgerEntries = $ledgerEntries->map(fn (SharedExpenseLedgerEntry $entry): array => [
+            'can_cancel_payment' => $entry->recurring_entry_occurrence_id !== null,
+            'common_settlement' => $ledgerSettlements[$entry->uuid] ?? null,
+            'uuid' => $entry->uuid, 'date' => $entry->entry_date?->toDateString(), 'title' => $entry->title,
+            'counterparty' => $entry->counterparty?->name, 'counterparty_uuid' => $entry->counterparty?->uuid,
+            'category' => null, 'reference' => null,
+            'origin' => $entry->occurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.installment_c9bb1db2') : __('ui.recurring_entry_258b334d'),
+            'origin_url' => $entry->occurrence?->recurringEntry ? route('recurring-entries.show', ['recurringEntry' => $entry->occurrence->recurringEntry, 'highlight' => $entry->occurrence->uuid]) : null,
+            'origin_label' => $entry->occurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.open_installment_plan_2a24ad10') : __('ui.open_recurring_plan_2a2d853f'),
+            'amount' => $entry->total_cents / 100, 'currency' => $entry->currency, 'status' => $entry->isRecorded() ? __('ui.posted_bf13fd0a') : 'Annullata',
+            'paid_by' => $entry->paid_by, 'my_share_cents' => $entry->my_share_cents,
+            'counterparty_share_cents' => $entry->counterparty_share_cents,
+            'effect_cents' => ! $entry->isRecorded() ? 0 : $this->sharedExpenseAllocation->balanceEffectCents([
+                'paid_by' => $entry->paid_by,
+                'my_share_cents' => $entry->my_share_cents,
                 'counterparty_share_cents' => $entry->counterparty_share_cents,
-                'effect_cents' => ! $entry->isRecorded() ? 0 : $this->sharedExpenseAllocation->balanceEffectCents([
-                    'paid_by' => $entry->paid_by,
-                    'my_share_cents' => $entry->my_share_cents,
-                    'counterparty_share_cents' => $entry->counterparty_share_cents,
-                ]),
-            ])
+            ]),
+        ])
             ->filter(function (array $entry) use ($search): bool {
                 if ($search === '') {
                     return true;
@@ -107,7 +108,8 @@ class SharedExpenseController extends Controller
                 return str_contains(mb_strtolower(implode(' ', [$entry['title'], $entry['category'], $entry['reference'], $entry['counterparty']])), mb_strtolower($search));
             });
 
-        $recordedEntries = $transactions->map(function (Transaction $transaction) use ($user): array {
+        $transactionSettlements = app(CounterpartyViewService::class)->sourceSettlements($user->id, $transactions->pluck('uuid')->all(), 'shared_transaction_share');
+        $recordedEntries = $transactions->map(function (Transaction $transaction) use ($transactionSettlements): array {
             $totalCents = $this->sharedExpenseAllocation->toCents((string) $transaction->amount);
             $allocation = [
                 'paid_by' => $transaction->shared_expense_paid_by ?? SharedExpenseAllocation::PAID_BY_SELF,
@@ -116,7 +118,7 @@ class SharedExpenseController extends Controller
             ];
 
             return [
-                'common_settlement' => app(CounterpartyViewService::class)->sourceSettlement($user->id, $transaction->uuid, 'shared_transaction_share'),
+                'common_settlement' => $transactionSettlements[$transaction->uuid] ?? null,
                 'uuid' => $transaction->uuid, 'date' => $transaction->transaction_date?->toDateString(), 'title' => $transaction->description, 'counterparty' => $transaction->sharedExpenseCounterparty?->name,
                 'counterparty_uuid' => $transaction->sharedExpenseCounterparty?->uuid, 'category' => $transaction->category?->name, 'reference' => $transaction->trackedItem?->name,
                 'origin' => $transaction->recurringOccurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.installment_c9bb1db2') : ($transaction->recurring_entry_occurrence_id ? __('ui.recurring_entry_258b334d') : __('ui.transaction_680db696')),
@@ -180,7 +182,7 @@ class SharedExpenseController extends Controller
 
         $entryCounts = $filteredEntries->countBy('counterparty_uuid');
         $counterpartyBalances = $this->counterpartyBalanceService->forUser($user, $counterparties);
-        $balances = $counterparties->mapWithKeys(fn (TrackedItem $item): array => [$item->uuid => $this->sharedExpenseSettlementService->balanceCents($user, $item)])->all();
+        $balances = $counterparties->mapWithKeys(fn (TrackedItem $item): array => [$item->uuid => (int) (collect($counterpartyBalances[$item->uuid] ?? [])->firstWhere('currency', 'EUR')['shared_cents'] ?? 0)])->all();
 
         return Inertia::render('SharedExpenses', [
             'selectedEntryUuid' => $entryUuid,

@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\CreditDebts\DerivedObligationsService;
+use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Services\UserYearService;
 use App\Support\Banks\BankNamePresenter;
 use App\Supports\PeriodOptions;
@@ -265,13 +266,14 @@ class DashboardService
             ])
             ->orderBy('expected_date')
             ->get()
-            ->filter(fn (RecurringEntryOccurrence $occurrence): bool => $occurrence->remainingPaymentCents() > 0)
+            ->tap(fn (Collection $occurrences) => app(RecurringOccurrenceReadService::class)->prepare($occurrences))
+            ->filter(fn (RecurringEntryOccurrence $occurrence): bool => app(RecurringOccurrenceReadService::class)->remaining($occurrence) > 0)
             ->map(function (RecurringEntryOccurrence $occurrence) use ($today): array {
                 return [
                     'id' => 'recurring-'.$occurrence->id,
                     'title' => $this->resolveAgendaRecurringLabel($occurrence),
                     'date' => ($occurrence->due_date ?? $occurrence->expected_date)?->toDateString(),
-                    'amount' => $occurrence->remainingPaymentCents() / 100,
+                    'amount' => app(RecurringOccurrenceReadService::class)->remaining($occurrence) / 100,
                     'status_key' => $this->resolvePendingActionStatusKey(
                         $occurrence->expected_date,
                         $occurrence->status->value,
@@ -572,7 +574,8 @@ class DashboardService
             ->whereDate('expected_date', '>=', $referenceDate->toDateString())
             ->whereDate('expected_date', '<=', $dueSoonLimit->toDateString())
             ->get()
-            ->filter(fn (RecurringEntryOccurrence $occurrence): bool => $occurrence->remainingPaymentCents() > 0)
+            ->tap(fn (Collection $occurrences) => app(RecurringOccurrenceReadService::class)->prepare($occurrences))
+            ->filter(fn (RecurringEntryOccurrence $occurrence): bool => app(RecurringOccurrenceReadService::class)->remaining($occurrence) > 0)
             ->count();
 
         $pending = $occurrences->where('status', RecurringOccurrenceStatusEnum::PENDING)->count();
@@ -662,14 +665,15 @@ class DashboardService
             ->whereDate('expected_date', '>=', $referenceDate->toDateString())
             ->orderBy('expected_date')
             ->get()
-            ->filter(fn (RecurringEntryOccurrence $occurrence): bool => $occurrence->remainingPaymentCents() > 0)
+            ->tap(fn (Collection $occurrences) => app(RecurringOccurrenceReadService::class)->prepare($occurrences))
+            ->filter(fn (RecurringEntryOccurrence $occurrence): bool => app(RecurringOccurrenceReadService::class)->remaining($occurrence) > 0)
             ->take(10)
             ->map(function (RecurringEntryOccurrence $occurrence): array {
                 return [
                     'id' => 'recurring-'.$occurrence->id,
                     'display_label' => $this->resolveAgendaRecurringLabel($occurrence),
                     'scheduled_date' => $occurrence->expected_date?->toDateString(),
-                    'expected_amount' => $occurrence->remainingPaymentCents() / 100,
+                    'expected_amount' => app(RecurringOccurrenceReadService::class)->remaining($occurrence) / 100,
                     'status' => $occurrence->status->value,
                     'entry_kind' => 'recurring',
                 ];

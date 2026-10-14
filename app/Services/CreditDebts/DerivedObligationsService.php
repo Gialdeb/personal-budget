@@ -9,6 +9,7 @@ use App\Models\CreditDebtItem;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\TrackedItem;
 use App\Models\User;
+use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Support\MoneyAmount;
 use Illuminate\Support\Collection;
 
@@ -20,15 +21,15 @@ class DerivedObligationsService
     public function openPositions(User $user, ?array $accountIds = null, ?Collection $derived = null): Collection
     {
         $manual = CreditDebtItem::query()->forUser($user)
-            ->with(['payments', 'account', 'category', 'reference', 'counterparty'])->withCount('payments')
+            ->with(['payments', 'account', 'category', 'reference', 'counterparty', 'counterparty.activeCommonRelations', 'activeCommonObligation.relation', 'activeCommonObligation.ledgerEntries', 'activeCommonObligation.allocationEntries'])->withCount('payments')
             ->when($accountIds !== null, fn ($query) => $query->whereIn('account_id', $accountIds))
-            ->get()->filter(fn (CreditDebtItem $item): bool => ! $item->isSettled())
+            ->get()
             ->map(function (CreditDebtItem $item): array {
                 $position = CreditDebtItemResource::make($item)->resolve();
                 $position['source_url'] = route('credits-debts.index', ['selected' => $item->uuid]);
 
                 return $position;
-            });
+            })->filter(fn (array $position): bool => $position['status'] !== 'settled');
 
         $derived ??= $this->positions($user);
         if ($accountIds !== null) {
@@ -62,27 +63,30 @@ class DerivedObligationsService
         $recurring = RecurringEntryOccurrence::query()->openObligations()
             ->whereHas('recurringEntry', fn ($query) => $query->where('user_id', $user->id))
             ->with(['recurringEntry.account', 'recurringEntry.category', 'recurringEntry.trackedItem', 'account'])
-            ->get()->map(function (RecurringEntryOccurrence $occurrence): array {
-                $entry = $occurrence->recurringEntry;
-                $account = $occurrence->account ?? $entry->account;
-                $origin = $entry->entry_type->value === 'installment' ? 'installment' : 'recurring';
+            ->get();
+        $read = app(RecurringOccurrenceReadService::class);
+        $read->prepare($recurring);
+        $recurring = $recurring->map(function (RecurringEntryOccurrence $occurrence) use ($read): array {
+            $entry = $occurrence->recurringEntry;
+            $account = $occurrence->account ?? $entry->account;
+            $origin = $entry->entry_type->value === 'installment' ? 'installment' : 'recurring';
 
-                $position = $this->position(
-                    $origin.':'.$occurrence->uuid, $origin,
-                    $entry->direction->value === 'income' ? 'credit' : 'debit',
-                    $entry->title, MoneyAmount::decimal($occurrence->remainingPaymentCents()), $entry->currency,
-                    ($occurrence->due_date ?? $occurrence->expected_date)->toDateString(),
-                    route('recurring-entries.show', ['recurringEntry' => $entry->uuid, 'highlight' => $occurrence->uuid]),
-                    $entry->trackedItem, $account, $entry->category,
-                );
-                $paid = $occurrence->allocatedPaymentCents();
-                $position['total_amount'] = (string) $occurrence->expected_amount;
-                $position['paid_amount'] = MoneyAmount::decimal($paid);
-                $position['status'] = $paid > 0 ? 'partial' : 'open';
-                $position['payments_count'] = $occurrence->paymentAllocations()->valid()->count();
+            $position = $this->position(
+                $origin.':'.$occurrence->uuid, $origin,
+                $entry->direction->value === 'income' ? 'credit' : 'debit',
+                $entry->title, MoneyAmount::decimal($read->remaining($occurrence)), $entry->currency,
+                ($occurrence->due_date ?? $occurrence->expected_date)->toDateString(),
+                route('recurring-entries.show', ['recurringEntry' => $entry->uuid, 'highlight' => $occurrence->uuid]),
+                $entry->trackedItem, $account, $entry->category,
+            );
+            $paid = $read->allocated($occurrence);
+            $position['total_amount'] = (string) $occurrence->expected_amount;
+            $position['paid_amount'] = MoneyAmount::decimal($paid);
+            $position['status'] = $paid > 0 ? 'partial' : 'open';
+            $position['payments_count'] = $read->count($occurrence);
 
-                return $position;
-            });
+            return $position;
+        });
 
         $balances ??= $this->counterpartyBalances->forUser($user);
         $counterparties = TrackedItem::query()->ownedBy($user->id)->whereIn('uuid', array_keys($balances))->get()->keyBy('uuid');

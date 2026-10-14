@@ -30,11 +30,13 @@ class TransactionNavigationService
 
         $monthlyCounts = (clone $transactionQuery)
             ->selectRaw($this->datePartExpression('month', 'transaction_date').' as month')
-            ->selectRaw('COUNT(*) as aggregate')
+            ->selectRaw('COUNT(*) as aggregate, MAX(transaction_date) as last_recorded_at')
             ->whereYear('transaction_date', $year)
             ->whereDate('transaction_date', '<=', $periodEndDate->toDateString())
             ->groupBy('month')
-            ->pluck('aggregate', 'month');
+            ->get();
+        $lastRecordedAt = $monthlyCounts->max('last_recorded_at');
+        $monthlyCounts = $monthlyCounts->pluck('aggregate', 'month');
 
         $coverageMonthsCount = $monthlyCounts->filter(
             fn ($count): bool => (int) $count > 0
@@ -44,15 +46,7 @@ class TransactionNavigationService
             ? (int) ($monthlyCounts->get($month) ?? 0)
             : null;
 
-        $selectedRecordsCount = (clone $transactionQuery)
-            ->whereYear('transaction_date', $year)
-            ->whereDate('transaction_date', '<=', $periodEndDate->toDateString())
-            ->count();
-
-        $lastRecordedAt = (clone $transactionQuery)
-            ->whereYear('transaction_date', $year)
-            ->whereDate('transaction_date', '<=', $periodEndDate->toDateString())
-            ->max('transaction_date');
+        $selectedRecordsCount = (int) $monthlyCounts->sum();
 
         return [
             'enabled' => true,

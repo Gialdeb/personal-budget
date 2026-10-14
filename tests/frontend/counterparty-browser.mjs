@@ -14,7 +14,26 @@ const browser = await chromium.launch({
 });
 const context = await browser.newContext({
     viewport: { width, height: width < 600 ? 844 : 1000 },
+    isMobile: width < 600,
+    hasTouch: width < 600,
+    reducedMotion: 'reduce',
 });
+
+if (width < 600) {
+    await context.addInitScript(() => {
+        const matchMedia = window.matchMedia.bind(window);
+        window.matchMedia = (query) => {
+            const result = matchMedia(query);
+
+            if (query === '(display-mode: standalone)') {
+                Object.defineProperty(result, 'matches', { value: true });
+            }
+
+            return result;
+        };
+    });
+}
+
 const page = await context.newPage();
 page.setDefaultTimeout(10000);
 const errors = [];
@@ -178,9 +197,115 @@ try {
     await page
         .getByText('Emanuela compensazione ti deve 150,00 EUR', { exact: true })
         .waitFor();
+    // A delayed real Inertia navigation must show feedback before its response arrives.
+    await page.waitForLoadState('networkidle');
+    assert.equal(
+        await page.evaluate(() => navigator.serviceWorker.controller !== null),
+        true,
+        'Service Worker must control this navigation test',
+    );
+
+    if (width < 600) {
+        assert.equal(
+            await page.evaluate(
+                () => matchMedia('(display-mode: standalone)').matches,
+            ),
+            true,
+        );
+    }
+
+    let releaseNavigation;
+    const navigationGate = new Promise((resolve) => {
+        releaseNavigation = resolve;
+    });
+    let navigationRequests = 0;
+    await context.route(/\/dashboard(?:\?|$)/, async (route) => {
+        navigationRequests++;
+        await navigationGate;
+        await route.continue();
+    });
+    await page.evaluate(() => {
+        document.addEventListener(
+            'inertia:start',
+            () => {
+                const started = performance.now();
+                requestAnimationFrame(() => {
+                    const bar = document.querySelector(
+                        '[data-navigation-progress]',
+                    );
+                    window.__navigationFeedbackMs =
+                        bar && getComputedStyle(bar).display !== 'none'
+                            ? performance.now() - started
+                            : null;
+                });
+            },
+            { once: true },
+        );
+    });
+    const overview = page.getByRole('button', {
+        name: width < 600 ? 'Panor.' : 'Panoramica',
+        exact: true,
+    });
+    const target = width < 600 ? overview.last() : overview.first();
+    await target.click();
+    await page
+        .locator('[data-navigation-progress]')
+        .waitFor({ state: 'visible' });
+    assert.equal(
+        await page
+            .locator('[role="status"]')
+            .filter({ hasText: 'Caricamento' })
+            .count(),
+        1,
+    );
+    await target.click();
+    releaseNavigation();
+    await page.waitForURL('**/dashboard');
+    await page
+        .locator('[data-navigation-progress]')
+        .waitFor({ state: 'hidden' });
+    assert.equal(
+        navigationRequests,
+        1,
+        'Repeated tap must not issue a second request',
+    );
+    await context.unroute(/\/dashboard(?:\?|$)/);
+    await page.goBack();
+    await page
+        .locator('[data-navigation-progress]')
+        .waitFor({ state: 'hidden' });
+
+    await page.evaluate(() => {
+        document.addEventListener(
+            'inertia:exception',
+            (event) => event.preventDefault(),
+            { once: true },
+        );
+    });
+    let releaseFailure;
+    const failureGate = new Promise((resolve) => {
+        releaseFailure = resolve;
+    });
+    let failedRequests = 0;
+    await context.route(/\/dashboard(?:\?|$)/, async (route) => {
+        failedRequests++;
+        await failureGate;
+        await route.abort('failed');
+    });
+    await target.click();
+    await page
+        .locator('[data-navigation-progress]')
+        .waitFor({ state: 'visible' });
+    releaseFailure();
+    await page
+        .locator('[data-navigation-progress]')
+        .waitFor({ state: 'hidden' });
+    assert.equal(failedRequests, 1);
+    await context.unroute(/\/dashboard(?:\?|$)/);
+
     assert.equal(errors.length, 0, errors.join('\n'));
     console.log(
-        `${width}px: 250→150 receipt, custom allocation changes residuals only, cancellation→250 and preserved history, 200/-50 compensation→150 and residuals150/0.`,
+        `${width}px: 250→150 receipt, custom allocation changes residuals only, cancellation→250 and preserved history, 200/-50 compensation→150 and residuals150/0; immediate navigation feedback, duplicate tap suppressed, back works with reduced motion.`,
     );
 } finally {
     await browser.close();

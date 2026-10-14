@@ -114,7 +114,9 @@ test('production logging deployment is persistent rotated and debug safe', funct
         ->and(config('logging.channels.daily.driver'))->toBe('daily')
         ->and(config('logging.channels.daily.days'))->toBeGreaterThan(0);
     $deployment = File::get(base_path('docker-compose.production.yml'));
-    expect($deployment)->toContain("APP_DEBUG: 'false'", 'LOG_STACK: daily,stderr', 'soamco_budget_logs:/var/www/html/storage/logs', 'chmod 2775', 'config:cache');
+    expect($deployment)->toContain("APP_DEBUG: 'false'", 'LOG_STACK: daily,stderr', 'soamco_budget_logs:/var/www/html/storage/logs', 'chmod 2775');
+    expect(File::get(base_path('docker/php/Dockerfile')))->toContain('ENTRYPOINT ["production-entrypoint"]');
+    expect(File::get(base_path('docker/php/production-entrypoint')))->toContain('config:cache', 'event:cache', 'route:cache', 'view:cache');
 });
 
 test('queue and scheduler failures keep operational context without duplicate reports', function () {
