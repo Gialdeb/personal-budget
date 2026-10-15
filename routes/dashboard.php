@@ -54,6 +54,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::post('support/requests', [SupportRequestController::class, 'store']);
     Route::get('entry-search', [EntrySearchController::class, 'index'])->name('entry-search.index');
     Route::delete('shared-expenses/ledger/{ledger:uuid}', [SharedExpenseController::class, 'destroyLedger'])->name('shared-expenses.ledger.destroy');
+    Route::post('shared-expenses/{counterparty:uuid}/prepare-payments', [SharedExpenseController::class, 'preparePayments'])->name('shared-expenses.payments.prepare');
+    Route::patch('shared-expenses/references/{kind}/{uuid}', [SharedExpenseController::class, 'resolveReference'])->whereIn('kind', ['transaction', 'ledger'])->name('shared-expenses.references.resolve');
     Route::get('shared-expenses', [SharedExpenseController::class, 'index'])->name('shared-expenses.index');
     Route::post('shared-expenses/counterparties', [SharedExpenseController::class, 'storeCounterparty'])->name('shared-expenses.counterparties.store');
     Route::post('shared-expenses/{counterparty}/settlements', [SharedExpenseSettlementController::class, 'store'])->name('shared-expenses.settlements.store');

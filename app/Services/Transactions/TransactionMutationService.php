@@ -247,6 +247,9 @@ class TransactionMutationService
                 'notes' => $validated['notes'] ?: null,
                 'value_date' => $validated['transaction_date'],
             ]);
+            if (! empty($validated['confirm_shared_review']) && $transaction->shared_expense_counterparty_id !== null && in_array($transaction->status, [TransactionStatusEnum::DRAFT, TransactionStatusEnum::AUTO_CATEGORIZED, TransactionStatusEnum::REVIEW_NEEDED], true)) {
+                $transaction->status = TransactionStatusEnum::CONFIRMED;
+            }
             $transaction->save();
 
             if ($originalAccountId !== $account->id) {

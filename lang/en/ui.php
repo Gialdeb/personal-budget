@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'shared_expense' => 'Shared expense',
     'occurrence_already_converted' => 'The occurrence cannot be :state because it has already been converted.',
     'occurrence_invalid_state' => 'The occurrence cannot be :state in its current state.',
     'skipped' => 'skipped',

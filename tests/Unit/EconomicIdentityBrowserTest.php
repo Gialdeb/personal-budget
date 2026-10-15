@@ -2,10 +2,15 @@
 
 use App\Models\Category;
 use App\Models\CounterpartyObligation;
+use App\Models\CounterpartyPayment;
 use App\Models\CreditDebtItem;
+use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\UserYear;
+use App\Services\Counterparties\CounterpartyProjectionService;
+use App\Services\SharedExpenses\SharedExpenseSettlementService;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -29,7 +34,16 @@ test('economic identity and shared UX work in desktop mobile and standalone brow
             $category = Category::create(['user_id' => $user->id, 'name' => 'Entrate verifica', 'slug' => 'entrate-verifica', 'direction_type' => 'income', 'group_type' => 'income', 'is_active' => true, 'is_selectable' => true]);
             $mario = TrackedItem::create(['user_id' => $user->id, 'name' => 'Mario Rossi', 'slug' => 'mario', 'is_active' => true, 'is_shared_expense_counterpart' => true]);
             $pino = TrackedItem::create(['user_id' => $user->id, 'name' => 'Pino Mauro', 'slug' => 'pino', 'is_active' => true, 'settings' => ['economic_subject' => true]]);
-            if ($case === 'R') {
+            if ($case === 'P') {
+                $reviewLedger = SharedExpenseLedgerEntry::create(['user_id' => $user->id, 'counterparty_id' => $mario->id, 'entry_date' => now()->toDateString(), 'title' => 'Quota da collegare', 'currency' => 'EUR', 'total_cents' => 10000, 'paid_by' => 'counterparty', 'my_share_cents' => 10000, 'counterparty_share_cents' => 0, 'status' => 'recorded']);
+                app(SharedExpenseSettlementService::class)->record($user, $mario, ['amount' => '100', 'settled_at' => now()->toDateString(), 'account_uuid' => $account->uuid, 'category_uuid' => null, 'reference' => null, 'notes' => null]);
+            } elseif ($case === 'S') {
+                UserYear::create(['user_id' => $user->id, 'year' => now()->year, 'is_closed' => false]);
+                $expenseCategory = Category::create(['user_id' => $user->id, 'name' => 'Spese verifica', 'slug' => 'spese-verifica', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true]);
+                $reviewTransaction = userTransaction($user, $account, ['description' => 'Transazione da verificare', 'status' => 'review_needed', 'category_id' => $expenseCategory->id, 'amount' => 100, 'shared_expense_counterparty_id' => $mario->id, 'shared_expense_paid_by' => 'self', 'shared_expense_my_share_cents' => 5000, 'shared_expense_counterparty_share_cents' => 5000]);
+                $oldReference = TrackedItem::create(['user_id' => $user->id, 'account_id' => $account->id, 'name' => 'Vecchio riferimento', 'slug' => 'old-reference', 'is_active' => true]);
+                $reviewLedger = SharedExpenseLedgerEntry::create(['user_id' => $user->id, 'counterparty_id' => $oldReference->id, 'entry_date' => now()->toDateString(), 'title' => 'Anticipata da verificare', 'currency' => 'EUR', 'total_cents' => 4000, 'paid_by' => 'counterparty', 'my_share_cents' => 2000, 'counterparty_share_cents' => 2000, 'status' => 'recorded']);
+            } elseif ($case === 'R') {
                 $roberta = TrackedItem::create(['user_id' => $user->id, 'name' => 'Roberta Delta', 'slug' => 'roberta', 'is_active' => true]);
                 $legacy = legacyCreditDebtItem($user, ['reference_id' => $roberta->id, 'description' => 'Credito Roberta', 'total_amount' => '350.00', 'account_id' => $account->id, 'category_id' => $category->id]);
                 $unconfirmed = TrackedItem::create(['user_id' => $user->id, 'name' => 'Da confermare', 'slug' => 'da-confermare', 'is_active' => true]);
@@ -47,6 +61,10 @@ test('economic identity and shared UX work in desktop mobile and standalone brow
                 legacyCreditDebtItem($user, ['description' => 'Riferimento da completare']);
             }
             $fixtures[$case] = ['email' => $user->email, 'mario' => $mario->uuid, 'pino' => $pino->uuid];
+            if ($case === 'S') {
+                $fixtures[$case]['transaction'] = $reviewTransaction->uuid;
+                $fixtures[$case]['ledger'] = $reviewLedger->uuid;
+            }
             if ($case === 'R') {
                 $fixtures[$case]['roberta'] = $roberta->uuid;
                 $fixtures[$case]['item'] = $legacy->uuid;
@@ -56,7 +74,7 @@ test('economic identity and shared UX work in desktop mobile and standalone brow
         $port = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
         fclose($socket);
         $url = 'http://127.0.0.1:'.$port;
-        $env = ['APP_ENV' => 'testing', 'APP_URL' => $url, 'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $database, 'DB_URL' => '', 'CACHE_STORE' => 'array', 'SESSION_DRIVER' => 'database', 'SESSION_DOMAIN' => '', 'SESSION_SECURE_COOKIE' => 'false', 'BROADCAST_CONNECTION' => 'log', 'QUEUE_CONNECTION' => 'sync', 'NIGHTWATCH_ENABLED' => 'false', 'FEATURE_CREDITS_DEBTS_ENABLED' => 'true', 'COUNTERPARTY_LEDGER_PUBLIC_ENABLED' => 'false', 'RECAPTCHA_V3_ENABLED' => 'false', 'APP_MAINTENANCE_DRIVER' => 'cache', 'APP_MAINTENANCE_STORE' => 'array'];
+        $env = ['APP_ENV' => 'testing', 'APP_URL' => $url, 'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $database, 'DB_URL' => '', 'CACHE_STORE' => 'array', 'SESSION_DRIVER' => 'database', 'SESSION_DOMAIN' => '', 'SESSION_SECURE_COOKIE' => 'false', 'BROADCAST_CONNECTION' => 'log', 'QUEUE_CONNECTION' => 'sync', 'NIGHTWATCH_ENABLED' => 'false', 'FEATURE_CREDITS_DEBTS_ENABLED' => 'true', 'COUNTERPARTY_LEDGER_PUBLIC_ENABLED' => 'true', 'RECAPTCHA_V3_ENABLED' => 'false', 'APP_MAINTENANCE_DRIVER' => 'cache', 'APP_MAINTENANCE_STORE' => 'array'];
         $server = new Process([PHP_BINARY, 'artisan', 'serve', '--host=127.0.0.1', '--port='.$port, '--no-reload'], base_path(), $env, timeout: 600);
         $server->disableOutput();
         $server->start();
@@ -64,6 +82,16 @@ test('economic identity and shared UX work in desktop mobile and standalone brow
         $browser->run();
         expect($browser->isSuccessful())->toBeTrue($browser->getErrorOutput().$browser->getOutput());
         fwrite(STDOUT, $browser->getOutput());
+        if (array_keys($fixtures) === ['P']) {
+            expect(Transaction::count())->toBe(1)->and(SharedExpenseLedgerEntry::count())->toBe(1)->and(CounterpartyObligation::count())->toBe(1)
+                ->and(CounterpartyPayment::count())->toBe(1)
+                ->and(app(CounterpartyProjectionService::class)->remaining(CounterpartyObligation::sole()))->toBe(0);
+        }
+        if (array_keys($fixtures) === ['S']) {
+            expect(Transaction::sole()->status->value)->toBe('confirmed')
+                ->and(SharedExpenseLedgerEntry::sole()->counterparty_id)->toBe(TrackedItem::where('uuid', $fixtures['S']['mario'])->sole()->id)
+                ->and(CounterpartyObligation::count())->toBe(0);
+        }
         if (array_keys($fixtures) === ['R']) {
             $confirmed = CreditDebtItem::where('uuid', $fixtures['R']['item'])->sole();
             expect($confirmed->reference_id)->toBe($confirmed->counterparty_id)

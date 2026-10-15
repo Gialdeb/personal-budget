@@ -4,11 +4,16 @@ import { useMediaQuery } from '@vueuse/core';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { show as commonCounterpartyShow } from '@/actions/App/Http/Controllers/CounterpartyPaymentController';
+import {
+    preparePayments,
+    resolveReference,
+} from '@/actions/App/Http/Controllers/SharedExpenseController';
 import { destroyLedger } from '@/actions/App/Http/Controllers/SharedExpenseController';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import type { CommonRelation } from '@/components/shared-expenses/CommonCounterpartyLinks.vue';
+import SharedReviewActions from '@/components/shared-expenses/SharedReviewActions.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Button } from '@/components/ui/button';
@@ -57,6 +62,8 @@ function confirmCancelLedger(): void {
 const ui = useUiCopy();
 
 type Entry = {
+    source_kind?: 'transaction' | 'ledger';
+    review_reason?: string | null;
     display_state:
         | 'receivable'
         | 'payable'
@@ -135,6 +142,9 @@ const props = defineProps<{
     historicalCounterparties: { uuid: string; name: string }[];
     entries: Entry[];
     reviewEntries: Entry[];
+    blockedEntries: Entry[];
+    canPreparePayments: boolean;
+    referenceOptions: { uuid: string; name: string }[];
     referenceReviewPeople: string[];
     relationshipOrigins: Record<
         string,
@@ -342,6 +352,52 @@ const stateLabel = (entry: Entry): string =>
             } as const
         )[entry.display_state],
     );
+const reviewingReference = ref<Entry | null>(null);
+const referenceConfirmation = useForm({
+    reference_uuid: '',
+    confirm_reference: true,
+});
+function openReferenceReview(entry: Entry): void {
+    referenceConfirmation.reset();
+    referenceConfirmation.clearErrors();
+    referenceConfirmation.reference_uuid = entry.counterparty_uuid ?? '';
+    reviewingReference.value = entry;
+}
+function saveReferenceReview(): void {
+    const entry = reviewingReference.value;
+
+    if (!entry?.source_kind) {
+        return;
+    }
+
+    referenceConfirmation.patch(
+        resolveReference.url({ kind: entry.source_kind, uuid: entry.uuid }),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                reviewingReference.value = null;
+            },
+        },
+    );
+}
+const preparingPayments = ref(false);
+function linkExistingPayments(entry: Entry): void {
+    if (!entry.counterparty_uuid || preparingPayments.value) {
+        return;
+    }
+
+    preparingPayments.value = true;
+    router.post(
+        preparePayments.url(entry.counterparty_uuid),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                preparingPayments.value = false;
+            },
+        },
+    );
+}
 function relationshipOriginLabels(uuid: string): string[] {
     return (props.relationshipOrigins[uuid] ?? []).map((origin) =>
         ui(
@@ -1002,6 +1058,7 @@ function deleteSettlement(entry: Entry): void {
                     >{{ ui(tab.label) }}</Button
                 >
             </div>
+            <InputError :message="page.props.errors.payments" />
             <section
                 v-if="reviewEntries.length"
                 class="rounded-2xl border border-amber-200 bg-card p-4 dark:border-amber-500/30"
@@ -1031,12 +1088,41 @@ function deleteSettlement(entry: Entry): void {
                             {{ entryDate(entry) }} · {{ money(entry) }}
                         </p>
                     </div>
-                    <Link
-                        v-if="entry.origin_url"
-                        :href="entry.origin_url"
-                        class="inline-flex min-h-11 items-center text-primary underline"
-                        >{{ ui('Apri movimento') }}</Link
-                    >
+                    <SharedReviewActions
+                        :reason="entry.review_reason"
+                        :origin-url="entry.origin_url"
+                        :can-prepare-payments="canPreparePayments"
+                        @reference="openReferenceReview(entry)"
+                        @payments="linkExistingPayments(entry)"
+                    />
+                </div>
+            </section>
+            <section
+                v-if="blockedEntries.length"
+                class="space-y-3 rounded-2xl border bg-card p-4"
+            >
+                <h2 class="font-semibold">{{ ui('Controlli protetti') }}</h2>
+                <p class="text-sm text-muted-foreground">
+                    {{
+                        ui(
+                            'Questi movimenti restano visibili, ma non sono azioni da completare con una semplice conferma del riferimento.',
+                        )
+                    }}
+                </p>
+                <div
+                    v-for="entry in blockedEntries"
+                    :key="entry.uuid"
+                    class="space-y-2 rounded-xl border p-3"
+                >
+                    <p class="font-medium">
+                        {{ entry.title }} · {{ entry.counterparty }} ·
+                        {{ money(entry) }}
+                    </p>
+                    <SharedReviewActions
+                        :reason="entry.review_reason"
+                        :origin-url="entry.origin_url"
+                        :can-prepare-payments="false"
+                    />
                 </div>
             </section>
             <section class="overflow-hidden rounded-2xl border bg-card">
@@ -1267,16 +1353,14 @@ function deleteSettlement(entry: Entry): void {
                                         · {{ refundDate(entry) }}</template
                                     >
                                 </p>
-                                <p
+                                <SharedReviewActions
                                     v-if="entry.display_state === 'review'"
-                                    class="text-sm text-muted-foreground"
-                                >
-                                    {{
-                                        ui(
-                                            'Verifica i movimenti e i rimborsi collegati prima di regolare questo importo.',
-                                        )
-                                    }}
-                                </p>
+                                    :reason="entry.review_reason"
+                                    :origin-url="entry.origin_url"
+                                    :can-prepare-payments="canPreparePayments"
+                                    @reference="openReferenceReview(entry)"
+                                    @payments="linkExistingPayments(entry)"
+                                />
                                 <p class="text-xs text-muted-foreground">
                                     {{ entry.origin
                                     }}<template v-if="entry.reference">
@@ -1303,6 +1387,16 @@ function deleteSettlement(entry: Entry): void {
                                     "
                                     class="inline-flex min-h-11 items-center text-xs font-medium text-primary underline"
                                     >{{ ui('Vedi situazione completa') }}</Link
+                                >
+                                <Button
+                                    v-if="
+                                        entry.source_kind === 'ledger' &&
+                                        !entry.is_cancelled
+                                    "
+                                    size="sm"
+                                    variant="outline"
+                                    @click="openReferenceReview(entry)"
+                                    >{{ ui('Modifica riferimento') }}</Button
                                 >
                                 <Link
                                     v-if="entry.origin_url"
@@ -1675,6 +1769,55 @@ function deleteSettlement(entry: Entry): void {
                             :disabled="settlementForm.processing"
                             >{{ ui('Registra rimborso') }}</Button
                         ></DialogFooter
+                    >
+                </form>
+            </DialogContent>
+        </Dialog>
+        <Dialog
+            :open="reviewingReference !== null"
+            @update:open="
+                (open) => {
+                    if (!open) reviewingReference = null;
+                }
+            "
+        >
+            <DialogContent>
+                <DialogHeader
+                    ><DialogTitle>{{ ui('Conferma riferimento') }}</DialogTitle
+                    ><DialogDescription>{{
+                        ui(
+                            'Scegli la persona corretta per questa quota. Importo, pagamenti e movimento originale restano invariati.',
+                        )
+                    }}</DialogDescription></DialogHeader
+                >
+                <form class="space-y-4" @submit.prevent="saveReferenceReview">
+                    <Label>{{ ui('Riferimento') }}</Label>
+                    <SearchableSelect
+                        v-model="referenceConfirmation.reference_uuid"
+                        :teleport="false"
+                        :options="
+                            referenceOptions.map((item) => ({
+                                value: item.uuid,
+                                label: item.name,
+                            }))
+                        "
+                        :placeholder="ui('Scegli il riferimento')"
+                    />
+                    <InputError
+                        :message="referenceConfirmation.errors.reference_uuid"
+                    />
+                    <InputError
+                        :message="
+                            referenceConfirmation.errors.confirm_reference
+                        "
+                    />
+                    <Button
+                        type="submit"
+                        :disabled="
+                            referenceConfirmation.processing ||
+                            !referenceConfirmation.reference_uuid
+                        "
+                        >{{ ui('Conferma riferimento') }}</Button
                     >
                 </form>
             </DialogContent>

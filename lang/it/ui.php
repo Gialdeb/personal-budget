@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'shared_expense' => 'Spesa condivisa',
     'occurrence_already_converted' => 'L’occorrenza non può essere :state perché è già convertita.',
     'occurrence_invalid_state' => 'L’occorrenza non può essere :state nello stato corrente.',
     'skipped' => 'saltata',

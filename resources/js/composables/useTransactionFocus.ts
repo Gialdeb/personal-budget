@@ -6,6 +6,7 @@ export function useTransactionFocus(options: {
     transactions: () => { uuid: string }[];
     reveal: () => void;
     highlight: (uuid: string) => void;
+    edit?: (uuid: string) => void;
 }) {
     const page = usePage();
     const missing = ref(false);
@@ -18,6 +19,8 @@ export function useTransactionFocus(options: {
     function consume(url: URL): void {
         consumedUrl = page.url;
         url.searchParams.delete('highlight');
+        url.searchParams.delete('edit');
+        url.searchParams.delete('return_to');
         router.replace({
             url: url.pathname + url.search + url.hash,
             preserveState: true,
@@ -87,6 +90,11 @@ export function useTransactionFocus(options: {
             target.focus({ preventScroll: true });
             target.scrollIntoView({ behavior: 'instant', block: 'center' });
             options.highlight(uuid);
+
+            if (url.searchParams.get('edit') === uuid) {
+                options.edit?.(uuid);
+            }
+
             consume(url);
         });
     }

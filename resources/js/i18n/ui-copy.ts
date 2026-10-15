@@ -2,6 +2,31 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'Il rimborso non corrisponde a un pagamento valido. Il documento originale o i suoi collegamenti richiedono una correzione protetta; confermare la persona non risolve il problema.':
+        'The reimbursement does not match a valid payment. The original document or its links require a protected correction; confirming the person does not resolve the issue.',
+    'Conferma e salva': 'Confirm and save',
+    'Conferma riferimento': 'Confirm reference',
+    'Modifica riferimento': 'Edit reference',
+    'Scegli il riferimento': 'Choose the reference',
+    'Collega i rimborsi esistenti': 'Match existing reimbursements',
+    'Apri e verifica la transazione': 'Open and review the transaction',
+    'Verifica il movimento originale': 'Review the original movement',
+    'Scegli la persona corretta per questa quota. Importo, pagamenti e movimento originale restano invariati.':
+        'Choose the correct person for this share. Amount, payments and original movement remain unchanged.',
+    'Scegli e conferma la persona a cui appartiene questa quota condivisa.':
+        'Choose and confirm the person associated with this shared share.',
+    'La transazione non è confermata. Aprila, verifica i dati e salva.':
+        'The transaction is not confirmed. Open it, review the details and save.',
+    'Esistono rimborsi già registrati, ma non è ancora indicato quali quote regolano. Collega i rimborsi senza registrarli di nuovo.':
+        'Reimbursements have been recorded but have not been matched to individual shares. Match them without recording them again.',
+    'Più movimenti rappresentano la stessa occorrenza. Non basta confermare un nome: verifica i documenti originali prima di correggere i collegamenti. I pagamenti e lo storico restano protetti.':
+        'Multiple movements represent the same occurrence. Confirming a name is not sufficient: review the original documents before correcting their links. Payments and history remain protected.',
+    'La ripartizione dei rimborsi richiede l’attivazione della gestione dei pagamenti per questo rapporto.':
+        'Matching reimbursements requires payment management to be enabled for this relationship.',
+    'Controlli protetti': 'Protected reviews',
+    'Questi movimenti restano visibili, ma non sono azioni da completare con una semplice conferma del riferimento.':
+        'These movements remain visible, but cannot be resolved by simply confirming a reference.',
+
     'I pagamenti collegati sono già inclusi nei residui. Le somme da collegare sono indicate separatamente.':
         'Linked payments are already included in the remaining balances. Unallocated amounts are shown separately.',
     'I crediti/debiti precedenti non confermati non sono inclusi in questo saldo.':

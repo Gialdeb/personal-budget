@@ -101,6 +101,188 @@ try {
             `${name}: no shared overflow`,
         );
 
+        if (name === 'P') {
+            await page
+                .getByRole('button', {
+                    name: 'Collega i rimborsi esistenti',
+                    exact: true,
+                })
+                .click();
+            await page.waitForURL((url) =>
+                url.pathname.startsWith('/counterparties/'),
+            );
+            const allocatePayment = page
+                .getByRole('button', {
+                    name: 'Ripartisci pagamento',
+                    exact: true,
+                })
+                .last();
+            await allocatePayment.evaluate((button) =>
+                button.scrollIntoView({ block: 'center', behavior: 'instant' }),
+            );
+            await allocatePayment.click();
+            await page.locator('input[id^=allocation-]').fill('100');
+            await page
+                .getByRole('button', {
+                    name: 'Conferma ripartizione',
+                    exact: true,
+                })
+                .click();
+            await page
+                .getByRole('button', {
+                    name: 'Conferma pagamento',
+                    exact: true,
+                })
+                .waitFor();
+            await page.goto(origin + '/shared-expenses', {
+                waitUntil: 'domcontentloaded',
+            });
+            await page
+                .getByRole('heading', { name: 'Spese condivise', exact: true })
+                .last()
+                .waitFor();
+            assert.equal(
+                await page
+                    .getByRole('heading', {
+                        name: 'Verifica necessaria',
+                        exact: true,
+                    })
+                    .count(),
+                0,
+            );
+            await page
+                .getByRole('button', { name: 'Regolate', exact: true })
+                .click();
+            await page
+                .getByText('Quota da collegare', { exact: true })
+                .waitFor();
+            await page.evaluate(async () => {
+                await navigator.serviceWorker.ready;
+            });
+            assert.equal(
+                await page.evaluate(
+                    () => navigator.serviceWorker.controller !== null,
+                ),
+                true,
+            );
+            assert.deepEqual(errors, []);
+            console.log(
+                `Shared existing repayment allocation OK: ${width}, standalone=${standalone}`,
+            );
+            await context.close();
+            continue;
+        }
+
+        if (name === 'S') {
+            const exactLink = page.getByRole('link', {
+                name: 'Apri e verifica la transazione',
+                exact: true,
+            });
+            const href = await exactLink.getAttribute('href');
+            assert.equal(
+                new URL(href, origin).searchParams.get('highlight'),
+                fixtures[name].transaction,
+            );
+            assert.equal(
+                new URL(href, origin).searchParams.get('edit'),
+                fixtures[name].transaction,
+            );
+            await exactLink.click();
+            const editor = page.getByRole('dialog');
+            await editor.waitFor();
+            await page.waitForFunction(() => {
+                const dialog = document.querySelector('[role=dialog]');
+
+                return (
+                    dialog &&
+                    (dialog.textContent.includes('Transazione da verificare') ||
+                        [...dialog.querySelectorAll('input,textarea')].some(
+                            (field) =>
+                                field.value === 'Transazione da verificare',
+                        ))
+                );
+            });
+            await editor
+                .getByRole('button', { name: /Conferma e salva/ })
+                .last()
+                .click();
+            await page.waitForURL((url) => url.pathname === '/shared-expenses');
+            await page
+                .getByRole('button', {
+                    name: 'Conferma riferimento',
+                    exact: true,
+                })
+                .click();
+            const confirmation = page.getByRole('dialog');
+            await confirmation.waitFor();
+            await confirmation
+                .getByRole('button', {
+                    name: 'Scegli il riferimento',
+                    exact: true,
+                })
+                .click();
+            await page
+                .getByRole('button', { name: 'Mario Rossi', exact: true })
+                .click();
+            await confirmation
+                .getByRole('button', {
+                    name: 'Conferma riferimento',
+                    exact: true,
+                })
+                .click();
+            await confirmation.waitFor({ state: 'hidden' });
+            assert.equal(
+                await page
+                    .getByRole('heading', {
+                        name: 'Verifica necessaria',
+                        exact: true,
+                    })
+                    .count(),
+                0,
+            );
+            assert.equal(
+                await page.evaluate(
+                    () => document.documentElement.scrollWidth <= innerWidth,
+                ),
+                true,
+            );
+            await page.evaluate(async () => {
+                await navigator.serviceWorker.ready;
+            });
+            assert.equal(
+                await page.evaluate(
+                    () => navigator.serviceWorker.controller !== null,
+                ),
+                true,
+            );
+            assert.deepEqual(errors, []);
+            console.log(
+                `Shared review transaction/editor/return/external reference OK: ${width}, standalone=${standalone}`,
+            );
+            await page.screenshot({
+                path: `/private/tmp/shared-review-${width}-${standalone}.png`,
+                fullPage: true,
+            });
+            await page
+                .locator(`a[href*="highlight=${fixtures[name].transaction}"]`)
+                .first()
+                .click();
+            await page.getByRole('dialog').waitFor();
+            await page.goBack();
+            await page
+                .getByRole('button', { name: 'Da sistemare', exact: true })
+                .waitFor();
+            assert.equal(
+                await page
+                    .getByRole('button', { name: 'Da sistemare', exact: true })
+                    .getAttribute('aria-pressed'),
+                'true',
+            );
+            assert.equal(await page.getByRole('dialog').count(), 0);
+            await context.close();
+            continue;
+        }
+
         if (name === 'R') {
             assert.equal(
                 await page

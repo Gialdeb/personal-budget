@@ -108,6 +108,7 @@ const { mobileFooterStyle, mobileScrollStyle, handleFocusIn } =
 
 const props = defineProps<{
     open: boolean;
+    confirmSharedReview?: boolean;
     year: number;
     month: number;
     sheet: MonthlyTransactionSheetData;
@@ -1969,6 +1970,7 @@ function submit(): void {
         shared_expense_counterparty_share: form.is_shared_expense
             ? form.shared_expense_counterparty_share
             : null,
+        confirm_shared_review: props.confirmSharedReview === true,
         amount: normalizedAmount,
         description: form.description.trim() || null,
         notes: form.notes.trim() || null,
@@ -2931,7 +2933,11 @@ function submit(): void {
                         >
                             {{
                                 isEditing
-                                    ? t('transactions.form.actions.saveChanges')
+                                    ? props.confirmSharedReview
+                                        ? ui('Conferma e salva')
+                                        : t(
+                                              'transactions.form.actions.saveChanges',
+                                          )
                                     : t('transactions.form.actions.create')
                             }}
                         </Button>

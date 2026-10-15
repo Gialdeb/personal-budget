@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SharedExpenses\ResolveSharedExpenseReferenceRequest;
 use App\Http\Requests\SharedExpenses\StoreSharedExpenseCounterpartyRequest;
 use App\Models\CounterpartyRelation;
 use App\Models\CreditDebtItem;
@@ -10,11 +11,14 @@ use App\Models\SharedExpenseSettlement;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Counterparties\CounterpartyBackfillService;
+use App\Services\Counterparties\CounterpartyPaymentService;
 use App\Services\Counterparties\CounterpartyViewService;
 use App\Services\Counterparties\SharedSourceProjector;
 use App\Services\CreditDebts\CounterpartyBalanceService;
 use App\Services\CreditDebts\ManualEconomicSubjectResolver;
 use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
+use App\Services\SharedExpenses\ResolveSharedExpenseReference;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\SharedExpenses\SharedExpenseSettlementService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
@@ -24,7 +28,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -78,9 +84,7 @@ class SharedExpenseController extends Controller
         $editableAccounts = $this->accessibleAccountsQuery->getEditable($user);
         $transactions = Transaction::query()
             ->whereIn('account_id', $accountIds)
-            ->where(function ($query) use ($counterpartyIds): void {
-                $query->whereIn('shared_expense_counterparty_id', $counterpartyIds)->orWhere(fn ($orphan) => $orphan->whereNull('shared_expense_counterparty_id')->whereNotNull('shared_expense_paid_by'));
-            })
+            ->where(fn ($query) => $query->whereNotNull('shared_expense_counterparty_id')->orWhereNotNull('shared_expense_paid_by'))
             ->whereYear('transaction_date', $year)
             ->whereMonth('transaction_date', $month)
             ->when($dateFrom, fn ($query) => $query->whereDate('transaction_date', '>=', $dateFrom))
@@ -100,7 +104,6 @@ class SharedExpenseController extends Controller
         $ledgerEntries = SharedExpenseLedgerEntry::query()
             ->where('user_id', $user->id)
             ->when($entryUuid, fn ($query) => $query->where('uuid', $entryUuid))
-            ->where(fn ($query) => $query->whereIn('counterparty_id', $counterpartyIds)->orWhereNull('counterparty_id'))
             ->whereYear('entry_date', $year)
             ->whereMonth('entry_date', $month)
             ->when($dateFrom, fn ($query) => $query->whereDate('entry_date', '>=', $dateFrom))
@@ -111,6 +114,7 @@ class SharedExpenseController extends Controller
         $sourceModels = $transactions->concat($ledgerEntries)->keyBy('uuid');
         $ledgerSettlements = app(CounterpartyViewService::class)->sourceSettlements($user->id, $ledgerEntries->pluck('uuid')->all(), 'shared_ledger_share');
         $ledgerEntries = $ledgerEntries->map(fn (SharedExpenseLedgerEntry $entry): array => [
+            'source_kind' => 'ledger',
             'can_cancel_payment' => $entry->recurring_entry_occurrence_id !== null,
             'is_cancelled' => ! $entry->isRecorded(),
             'economic_group_uuid' => $entry->occurrence?->uuid,
@@ -119,7 +123,7 @@ class SharedExpenseController extends Controller
             'uuid' => $entry->uuid, 'date' => $entry->entry_date?->toDateString(), 'title' => $entry->title,
             'counterparty' => $entry->counterparty?->name, 'counterparty_uuid' => $entry->counterparty?->uuid,
             'category' => null, 'reference' => null,
-            'origin' => $entry->occurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.installment_c9bb1db2') : __('ui.recurring_entry_258b334d'),
+            'origin' => $entry->occurrence === null ? __('ui.shared_expense') : ($entry->occurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.installment_c9bb1db2') : __('ui.recurring_entry_258b334d')),
             'origin_url' => $entry->occurrence?->recurringEntry ? route('recurring-entries.show', ['recurringEntry' => $entry->occurrence->recurringEntry, 'highlight' => $entry->occurrence->uuid]) : null,
             'origin_label' => $entry->occurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.open_installment_plan_2a24ad10') : __('ui.open_recurring_plan_2a2d853f'),
             'amount' => $entry->total_cents / 100, 'currency' => $entry->currency, 'status' => $entry->isRecorded() ? __('ui.posted_bf13fd0a') : 'Annullata',
@@ -140,7 +144,7 @@ class SharedExpenseController extends Controller
             });
 
         $transactionSettlements = app(CounterpartyViewService::class)->sourceSettlements($user->id, $transactions->pluck('uuid')->all(), 'shared_transaction_share');
-        $recordedEntries = $transactions->map(function (Transaction $transaction) use ($transactionSettlements): array {
+        $recordedEntries = $transactions->map(function (Transaction $transaction) use ($transactionSettlements, $request): array {
             $totalCents = $this->sharedExpenseAllocation->toCents((string) $transaction->amount);
             $allocation = [
                 'paid_by' => $transaction->shared_expense_paid_by ?? SharedExpenseAllocation::PAID_BY_SELF,
@@ -151,13 +155,15 @@ class SharedExpenseController extends Controller
             return [
                 'common_settlement' => $transactionSettlements[$transaction->uuid] ?? null,
                 'economic_group_uuid' => $transaction->recurringOccurrence?->uuid,
-                'requires_review' => $transaction->status->value !== 'confirmed',
+                'source_kind' => 'transaction',
+                'requires_review' => ! in_array($transaction->status->value, ['confirmed', 'ignored'], true),
+                'is_cancelled' => $transaction->status->value === 'ignored',
                 'original_effect_cents' => $this->sharedExpenseAllocation->balanceEffectCents($allocation),
                 'refund_date' => empty($transactionSettlements[$transaction->uuid]) ? $transaction->refundTransaction?->transaction_date?->toDateString() : null,
                 'uuid' => $transaction->uuid, 'date' => $transaction->transaction_date?->toDateString(), 'title' => $transaction->description, 'counterparty' => $transaction->sharedExpenseCounterparty?->name,
                 'counterparty_uuid' => $transaction->sharedExpenseCounterparty?->uuid, 'category' => $transaction->category?->name, 'reference' => $transaction->trackedItem?->name,
                 'origin' => $transaction->recurringOccurrence?->recurringEntry?->entry_type?->value === 'installment' ? __('ui.installment_c9bb1db2') : ($transaction->recurring_entry_occurrence_id ? __('ui.recurring_entry_258b334d') : __('ui.transaction_680db696')),
-                'origin_url' => route('transactions.show', ['year' => $transaction->transaction_date?->year, 'month' => $transaction->transaction_date?->month]),
+                'origin_url' => route('transactions.show', ['year' => $transaction->transaction_date?->year, 'month' => $transaction->transaction_date?->month, 'highlight' => $transaction->uuid, 'edit' => $transaction->uuid, 'return_to' => $request->getRequestUri()]),
                 'origin_label' => __('ui.open_transaction_ed56aaa7'),
                 'amount' => (float) $transaction->amount, 'currency' => $transaction->currency, 'status' => $transaction->refundTransaction !== null ? __('transactions.enums.recurring_transaction_status.refunded') : __('ui.posted_bf13fd0a'),
                 'paid_by' => $allocation['paid_by'], 'my_share_cents' => $allocation['my_share_cents'], 'counterparty_share_cents' => $allocation['counterparty_share_cents'],
@@ -171,7 +177,7 @@ class SharedExpenseController extends Controller
             ->whereMonth('settled_at', $month)
             ->when($dateFrom, fn ($query) => $query->whereDate('settled_at', '>=', $dateFrom))
             ->when($dateTo, fn ($query) => $query->whereDate('settled_at', '<=', $dateTo))
-            ->with(['counterparty:id,uuid,name', 'transaction.account:id,uuid,user_id,name,currency_code', 'transaction.category:id,uuid,name', 'transaction.refundTransaction'])
+            ->with(['transaction' => fn ($query) => $query->withTrashed(), 'counterparty:id,uuid,name', 'transaction.account:id,uuid,user_id,name,currency_code', 'transaction.category:id,uuid,name', 'transaction.refundTransaction'])
             ->when($counterpartyUuid, fn ($query) => $query->whereHas('counterparty', fn ($counterpartyQuery) => $counterpartyQuery->where('uuid', $counterpartyUuid)))
             ->get()
             ->map(fn (SharedExpenseSettlement $settlement): array => [
@@ -183,7 +189,7 @@ class SharedExpenseController extends Controller
                 'category' => null,
                 'reference' => null,
                 'origin' => __('ui.repayment_c1c8589b'),
-                'origin_url' => $settlement->transaction ? route('transactions.show', ['year' => $settlement->transaction->transaction_date?->year, 'month' => $settlement->transaction->transaction_date?->month]) : null,
+                'origin_url' => $settlement->transaction ? route('transactions.show', ['year' => $settlement->transaction->transaction_date?->year, 'month' => $settlement->transaction->transaction_date?->month, 'highlight' => $settlement->transaction->uuid, 'edit' => $settlement->transaction->uuid]) : null,
                 'origin_label' => __('ui.open_transaction_ed56aaa7'),
                 'amount' => $settlement->amount_cents / 100,
                 'currency' => 'EUR',
@@ -192,7 +198,8 @@ class SharedExpenseController extends Controller
                     : ($settlement->transaction?->refundTransaction !== null ? __('transactions.enums.recurring_transaction_status.refunded') : 'Registrato'),
                 'effect_cents' => $this->sharedExpenseSettlementService->settlementEffectCents($settlement),
                 'is_settlement' => true,
-                'requires_review' => $this->sharedExpenseSettlementService->settlementEffectCents($settlement) === 0,
+                'is_cancelled' => $this->settlementIsInactive($settlement),
+                'requires_payment_review' => $this->sharedExpenseSettlementService->settlementEffectCents($settlement) === 0 && ! $this->settlementIsInactive($settlement),
                 'settlement' => [
                     'account_uuid' => $settlement->transaction?->account?->uuid,
                     'category_uuid' => $settlement->transaction?->category?->uuid,
@@ -208,11 +215,14 @@ class SharedExpenseController extends Controller
                 if ($rows->count() < 2 || $rows->every(fn (array $row): bool => ! empty($row['common_settlement']))) {
                     return false;
                 }
+                if ($rows->pluck('source_kind')->filter()->unique()->count() > 1) {
+                    return true;
+                }
                 try {
                     app(SharedSourceProjector::class)->describe($sourceModels->get($rows->first()['uuid']));
 
                     return false;
-                } catch (\Throwable) {
+                } catch (ValidationException) {
                     return true;
                 }
             })->keys();
@@ -228,9 +238,15 @@ class SharedExpenseController extends Controller
                 $remaining = MoneyAmount::cents($common['remaining']);
                 $original = $paid + $compensated + $remaining;
             }
-            $review = ! empty($entry['requires_review']) || $party === null
-                || (! empty($entry['economic_group_uuid']) && $unresolvedGroups->contains($entry['economic_group_uuid']))
-                || (empty($entry['is_settlement']) && $entry['currency'] === 'EUR' && $remaining > 0 && $common === null && $unassignedRepayments->contains($party?->id));
+            $reviewReason = match (true) {
+                $party === null => 'reference',
+                ! empty($entry['requires_review']) => 'transaction',
+                ! empty($entry['requires_payment_review']) => 'payment_document',
+                ! empty($entry['economic_group_uuid']) && $unresolvedGroups->contains($entry['economic_group_uuid']) => 'sources',
+                empty($entry['is_settlement']) && $entry['currency'] === 'EUR' && $remaining > 0 && $common === null && $unassignedRepayments->contains($party?->id) => 'payments',
+                default => null,
+            };
+            $review = $reviewReason !== null;
             $state = 'review';
             if (! empty($entry['is_cancelled'])) {
                 $review = false;
@@ -248,10 +264,12 @@ class SharedExpenseController extends Controller
                 }
             }
 
-            return [...$entry, 'display_state' => $state, 'remaining_cents' => $review ? null : $remaining,
+            return [...$entry, 'review_reason' => $reviewReason, 'display_state' => $state, 'remaining_cents' => $review ? null : $remaining,
                 'original_share_cents' => $original, 'repaid_cents' => $paid, 'compensated_cents' => $compensated];
         });
-        $reviewEntries = $entries->where('display_state', 'review')->sortByDesc('date')->values();
+        $isBlocked = fn (array $entry): bool => $entry['display_state'] === 'review' && (in_array($entry['review_reason'], ['sources', 'payment_document'], true) || ($entry['review_reason'] === 'payments' && ! config('counterparty_ledger.public_enabled')));
+        $blockedEntries = $entries->filter($isBlocked)->sortByDesc('date')->values();
+        $reviewEntries = $entries->where('display_state', 'review')->reject($isBlocked)->sortByDesc('date')->values();
         $filteredEntries = $entries
             ->when($effect === 'pending', fn ($rows) => $rows->filter(fn (array $row): bool => empty($row['is_settlement']) && $row['remaining_cents'] !== null && $row['remaining_cents'] > 0))
             ->when($effect === 'receivable', fn ($rows) => $rows->filter(fn (array $row): bool => empty($row['is_settlement']) && $row['remaining_cents'] > 0 && ($row['original_effect_cents'] ?? 0) > 0))
@@ -274,11 +292,14 @@ class SharedExpenseController extends Controller
 
         return Inertia::render('SharedExpenses', [
             'selectedEntryUuid' => $entryUuid,
+            'canPreparePayments' => (bool) config('counterparty_ledger.public_enabled'),
+            'referenceOptions' => TrackedItem::query()->ownedBy($user->id)->where('is_active', true)->orderBy('name')->get(['uuid', 'name']),
             'filters' => ['month' => $month, 'year' => $year, 'counterparty' => $counterpartyUuid, 'search' => $search, 'date_from' => $dateFrom, 'date_to' => $dateTo, 'effect' => $effect],
             'counterparties' => $counterparties->filter(fn (TrackedItem $item): bool => $item->is_active && $item->is_shared_expense_counterpart)->map(fn (TrackedItem $item) => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
             'historicalCounterparties' => $counterparties->whereIn('id', $economicPeople)->map(fn (TrackedItem $item): array => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
             'entries' => $paginator->items(),
-            'reviewEntries' => $effect === 'all' || $effect === '' ? [] : $reviewEntries,
+            'reviewEntries' => $effect === 'pending' ? $reviewEntries : [],
+            'blockedEntries' => $effect === 'pending' ? $blockedEntries : [],
             'referenceReviewPeople' => $counterparties->filter(fn (TrackedItem $item): bool => $manualReferenceIssues->contains(fn (array $issue): bool => $issue['reference_uuid'] === $item->uuid))->pluck('uuid'),
             'pagination' => [
                 'current_page' => $paginator->currentPage(),
@@ -315,6 +336,35 @@ class SharedExpenseController extends Controller
                 'references' => $editableAccounts->mapWithKeys(fn ($account): array => [$account->uuid => $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection($this->operationalTransactionCategoryResolver->trackedItemsForAccount($account))]),
             ],
         ]);
+    }
+
+    public function preparePayments(Request $request, TrackedItem $counterparty, CounterpartyBackfillService $backfill, CounterpartyPaymentService $payments): RedirectResponse
+    {
+        abort_unless(config('counterparty_ledger.public_enabled') && $counterparty->user_id === $request->user()->id && $counterparty->account_id === null, 404);
+        $relation = DB::transaction(function () use ($request, $counterparty, $backfill, $payments): CounterpartyRelation {
+            TrackedItem::whereKey($counterparty->id)->lockForUpdate()->firstOrFail();
+            $relation = CounterpartyRelation::where('user_id', $request->user()->id)->where('counterparty_id', $counterparty->id)->where('currency_code', 'EUR')->first();
+            if ($relation?->activated_at === null) {
+                $plan = $backfill->run($request->user(), $counterparty, 'EUR');
+                if ($plan['ambiguous'] !== []) {
+                    throw ValidationException::withMessages(['payments' => 'Non è ancora possibile collegare questi rimborsi: ci sono riferimenti non confermati o movimenti con collegamenti in conflitto. Correggi prima i movimenti segnalati.']);
+                }
+                $backfill->run($request->user(), $counterparty, 'EUR', true);
+                $relation = CounterpartyRelation::where('user_id', $request->user()->id)->where('counterparty_id', $counterparty->id)->where('currency_code', 'EUR')->firstOrFail();
+                $payments->activate($request->user(), $relation, 'shared-payment-review:'.$relation->uuid);
+            }
+
+            return $relation;
+        });
+
+        return to_route('counterparties.show', ['relation' => $relation->uuid, 'scope' => 'shared']);
+    }
+
+    public function resolveReference(ResolveSharedExpenseReferenceRequest $request, string $kind, string $uuid, ResolveSharedExpenseReference $resolver): RedirectResponse
+    {
+        $resolver->resolve($request->user(), $kind, $uuid, $request->validated('reference_uuid'));
+
+        return back();
     }
 
     public function destroyLedger(Request $request, SharedExpenseLedgerEntry $ledger, UndoRecurringOccurrenceConversionService $undo): RedirectResponse
@@ -373,6 +423,20 @@ class SharedExpenseController extends Controller
         }
 
         return response()->json(['uuid' => $item->uuid, 'name' => $item->name], 201);
+    }
+
+    private function settlementIsInactive(SharedExpenseSettlement $settlement): bool
+    {
+        $transaction = $settlement->transaction;
+        if ($transaction === null) {
+            return false;
+        }
+        if ($transaction->trashed() || $transaction->status->value === 'ignored') {
+            return true;
+        }
+
+        return $transaction->status->value === 'confirmed' && $transaction->refundTransaction?->status->value === 'confirmed'
+            && MoneyAmount::cents((string) $transaction->refundTransaction->amount) >= MoneyAmount::cents((string) $transaction->amount);
     }
 
     private function normalizeCounterpartyName(string $name): string

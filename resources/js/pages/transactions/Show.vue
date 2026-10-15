@@ -237,6 +237,12 @@ const creatingEditTrackedItem = ref(false);
 const pendingMutation = ref<PendingMutation | null>(null);
 const rowFeedback = ref<RowFeedbackState | null>(null);
 const removingTransactionUuid = ref<string | null>(null);
+const sharedReviewReturn = ref<string | null>(null);
+function returnFromSharedReview(): void {
+    if (sharedReviewReturn.value) {
+        router.visit(sharedReviewReturn.value, { replace: true });
+    }
+}
 const { focusMissing } = useTransactionFocus({
     transactions: () => props.monthlySheet.transactions,
     reveal: () => {
@@ -245,6 +251,23 @@ const { focusMissing } = useTransactionFocus({
         visibilityFilter.value = 'active';
     },
     highlight: (uuid) => triggerRowFeedback(uuid, 'highlight'),
+    edit: (uuid) => {
+        const transaction = props.monthlySheet.transactions.find(
+            (item) => item.uuid === uuid,
+        );
+        const returnUrl = new URL(
+            page.url,
+            window.location.origin,
+        ).searchParams.get('return_to');
+
+        if (returnUrl && /^\/shared-expenses(?:\?|$)/.test(returnUrl)) {
+            sharedReviewReturn.value = returnUrl;
+        }
+
+        if (transaction) {
+            openEdit(transaction);
+        }
+    },
 });
 let rowFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -8024,7 +8047,9 @@ resetInlineEntry();
                 :month="props.month"
                 :sheet="sheet"
                 :transaction="editingTransaction"
+                :confirm-shared-review="sharedReviewReturn !== null"
                 @request-refund="requestRefund"
+                @saved="returnFromSharedReview"
             />
 
             <Dialog
