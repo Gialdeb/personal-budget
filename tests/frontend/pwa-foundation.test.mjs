@@ -275,3 +275,34 @@ test('required PWA binary assets exist and are valid PNG files', () => {
         );
     }
 });
+
+test('first worker activation does not announce an update while replacement and requested reload still work', () => {
+    const block = pwaComposableSource.match(
+        /if \(controllerChangeHandler === null\) \{([\s\S]*?)navigator\.serviceWorker\.addEventListener/,
+    )[1];
+    let reloads = 0;
+    let requestedReload = false;
+    const state = {
+        navigator: { serviceWorker: { controller: null } },
+        window: { location: { reload: () => reloads++ } },
+        controllerChangeHandler: null,
+        waitingWorker: { value: null },
+        isApplyingUpdate: { value: false },
+        isUpdateReady: { value: false },
+        consumeReloadOnActivateFlag: () => requestedReload,
+    };
+    runInNewContext(block, state);
+    state.navigator.serviceWorker.controller = {
+        scriptURL: '/service-worker.js',
+    };
+    state.controllerChangeHandler();
+    assert.equal(state.isUpdateReady.value, false);
+    state.navigator.serviceWorker.controller = {
+        scriptURL: '/service-worker.js?v=2',
+    };
+    state.controllerChangeHandler();
+    assert.equal(state.isUpdateReady.value, true);
+    requestedReload = true;
+    state.controllerChangeHandler();
+    assert.equal(reloads, 1);
+});

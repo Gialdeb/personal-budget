@@ -7,6 +7,7 @@ use App\Models\TrackedItem;
 use App\Models\User;
 use App\Services\Counterparties\CounterpartyBackfillService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 use Throwable;
 
 class BackfillCounterpartyLedger extends Command
@@ -35,7 +36,12 @@ class BackfillCounterpartyLedger extends Command
             return self::FAILURE;
         }
         $selection = $this->option('user');
-        $user = $selection ? User::query()->where('uuid', $selection)->when(ctype_digit((string) $selection), fn ($query) => $query->orWhere('id', (int) $selection))->first() : ($relation?->user ?? $party?->user);
+        if ($selection && ! ctype_digit((string) $selection) && ! Str::isUuid($selection)) {
+            $this->error('Invalid user ID or UUID.');
+
+            return self::FAILURE;
+        }
+        $user = $selection ? User::query()->where(ctype_digit((string) $selection) ? 'id' : 'uuid', $selection)->first() : ($relation?->user ?? $party?->user);
         if ($user === null || ($party !== null && $party->user_id !== $user->id) || ($relation !== null && ($relation->user_id !== $user->id || $party?->id !== $relation->counterparty_id || ($this->option('currency') && $this->option('currency') !== $relation->currency_code)))) {
             $this->error('Select a consistent --relation, --counterparty or --user scope.');
 

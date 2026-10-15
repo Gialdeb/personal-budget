@@ -36,7 +36,10 @@ test('manual mobile form reuses tap-first choices and the existing website logo 
         pageSource,
         /v-model="itemForm.reference_uuid"\s+:options="quickReferences"/,
     );
-    assert.match(pageSource, /v-if="!isMobile \|\| referenceSearchOpen"/);
+    assert.match(
+        pageSource,
+        /!isMobile[\s\S]*referenceSearchOpen[\s\S]*itemReferenceLocked/,
+    );
     assert.match(pageSource, /v-if="!isMobile \|\| categorySearchOpen"/);
     assert.match(
         pageSource,
@@ -144,7 +147,8 @@ test('credits debts forms reuse mobile amount input, privacy masking, Wayfinder,
     );
     assert.match(pageSource, /hierarchical/);
     assert.match(pageSource, /creatable/);
-    assert.match(pageSource, /referenceMatchesContext/);
+    assert.doesNotMatch(pageSource, /referenceMatchesContext/);
+    assert.match(pageSource, /selectedAccountReferences/);
     assert.match(pageSource, /validateItemForm/);
     assert.match(pageSource, /validatePaymentForm/);
     assert.match(pageSource, /let isValid = true/);
@@ -184,7 +188,7 @@ test('credits debts filters expose clear period and non ambiguous all labels', (
     assert.match(messagesSource, /Tutti gli stati/);
     assert.match(
         messagesSource,
-        /Cerca per controparte, descrizione, importo, nota/,
+        /Cerca per riferimento, descrizione, importo, nota/,
     );
     assert.match(
         messagesSource,
@@ -197,7 +201,7 @@ test('credits debts filters expose clear period and non ambiguous all labels', (
     assert.match(messagesSource, /All statuses/);
     assert.match(
         messagesSource,
-        /Search by counterparty, description, amount, note/,
+        /Search by reference, description, amount, note/,
     );
     assert.match(messagesSource, /No credits or debts found for these filters/);
     assert.doesNotMatch(
@@ -252,11 +256,14 @@ test('credits debts translations include Italian and English labels', () => {
     }
 });
 
-test('manual forms use the common person picker and allow clearing a due date', () => {
-    assert.match(
+test('manual forms use one canonical reference and allow clearing a due date', () => {
+    assert.doesNotMatch(
         pageSource,
-        /<CounterpartySelect[\s\S]*v-model="itemForm.counterparty_uuid"/,
+        /CounterpartySelect|itemForm\.counterparty_uuid|Controparte \(opzionale\)/,
     );
+    assert.match(pageSource, /v-model="itemForm.reference_uuid"/);
+    assert.match(pageSource, /context: 'credit_debt'/);
+    assert.match(pageSource, /referenceWarning/);
     assert.match(pageSource, /due_date: data.due_date \|\| null/);
     assert.doesNotMatch(pageSource, /if \(!itemForm.due_date\)/);
     assert.match(pageSource, /Senza scadenza/);

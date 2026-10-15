@@ -10,7 +10,9 @@ use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class StoreCreditDebtItemRequest extends FormRequest
 {
@@ -33,26 +35,16 @@ class StoreCreditDebtItemRequest extends FormRequest
             ->unique()
             ->values()
             ->all();
-        $referenceIds = $editableAccounts
-            ->flatMap(fn (Account $account) => $operationalCategoryResolver->trackedItemsForAccount($account)->pluck('id'))
-            ->map(fn ($id): int => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
 
         return [
             'type' => ['required', Rule::in(CreditDebtTypeEnum::values())],
             'description' => ['required', 'string', 'max:255'],
             'total_amount' => ['required', 'numeric', 'regex:/^\d+(?:\.\d{1,2})?$/', 'gt:0', 'max:999999999999.99'],
             'currency_code' => ['required', 'string', 'size:3', Rule::in(array_keys(config('currencies.supported', [])))],
-            'counterparty_id' => ['nullable', 'integer', Rule::exists('tracked_items', 'id')->where(fn ($query) => $query->where('user_id', $this->user()->id)->whereNull('account_id')->where(function ($eligible): void {
-                $eligible->where(fn ($active) => $active->where('is_active', true)->where('is_shared_expense_counterpart', true));
-                if ($this->route('creditDebtItem') instanceof CreditDebtItem) {
-                    $eligible->orWhere('id', $this->route('creditDebtItem')->counterparty_id);
-                }
-            }))],
+            'counterparty_id' => ['nullable', 'integer', Rule::exists('tracked_items', 'id')->where(fn ($query) => $query->where('user_id', $this->user()->id)->whereNull('account_id'))],
             'counterparty_uuid' => ['nullable', 'uuid'],
-            'reference_id' => ['nullable', 'integer', Rule::in($referenceIds)],
+            'reference_uuid' => ['nullable', 'uuid'],
+            'reference_id' => [$this->route('creditDebtItem') instanceof CreditDebtItem ? 'sometimes' : 'required', 'integer', Rule::exists('tracked_items', 'id')->where(fn ($query) => $query->where('user_id', $this->user()->id)->whereNull('account_id'))],
             'account_id' => ['required', 'integer', Rule::in($editableAccountIds)],
             'category_id' => ['required', 'integer', Rule::in($categoryIds)],
             'due_date' => ['nullable', 'date'],
@@ -100,14 +92,19 @@ class StoreCreditDebtItemRequest extends FormRequest
             $prepared['category_id'] = Category::query()->where('uuid', $this->input('category_uuid'))->value('id');
         }
 
-        if ($this->filled('reference_uuid') && ! $this->filled('reference_id')) {
-            $prepared['reference_id'] = TrackedItem::query()->where('uuid', $this->input('reference_uuid'))->value('id');
-        }
-
-        if ($this->exists('counterparty_uuid') && ! $this->exists('counterparty_id')) {
-            $prepared['counterparty_id'] = $this->filled('counterparty_uuid')
-                ? TrackedItem::query()->where('uuid', $this->input('counterparty_uuid'))->value('id') ?? 0
-                : null;
+        foreach (['reference', 'counterparty'] as $field) {
+            if (! $this->exists($field.'_uuid')) {
+                continue;
+            }
+            $uuid = $this->input($field.'_uuid');
+            if ($uuid !== null && $uuid !== '' && (! is_string($uuid) || ! Str::isUuid($uuid))) {
+                throw ValidationException::withMessages([$field.'_uuid' => 'UUID non valido.']);
+            }
+            $id = $uuid === null || $uuid === '' ? null : TrackedItem::query()->where('uuid', $uuid)->value('id');
+            if (($uuid !== null && $uuid !== '' && $id === null) || ($this->exists($field.'_id') && (string) $this->input($field.'_id') !== (string) $id)) {
+                throw ValidationException::withMessages([$field.'_id' => 'Identificativo del soggetto non valido o discordante.']);
+            }
+            $prepared[$field.'_id'] = $id;
         }
 
         $this->merge($prepared);

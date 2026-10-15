@@ -71,6 +71,11 @@ class TrackedItem extends Model
         ]);
     }
 
+    public function isEconomicSubject(): bool
+    {
+        return ($this->settings['economic_subject'] ?? false) === true;
+    }
+
     public function activeCommonRelations(): HasMany
     {
         return $this->hasMany(CounterpartyRelation::class, 'counterparty_id')->whereNotNull('activated_at');

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Services\Counterparties\CounterpartyAuthority;
 use App\Services\Counterparties\CounterpartyProjectionService;
+use App\Services\CreditDebts\ManualEconomicSubjectResolver;
 use App\Support\CurrencyMinorUnits;
 use App\Support\MoneyAmount;
 use Illuminate\Http\Request;
@@ -49,6 +50,7 @@ class CreditDebtItemResource extends JsonResource
         return [
             'uuid' => $this->uuid,
             'origin' => 'manual',
+            'reference_needs_review' => ! app(ManualEconomicSubjectResolver::class)->consistent($this->resource),
             'read_only' => false,
             'source_url' => null,
             'type' => $this->type?->value,

@@ -8,9 +8,7 @@ import { destroyLedger } from '@/actions/App/Http/Controllers/SharedExpenseContr
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
-import CommonCounterpartyLinks from '@/components/shared-expenses/CommonCounterpartyLinks.vue';
 import type { CommonRelation } from '@/components/shared-expenses/CommonCounterpartyLinks.vue';
-import CounterpartyBalanceSummary from '@/components/shared-expenses/CounterpartyBalanceSummary.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Button } from '@/components/ui/button';
@@ -33,6 +31,7 @@ import {
 } from '@/components/ui/select';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { index as sharedExpensesIndex } from '@/routes/shared-expenses';
 import { store as storeSettlement } from '@/routes/shared-expenses/settlements';
 import {
@@ -58,6 +57,21 @@ function confirmCancelLedger(): void {
 const ui = useUiCopy();
 
 type Entry = {
+    display_state:
+        | 'receivable'
+        | 'payable'
+        | 'partial'
+        | 'settled'
+        | 'review'
+        | 'repayment'
+        | 'cancelled';
+    remaining_cents: number | null;
+    original_share_cents: number;
+    repaid_cents: number;
+    compensated_cents: number;
+    original_effect_cents?: number;
+    refund_date?: string | null;
+    is_cancelled?: boolean;
     can_cancel_payment?: boolean;
     uuid: string;
     date: string | null;
@@ -120,6 +134,9 @@ const props = defineProps<{
     visibleCounterparties: { uuid: string; name: string }[];
     historicalCounterparties: { uuid: string; name: string }[];
     entries: Entry[];
+    reviewEntries: Entry[];
+    referenceReviewPeople: string[];
+    unresolvedReferenceCount: number;
     balances: Record<string, number>;
     counterpartyBalances: Record<
         string,
@@ -128,6 +145,7 @@ const props = defineProps<{
             manual_cents: number;
             shared_cents: number;
             total_cents: number;
+            unallocated_cents?: number;
         }[]
     >;
     counterpartyEntryCounts: Record<string, number>;
@@ -168,7 +186,18 @@ const localReferences = ref<Record<string, ReferenceOption[]>>({});
 const { locale } = useI18n();
 const search = ref(props.filters.search);
 const counterparty = ref(props.filters.counterparty ?? '');
-const effect = ref(props.filters.effect ?? '');
+const statusTabs = [
+    { value: 'pending', label: 'Da sistemare' },
+    { value: 'settled', label: 'Regolate' },
+    { value: 'all', label: 'Tutte' },
+] as const;
+const effect = ref(
+    ['pending', 'settled', 'all'].includes(props.filters.effect)
+        ? props.filters.effect
+        : props.filters.effect === ''
+          ? 'all'
+          : props.filters.effect,
+);
 const navigation = computed(
     () => page.props.transactionsNavigation as TransactionsNavigation | null,
 );
@@ -296,18 +325,89 @@ const entriesByDay = computed(() => {
 
     return [...groups.entries()].map(([key, group]) => ({ key, ...group }));
 });
-const effectLabel = (entry: Entry) =>
-    entry.effect_cents === undefined || entry.effect_cents === 0
-        ? ui('In pari')
-        : entry.effect_cents > 0
-          ? ui('{name} ti deve {amount}', {
-                name: entry.counterparty ?? '',
-                amount: cents(entry.effect_cents, entry.currency),
-            })
-          : ui('Devi {amount} a {name}', {
-                name: entry.counterparty ?? '',
-                amount: cents(-entry.effect_cents, entry.currency),
+const stateLabel = (entry: Entry): string =>
+    ui(
+        (
+            {
+                receivable: 'Da ricevere',
+                payable: 'Da pagare',
+                partial: 'Parzialmente regolata',
+                settled: 'Regolata',
+                review: 'Verifica necessaria',
+                repayment: 'Rimborso registrato',
+                cancelled: 'Annullata',
+            } as const
+        )[entry.display_state],
+    );
+function subjectBalances(uuid: string) {
+    return (props.counterpartyBalances[uuid] ?? []).filter(
+        (balance) =>
+            balance.currency === 'EUR' ||
+            balance.shared_cents !== 0 ||
+            balance.manual_cents !== 0 ||
+            balance.total_cents !== 0,
+    );
+}
+function completeSituationUrl(uuid: string, currency = 'EUR'): string {
+    const relation = props.commonRelations.find(
+        (item) => item.counterparty_uuid === uuid && item.currency === currency,
+    );
+
+    return relation
+        ? commonCounterpartyShow.url(relation.uuid)
+        : creditsDebtsIndex.url({
+              query: {
+                  reference_uuid: uuid,
+                  month: 'all',
+                  type: 'all',
+                  status: 'all',
+              },
+          });
+}
+function balanceLabel(name: string, value: number, currency: string): string {
+    return value === 0
+        ? ui('Saldo complessivo: {amount}', { amount: cents(0, currency) })
+        : value > 0
+          ? ui('Ti deve {amount}', { amount: cents(value, currency) })
+          : ui('Devi a {name} {amount}', {
+                name,
+                amount: cents(-value, currency),
             });
+}
+function residualLabel(entry: Entry): string {
+    if (entry.display_state === 'review') {
+        return ui('Verifica necessaria');
+    }
+
+    if (entry.display_state === 'settled') {
+        return ui('Regolata');
+    }
+
+    if (entry.display_state === 'cancelled') {
+        return ui('Annullata');
+    }
+
+    if (entry.is_settlement) {
+        return entry.title ?? ui('Rimborso registrato');
+    }
+
+    return (entry.original_effect_cents ?? entry.effect_cents ?? 0) > 0
+        ? ui('{name} ti deve {amount}', {
+              name: entry.counterparty ?? '',
+              amount: cents(entry.remaining_cents ?? 0, entry.currency),
+          })
+        : ui('Devi a {name} {amount}', {
+              name: entry.counterparty ?? '',
+              amount: cents(entry.remaining_cents ?? 0, entry.currency),
+          });
+}
+function refundDate(entry: Entry): string {
+    return entry.refund_date
+        ? new Intl.DateTimeFormat(locale.value).format(
+              new Date(`${entry.refund_date}T12:00:00`),
+          )
+        : '';
+}
 const accountCategories = computed(
     () => props.settlementOptions.categories[settlementForm.account_uuid] ?? [],
 );
@@ -548,7 +648,7 @@ function deleteSettlement(entry: Entry): void {
     <Head :title="ui('Spese condivise')" />
     <AppLayout
         :breadcrumbs="[
-            { title: ui('Spese condivise'), href: '/shared-expenses' },
+            { title: ui('Spese condivise'), href: sharedExpensesIndex.url() },
         ]"
     >
         <div
@@ -561,7 +661,7 @@ function deleteSettlement(entry: Entry): void {
                 <p class="max-w-2xl text-sm text-muted-foreground">
                     {{
                         ui(
-                            'Consulta saldi, rimborsi e movimenti condivisi. Le spese si registrano dalle normali transazioni, ricorrenze e rate.',
+                            'Quanto devi ricevere o pagare per le spese condivise e la situazione completa con ogni persona.',
                         )
                     }}
                 </p>
@@ -595,8 +695,8 @@ function deleteSettlement(entry: Entry): void {
                     <p
                         class="text-xs font-semibold tracking-wide text-rose-800 uppercase dark:text-rose-200"
                     >
-                        {{ ui('Da restituire') }} ·
-                        {{ ui('Spese condivise') }} · EUR
+                        {{ ui('Da pagare') }} · {{ ui('Spese condivise') }} ·
+                        EUR
                     </p>
                     <p class="mt-2 text-2xl font-semibold">
                         {{ cents(payableCents) }}
@@ -621,7 +721,7 @@ function deleteSettlement(entry: Entry): void {
                     <p class="mt-1 text-sm text-muted-foreground">
                         {{
                             netCents === 0
-                                ? ui('In pari')
+                                ? ui('Saldo condiviso nullo')
                                 : netCents > 0
                                   ? ui('Credito da spese condivise')
                                   : ui('Debito da spese condivise')
@@ -629,6 +729,14 @@ function deleteSettlement(entry: Entry): void {
                     </p>
                 </div>
             </section>
+
+            <p class="text-sm text-muted-foreground">
+                {{
+                    ui(
+                        'Saldi attuali, indipendenti dal periodo del registro. Il riepilogo riguarda solo le spese condivise.',
+                    )
+                }}
+            </p>
 
             <section
                 v-if="visibleCounterparties.length"
@@ -639,40 +747,98 @@ function deleteSettlement(entry: Entry): void {
                     :key="item.uuid"
                     class="flex min-w-0 flex-col rounded-2xl border bg-card p-4 text-sm"
                 >
-                    <p class="font-medium">{{ item.name }}</p>
-                    <p class="mt-1 text-xs text-muted-foreground">
-                        {{ ui('Saldo spese condivise') }} · EUR
-                    </p>
-                    <p class="mt-1 text-base font-semibold">
+                    <h2 class="text-lg font-semibold break-words">
+                        {{ item.name }}
+                    </h2>
+                    <div
+                        v-for="balance in subjectBalances(item.uuid)"
+                        :key="balance.currency"
+                        class="mt-3 space-y-3"
+                    >
+                        <p class="text-xs text-muted-foreground">
+                            {{ ui('Saldo complessivo con la persona') }} ·
+                            {{ balance.currency }}
+                        </p>
+                        <p
+                            class="text-2xl font-bold tracking-tight tabular-nums"
+                            :class="
+                                balance.total_cents < 0
+                                    ? 'text-rose-700 dark:text-rose-300'
+                                    : 'text-emerald-700 dark:text-emerald-300'
+                            "
+                        >
+                            {{
+                                balanceLabel(
+                                    item.name,
+                                    balance.total_cents,
+                                    balance.currency,
+                                )
+                            }}
+                        </p>
+                        <dl class="space-y-2 rounded-xl bg-muted/40 p-3">
+                            <div class="flex flex-wrap justify-between gap-2">
+                                <dt>{{ ui('Spese condivise') }}</dt>
+                                <dd class="font-semibold tabular-nums">
+                                    {{ balance.shared_cents > 0 ? '+' : ''
+                                    }}{{
+                                        cents(
+                                            balance.shared_cents,
+                                            balance.currency,
+                                        )
+                                    }}
+                                </dd>
+                            </div>
+                            <div class="flex flex-wrap justify-between gap-2">
+                                <dt>{{ ui('Altri crediti/debiti') }}</dt>
+                                <dd class="font-semibold tabular-nums">
+                                    {{ balance.manual_cents > 0 ? '+' : ''
+                                    }}{{
+                                        cents(
+                                            balance.manual_cents,
+                                            balance.currency,
+                                        )
+                                    }}
+                                </dd>
+                            </div>
+                            <div
+                                v-if="balance.unallocated_cents"
+                                class="flex flex-wrap justify-between gap-2"
+                            >
+                                <dt>{{ ui('Pagamenti da collegare') }}</dt>
+                                <dd class="font-semibold tabular-nums">
+                                    {{
+                                        cents(
+                                            balance.unallocated_cents,
+                                            balance.currency,
+                                        )
+                                    }}
+                                </dd>
+                            </div>
+                        </dl>
+                        <Link
+                            :href="
+                                completeSituationUrl(
+                                    item.uuid,
+                                    balance.currency,
+                                )
+                            "
+                            class="inline-flex min-h-11 items-center text-sm font-medium text-primary underline"
+                            >{{ ui('Vedi situazione completa') }}</Link
+                        >
+                    </div>
+                    <p
+                        v-if="referenceReviewPeople.includes(item.uuid)"
+                        class="mt-3 text-sm text-amber-800 dark:text-amber-200"
+                    >
                         {{
-                            balances[item.uuid] === 0
-                                ? ui('In pari')
-                                : balances[item.uuid] > 0
-                                  ? ui('{name} ti deve {amount}', {
-                                        name: item.name,
-                                        amount: cents(balances[item.uuid]),
-                                    })
-                                  : ui('Devi {amount} a {name}', {
-                                        name: item.name,
-                                        amount: cents(-balances[item.uuid]),
-                                    })
+                            ui(
+                                'Alcuni riferimenti richiedono verifica. Il saldo complessivo va verificato.',
+                            )
                         }}
                     </p>
-                    <CommonCounterpartyLinks
-                        :relations="
-                            commonRelations.filter(
-                                (r) => r.counterparty_uuid === item.uuid,
-                            )
-                        "
-                        shared
-                    />
-                    <CounterpartyBalanceSummary
-                        class="mt-3"
-                        :balances="counterpartyBalances[item.uuid] ?? []"
-                    />
-                    <p class="mt-1 text-muted-foreground">
+                    <p class="mt-3 text-xs text-muted-foreground">
                         {{ counterpartyEntryCounts[item.uuid] ?? 0 }}
-                        {{ ui('movimenti nel periodo') }}
+                        {{ ui('movimenti condivisi nel periodo') }}
                     </p>
                     <Button
                         v-if="
@@ -693,7 +859,7 @@ function deleteSettlement(entry: Entry): void {
                         size="sm"
                         class="mt-4 w-full sm:w-auto"
                         @click="openSettlement(item)"
-                        >{{ ui('Registra rimborso') }}</Button
+                        >{{ ui('Registra rimborso spese condivise') }}</Button
                     >
                 </div>
             </section>
@@ -716,14 +882,14 @@ function deleteSettlement(entry: Entry): void {
                         id="shared-counterparty"
                         v-model="counterparty"
                         :options="[
-                            { value: '', label: ui('Tutte le controparti') },
-                            ...counterparties.map((item) => ({
+                            { value: '', label: ui('Tutte le persone') },
+                            ...historicalCounterparties.map((item) => ({
                                 value: item.uuid,
                                 label: item.name,
                             })),
                         ]"
-                        :placeholder="ui('Tutte le controparti')"
-                        :search-placeholder="ui('Cerca controparte')"
+                        :placeholder="ui('Tutte le persone')"
+                        :search-placeholder="ui('Cerca persona')"
                         clearable
                     />
                 </div>
@@ -771,35 +937,84 @@ function deleteSettlement(entry: Entry): void {
                         </SelectContent>
                     </Select>
                 </div>
-                <div class="grid gap-1.5">
-                    <Label for="shared-effect">{{ ui('Situazione') }}</Label
-                    ><select
-                        id="shared-effect"
-                        v-model="effect"
-                        class="h-10 rounded-md border bg-background px-3 text-sm"
-                    >
-                        <option value="">{{ ui('Tutti i movimenti') }}</option>
-                        <option value="receivable">
-                            {{ ui('Da ricevere') }}
-                        </option>
-                        <option value="payable">
-                            {{ ui('Da restituire') }}
-                        </option>
-                        <option value="settled">
-                            {{ ui('In pari / regolati') }}
-                        </option>
-                    </select>
-                </div>
             </div>
+            <div
+                v-if="unresolvedReferenceCount"
+                role="status"
+                class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm dark:border-amber-500/30 dark:bg-amber-500/10"
+            >
+                {{
+                    ui(
+                        'Alcuni crediti/debiti richiedono la verifica del riferimento. Non sono stati associati automaticamente a una persona.',
+                    )
+                }}
+                <Link
+                    :href="creditsDebtsIndex.url()"
+                    class="ml-1 inline-flex min-h-11 items-center font-medium underline"
+                    >{{ ui('Verifica riferimenti') }}</Link
+                >
+            </div>
+            <div
+                class="grid grid-cols-3 gap-2 rounded-2xl bg-muted p-1"
+                role="group"
+                :aria-label="ui('Situazione dei movimenti')"
+            >
+                <Button
+                    v-for="tab in statusTabs"
+                    :key="tab.value"
+                    :variant="effect === tab.value ? 'default' : 'ghost'"
+                    :aria-pressed="effect === tab.value"
+                    class="min-h-11"
+                    @click="effect = tab.value"
+                    >{{ ui(tab.label) }}</Button
+                >
+            </div>
+            <section
+                v-if="reviewEntries.length"
+                class="rounded-2xl border border-amber-200 bg-card p-4 dark:border-amber-500/30"
+            >
+                <h2 class="font-semibold">{{ ui('Verifica necessaria') }}</h2>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    {{
+                        ui(
+                            'Per questi movimenti il residuo non è attribuibile con certezza. Restano visibili senza essere indicati come regolati o da pagare.',
+                        )
+                    }}
+                </p>
+                <div
+                    v-for="entry in reviewEntries"
+                    :key="entry.uuid"
+                    class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm"
+                >
+                    <div>
+                        <p class="font-medium">
+                            {{ entry.title }} ·
+                            {{
+                                entry.counterparty ??
+                                ui('Persona da verificare')
+                            }}
+                        </p>
+                        <p class="text-muted-foreground">
+                            {{ entryDate(entry) }} · {{ money(entry) }}
+                        </p>
+                    </div>
+                    <Link
+                        v-if="entry.origin_url"
+                        :href="entry.origin_url"
+                        class="inline-flex min-h-11 items-center text-primary underline"
+                        >{{ ui('Apri movimento') }}</Link
+                    >
+                </div>
+            </section>
             <section class="overflow-hidden rounded-2xl border bg-card">
                 <div class="border-b px-4 py-3">
                     <h2 class="font-semibold">
-                        {{ ui('Registro movimenti') }}
+                        {{ ui('Movimenti condivisi') }}
                     </h2>
                     <p class="mt-1 text-sm text-muted-foreground">
                         {{
                             ui(
-                                "Chi ha pagato, chi deve ricevere e l'origine di ogni posizione.",
+                                'Solo spese condivise e relativi rimborsi. Gli altri crediti/debiti sono nella situazione completa della persona.',
                             )
                         }}
                     </p>
@@ -827,76 +1042,54 @@ function deleteSettlement(entry: Entry): void {
                             :key="entry.uuid"
                             class="m-3 grid min-w-0 gap-3 rounded-2xl border bg-card p-3 sm:m-4 sm:p-4"
                         >
-                            <div class="min-w-0 space-y-1">
+                            <div class="min-w-0 space-y-3">
                                 <div
-                                    class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
+                                    class="flex min-w-0 flex-wrap items-start justify-between gap-3"
                                 >
-                                    <h3
-                                        class="min-w-0 text-sm font-semibold break-words"
-                                    >
-                                        {{
-                                            entry.title ||
-                                            ui('Movimento condiviso')
-                                        }}
-                                    </h3>
-                                    <div class="text-right">
-                                        <span
-                                            class="block text-[11px] text-muted-foreground"
-                                            >{{ ui('Totale') }}</span
-                                        ><span
-                                            class="text-sm font-semibold whitespace-nowrap tabular-nums"
-                                            >{{ money(entry) }}</span
+                                    <div class="min-w-0">
+                                        <h3
+                                            class="text-base font-semibold break-words"
                                         >
+                                            {{
+                                                entry.title ||
+                                                ui('Movimento condiviso')
+                                            }}
+                                        </h3>
+                                        <p
+                                            class="mt-1 text-sm text-muted-foreground"
+                                        >
+                                            {{
+                                                entry.counterparty ??
+                                                ui('Persona da verificare')
+                                            }}
+                                        </p>
                                     </div>
+                                    <p class="text-2xl font-bold tabular-nums">
+                                        {{ money(entry) }}
+                                    </p>
                                 </div>
-                                <p class="text-xs text-muted-foreground">
-                                    {{ entry.counterparty || '—' }} ·
-                                    {{ entry.origin }}
-                                </p>
                                 <p
-                                    class="inline-flex max-w-full items-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
+                                    v-if="!entry.is_settlement"
+                                    class="text-sm font-medium"
                                 >
                                     {{
-                                        entry.is_settlement
-                                            ? entry.title
-                                            : entry.paid_by === 'counterparty'
-                                              ? ui('Ha pagato {name}', {
-                                                    name:
-                                                        entry.counterparty ??
-                                                        '',
-                                                })
-                                              : ui('Hai pagato tu')
+                                        entry.paid_by === 'counterparty'
+                                            ? ui('{name} ha pagato', {
+                                                  name:
+                                                      entry.counterparty ?? '',
+                                              })
+                                            : ui('Hai pagato tu')
                                     }}
-                                </p>
-                                <p
-                                    v-if="entry.common_settlement"
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    {{
-                                        entry.common_settlement.economic_group
-                                            ? 'Quota dell’occorrenza'
-                                            : 'Quota regolata'
-                                    }}: {{ entry.common_settlement.paid }}
-                                    {{ entry.currency }} {{ ui('pagato') }} ·
-                                    {{ entry.common_settlement.compensated }}
-                                    {{ entry.currency }}
-                                    {{ ui('compensato') }} ·
-                                    {{ entry.common_settlement.remaining }}
-                                    {{ entry.currency }} {{ ui('residuo') }}
                                 </p>
                                 <dl
                                     v-if="entry.my_share_cents !== undefined"
-                                    class="grid grid-cols-2 gap-3 py-2"
+                                    class="grid gap-2 rounded-xl bg-muted/40 p-3 text-sm sm:grid-cols-2"
                                 >
-                                    <div class="min-w-0">
-                                        <dt
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            {{ ui('Tua quota') }}
+                                    <div>
+                                        <dt class="text-muted-foreground">
+                                            {{ ui('La tua quota') }}
                                         </dt>
-                                        <dd
-                                            class="mt-0.5 text-sm font-semibold tabular-nums"
-                                        >
+                                        <dd class="mt-1 font-semibold">
                                             {{
                                                 cents(
                                                     entry.my_share_cents,
@@ -905,16 +1098,19 @@ function deleteSettlement(entry: Entry): void {
                                             }}
                                         </dd>
                                     </div>
-                                    <div class="min-w-0">
+                                    <div>
                                         <dt
-                                            class="text-xs break-words text-muted-foreground"
+                                            class="break-words text-muted-foreground"
                                         >
-                                            {{ ui('Quota') }}
-                                            {{ entry.counterparty }}
+                                            {{
+                                                ui('Quota {name}', {
+                                                    name:
+                                                        entry.counterparty ??
+                                                        '',
+                                                })
+                                            }}
                                         </dt>
-                                        <dd
-                                            class="mt-0.5 text-sm font-semibold tabular-nums"
-                                        >
+                                        <dd class="mt-1 font-semibold">
                                             {{
                                                 cents(
                                                     entry.counterparty_share_cents ??
@@ -926,51 +1122,135 @@ function deleteSettlement(entry: Entry): void {
                                     </div>
                                 </dl>
                                 <p
-                                    class="border-t pt-2 text-sm font-semibold"
-                                    :class="
-                                        entry.effect_cents &&
-                                        entry.effect_cents > 0
-                                            ? 'text-emerald-700 dark:text-emerald-300'
-                                            : entry.effect_cents &&
-                                                entry.effect_cents < 0
-                                              ? 'text-rose-700 dark:text-rose-300'
-                                              : ''
+                                    v-if="
+                                        entry.common_settlement?.economic_group
                                     "
+                                    class="text-xs text-muted-foreground"
                                 >
-                                    <template
-                                        v-if="
-                                            !entry.is_settlement &&
-                                            entry.effect_cents
-                                        "
-                                    >
-                                        <span class="block">{{
-                                            entry.effect_cents > 0
-                                                ? ui('{name} ti deve', {
-                                                      name:
-                                                          entry.counterparty ??
-                                                          '',
-                                                  })
-                                                : ui('Devi a {name}', {
-                                                      name:
-                                                          entry.counterparty ??
-                                                          '',
-                                                  })
-                                        }}</span>
-                                        <span
-                                            class="mt-0.5 block text-2xl font-bold tracking-tight tabular-nums"
-                                            >{{
+                                    {{
+                                        ui(
+                                            'La situazione seguente riguarda l’intera ricorrenza, composta da più movimenti.',
+                                        )
+                                    }}
+                                </p>
+                                <dl
+                                    v-if="
+                                        !entry.is_settlement &&
+                                        entry.display_state !== 'review' &&
+                                        (entry.repaid_cents > 0 ||
+                                            entry.compensated_cents > 0)
+                                    "
+                                    class="grid gap-2 text-sm sm:grid-cols-3"
+                                >
+                                    <div>
+                                        <dt class="text-muted-foreground">
+                                            {{
+                                                ui(
+                                                    'Importo originale da regolare',
+                                                )
+                                            }}
+                                        </dt>
+                                        <dd class="font-semibold">
+                                            {{
                                                 cents(
-                                                    Math.abs(
-                                                        entry.effect_cents,
-                                                    ),
+                                                    entry.original_share_cents,
                                                     entry.currency,
                                                 )
-                                            }}</span
-                                        >
-                                    </template>
-                                    <template v-else>{{
-                                        effectLabel(entry)
-                                    }}</template>
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-muted-foreground">
+                                            {{ ui('Rimborsato') }}
+                                        </dt>
+                                        <dd class="font-semibold">
+                                            {{
+                                                cents(
+                                                    entry.repaid_cents,
+                                                    entry.currency,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-muted-foreground">
+                                            {{ ui('Residuo') }}
+                                        </dt>
+                                        <dd class="font-semibold">
+                                            {{
+                                                cents(
+                                                    entry.remaining_cents ?? 0,
+                                                    entry.currency,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div v-if="entry.compensated_cents > 0">
+                                        <dt class="text-muted-foreground">
+                                            {{ ui('Compensato') }}
+                                        </dt>
+                                        <dd class="font-semibold">
+                                            {{
+                                                cents(
+                                                    entry.compensated_cents,
+                                                    entry.currency,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+                                </dl>
+                                <p
+                                    class="border-t pt-3 text-lg font-semibold"
+                                    :class="
+                                        entry.display_state === 'review'
+                                            ? 'text-amber-700 dark:text-amber-300'
+                                            : (entry.original_effect_cents ??
+                                                    0) < 0
+                                              ? 'text-rose-700 dark:text-rose-300'
+                                              : 'text-emerald-700 dark:text-emerald-300'
+                                    "
+                                >
+                                    {{ residualLabel(entry) }}
+                                </p>
+                                <p
+                                    v-if="
+                                        !entry.is_settlement &&
+                                        entry.repaid_cents > 0 &&
+                                        entry.display_state !== 'review'
+                                    "
+                                    class="text-sm text-muted-foreground"
+                                >
+                                    {{
+                                        (entry.original_effect_cents ?? 0) >= 0
+                                            ? ui('Rimborso ricevuto')
+                                            : ui('Rimborso effettuato')
+                                    }}:
+                                    {{
+                                        cents(
+                                            entry.repaid_cents,
+                                            entry.currency,
+                                        )
+                                    }}<template v-if="entry.refund_date">
+                                        · {{ refundDate(entry) }}</template
+                                    >
+                                </p>
+                                <p
+                                    v-if="entry.display_state === 'review'"
+                                    class="text-sm text-muted-foreground"
+                                >
+                                    {{
+                                        ui(
+                                            'Verifica i movimenti e i rimborsi collegati prima di regolare questo importo.',
+                                        )
+                                    }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ entry.origin
+                                    }}<template v-if="entry.reference">
+                                        · {{ entry.reference }}</template
+                                    ><template v-if="entry.category">
+                                        · {{ entry.category }}</template
+                                    >
                                 </p>
                             </div>
                             <div
@@ -978,14 +1258,29 @@ function deleteSettlement(entry: Entry): void {
                             >
                                 <span
                                     class="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-                                    >{{ entry.status }}</span
-                                ><Link
+                                    >{{ stateLabel(entry) }}</span
+                                >
+                                <Link
+                                    v-if="entry.counterparty_uuid"
+                                    :href="
+                                        completeSituationUrl(
+                                            entry.counterparty_uuid,
+                                            entry.currency,
+                                        )
+                                    "
+                                    class="inline-flex min-h-11 items-center text-xs font-medium text-primary underline"
+                                    >{{ ui('Vedi situazione completa') }}</Link
+                                >
+                                <Link
                                     v-if="entry.origin_url"
                                     :href="entry.origin_url"
                                     class="inline-flex min-h-11 items-center text-xs font-medium text-primary hover:underline"
                                     >{{ entry.origin_label }} →</Link
                                 ><Button
-                                    v-if="entry.can_cancel_payment"
+                                    v-if="
+                                        entry.can_cancel_payment &&
+                                        !entry.is_cancelled
+                                    "
                                     size="sm"
                                     variant="outline"
                                     @click="cancelLedger(entry)"
@@ -1028,7 +1323,7 @@ function deleteSettlement(entry: Entry): void {
                 </div>
                 <nav
                     v-if="pagination.last_page > 1"
-                    :aria-label="ui('Registro movimenti')"
+                    :aria-label="ui('Movimenti condivisi')"
                     class="flex items-center justify-between gap-2 border-t p-3 text-sm"
                 >
                     <Button
@@ -1082,7 +1377,11 @@ function deleteSettlement(entry: Entry): void {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>
-                        {{ ui('Annulla pagamento della controparte') }}
+                        {{
+                            ui('Annulla pagamento di {name}', {
+                                name: cancelLedgerEntry?.counterparty ?? '',
+                            })
+                        }}
                     </DialogTitle>
                     <DialogDescription>
                         {{

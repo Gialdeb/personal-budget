@@ -15,6 +15,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\CreditDebts\CounterpartyBalanceService;
+use App\Services\CreditDebts\ManualEconomicSubjectResolver;
 use App\Support\CurrencyMinorUnits;
 use App\Support\MoneyAmount;
 use Illuminate\Support\Collection;
@@ -49,7 +50,7 @@ class CounterpartyBackfillService
                 }
                 $relation = $this->ledger->relation($user, $party, $currency);
                 $relation = CounterpartyRelation::query()->whereKey($relation->id)->lockForUpdate()->firstOrFail();
-                foreach (CreditDebtItem::query()->forUser($user)->where('counterparty_id', $party->id)->where('currency_code', $currency)->with('payments.transaction.account')->lockForUpdate()->get() as $item) {
+                foreach (CreditDebtItem::query()->forUser($user)->where('counterparty_id', $party->id)->where('currency_code', $currency)->with(['payments.transaction.account', 'reference'])->lockForUpdate()->get() as $item) {
                     $principal = CurrencyMinorUnits::fromDecimal((string) $item->total_amount, $currency) * ($item->type === CreditDebtTypeEnum::CREDIT ? 1 : -1);
                     $obligation = $relation->obligations()->where('source_type', 'credit_debt_item')->where('source_identity', $item->uuid)->first();
                     if ($obligation === null) {
@@ -100,7 +101,7 @@ class CounterpartyBackfillService
     /** @return list<string> */
     public function currencies(User $user, TrackedItem $party): array
     {
-        return collect(['EUR'])->concat(CreditDebtItem::query()->forUser($user)->where('counterparty_id', $party->id)->pluck('currency_code'))
+        return collect(['EUR'])->concat(CreditDebtItem::query()->forUser($user)->where(fn ($query) => $query->where('counterparty_id', $party->id)->orWhere('reference_id', $party->id))->pluck('currency_code'))
             ->concat(Transaction::query()->whereIn('account_id', $this->accounts->ids($user))->where('shared_expense_counterparty_id', $party->id)->pluck('currency'))
             ->concat(SharedExpenseLedgerEntry::query()->where('user_id', $user->id)->where('counterparty_id', $party->id)->pluck('currency'))
             ->concat(CounterpartyRelation::query()->where('user_id', $user->id)->where('counterparty_id', $party->id)->pluck('currency_code'))->unique()->sort()->values()->all();
@@ -113,15 +114,16 @@ class CounterpartyBackfillService
         $relation = CounterpartyRelation::query()->where(['user_id' => $user->id, 'counterparty_id' => $party->id, 'currency_code' => $currency])->first();
         $balance = $relation === null ? 0 : $this->projections->balance($relation);
         $before = $this->legacy->legacyBalance($user, $party, $currency);
-        $ambiguous = [];
+        $ambiguous = app(ManualEconomicSubjectResolver::class)->relationIssues($user, $party, $currency);
         $created = [];
         $reused = [];
         $effects = [];
         $identities = [];
         $bankIdentities = [];
-        $items = CreditDebtItem::query()->forUser($user)->where('counterparty_id', $party->id)->where('currency_code', $currency)->with('payments.transaction.account')->when($lock, fn ($query) => $query->lockForUpdate())->get();
+        $items = CreditDebtItem::query()->forUser($user)->where('counterparty_id', $party->id)->where('currency_code', $currency)->with(['payments.transaction.account', 'reference'])->when($lock, fn ($query) => $query->lockForUpdate())->get();
         foreach ($items as $item) {
             try {
+                app(ManualEconomicSubjectResolver::class)->assertConsistent($item);
                 $minor = CurrencyMinorUnits::fromDecimal((string) $item->total_amount, $currency) * ($item->type === CreditDebtTypeEnum::CREDIT ? 1 : -1);
                 if ($minor === 0) {
                     throw ValidationException::withMessages(['amount' => 'Zero manual principal cannot be recognized.']);

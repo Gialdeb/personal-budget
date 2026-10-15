@@ -46,16 +46,17 @@ function integrationSettlement(User $user, TrackedItem $counterparty): SharedExp
     return app(SharedExpenseSettlementService::class)->record($user, $counterparty, ['amount' => '20.00', 'settled_at' => today()->toDateString(), 'account_uuid' => $transaction->account->uuid, 'reference' => null]);
 }
 
-test('manual positions can be created without a due date or a counterparty', function (string $type, bool $omitDate) {
+test('manual positions derive their counterparty and may omit the due date', function (string $type, bool $omitDate) {
     $user = User::factory()->create(['base_currency_code' => 'EUR']);
     $account = createTestAccount($user);
     $category = Category::query()->create(['user_id' => $user->id, 'name' => 'Spese', 'slug' => 'spese', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true]);
-    $data = ['type' => $type, 'description' => 'Importo pregresso', 'total_amount' => '200.00', 'currency_code' => 'EUR', 'account_id' => $account->id, 'category_id' => $category->id];
+    $subject = integrationCounterparty($user);
+    $data = ['reference_id' => $subject->id, 'type' => $type, 'description' => 'Importo pregresso', 'total_amount' => '200.00', 'currency_code' => 'EUR', 'account_id' => $account->id, 'category_id' => $category->id];
     if (! $omitDate) {
         $data['due_date'] = null;
     }
     $this->actingAs($user)->postJson(route('credits-debts.store'), $data)
-        ->assertSuccessful()->assertJsonPath('data.due_date', null)->assertJsonPath('data.counterparty', null)->assertJsonPath('data.status', 'open');
+        ->assertSuccessful()->assertJsonPath('data.due_date', null)->assertJsonPath('data.counterparty.uuid', $subject->uuid)->assertJsonPath('data.status', 'open');
 
     expect(Transaction::query()->count())->toBe(0);
 })->with(['credit', 'debit'])->with([true, false]);
@@ -87,20 +88,18 @@ test('undated positions are visible and summarized but never overdue future or r
         ->and(app(DailyCreditDebtReminderService::class)->run())->toMatchArray(['scanned' => 0, 'notified' => 0]);
 });
 
-test('a manual counterparty is explicit and independent from its descriptive reference', function () {
-    $user = User::factory()->create(['base_currency_code' => 'EUR']);
+test('a manual counterparty must match its economic reference', function () {
+    $user = User::factory()->create();
     $account = createTestAccount($user);
-    $category = Category::query()->create(['user_id' => $user->id, 'name' => 'Spese', 'slug' => 'spese', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true]);
+    $category = Category::create(['user_id' => $user->id, 'name' => 'Spese', 'slug' => 'spese', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true]);
     $counterparty = integrationCounterparty($user);
-    $reference = TrackedItem::query()->create(['user_id' => $user->id, 'name' => 'Viaggio', 'slug' => 'viaggio', 'is_active' => true]);
+    $reference = integrationCounterparty($user, 'Pino');
     $this->actingAs($user)->postJson(route('credits-debts.store'), ['type' => 'credit', 'description' => 'Anticipo', 'total_amount' => '200.00', 'currency_code' => 'EUR', 'account_id' => $account->id, 'category_id' => $category->id, 'counterparty_uuid' => $counterparty->uuid, 'reference_id' => $reference->id])
-        ->assertSuccessful()->assertJsonPath('data.counterparty.uuid', $counterparty->uuid);
-    $item = CreditDebtItem::query()->firstOrFail();
-    expect($item->reference_id)->toBe($reference->id)->and($item->counterparty_id)->toBe($counterparty->id);
-    $this->getJson(route('credits-debts.show', $item))->assertJsonPath('data.counterparty.uuid', $counterparty->uuid);
+        ->assertUnprocessable()->assertJsonValidationErrors('counterparty_id');
+    expect(CreditDebtItem::count())->toBe(0);
 });
 
-test('manual counterparty selection rejects foreign account scoped inactive and ineligible references', function (string $case) {
+test('manual requests reject invalid or discordant technical counterparties', function (string $case) {
     $user = User::factory()->create(['base_currency_code' => 'EUR']);
     $counterparty = integrationCounterparty($case === 'foreign' ? User::factory()->create() : $user);
     if ($case === 'account') {
@@ -112,8 +111,8 @@ test('manual counterparty selection rejects foreign account scoped inactive and 
     }
     $item = CreditDebtItem::factory()->create(['user_id' => $user->id]);
     $this->actingAs($user)->putJson(route('credits-debts.update', $item), ['counterparty_uuid' => $counterparty->uuid])
-        ->assertUnprocessable()->assertJsonValidationErrors('counterparty_id');
-    expect($item->fresh()->counterparty_id)->toBeNull();
+        ->assertUnprocessable();
+    expect($item->fresh()->counterparty_id)->toBe($item->reference_id);
 })->with(['foreign', 'account', 'inactive', 'ineligible']);
 
 test('unknown counterparty uuids cannot silently become an unassigned position', function () {
@@ -130,7 +129,7 @@ test('counterparty cannot change after active payments but historical eligibilit
     $item = CreditDebtItem::factory()->forAccount($account)->create(['counterparty_id' => $counterparty->id]);
     app(CreditDebtPaymentService::class)->create($user, $item, ['amount' => '20.00', 'paid_at' => today()->toDateString(), 'account_id' => $account->id]);
     $this->actingAs($user)->putJson(route('credits-debts.update', $item), ['counterparty_id' => $other->id])->assertUnprocessable()->assertJsonValidationErrors('counterparty_id');
-    $this->putJson(route('credits-debts.update', $item), ['counterparty_uuid' => null])->assertUnprocessable()->assertJsonValidationErrors('counterparty_id');
+    $this->putJson(route('credits-debts.update', $item), ['counterparty_uuid' => null])->assertSuccessful();
     $counterparty->update(['is_active' => false, 'is_shared_expense_counterpart' => false]);
     $this->putJson(route('credits-debts.update', $item), ['counterparty_uuid' => $counterparty->uuid, 'due_date' => null])->assertSuccessful();
     expect($item->fresh()->counterparty_id)->toBe($counterparty->id);
@@ -152,7 +151,7 @@ test('aggregate balances use manual residuals and shared quotas without counting
     expect($service->balance($user, $counterparty, 'EUR'))->toBe(['currency' => 'EUR', 'manual_cents' => 20000, 'shared_cents' => 5000, 'total_cents' => 25000]);
     $this->actingAs($user)->get(route('credits-debts.index'))->assertInertia(fn (Assert $page) => $page
         ->has('items', 2)->where('summary.credits_remaining_total', '250.00')->where("counterpartyBalances.{$counterparty->uuid}.0.total_cents", 25000));
-    $this->get(route('shared-expenses.index', ['year' => now()->year, 'month' => now()->month]))->assertSuccessful()->assertInertia(fn (Assert $page) => $page
+    $this->get(route('shared-expenses.index', ['year' => now()->year, 'month' => now()->month, 'effect' => 'all']))->assertSuccessful()->assertInertia(fn (Assert $page) => $page
         ->where("balances.{$counterparty->uuid}", 5000)->where("counterpartyBalances.{$counterparty->uuid}.0.manual_cents", 20000));
     $payment = app(CreditDebtPaymentService::class)->create($user, $item, ['amount' => '60.00', 'paid_at' => today()->toDateString(), 'account_id' => $transaction->account_id]);
     expect($service->balance($user, $counterparty, 'EUR')['total_cents'])->toBe(19000)->and($item->fresh()->status()->value)->toBe('partial');
@@ -166,7 +165,7 @@ test('manual debts and currencies stay separate and legacy references are not as
     $counterparty = integrationCounterparty($user);
     CreditDebtItem::factory()->create(['user_id' => $user->id, 'counterparty_id' => $counterparty->id, 'type' => 'debit', 'total_amount' => '30.00', 'currency_code' => 'EUR']);
     CreditDebtItem::factory()->create(['user_id' => $user->id, 'counterparty_id' => $counterparty->id, 'total_amount' => '200.00', 'currency_code' => 'USD']);
-    $legacy = CreditDebtItem::factory()->create(['user_id' => $user->id, 'reference_id' => $counterparty->id, 'total_amount' => '75.00']);
+    $legacy = legacyCreditDebtItem($user, ['reference_id' => $counterparty->id, 'total_amount' => '75.00']);
     $service = app(CounterpartyBalanceService::class);
     expect($service->balance($user, $counterparty, 'EUR')['manual_cents'])->toBe(-3000)
         ->and($service->balance($user, $counterparty, 'USD')['manual_cents'])->toBe(20000)
@@ -237,7 +236,7 @@ test('settlement effects ignore invalid bank transactions and recognize partial 
         userTransaction($user, $transaction->account, ['amount' => '10.00', 'refunded_transaction_id' => $transaction->id, 'direction' => 'expense', 'kind' => 'refund']);
     }
     expect(app(SharedExpenseSettlementService::class)->balanceCents($user, $counterparty))->toBe($expected);
-    $this->actingAs($user)->get(route('shared-expenses.index', ['year' => now()->year, 'month' => now()->month]))->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($user)->get(route('shared-expenses.index', ['year' => now()->year, 'month' => now()->month, 'effect' => 'all']))->assertInertia(fn (Assert $page) => $page
         ->where('entries', function ($entries) use ($settlement, $expected): bool {
             $row = collect($entries)->firstWhere('uuid', $settlement->uuid);
             expect($row['effect_cents'])->toBe($expected - 5000);
@@ -286,7 +285,7 @@ test('shared transaction currencies are presented separately and cannot be settl
         ->and($service->balance($user, $counterparty, 'USD'))->toBe(['currency' => 'USD', 'manual_cents' => 20000, 'shared_cents' => 2500, 'total_cents' => 22500]);
     $this->actingAs($user)->get(route('credits-debts.index'))->assertInertia(fn (Assert $page) => $page
         ->where('summary.credits_remaining_total', '50.00')->where('summariesByCurrency.USD.credits_remaining_total', '225.00')->has('items', 3));
-    $this->get(route('shared-expenses.index', ['year' => now()->year, 'month' => now()->month]))->assertInertia(fn (Assert $page) => $page
+    $this->get(route('shared-expenses.index', ['year' => now()->year, 'month' => now()->month, 'effect' => 'all']))->assertInertia(fn (Assert $page) => $page
         ->where("balances.{$counterparty->uuid}", 5000)->where("counterpartyBalances.{$counterparty->uuid}.1.total_cents", 22500));
 });
 
@@ -294,8 +293,8 @@ test('counterparty-only manual balances keep their shared card visible without s
     $user = User::factory()->create(['base_currency_code' => 'EUR']);
     $counterparty = integrationCounterparty($user);
     CreditDebtItem::factory()->create(['user_id' => $user->id, 'counterparty_id' => $counterparty->id, 'total_amount' => '200.00']);
-    $this->actingAs($user)->get(route('shared-expenses.index', ['year' => now()->year, 'month' => now()->month]))->assertInertia(fn (Assert $page) => $page
-        ->has('entries', 0)->has('visibleCounterparties', 1)->where("balances.{$counterparty->uuid}", 0)->where("counterpartyBalances.{$counterparty->uuid}.0.total_cents", 20000));
+    $this->actingAs($user)->get(route('shared-expenses.index', ['year' => now()->year, 'month' => now()->month, 'effect' => 'all']))->assertInertia(fn (Assert $page) => $page
+        ->has('entries', 0)->has('visibleCounterparties', 0)->where("balances.{$counterparty->uuid}", 0)->where("counterpartyBalances.{$counterparty->uuid}.0.total_cents", 20000));
 });
 
 test('transaction UI hides generic actions for manual payments and shared settlements', function (string $source) {

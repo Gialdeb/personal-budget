@@ -30,6 +30,12 @@ class OperationalTransactionCategoryResolver
      */
     public function contributorUserIdsForAccount(Account $account): array
     {
+        $request = request();
+        $key = self::class.':contributors:'.$account->id.':'.$account->user_id;
+        if ($request->isMethod('GET') && $request->attributes->has($key)) {
+            return $request->attributes->get($key);
+        }
+
         $contributorIds = [$account->user_id];
 
         $editorIds = AccountMembership::query()
@@ -41,10 +47,15 @@ class OperationalTransactionCategoryResolver
             ->values()
             ->all();
 
-        return collect([...$contributorIds, ...$editorIds])
+        $contributors = collect([...$contributorIds, ...$editorIds])
             ->unique()
             ->values()
             ->all();
+        if ($request->isMethod('GET')) {
+            $request->attributes->set($key, $contributors);
+        }
+
+        return $contributors;
     }
 
     /**

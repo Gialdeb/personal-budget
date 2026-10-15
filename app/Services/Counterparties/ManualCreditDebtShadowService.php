@@ -10,6 +10,7 @@ use App\Models\CounterpartyPayment;
 use App\Models\CounterpartySyncIssue;
 use App\Models\CreditDebtItem;
 use App\Models\CreditDebtPayment;
+use App\Services\CreditDebts\ManualEconomicSubjectResolver;
 use App\Support\CurrencyMinorUnits;
 use Closure;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ class ManualCreditDebtShadowService
         if ($item->counterparty_id === null) {
             return;
         }
+        app(ManualEconomicSubjectResolver::class)->assertConsistent($item);
         $this->capture($item, function () use ($item): void {
             $relation = $this->ledger->relation($item->user, $item->counterparty, $item->currency_code);
             $this->ledger->recognize($relation, CounterpartyObligationSourceEnum::CREDIT_DEBT_ITEM, $item->uuid, 'credit-debt:'.$item->uuid,
@@ -40,6 +42,9 @@ class ManualCreditDebtShadowService
 
     public function itemChanged(CreditDebtItem $item, bool $deleted = false): void
     {
+        if (! $deleted) {
+            app(ManualEconomicSubjectResolver::class)->assertConsistent($item);
+        }
         $this->capture($item, function () use ($item, $deleted): void {
             $obligation = CounterpartyObligation::query()->where('source_type', CounterpartyObligationSourceEnum::CREDIT_DEBT_ITEM)
                 ->where('source_identity', $item->uuid)->first();
@@ -72,6 +77,7 @@ class ManualCreditDebtShadowService
 
     public function paymentCreated(CreditDebtPayment $payment): void
     {
+        app(ManualEconomicSubjectResolver::class)->assertConsistent($payment->item);
         $this->capture($payment, function () use ($payment): void {
             $item = $payment->item;
             $obligation = CounterpartyObligation::query()->where('source_type', CounterpartyObligationSourceEnum::CREDIT_DEBT_ITEM)

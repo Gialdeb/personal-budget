@@ -321,11 +321,11 @@ const operationLabel = computed<Record<string, string>>(() => ({
     create: ui('Pagamento'),
     cancel: ui('Annullamento amministrativo'),
     revise: ui('Revisione'),
-    reallocate: ui('Modifica allocazione'),
+    reallocate: ui('Modifica ripartizione'),
     compensate: ui('Compensazione'),
     reverse_compensation: ui('Storno compensazione'),
     return: ui('Restituzione reale'),
-    allocation: ui('Modifica allocazione'),
+    allocation: ui('Modifica ripartizione'),
     compensation: ui('Compensazione'),
 }));
 </script>
@@ -334,7 +334,12 @@ const operationLabel = computed<Record<string, string>>(() => ({
         <Head :title="relation.name" />
         <div class="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-8">
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <h1 class="text-2xl font-semibold">{{ relation.name }}</h1>
+                <div>
+                    <p class="text-sm text-muted-foreground">
+                        {{ ui('Situazione completa') }}
+                    </p>
+                    <h1 class="text-2xl font-semibold">{{ relation.name }}</h1>
+                </div>
                 <div class="flex flex-wrap gap-3 text-sm">
                     <Link :href="creditsIndex.url()">
                         {{ ui('Crediti e debiti') }} </Link
@@ -351,15 +356,15 @@ const operationLabel = computed<Record<string, string>>(() => ({
                             value: relation.balance_minor,
                         },
                         {
-                            title: ui('Quota manuale'),
+                            title: ui('Altri crediti/debiti'),
                             value: relation.manual_minor,
                         },
                         {
-                            title: ui('Quota condivisa'),
+                            title: ui('Spese condivise'),
                             value: relation.shared_minor,
                         },
                         {
-                            title: ui('Pagamenti non allocati (effetto saldo)'),
+                            title: ui('Pagamenti da collegare'),
                             value: relation.unallocated_minor,
                         },
                     ]"
@@ -374,7 +379,16 @@ const operationLabel = computed<Record<string, string>>(() => ({
                     </p>
                 </div>
             </div>
-            <p v-if="relation.amounts_available !== false" class="text-lg">
+            <p
+                v-if="
+                    relation.amounts_available !== false &&
+                    BigInt(relation.balance_minor) === 0n
+                "
+                class="text-lg"
+            >
+                {{ ui('Saldo complessivo: {amount}', { amount: money('0') }) }}
+            </p>
+            <p v-else-if="relation.amounts_available !== false" class="text-lg">
                 {{
                     BigInt(relation.balance_minor) >= 0n
                         ? ui('{name} ti deve', { name: relation.name })
@@ -394,7 +408,7 @@ const operationLabel = computed<Record<string, string>>(() => ({
             >
                 {{
                     ui(
-                        'Saldo non disponibile: gli importi richiedono riconciliazione.',
+                        'Saldo da verificare: alcuni movimenti richiedono un controllo.',
                     )
                 }}
             </p>
@@ -433,7 +447,7 @@ const operationLabel = computed<Record<string, string>>(() => ({
                             : mode === 'revise'
                               ? ui('Revisione pagamento')
                               : mode === 'allocations'
-                                ? ui('Gestisci allocazione')
+                                ? ui('Ripartisci pagamento')
                                 : ui('Registra pagamento')
                     }}
                 </h2>
@@ -459,10 +473,18 @@ const operationLabel = computed<Record<string, string>>(() => ({
                             @change="advanced = false"
                         >
                             <option value="received">
-                                {{ ui('Ricevuto dalla controparte') }}
+                                {{
+                                    ui('Ricevuto da {name}', {
+                                        name: relation.name,
+                                    })
+                                }}
                             </option>
                             <option value="sent">
-                                {{ ui('Pagato alla controparte') }}
+                                {{
+                                    ui('Pagato a {name}', {
+                                        name: relation.name,
+                                    })
+                                }}
                             </option>
                         </select>
                     </div>
@@ -509,7 +531,8 @@ const operationLabel = computed<Record<string, string>>(() => ({
                     </div>
                 </div>
                 <div v-if="mode !== 'return'">
-                    <Label for="common-scope"> {{ ui('Obbligazioni') }} </Label
+                    <Label for="common-scope">
+                        {{ ui('Cosa stai regolando') }} </Label
                     ><select
                         id="common-scope"
                         v-model="form.scope"
@@ -581,7 +604,7 @@ const operationLabel = computed<Record<string, string>>(() => ({
                     variant="outline"
                     @click="manageAllocation"
                 >
-                    {{ ui('Gestisci allocazione') }}
+                    {{ ui('Ripartisci pagamento') }}
                 </Button>
                 <div v-if="advanced && mode !== 'return'" class="space-y-3">
                     <div
@@ -637,7 +660,7 @@ const operationLabel = computed<Record<string, string>>(() => ({
                             mode === 'return'
                                 ? ui('Conferma restituzione')
                                 : mode === 'allocations'
-                                  ? ui('Conferma allocazione')
+                                  ? ui('Conferma ripartizione')
                                   : ui('Conferma pagamento')
                         }}</Button
                     ><Button
@@ -852,7 +875,7 @@ const operationLabel = computed<Record<string, string>>(() => ({
                                 size="sm"
                                 @click="edit(payment, 'allocations')"
                             >
-                                {{ ui('Gestisci allocazione') }} </Button
+                                {{ ui('Ripartisci pagamento') }} </Button
                             ><Button
                                 variant="outline"
                                 size="sm"

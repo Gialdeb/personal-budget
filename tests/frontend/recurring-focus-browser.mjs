@@ -84,6 +84,19 @@ await context.addInitScript(
             );
         }
 
+        const observeProgress = () => {
+            const bar = document.querySelector('[data-navigation-progress]');
+            window.progressSeen ||=
+                !!bar &&
+                bar.getClientRects().length > 0 &&
+                getComputedStyle(bar).display !== 'none';
+        };
+        new MutationObserver(observeProgress).observe(document, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style'],
+        });
         document.addEventListener('inertia:start', () =>
             requestAnimationFrame(() => {
                 const bar = document.querySelector(
@@ -162,6 +175,34 @@ try {
         await activatedDocument;
         await page.waitForFunction(() => !!navigator.serviceWorker.controller);
     }
+
+    const landingResponse = page.waitForResponse(
+        (response) =>
+            response.url() === origin + '/transactions' &&
+            response.request().headers()['x-inertia'],
+    );
+    await page.evaluate(() =>
+        document
+            .querySelector('#app')
+            .__vue_app__.config.globalProperties.$inertia.visit(
+                '/transactions',
+            ),
+    );
+    const landing = await landingResponse;
+    assert.equal(landing.status(), 200);
+    assert.equal(landing.request().redirectedFrom(), null);
+    await page.waitForURL(/\/transactions\/2026\/10$/);
+    const landingData = await landing.json();
+    assert.equal(landingData.url, '/transactions/2026/10');
+    assert.equal(landingData.props.monthlySheet.transactions.length, 71);
+    console.log(
+        JSON.stringify({
+            width,
+            standalone,
+            landingStatus: landing.status(),
+            canonicalUrl: landingData.url,
+        }),
+    );
 
     page.on('response', async (response) => {
         if (
@@ -327,6 +368,7 @@ try {
         assert.equal(await page.evaluate(() => window.progressSeen), true);
         assert.equal(posts - beforePosts, 1);
         assert.equal(gets - beforeGets, 1);
+        await page.waitForFunction(() => !!navigator.serviceWorker.controller);
         assert.equal(
             await page.evaluate(() => !!navigator.serviceWorker.controller),
             true,

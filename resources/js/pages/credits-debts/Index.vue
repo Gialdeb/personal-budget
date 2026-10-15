@@ -30,10 +30,8 @@ import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
-import CommonCounterpartyLinks from '@/components/shared-expenses/CommonCounterpartyLinks.vue';
 import type { CommonRelation } from '@/components/shared-expenses/CommonCounterpartyLinks.vue';
 import CounterpartyBalanceSummary from '@/components/shared-expenses/CounterpartyBalanceSummary.vue';
-import CounterpartySelect from '@/components/shared-expenses/CounterpartySelect.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -75,6 +73,7 @@ import {
     destroy as destroyPayment,
     store as storePayment,
 } from '@/routes/credits-debts/payments';
+import { index as sharedExpensesIndex } from '@/routes/shared-expenses';
 import { store as storeTrackedItem } from '@/routes/transactions/tracked-items';
 import type { BreadcrumbItem } from '@/types';
 
@@ -124,6 +123,7 @@ type CreditDebtItem = {
     due_date: string | null;
     note: string | null;
     counterparty?: { uuid: string; name: string } | null;
+    reference_needs_review?: boolean;
     reference: { uuid?: string; name?: string; label?: string } | null;
     account: Option | null;
     category: Option | null;
@@ -173,7 +173,6 @@ const props = defineProps<{
         categories: Record<string, Option[]>;
         references: Record<string, Option[]>;
         currencies: Option[];
-        counterparties: Option[];
         years: Array<{ value: number; label: string }>;
         months: Array<{ value: number | null; label: string }>;
     };
@@ -211,14 +210,6 @@ watch(isItemSheetOpen, () => {
     newReferenceWebsite.value = '';
 });
 const isHydratingItemForm = ref(false);
-const localCounterparties = ref<Option[]>([...props.options.counterparties]);
-watch(
-    () => props.options.counterparties,
-    (options) => {
-        localCounterparties.value = [...options];
-    },
-);
-
 const localReferences = ref<Record<string, Option[]>>({
     ...props.options.references,
 });
@@ -268,7 +259,6 @@ const itemForm = useForm({
     total_amount: '',
     currency_code: fallbackCurrency.value,
     reference_uuid: '',
-    counterparty_uuid: '',
     account_uuid: '',
     category_uuid: '',
     due_date: '',
@@ -317,7 +307,6 @@ watch(
         }
 
         itemForm.category_uuid = '';
-        itemForm.reference_uuid = '';
         itemForm.clearErrors('account_uuid', 'category_uuid', 'reference_uuid');
     },
 );
@@ -330,28 +319,7 @@ watch(
         }
 
         itemForm.category_uuid = '';
-        itemForm.reference_uuid = '';
         itemForm.clearErrors('type', 'category_uuid', 'reference_uuid');
-    },
-);
-
-watch(
-    () => itemForm.category_uuid,
-    () => {
-        if (isHydratingItemForm.value) {
-            return;
-        }
-
-        if (
-            itemForm.reference_uuid !== '' &&
-            !selectedAccountReferences.value.some(
-                (option) => option.value === itemForm.reference_uuid,
-            )
-        ) {
-            itemForm.reference_uuid = '';
-        }
-
-        itemForm.clearErrors('category_uuid', 'reference_uuid');
     },
 );
 
@@ -381,18 +349,42 @@ const selectedAccountCategories = computed(() => {
     );
 });
 const selectedAccountReferences = computed(() => {
-    if (!itemForm.account_uuid) {
-        return [];
+    const options = uniqueOptions(Object.values(localReferences.value).flat());
+    const reference = editingItem.value?.reference;
+
+    if (
+        reference?.uuid &&
+        !options.some((option) => option.value === reference.uuid)
+    ) {
+        options.push({
+            value: reference.uuid,
+            label: reference.label ?? reference.name ?? '',
+        });
     }
 
-    return (localReferences.value[itemForm.account_uuid] ?? []).filter(
+    return options.filter(
         (option) =>
-            option.value === itemForm.reference_uuid ||
-            referenceMatchesContext(option),
+            option.is_selectable !== false ||
+            option.value === itemForm.reference_uuid,
     );
 });
 const filterReferences = computed(() =>
-    uniqueOptions(Object.values(localReferences.value).flat()),
+    uniqueOptions([
+        ...Object.values(localReferences.value).flat(),
+        ...props.items.flatMap((item) =>
+            item.reference?.uuid
+                ? [
+                      {
+                          value: item.reference.uuid,
+                          label:
+                              item.reference.label ??
+                              item.reference.name ??
+                              item.description,
+                      },
+                  ]
+                : [],
+        ),
+    ]),
 );
 function quickChoices(
     options: Option[],
@@ -459,11 +451,69 @@ const itemCategoryError = computed(
         itemForm.errors.category_uuid ??
         (itemForm.errors as Record<string, string | undefined>).category_id,
 );
-const itemReferenceError = computed(
-    () =>
-        itemForm.errors.reference_uuid ??
-        (itemForm.errors as Record<string, string | undefined>).reference_id,
+const itemReferenceLocked = computed(() =>
+    Boolean(editingItem.value && editingItem.value.payments_count > 0),
 );
+const itemReferenceError = computed(() => {
+    const errors = itemForm.errors as Record<string, string | undefined>;
+    const error =
+        errors.reference_uuid ??
+        errors.reference_id ??
+        errors.counterparty_uuid ??
+        errors.counterparty_id;
+
+    if (!error) {
+        return undefined;
+    }
+
+    if (/storico|pagament|ledger|rettifica/i.test(error)) {
+        return t('creditsDebts.referenceLocked');
+    }
+
+    if (editingItem.value?.reference_needs_review) {
+        return t('creditsDebts.referenceReviewRequired');
+    }
+
+    return t('creditsDebts.referenceRequired');
+});
+const selectedReferenceRelations = computed(() => {
+    const item = selectedItem.value;
+
+    if (!item?.reference?.uuid || item.reference_needs_review) {
+        return [];
+    }
+
+    return props.commonRelations.filter(
+        (relation) => relation.counterparty_uuid === item.reference?.uuid,
+    );
+});
+const selectedReferenceBalances = computed(() => {
+    const item = selectedItem.value;
+
+    if (!item?.reference?.uuid || item.reference_needs_review) {
+        return [];
+    }
+
+    return props.counterpartyBalances[item.reference.uuid] ?? [];
+});
+const relationshipContext = computed(() => {
+    const uuid = props.filters.reference_uuid;
+
+    if (!uuid || uuid === 'all') {
+        return null;
+    }
+
+    const item = props.items.find((item) => item.reference?.uuid === uuid);
+    const option = Object.values(props.options.references)
+        .flat()
+        .find((option) => option.value === uuid);
+    const name =
+        item?.reference?.name ?? item?.reference?.label ?? option?.label;
+
+    return name
+        ? { uuid, name, balances: props.counterpartyBalances[uuid] ?? [] }
+        : null;
+});
 const paymentAccountError = computed(
     () =>
         paymentForm.errors.account_uuid ??
@@ -543,42 +593,6 @@ function referenceTypeKey(): string {
     return itemForm.type === 'credit' ? 'income' : 'debt';
 }
 
-function referenceMatchesContext(option: Option): boolean {
-    const categoryUuids = option.category_uuids ?? [];
-    const groupKeys = option.group_keys ?? [];
-    const categoryContextUuids = resolveCategoryContextUuids(
-        itemForm.category_uuid,
-    );
-
-    if (categoryUuids.length > 0) {
-        return categoryContextUuids.some((uuid) =>
-            categoryUuids.includes(uuid),
-        );
-    }
-
-    if (groupKeys.length > 0) {
-        return groupKeys.includes(referenceTypeKey());
-    }
-
-    return false;
-}
-
-function resolveCategoryContextUuids(categoryUuid: string): string[] {
-    if (categoryUuid === '') {
-        return [];
-    }
-
-    const category = selectedAccountCategories.value.find(
-        (option) => option.value === categoryUuid,
-    );
-
-    if (!category) {
-        return [categoryUuid];
-    }
-
-    return [categoryUuid, ...(category.ancestor_uuids ?? [])];
-}
-
 function money(
     value: string | number | null,
     currency = fallbackCurrency.value,
@@ -636,11 +650,40 @@ function formatDate(value: string | null): string {
 }
 
 function referenceName(item: CreditDebtItem): string {
-    const reference = item.reference?.label ?? item.reference?.name;
+    return (
+        item.reference?.label ??
+        item.reference?.name ??
+        item.counterparty?.name ??
+        item.description
+    );
+}
 
-    return item.counterparty
-        ? `${item.counterparty.name}${reference ? ` · ${reference}` : ''}`
-        : (reference ?? item.description);
+function referenceWarning(item: CreditDebtItem): string | null {
+    if (
+        item.origin !== 'manual' ||
+        (!item.reference_needs_review && item.reference?.uuid)
+    ) {
+        return null;
+    }
+
+    return t(
+        item.reference?.uuid
+            ? 'creditsDebts.referenceReviewRequired'
+            : 'creditsDebts.referenceMissing',
+    );
+}
+
+function obligationLabel(item: CreditDebtItem): string {
+    if (referenceWarning(item)) {
+        return t(`creditsDebts.${item.type === 'credit' ? 'receive' : 'pay'}`);
+    }
+
+    return t(
+        item.type === 'credit'
+            ? 'creditsDebts.owedToYou'
+            : 'creditsDebts.youOwe',
+        { name: referenceName(item) },
+    );
 }
 
 function initials(item: CreditDebtItem): string {
@@ -876,7 +919,6 @@ function resetItemForm(type: 'credit' | 'debit' = 'credit'): void {
         total_amount: '',
         currency_code: fallbackCurrency.value,
         reference_uuid: '',
-        counterparty_uuid: '',
         account_uuid: '',
         category_uuid: '',
         due_date: '',
@@ -954,7 +996,6 @@ async function openEdit(item: CreditDebtItem): Promise<void> {
     itemForm.total_amount = item.total_amount;
     itemForm.currency_code = item.currency_code;
     itemForm.reference_uuid = item.reference?.uuid ?? '';
-    itemForm.counterparty_uuid = item.counterparty?.uuid ?? '';
     itemForm.account_uuid = item.account?.value ?? item.account?.uuid ?? '';
     itemForm.category_uuid = item.category?.value ?? item.category?.uuid ?? '';
     itemForm.due_date = item.due_date ?? '';
@@ -972,6 +1013,14 @@ function validateItemForm(): boolean {
 
     if (!itemForm.type) {
         itemForm.setError('type', t('creditsDebts.validation.typeRequired'));
+        isValid = false;
+    }
+
+    if (!itemForm.reference_uuid) {
+        itemForm.setError(
+            'reference_uuid',
+            t('creditsDebts.referenceRequired'),
+        );
         isValid = false;
     }
 
@@ -1092,7 +1141,6 @@ function submitItem(): void {
     itemForm.transform((data) => ({
         ...data,
         due_date: data.due_date || null,
-        counterparty_uuid: data.counterparty_uuid || null,
     }));
 
     const options = {
@@ -1271,6 +1319,7 @@ async function createReferenceFromContext(name: string): Promise<void> {
             },
             body: JSON.stringify({
                 name: referenceName,
+                context: 'credit_debt',
                 account_uuid: itemForm.account_uuid,
                 category_uuid: itemForm.category_uuid,
                 type_key: referenceTypeKey(),
@@ -1507,20 +1556,40 @@ const ListColumn = defineComponent({
                                                               {
                                                                   class: 'truncate text-sm font-semibold text-slate-900 dark:text-slate-100',
                                                               },
-                                                              `${originLabel(item)} · ` +
-                                                                  referenceName(
-                                                                      item,
-                                                                  ),
+                                                              referenceName(
+                                                                  item,
+                                                              ),
                                                           ),
                                                       ],
                                                   ),
+                                                  item.description !==
+                                                  referenceName(item)
+                                                      ? h(
+                                                            'p',
+                                                            {
+                                                                class: 'truncate text-sm text-slate-500',
+                                                            },
+                                                            item.description,
+                                                        )
+                                                      : null,
                                                   h(
                                                       'p',
                                                       {
-                                                          class: 'truncate text-sm text-slate-500',
+                                                          class: 'mt-1 text-xs text-muted-foreground',
                                                       },
-                                                      item.description,
+                                                      `${obligationLabel(item)} · ${originLabel(item)}`,
                                                   ),
+                                                  referenceWarning(item)
+                                                      ? h(
+                                                            'p',
+                                                            {
+                                                                class: 'mt-1 text-xs text-amber-700 dark:text-amber-300',
+                                                            },
+                                                            referenceWarning(
+                                                                item,
+                                                            ) ?? '',
+                                                        )
+                                                      : null,
                                                   h(
                                                       'p',
                                                       {
@@ -1557,6 +1626,69 @@ const ListColumn = defineComponent({
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-5 px-3 py-4 sm:px-6 lg:px-8">
+            <section
+                v-if="relationshipContext"
+                class="space-y-4 rounded-2xl border bg-card p-4 sm:p-6"
+            >
+                <h2 class="text-xl font-bold">
+                    {{
+                        ui('Situazione con {name}', {
+                            name: relationshipContext.name,
+                        })
+                    }}
+                </h2>
+                <p class="text-sm text-muted-foreground">
+                    {{
+                        ui(
+                            'Il saldo complessivo comprende spese condivise e altri crediti/debiti, anche fuori dal periodo selezionato.',
+                        )
+                    }}
+                </p>
+                <div
+                    v-for="balance in relationshipContext.balances"
+                    :key="balance.currency"
+                    class="rounded-xl bg-muted/30 p-3"
+                >
+                    <p class="text-xl font-bold tabular-nums">
+                        {{
+                            balance.total_cents === 0
+                                ? ui('Saldo complessivo: {amount}', {
+                                      amount: amount(0, balance.currency),
+                                  })
+                                : balance.total_cents > 0
+                                  ? ui('{name} ti deve {amount}', {
+                                        name: relationshipContext.name,
+                                        amount: amount(
+                                            balance.total_cents / 100,
+                                            balance.currency,
+                                        ),
+                                    })
+                                  : ui('Devi a {name} {amount}', {
+                                        name: relationshipContext.name,
+                                        amount: amount(
+                                            -balance.total_cents / 100,
+                                            balance.currency,
+                                        ),
+                                    })
+                        }}
+                    </p>
+                </div>
+                <CounterpartyBalanceSummary
+                    :balances="relationshipContext.balances"
+                />
+                <Link
+                    :href="
+                        sharedExpensesIndex.url({
+                            query: {
+                                counterparty: relationshipContext.uuid,
+                                effect: 'all',
+                            },
+                        })
+                    "
+                    class="inline-flex min-h-11 items-center text-sm font-medium text-primary underline"
+                    >{{ ui('Apri spese condivise e rimborsi') }}</Link
+                >
+            </section>
             <header
                 class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
             >
@@ -1679,27 +1811,32 @@ const ListColumn = defineComponent({
                 </select>
             </div>
             <section
-                v-if="selectedItem?.counterparty"
+                v-if="
+                    !relationshipContext &&
+                    (selectedReferenceRelations.length ||
+                        selectedReferenceBalances.length)
+                "
                 class="rounded-2xl border bg-card p-4"
             >
-                <p class="mb-3 font-semibold">
-                    {{ ui('Controparte') }}:
-                    {{ selectedItem.counterparty.name }}
-                </p>
-                <CommonCounterpartyLinks
-                    :relations="
-                        commonRelations.filter(
-                            (r) =>
-                                r.counterparty_uuid ===
-                                selectedItem?.counterparty?.uuid,
-                        )
-                    "
-                />
+                <h2 v-if="selectedItem" class="mb-3 font-semibold">
+                    {{ referenceName(selectedItem) }} ·
+                    {{ ui('Saldo complessivo') }}
+                </h2>
+                <div
+                    v-if="selectedReferenceRelations.length"
+                    class="mb-3 flex flex-wrap gap-2"
+                >
+                    <Link
+                        v-for="relation in selectedReferenceRelations"
+                        :key="relation.uuid"
+                        :href="commonCounterpartyShow.url(relation.uuid)"
+                        class="rounded-lg border bg-card px-3 py-2 text-sm hover:bg-muted"
+                        >{{ t('creditsDebts.balanceAndPayments') }} ·
+                        {{ relation.currency }}</Link
+                    >
+                </div>
                 <CounterpartyBalanceSummary
-                    :balances="
-                        counterpartyBalances[selectedItem.counterparty.uuid] ??
-                        []
-                    "
+                    :balances="selectedReferenceBalances"
                 />
             </section>
             <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -2007,8 +2144,24 @@ const ListColumn = defineComponent({
                                         ui('Apri origine · sola lettura')
                                     }}</Link
                                 >
-                                <p class="text-sm text-slate-500">
+                                <p
+                                    v-if="
+                                        selectedItem.description !==
+                                        referenceName(selectedItem)
+                                    "
+                                    class="text-sm text-slate-500"
+                                >
                                     {{ selectedItem.description }}
+                                </p>
+                                <p class="mt-1 text-sm font-medium">
+                                    {{ obligationLabel(selectedItem) }}
+                                </p>
+                                <p
+                                    v-if="referenceWarning(selectedItem)"
+                                    role="status"
+                                    class="mt-2 text-sm text-amber-700 dark:text-amber-300"
+                                >
+                                    {{ referenceWarning(selectedItem) }}
                                 </p>
                             </div>
                         </div>
@@ -2361,8 +2514,24 @@ const ListColumn = defineComponent({
                                         ui('Apri origine · sola lettura')
                                     }}</Link
                                 >
-                                <p class="truncate text-sm opacity-80">
+                                <p
+                                    v-if="
+                                        selectedItem.description !==
+                                        referenceName(selectedItem)
+                                    "
+                                    class="truncate text-sm opacity-80"
+                                >
                                     {{ selectedItem.description }}
+                                </p>
+                                <p class="mt-1 text-sm font-medium">
+                                    {{ obligationLabel(selectedItem) }}
+                                </p>
+                                <p
+                                    v-if="referenceWarning(selectedItem)"
+                                    role="status"
+                                    class="mt-2 text-sm text-amber-700 dark:text-amber-300"
+                                >
+                                    {{ referenceWarning(selectedItem) }}
                                 </p>
                             </div>
                         </div>
@@ -2834,6 +3003,135 @@ const ListColumn = defineComponent({
                         </div>
                         <InputError :message="itemForm.errors.type" />
                     </div>
+                    <div class="grid gap-2">
+                        <Label>{{ t('creditsDebts.reference') }}</Label>
+                        <div
+                            v-if="isMobile && !itemReferenceLocked"
+                            class="grid min-w-0 gap-2"
+                        >
+                            <MobileQuickChoices
+                                v-if="quickReferences.length"
+                                v-model="itemForm.reference_uuid"
+                                :options="quickReferences"
+                                appearance="reference"
+                            />
+                            <div class="flex flex-wrap gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    class="min-h-11 rounded-full"
+                                    @click="
+                                        referenceSearchOpen =
+                                            !referenceSearchOpen
+                                    "
+                                    >{{ ui('Tutti · Cerca') }}</Button
+                                >
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    class="min-h-11 rounded-full"
+                                    :disabled="
+                                        !itemForm.account_uuid ||
+                                        !itemForm.category_uuid
+                                    "
+                                    @click="
+                                        newReferenceOpen = !newReferenceOpen
+                                    "
+                                    >{{ ui('+ Nuovo') }}</Button
+                                >
+                            </div>
+                            <div
+                                v-if="newReferenceOpen"
+                                class="grid min-w-0 gap-2 rounded-2xl border bg-muted/30 p-3"
+                            >
+                                <Label for="credit-debt-reference-name">{{
+                                    t('creditsDebts.referenceName')
+                                }}</Label>
+                                <Input
+                                    id="credit-debt-reference-name"
+                                    v-model="newReferenceName"
+                                    autocomplete="off"
+                                />
+                                <Label for="credit-debt-reference-website">{{
+                                    ui('Sito web per il logo (opzionale)')
+                                }}</Label>
+                                <Input
+                                    id="credit-debt-reference-website"
+                                    v-model="newReferenceWebsite"
+                                    type="url"
+                                    inputmode="url"
+                                    placeholder="https://esempio.it"
+                                />
+                                <Button
+                                    type="button"
+                                    class="min-h-11 rounded-2xl"
+                                    :disabled="
+                                        creatingReference ||
+                                        !newReferenceName.trim()
+                                    "
+                                    @click="
+                                        createReferenceFromContext(
+                                            newReferenceName,
+                                        )
+                                    "
+                                    >{{ ui('Crea e seleziona') }}</Button
+                                >
+                            </div>
+                        </div>
+                        <MobileSearchableSelect
+                            v-if="
+                                !isMobile ||
+                                referenceSearchOpen ||
+                                itemReferenceLocked
+                            "
+                            v-model="itemForm.reference_uuid"
+                            :options="selectedAccountReferences"
+                            :placeholder="
+                                t('creditsDebts.referencePlaceholder')
+                            "
+                            :search-placeholder="
+                                t('creditsDebts.placeholders.searchReference')
+                            "
+                            :empty-label="
+                                t('creditsDebts.placeholders.noSearchResults')
+                            "
+                            :disabled="itemReferenceLocked"
+                            :creatable="!itemReferenceLocked"
+                            :creating="creatingReference"
+                            :create-label="
+                                t('creditsDebts.createReferenceAction')
+                            "
+                            :teleport="false"
+                            :mobile-title="t('creditsDebts.reference')"
+                            trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                            content-class="z-[260]"
+                            @create-option="createReferenceFromContext"
+                        />
+                        <p
+                            v-if="itemReferenceLocked"
+                            class="text-sm text-muted-foreground"
+                        >
+                            {{ t('creditsDebts.referenceLocked') }}
+                        </p>
+                        <p
+                            v-if="editingItem && referenceWarning(editingItem)"
+                            role="status"
+                            class="text-sm text-amber-700 dark:text-amber-300"
+                        >
+                            {{ referenceWarning(editingItem) }}
+                        </p>
+                        <p
+                            v-if="
+                                !editingItem &&
+                                (!itemForm.account_uuid ||
+                                    !itemForm.category_uuid)
+                            "
+                            class="text-xs text-muted-foreground"
+                        >
+                            {{ t('creditsDebts.createReferenceHelp') }}
+                        </p>
+                        <InputError :message="itemReferenceError" />
+                    </div>
                     <div>
                         <Label for="credit-debt-description">{{
                             t('creditsDebts.description')
@@ -2964,146 +3262,6 @@ const ListColumn = defineComponent({
                             content-class="z-[260]"
                         />
                         <InputError :message="itemCategoryError" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label>{{ t('creditsDebts.reference') }}</Label>
-                        <div v-if="isMobile" class="grid min-w-0 gap-2">
-                            <MobileQuickChoices
-                                v-if="quickReferences.length"
-                                v-model="itemForm.reference_uuid"
-                                :options="quickReferences"
-                                appearance="reference"
-                            />
-                            <div class="flex flex-wrap gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    class="min-h-11 rounded-full"
-                                    :disabled="
-                                        !itemForm.account_uuid ||
-                                        !itemForm.category_uuid
-                                    "
-                                    @click="
-                                        referenceSearchOpen =
-                                            !referenceSearchOpen
-                                    "
-                                    >{{ ui('Tutti · Cerca') }}</Button
-                                >
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    class="min-h-11 rounded-full"
-                                    :disabled="
-                                        !itemForm.account_uuid ||
-                                        !itemForm.category_uuid
-                                    "
-                                    @click="
-                                        newReferenceOpen = !newReferenceOpen
-                                    "
-                                    >{{ ui('+ Nuovo') }}</Button
-                                >
-                            </div>
-                            <div
-                                v-if="newReferenceOpen"
-                                class="grid min-w-0 gap-2 rounded-2xl border bg-muted/30 p-3"
-                            >
-                                <Label for="credit-debt-reference-name">{{
-                                    ui('Nome controparte / riferimento')
-                                }}</Label>
-                                <Input
-                                    id="credit-debt-reference-name"
-                                    v-model="newReferenceName"
-                                    autocomplete="off"
-                                />
-                                <Label for="credit-debt-reference-website">{{
-                                    ui('Sito web per il logo (opzionale)')
-                                }}</Label>
-                                <Input
-                                    id="credit-debt-reference-website"
-                                    v-model="newReferenceWebsite"
-                                    type="url"
-                                    inputmode="url"
-                                    placeholder="https://esempio.it"
-                                />
-                                <Button
-                                    type="button"
-                                    class="min-h-11 rounded-2xl"
-                                    :disabled="
-                                        creatingReference ||
-                                        !newReferenceName.trim()
-                                    "
-                                    @click="
-                                        createReferenceFromContext(
-                                            newReferenceName,
-                                        )
-                                    "
-                                    >{{ ui('Crea e seleziona') }}</Button
-                                >
-                            </div>
-                        </div>
-                        <MobileSearchableSelect
-                            v-if="!isMobile || referenceSearchOpen"
-                            v-model="itemForm.reference_uuid"
-                            :options="[
-                                {
-                                    value: '',
-                                    label: t('creditsDebts.placeholders.none'),
-                                },
-                                ...selectedAccountReferences,
-                            ]"
-                            :placeholder="
-                                t('creditsDebts.referencePlaceholder')
-                            "
-                            :search-placeholder="
-                                t('creditsDebts.placeholders.searchReference')
-                            "
-                            :empty-label="
-                                t('creditsDebts.placeholders.noSearchResults')
-                            "
-                            :disabled="
-                                itemForm.account_uuid === '' ||
-                                itemForm.category_uuid === ''
-                            "
-                            clearable
-                            creatable
-                            :creating="creatingReference"
-                            :create-label="
-                                t('creditsDebts.createReferenceAction')
-                            "
-                            :teleport="false"
-                            :mobile-title="t('creditsDebts.reference')"
-                            trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                            content-class="z-[260]"
-                            @create-option="createReferenceFromContext"
-                        />
-                        <InputError :message="itemReferenceError" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label>{{ ui('Controparte (opzionale)') }}</Label>
-                        <CounterpartySelect
-                            v-model="itemForm.counterparty_uuid"
-                            :counterparties="localCounterparties"
-                            @created="
-                                (option) => {
-                                    localCounterparties = [
-                                        ...localCounterparties.filter(
-                                            (item) =>
-                                                item.value !== option.value,
-                                        ),
-                                        option,
-                                    ];
-                                }
-                            "
-                            :disabled="(editingItem?.payments_count ?? 0) > 0"
-                            :teleport="false"
-                        />
-                        <InputError
-                            :message="
-                                itemForm.errors.counterparty_uuid ||
-                                (itemForm.errors as Record<string, string>)
-                                    .counterparty_id
-                            "
-                        />
                     </div>
                     <div>
                         <Label for="credit-debt-due-date">{{

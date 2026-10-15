@@ -97,11 +97,11 @@ test('pagination merges transactions ledger entries and repayments before slicin
         'user_id' => $user->id, 'counterparty_id' => $counterparty->id,
         'settled_at' => '2026-09-01', 'amount_cents' => 500, 'direction' => 'me_to_counterparty',
     ]);
-    $this->actingAs($user)->get(route('shared-expenses.index', ['year' => 2026, 'month' => 9]))
+    $this->actingAs($user)->get(route('shared-expenses.index', ['year' => 2026, 'month' => 9, 'effect' => 'all']))
         ->assertSuccessful()->assertInertia(fn (Assert $page) => $page
         ->has('entries', 20)->where('entries.0.uuid', $transaction->uuid)
         ->where('pagination.total', 21));
-    $this->get(route('shared-expenses.index', ['year' => 2026, 'month' => 9, 'page' => 2]))
+    $this->get(route('shared-expenses.index', ['year' => 2026, 'month' => 9, 'effect' => 'all', 'page' => 2]))
         ->assertSuccessful()->assertInertia(fn (Assert $page) => $page
         ->has('entries', 1)->where('entries.0.uuid', $repayment->uuid)
         ->where('entries.0.is_settlement', true)->where('pagination.total', 21));

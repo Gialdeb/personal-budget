@@ -29,6 +29,9 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
+    /** @var array<string, mixed> */
+    protected array $buildSnapshot = [];
+
     public function __construct(
         protected UserYearService $userYearService,
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
@@ -44,33 +47,39 @@ class DashboardService
         string $accountScope = 'all',
         ?string $accountUuid = null,
     ): array {
-        $accountContext = $this->resolveAccountContext($user, $accountScope, $accountUuid);
+        $this->buildSnapshot = [];
 
-        $dashboard = [
-            'filters' => $this->getFiltersData($user, $year, $month, $accountContext),
-            'settings' => $this->getSettingsData($user),
-            'overview' => $this->getOverview($user, $year, $month, $accountContext),
-            'credits_debts' => $this->getCreditsDebtsSummary($user, $accountContext),
-            'pending_actions' => $this->getPendingActions($user, $year, $month, $accountContext),
-            'monthly_trend' => $this->getMonthlyTrend($year, $month, $accountContext),
-            'expense_by_category' => $this->getExpenseByCategory($year, $month, $accountContext),
-            'budget_vs_actual' => $this->getBudgetVsActual($year, $month, $accountContext),
-            'parent_category_budget_status' => $this->getParentCategoryBudgetStatus($year, $month, $accountContext),
-            'accounts_summary' => $this->getAccountsSummary($year, $month, $accountContext),
-            'recurring_summary' => $this->getRecurringSummary($year, $month, $accountContext),
-            'scheduled_summary' => $this->getScheduledSummary($year, $month, $accountContext),
-            'income_by_category' => $this->getIncomeByCategory($year, $month, $accountContext),
-            'merchant_breakdown' => $this->getMerchantBreakdown($year, $month, $accountContext),
-            'notifications' => $this->getNotifications($user, $year, $month, $accountContext),
-            'year_suggestion' => $this->userYearService->buildNextYearSuggestion($user, $year),
-        ];
+        try {
+            $accountContext = $this->resolveAccountContext($user, $accountScope, $accountUuid);
 
-        $dashboard['analysis'] = $this->dashboardAnalysisService->build($dashboard, $year, $month, $accountContext);
+            $dashboard = [
+                'filters' => $this->getFiltersData($user, $year, $month, $accountContext),
+                'settings' => $this->getSettingsData($user),
+                'overview' => $this->getOverview($user, $year, $month, $accountContext),
+                'credits_debts' => $this->getCreditsDebtsSummary($user, $accountContext),
+                'pending_actions' => $this->getPendingActions($user, $year, $month, $accountContext),
+                'monthly_trend' => $this->getMonthlyTrend($year, $month, $accountContext),
+                'expense_by_category' => $this->getExpenseByCategory($year, $month, $accountContext),
+                'budget_vs_actual' => $this->getBudgetVsActual($year, $month, $accountContext),
+                'parent_category_budget_status' => $this->getParentCategoryBudgetStatus($year, $month, $accountContext),
+                'accounts_summary' => $this->getAccountsSummary($year, $month, $accountContext),
+                'recurring_summary' => $this->getRecurringSummary($year, $month, $accountContext),
+                'scheduled_summary' => $this->getScheduledSummary($year, $month, $accountContext),
+                'income_by_category' => $this->getIncomeByCategory($year, $month, $accountContext),
+                'merchant_breakdown' => $this->getMerchantBreakdown($year, $month, $accountContext),
+                'notifications' => $this->getNotifications($user, $year, $month, $accountContext),
+                'year_suggestion' => $this->userYearService->buildNextYearSuggestion($user, $year),
+            ];
 
-        return $this->formatDashboardPayload(
-            $dashboard,
-            $dashboard['settings']['base_currency'] ?? 'EUR'
-        );
+            $dashboard['analysis'] = $this->dashboardAnalysisService->build($dashboard, $year, $month, $accountContext);
+
+            return $this->formatDashboardPayload(
+                $dashboard,
+                $dashboard['settings']['base_currency'] ?? 'EUR'
+            );
+        } finally {
+            $this->buildSnapshot = [];
+        }
     }
 
     protected function getFiltersData(User $user, int $year, ?int $month, array $accountContext): array
@@ -110,14 +119,7 @@ class DashboardService
 
     protected function getOverview(User $user, int $year, ?int $month, array $accountContext): array
     {
-        $periodTransactions = $this->baseTransactionPeriodQuery(
-            $accountContext['account_ids'],
-            $accountContext['owner_ids'],
-            $year,
-            $month,
-        )
-            ->with('category:id,group_type')
-            ->get();
+        $periodTransactions = $this->periodTransactions($accountContext, $year, $month);
 
         $incomeTotal = $this->sumResolvedAggregateAmounts(
             $periodTransactions,
@@ -163,12 +165,7 @@ class DashboardService
             'current_balance_total' => round($balanceSnapshot['current_balance_total'], 2),
             'previous_balance_total' => round($balanceSnapshot['previous_balance_total'], 2),
             'actual_vs_budget_delta' => round($budgetTotal - $expenseTotal, 2),
-            'transactions_count' => $this->baseTransactionPeriodQuery(
-                $accountContext['account_ids'],
-                $accountContext['owner_ids'],
-                $year,
-                $month,
-            )->count(),
+            'transactions_count' => $this->periodTransactions($accountContext, $year, $month)->count(),
             'active_accounts_count' => $accountContext['accounts']
                 ->where('is_active', true)
                 ->count(),
@@ -344,12 +341,7 @@ class DashboardService
 
     protected function getMonthlyTrend(int $year, ?int $month, array $accountContext): array
     {
-        $transactions = $this->baseTransactionPeriodQuery(
-            $accountContext['account_ids'],
-            $accountContext['owner_ids'],
-            $year,
-            $month,
-        )->get();
+        $transactions = $this->periodTransactions($accountContext, $year, $month);
 
         if ($month !== null) {
             return $transactions
@@ -408,15 +400,8 @@ class DashboardService
 
     protected function getExpenseByCategory(int $year, ?int $month, array $accountContext): array
     {
-        $transactions = $this->baseTransactionPeriodQuery(
-            $accountContext['account_ids'],
-            $accountContext['owner_ids'],
-            $year,
-            $month,
-        )
-            ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
-            ->with('category:id,name,name_is_custom,slug,foundation_key')
-            ->get();
+        $transactions = $this->periodTransactions($accountContext, $year, $month)
+            ->where('direction', TransactionDirectionEnum::EXPENSE);
 
         return $transactions
             ->groupBy(fn (Transaction $transaction): string => (string) ($transaction->category_id ?? 0))
@@ -548,6 +533,11 @@ class DashboardService
 
     protected function getRecurringSummary(int $year, ?int $month, array $accountContext): array
     {
+        return $this->buildSnapshot['recurring:'.$year.':'.$month] ??= $this->calculateRecurringSummary($year, $month, $accountContext);
+    }
+
+    protected function calculateRecurringSummary(int $year, ?int $month, array $accountContext): array
+    {
         $query = $this->baseRecurringOccurrencePeriodQuery(
             $accountContext['account_ids'],
             $accountContext['owner_ids'],
@@ -611,6 +601,11 @@ class DashboardService
     }
 
     protected function getScheduledSummary(int $year, ?int $month, array $accountContext): array
+    {
+        return $this->buildSnapshot['scheduled:'.$year.':'.$month] ??= $this->calculateScheduledSummary($year, $month, $accountContext);
+    }
+
+    protected function calculateScheduledSummary(int $year, ?int $month, array $accountContext): array
     {
         $query = $this->baseScheduledPeriodQuery(
             $accountContext['account_ids'],
@@ -708,6 +703,11 @@ class DashboardService
 
     protected function getBalanceSnapshot(int $year, ?int $month, array $accountContext): array
     {
+        return $this->buildSnapshot['balances:'.$year.':'.$month] ??= $this->calculateBalanceSnapshot($year, $month, $accountContext);
+    }
+
+    protected function calculateBalanceSnapshot(int $year, ?int $month, array $accountContext): array
+    {
         [$periodStart, $periodEnd] = $this->resolvePeriodBounds($year, $month);
 
         $activeAccounts = $accountContext['accounts']->where('is_active', true)->values();
@@ -740,6 +740,16 @@ class DashboardService
         ];
     }
 
+    /** @return Collection<int, Transaction> */
+    protected function periodTransactions(array $accountContext, int $year, ?int $month): Collection
+    {
+        $key = 'transactions:'.$year.':'.$month;
+
+        return $this->buildSnapshot[$key] ??= $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'], $accountContext['owner_ids'], $year, $month,
+        )->with(['account', 'category', 'scope', 'merchant:id,name', 'trackedItem:id,name'])->get();
+    }
+
     protected function baseTransactionPeriodQuery(
         array $accountIds,
         array $ownerIds,
@@ -767,15 +777,8 @@ class DashboardService
 
     protected function getIncomeByCategory(int $year, ?int $month, array $accountContext): array
     {
-        $transactions = $this->baseTransactionPeriodQuery(
-            $accountContext['account_ids'],
-            $accountContext['owner_ids'],
-            $year,
-            $month,
-        )
-            ->where('transactions.direction', TransactionDirectionEnum::INCOME->value)
-            ->with('category:id,name,name_is_custom,slug,foundation_key')
-            ->get();
+        $transactions = $this->periodTransactions($accountContext, $year, $month)
+            ->where('direction', TransactionDirectionEnum::INCOME);
 
         return $transactions
             ->groupBy(fn (Transaction $transaction): string => (string) ($transaction->category_id ?? 0))
@@ -802,15 +805,8 @@ class DashboardService
 
     protected function getMerchantBreakdown(int $year, ?int $month, array $accountContext): array
     {
-        $transactions = $this->baseTransactionPeriodQuery(
-            $accountContext['account_ids'],
-            $accountContext['owner_ids'],
-            $year,
-            $month,
-        )
-            ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
-            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name,name_is_custom,slug,foundation_key'])
-            ->get();
+        $transactions = $this->periodTransactions($accountContext, $year, $month)
+            ->where('direction', TransactionDirectionEnum::EXPENSE);
 
         return $transactions
             ->groupBy(function (Transaction $transaction): string {
@@ -1186,6 +1182,11 @@ class DashboardService
      */
     protected function resolvedBudgetComparisonRows(array $accountContext, int $year, ?int $month): Collection
     {
+        return $this->buildSnapshot['budget:'.$year.':'.$month] ??= $this->calculateBudgetComparisonRows($accountContext, $year, $month);
+    }
+
+    protected function calculateBudgetComparisonRows(array $accountContext, int $year, ?int $month): Collection
+    {
         $budgetRows = $this->resolvedVisibleBudgetRows($accountContext, $year, $month)->keyBy('key');
         $actualRows = $this->resolvedActualComparisonRows($accountContext, $year, $month)->keyBy('key');
 
@@ -1274,15 +1275,9 @@ class DashboardService
      */
     protected function resolvedActualComparisonRows(array $accountContext, int $year, ?int $month): Collection
     {
-        return $this->baseTransactionPeriodQuery(
-            $accountContext['account_ids'],
-            $accountContext['owner_ids'],
-            $year,
-            $month,
-        )
-            ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
-            ->with(['account', 'category', 'scope'])
-            ->get()
+        return $this->periodTransactions($accountContext, $year, $month)
+            ->where('direction', TransactionDirectionEnum::EXPENSE)
+
             ->map(function (Transaction $transaction) use ($accountContext): ?array {
                 $referenceCategory = $this->referenceCategoryForTransaction($transaction);
                 $actualTotal = $this->resolveAggregateAmountForTransaction(
@@ -1678,6 +1673,11 @@ class DashboardService
 
     protected function resolveAccountOpeningBalance(Account $account, CarbonImmutable $date): float
     {
+        return $this->buildSnapshot['opening:'.$account->id.':'.$date->toDateString()] ??= $this->calculateAccountOpeningBalance($account, $date);
+    }
+
+    protected function calculateAccountOpeningBalance(Account $account, CarbonImmutable $date): float
+    {
         $openingBalanceTransaction = Transaction::query()
             ->where('account_id', $account->id)
             ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
@@ -1708,6 +1708,11 @@ class DashboardService
     }
 
     protected function resolveAccountBalanceAt(Account $account, CarbonImmutable $date): float
+    {
+        return $this->buildSnapshot['balance:'.$account->id.':'.$date->toDateString()] ??= $this->calculateAccountBalanceAt($account, $date);
+    }
+
+    protected function calculateAccountBalanceAt(Account $account, CarbonImmutable $date): float
     {
         $snapshotBalance = $account->balanceSnapshots()
             ->whereDate('snapshot_date', '<=', $date->toDateString())

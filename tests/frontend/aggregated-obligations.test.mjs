@@ -40,9 +40,9 @@ test('reimbursement mobile form reuses shared quick choices and compiles', () =>
     assert.match(content, /:options="categoryChildren"/);
     assert.match(content, /MobileAmountInput/);
     assert.match(content, /website_url: newReferenceWebsite/);
-    assert.match(content, /grid grid-cols-2 gap-3 py-2/);
-    assert.match(content, /text-2xl font-bold tracking-tight tabular-nums/);
-    assert.match(content, /ui\('Devi a \{name\}'/);
+    assert.match(content, /sm:grid-cols-2/);
+    assert.match(content, /text-2xl font-bold tabular-nums/);
+    assert.match(content, /ui\('Devi a \{name\} \{amount\}'/);
     assert.match(
         content,
         /min-h-11 items-center text-xs font-medium text-primary/,

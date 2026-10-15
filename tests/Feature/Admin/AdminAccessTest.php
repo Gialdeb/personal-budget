@@ -79,7 +79,7 @@ test('admin can access settings and core management areas', function () {
 
     $this->actingAs($user)
         ->get(route('transactions.index'))
-        ->assertRedirect();
+        ->assertOk();
 
     $this->actingAs($user)
         ->get(route('imports.index'))
@@ -136,7 +136,7 @@ test('user can access dashboard but not admin only areas', function () {
 
     $this->actingAs($user)
         ->get(route('transactions.index'))
-        ->assertRedirect();
+        ->assertOk();
 
     $this->actingAs($user)
         ->get(route('imports.index'))

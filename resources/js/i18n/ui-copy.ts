@@ -2,6 +2,71 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    Annullata: 'Cancelled',
+    'Apri movimento': 'Open movement',
+    'La tua quota': 'Your share',
+    'Rimborso ricevuto': 'Reimbursement received',
+    'Saldo complessivo: {amount}': 'Overall balance: {amount}',
+    'Saldo condiviso nullo': 'Shared balance is zero',
+    'Saldi attuali, indipendenti dal periodo del registro. Il riepilogo riguarda solo le spese condivise.':
+        'Current balances, independent of the register period. The summary covers shared expenses only.',
+    'Saldo complessivo con la persona': 'Overall balance with this person',
+    'Altri crediti/debiti': 'Other credits/debts',
+    'Pagamenti da collegare': 'Payments to match',
+    'Vedi situazione completa': 'View complete situation',
+    'Ti deve {amount}': 'They owe you {amount}',
+    'Devi a {name} {amount}': 'You owe {name} {amount}',
+    'Nessun importo da regolare': 'Nothing left to settle',
+    'Da sistemare': 'To settle',
+    Regolate: 'Settled',
+    Regolata: 'Settled',
+    'Parzialmente regolata': 'Partially settled',
+    'Verifica necessaria': 'Review needed',
+    'Rimborso registrato': 'Reimbursement recorded',
+    'Movimenti condivisi': 'Shared movements',
+    'Importo originale da regolare': 'Original amount to settle',
+    Residuo: 'Remaining',
+    Rimborsato: 'Reimbursed',
+    Compensato: 'Offset',
+    'Rimborso effettuato': 'Reimbursement sent',
+    'Quota {name}': '{name}’s share',
+    '{name} ha pagato': '{name} paid',
+    'Persona da verificare': 'Person to review',
+    'La situazione seguente riguarda l’intera ricorrenza, composta da più movimenti.':
+        'The following amounts cover the entire recurring item, made up of several movements.',
+    'Verifica i movimenti e i rimborsi collegati prima di regolare questo importo.':
+        'Review the related movements and reimbursements before settling this amount.',
+    'Per questi movimenti il residuo non è attribuibile con certezza. Restano visibili senza essere indicati come regolati o da pagare.':
+        'The remaining amount cannot be reliably assigned to these movements. They stay visible without being marked as settled or payable.',
+    'Verifica riferimenti': 'Review references',
+    'Alcuni crediti/debiti richiedono la verifica del riferimento. Non sono stati associati automaticamente a una persona.':
+        'Some credits/debts need a reference review. They have not been automatically assigned to anyone.',
+    'Alcuni riferimenti richiedono verifica. Il saldo complessivo va verificato.':
+        'Some references need review. Check the overall balance.',
+    'Registra rimborso spese condivise': 'Record shared-expense reimbursement',
+    'Tutte le persone': 'All people',
+    'Cerca persona': 'Search people',
+    'Situazione dei movimenti': 'Movement status',
+    'movimenti condivisi nel periodo': 'shared movements in this period',
+    'Solo spese condivise e relativi rimborsi. Gli altri crediti/debiti sono nella situazione completa della persona.':
+        'Only shared expenses and related reimbursements. Other credits/debts appear in the person’s complete situation.',
+    'Quanto devi ricevere o pagare per le spese condivise e la situazione completa con ogni persona.':
+        'What you need to receive or pay for shared expenses, and your complete situation with each person.',
+    'Situazione completa': 'Complete situation',
+    'Saldo da verificare: alcuni movimenti richiedono un controllo.':
+        'Balance needs review: some movements need checking.',
+    'Annulla pagamento di {name}': 'Cancel {name}’s payment',
+    'Situazione con {name}': 'Situation with {name}',
+    'Il saldo complessivo comprende spese condivise e altri crediti/debiti, anche fuori dal periodo selezionato.':
+        'The overall balance includes shared expenses and other credits/debts, including those outside the selected period.',
+    'Apri spese condivise e rimborsi':
+        'Open shared expenses and reimbursements',
+    'Ripartisci pagamento': 'Distribute payment',
+    'Modifica ripartizione': 'Edit payment distribution',
+    'Conferma ripartizione': 'Confirm payment distribution',
+    'Cosa stai regolando': 'What you are settling',
+    'Ricevuto da {name}': 'Received from {name}',
+    'Pagato a {name}': 'Paid to {name}',
     'Saldo e storico (sola lettura)': 'Balance and history (read-only)',
     'Spesa condivisa →': 'Shared expense →',
     'Apri rimborso →': 'Open refund →',

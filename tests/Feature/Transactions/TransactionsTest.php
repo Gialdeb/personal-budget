@@ -34,6 +34,7 @@ use App\Services\Categories\CategoryFoundationService;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Recurring\TransactionRefundService;
 use App\Services\Sharing\AccountMembershipLifecycleService;
+use App\Support\Pwa\PwaManifestData;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -53,10 +54,12 @@ test('transactions index follows the active management year instead of the real 
 
     $this->actingAs($user)
         ->get(route('transactions.index'))
-        ->assertRedirect(route('transactions.show', [
-            'year' => 2025,
-            'month' => 5,
-        ]));
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('transactions/Show')
+            ->url('/transactions/2025/5')
+            ->where('year', 2025)
+            ->where('month', 5));
 });
 
 test('transactions month page renders monthly sheet data for the operational layout', function () {
@@ -5004,3 +5007,20 @@ function createRecurringPreviewFixture(
 
     return [$entry, $occurrence->fresh(['recurringEntry'])];
 }
+
+test('transactions landing renders its focused month and canonical inertia URL without a redirect', function () {
+    $user = User::factory()->create();
+    [$account, $category, $trackedItem] = seedTransactionsFixture($user);
+    $transaction = userTransaction($user, $account, [
+        'category_id' => $category->id, 'tracked_item_id' => $trackedItem->id,
+        'transaction_date' => '2025-09-12', 'description' => 'Focused transaction',
+    ]);
+    $this->actingAs($user)->withSession(['dashboard_month' => 5])
+        ->get(route('transactions.index', ['highlight' => $transaction->uuid]), ['X-Inertia' => 'true', 'X-Inertia-Version' => app(PwaManifestData::class)->version()])
+        ->assertSuccessful()
+        ->assertJsonPath('url', '/transactions/2025/9?highlight='.$transaction->uuid)
+        ->assertJsonPath('props.year', 2025)
+        ->assertJsonPath('props.month', 9)
+        ->assertJsonPath('props.monthlySheet.transactions.0.uuid', $transaction->uuid)
+        ->assertJsonPath('props.transactionsNavigation.context.month', 9);
+});

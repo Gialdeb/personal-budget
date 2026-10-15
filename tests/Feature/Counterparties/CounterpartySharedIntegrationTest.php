@@ -226,7 +226,7 @@ test('explicit dry run apply and retry reconcile manual shared and known manual 
     [$user, $party, $account] = sharedLedgerDomain();
     $item = app(CreditDebtItemService::class)->create($user, ['counterparty_id' => $party->id, 'type' => 'credit', 'description' => 'Pregresso', 'total_amount' => '200.00', 'currency_code' => 'EUR', 'due_date' => null]);
     sharedLedgerTransaction($user, $party, $account);
-    $legacyUnassociated = CreditDebtItem::query()->create(['user_id' => $user->id, 'type' => 'credit', 'description' => 'Unassociated', 'total_amount' => '900.00', 'currency_code' => 'EUR']);
+    $legacyUnassociated = legacyCreditDebtItem($user, ['type' => 'credit', 'description' => 'Unassociated', 'total_amount' => '900.00', 'currency_code' => 'EUR']);
     $service = app(CounterpartyBackfillService::class);
     $dry = $service->run($user, $party, 'EUR');
     expect($dry['dry_run'])->toBeTrue()->and($dry['ledger_result_minor'])->toBe(25000)->and($dry['delta_minor'])->toBe(0)->and(CounterpartyObligation::count())->toBe(0)->and(CounterpartyRelation::count())->toBe(0);

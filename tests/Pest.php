@@ -7,10 +7,12 @@ use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
 use App\Models\AccountType;
 use App\Models\Bank;
+use App\Models\CreditDebtItem;
 use App\Models\Scope;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -165,4 +167,21 @@ function userTransaction(User $user, Account $account, array $attributes = []): 
         'status' => TransactionStatusEnum::CONFIRMED->value,
         ...$attributes,
     ]);
+}
+
+/** Seed a pre-Step-2 snapshot before installing the new identity guards. */
+function legacyCreditDebtItem(User $user, array $attributes = []): CreditDebtItem
+{
+    $migration = require base_path('database/migrations/2026_10_15_080945_protect_manual_credit_debt_subject_identity.php');
+    $migration->down();
+    try {
+        $id = DB::table('credit_debt_items')->insertGetId([
+            'uuid' => (string) Str::uuid(), 'user_id' => $user->id, 'type' => 'credit', 'description' => 'Legacy snapshot',
+            'total_amount' => '100.00', 'currency_code' => 'EUR', 'created_at' => now(), 'updated_at' => now(), ...$attributes,
+        ]);
+    } finally {
+        $migration->up();
+    }
+
+    return CreditDebtItem::withTrashed()->findOrFail($id);
 }

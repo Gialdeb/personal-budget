@@ -9,6 +9,7 @@ use App\Services\Counterparties\CounterpartyAuthority;
 use App\Services\Counterparties\CounterpartyProjectionService;
 use App\Services\Counterparties\CounterpartySourceGuard;
 use App\Services\Counterparties\ManualCreditDebtShadowService;
+use App\Services\CreditDebts\ManualEconomicSubjectResolver;
 use App\Support\CurrencyMinorUnits;
 use App\Support\MoneyAmount;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +47,7 @@ class CreditDebtItem extends Model
 
     protected static function booted(): void
     {
+        static::saving(fn (self $item) => app(ManualEconomicSubjectResolver::class)->normalize($item));
         static::updating(fn (self $item) => app(CounterpartySourceGuard::class)->assertChange($item));
         static::deleting(fn (self $item) => app(CounterpartySourceGuard::class)->assertChange($item, true));
         static::saved(function (self $item): void {

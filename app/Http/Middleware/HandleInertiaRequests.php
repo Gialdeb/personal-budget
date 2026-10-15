@@ -20,6 +20,7 @@ use App\Supports\ManagementContextResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -41,6 +42,18 @@ class HandleInertiaRequests extends Middleware
     public function version(Request $request): ?string
     {
         return app(PwaManifestData::class)->version();
+    }
+
+    public function urlResolver(): ?\Closure
+    {
+        if (! request()->routeIs('transactions.index')) {
+            return null;
+        }
+
+        return fn (Request $request): string => $request->attributes->get(
+            'inertia.canonical_url',
+            Str::start(Str::after($request->fullUrl(), $request->getSchemeAndHttpHost()), '/'),
+        );
     }
 
     /**

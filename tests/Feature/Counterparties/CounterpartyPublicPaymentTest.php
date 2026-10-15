@@ -261,9 +261,9 @@ test('active source edits cannot destroy allocated claims and legitimate additio
     $item = $item->fresh();
     $item->update(['total_amount' => '250.00']);
     expect($item->fresh()->remainingAmount())->toBe('150.00')->and(app(CounterpartyReconciliationService::class)->inspect($relation)['readiness'])->toBe('reconciled');
-    $legacy = CreditDebtItem::query()->create(['user_id' => $user->id, 'type' => 'credit', 'description' => 'Pregresso non associato', 'total_amount' => '40.00', 'currency_code' => 'EUR']);
+    $legacy = legacyCreditDebtItem($user, ['type' => 'credit', 'description' => 'Pregresso non associato', 'total_amount' => '40.00', 'currency_code' => 'EUR']);
     $uuid = $legacy->uuid;
-    $legacy->update(['counterparty_id' => $party->id]);
+    $legacy->update(['reference_id' => $party->id]);
     expect($legacy->fresh()->uuid)->toBe($uuid)->and(CounterpartyPayment::count())->toBe(1)->and(Transaction::count())->toBe(1)->and(app(CounterpartyProjectionService::class)->balance($relation))->toBe(24000)
         ->and(app(CounterpartyReconciliationService::class)->inspect($relation)['readiness'])->toBe('reconciled');
 });

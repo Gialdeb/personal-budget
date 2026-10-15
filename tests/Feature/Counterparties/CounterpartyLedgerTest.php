@@ -423,9 +423,9 @@ test('shadow revisions and deletions append history without changing the obligat
 
 test('enabling shadow does not import existing positions payments or new legacy associations', function () {
     [$user, $party, $relation] = counterpartyDomain();
-    $item = CreditDebtItem::factory()->create(['user_id' => $user->id, 'total_amount' => '200.00', 'counterparty_id' => null]);
+    $item = legacyCreditDebtItem($user, ['total_amount' => '200.00']);
     config(['counterparty_ledger.shadow_manual_enabled' => true]);
-    app(CreditDebtItemService::class)->update($user, $item, ['counterparty_id' => $party->id]);
+    app(CreditDebtItemService::class)->update($user, $item, ['reference_id' => $party->id]);
     $account = createTestAccount($user);
     app(CreditDebtPaymentService::class)->create($user, $item, ['amount' => '100.00', 'account_id' => $account->id, 'paid_at' => today()->toDateString()]);
     expect(CounterpartyObligation::count())->toBe(0)->and(CounterpartyLedgerEntry::count())->toBe(0)->and(CounterpartyPayment::count())->toBe(0)->and(Transaction::count())->toBe(1);

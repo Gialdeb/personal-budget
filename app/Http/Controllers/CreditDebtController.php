@@ -339,6 +339,18 @@ class CreditDebtController extends Controller
             ->get(['account_id', 'category_id', 'reference_id'])
             ->groupBy('account_id');
 
+        $references = TrackedItem::query()->ownedBy($request->user()->id)
+            ->where(function (Builder $query) use ($request): void {
+                $query->where('is_active', true)->orWhereIn('id', CreditDebtItem::query()
+                    ->forUser($request->user())->select('reference_id')->whereNotNull('reference_id'));
+            })
+            ->with(['compatibleCategories:id,uuid,parent_id,user_id', 'websiteIdentity'])
+            ->orderBy('name')->get();
+        $referencesByUuid = $references->keyBy('uuid');
+        $referenceOptions = collect($this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection($references))
+            ->map(fn (array $option): array => [...$option, 'is_selectable' => $referencesByUuid->get($option['value'])->is_active])
+            ->all();
+
         return [
             'counterparties' => TrackedItem::query()->ownedBy($request->user()->id)
                 ->where(function ($query) use ($request): void {
@@ -363,10 +375,7 @@ class CreditDebtController extends Controller
                 ->all(),
             'references' => $accounts
                 ->mapWithKeys(fn (Account $account): array => [
-                    $account->uuid => $this->trackedItemOptionsForAccount(
-                        $account,
-                        $usedRelationIdsByAccount->get($account->id, collect())->pluck('reference_id')->filter()->map(fn ($id): int => (int) $id)->all(),
-                    ),
+                    $account->uuid => $referenceOptions,
                 ])
                 ->all(),
             'currencies' => collect(config('currencies.supported', []))
@@ -464,23 +473,5 @@ class CreditDebtController extends Controller
                     ];
                 })
         )->values()->all();
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    protected function trackedItemOptionsForAccount(Account $account, array $usedTrackedItemIds = []): array
-    {
-        return collect(
-            $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(
-                $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account, $usedTrackedItemIds)
-            )
-        )
-            ->map(fn (array $trackedItem): array => [
-                ...$trackedItem,
-                'account_uuid' => $account->uuid,
-            ])
-            ->values()
-            ->all();
     }
 }

@@ -17,11 +17,22 @@ class SharedAccountCategoryTaxonomyService
 {
     public function isSharedAccount(Account $account): bool
     {
-        return AccountMembership::query()
+        $request = request();
+        $key = self::class.':shared:'.$account->id.':'.$account->user_id;
+        if ($request->isMethod('GET') && $request->attributes->has($key)) {
+            return $request->attributes->get($key);
+        }
+
+        $shared = AccountMembership::query()
             ->where('account_id', $account->id)
             ->where('status', AccountMembershipStatusEnum::ACTIVE->value)
             ->where('user_id', '!=', $account->user_id)
             ->exists();
+        if ($request->isMethod('GET')) {
+            $request->attributes->set($key, $shared);
+        }
+
+        return $shared;
     }
 
     public function hasAccountScopedCatalog(Account $account): bool

@@ -57,10 +57,11 @@ test('recurring conversion focuses its actual transaction repeatedly on desktop 
         $url = 'http://127.0.0.1:'.$port;
         $environment = ['APP_MAINTENANCE_DRIVER' => 'cache', 'APP_MAINTENANCE_STORE' => 'array', 'APP_ENV' => 'testing', 'APP_URL' => $url, 'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $database, 'DB_URL' => '', 'CACHE_STORE' => 'array', 'SESSION_DRIVER' => 'database', 'SESSION_DOMAIN' => '', 'SESSION_SECURE_COOKIE' => 'false', 'BROADCAST_CONNECTION' => 'log', 'QUEUE_CONNECTION' => 'sync', 'NIGHTWATCH_ENABLED' => 'false', 'RECAPTCHA_V3_ENABLED' => 'false'];
         $server = new Process([PHP_BINARY, 'artisan', 'serve', '--host=127.0.0.1', '--port='.$port, '--no-reload'], base_path(), $environment, timeout: 240);
+        $server->disableOutput();
         $server->start();
         $browser = new Process(['node', base_path('tests/frontend/recurring-focus-browser.mjs')], base_path(), ['RECURRING_BROWSER_URL' => $url, 'RECURRING_BROWSER_FIXTURES' => json_encode($fixtures, JSON_THROW_ON_ERROR), 'RECURRING_BROWSER_WIDTH' => (string) $width, 'RECURRING_BROWSER_STANDALONE' => $standalone ? 'true' : 'false'], timeout: 200);
         $browser->run();
-        expect($browser->isSuccessful())->toBeTrue($browser->getErrorOutput().$browser->getOutput().$server->getErrorOutput());
+        expect($browser->isSuccessful())->toBeTrue($browser->getErrorOutput().$browser->getOutput());
         expect(Transaction::count())->toBe(148);
         fwrite(STDOUT, $browser->getOutput());
     } finally {

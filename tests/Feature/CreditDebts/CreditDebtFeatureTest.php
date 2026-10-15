@@ -180,7 +180,8 @@ test('credits debts edit options retain inactive category and reference already 
         'slug' => 'controparte-archiviata',
         'is_active' => false,
     ]);
-    $item = CreditDebtItem::factory()->forAccount($account)->create([
+    $item = legacyCreditDebtItem($user, [
+        'account_id' => $account->id,
         'category_id' => $category->id,
         'reference_id' => $reference->id,
         'due_date' => '2026-05-20',
@@ -331,6 +332,7 @@ test('an authenticated user can create credits and debts without changing accoun
 
     $response = $this->actingAs($user)->postJson(route('credits-debts.store'), [
         'type' => $type,
+        'reference_id' => TrackedItem::query()->create(['user_id' => $user->id, 'name' => 'Economic subject', 'slug' => fake()->uuid(), 'is_active' => true])->id,
         'description' => 'Posizione puntuale',
         'total_amount' => '120.00',
         'currency_code' => 'EUR',
@@ -529,7 +531,7 @@ test('payment validation blocks foreign item account currency mismatch and overp
         ->assertJsonValidationErrors(['amount']);
 });
 
-test('a credit with a deleted legacy reference can still be settled without a foreign key error', function () {
+test('a credit with an orphaned legacy subject requires review before settlement', function () {
     $user = User::factory()->create(['base_currency_code' => 'EUR']);
     $account = createTestAccount($user, [
         'currency_code' => 'EUR',
@@ -543,14 +545,14 @@ test('a credit with a deleted legacy reference can still be settled without a fo
         'slug' => 'riferimento-eliminato',
         'is_active' => true,
     ]);
-    $item = CreditDebtItem::factory()->forAccount($account)->create([
+    DB::table('tracked_items')->where('id', $reference->id)->delete();
+    $item = legacyCreditDebtItem($user, [
+        'account_id' => $account->id,
         'type' => CreditDebtTypeEnum::CREDIT->value,
         'description' => 'Credito legacy',
         'total_amount' => '150.00',
-        'reference_id' => $reference->id,
+        'reference_id' => null,
     ]);
-
-    DB::table('tracked_items')->where('id', $reference->id)->delete();
 
     expect($item->fresh()->reference_id)->toBeNull();
 
@@ -560,14 +562,12 @@ test('a credit with a deleted legacy reference can still be settled without a fo
             'account_id' => $account->id,
             'paid_at' => '2026-08-26',
         ])
-        ->assertSuccessful();
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('reference_id');
 
-    $transaction = Transaction::query()->sole();
-
-    expect($transaction->tracked_item_id)->toBeNull()
-        ->and($transaction->direction)->toBe(TransactionDirectionEnum::INCOME)
-        ->and(CreditDebtPayment::query()->count())->toBe(1)
-        ->and($account->fresh()->current_balance)->toBe('150.00');
+    expect(Transaction::query()->count())->toBe(0)
+        ->and(CreditDebtPayment::query()->count())->toBe(0)
+        ->and($account->fresh()->current_balance)->toBe('0.00');
 });
 
 test('an insufficient cash balance returns a form error and rolls back the debt payment', function () {

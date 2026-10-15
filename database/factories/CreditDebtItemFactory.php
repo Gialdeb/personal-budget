@@ -6,6 +6,7 @@ use App\Enums\CreditDebtTypeEnum;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\CreditDebtItem;
+use App\Models\TrackedItem;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -22,7 +23,10 @@ class CreditDebtItemFactory extends Factory
         return [
             'uuid' => (string) Str::uuid(),
             'user_id' => User::factory(),
-            'reference_id' => null,
+            'reference_id' => fn (array $attributes) => $attributes['counterparty_id'] ?? TrackedItem::create([
+                'user_id' => $attributes['user_id'], 'name' => 'Economic subject '.Str::uuid(), 'slug' => (string) Str::uuid(),
+                'is_active' => true, 'settings' => ['economic_subject' => true],
+            ])->id,
             'account_id' => null,
             'category_id' => null,
             'type' => CreditDebtTypeEnum::CREDIT->value,

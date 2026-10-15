@@ -34,6 +34,27 @@ if (width < 600) {
     });
 }
 
+await context.route('https://www.gstatic.com/firebasejs/**', (route) =>
+    route.fulfill({
+        contentType: 'text/javascript',
+        body: 'self.firebase={initializeApp(){}, messaging:()=>({onBackgroundMessage(){}})};',
+    }),
+);
+await context.addInitScript(() => {
+    localStorage.setItem(
+        'soamco-budget-cookie-consent',
+        JSON.stringify({
+            version: 1,
+            updatedAt: new Date().toISOString(),
+            preferences: {
+                necessary: true,
+                preferences: false,
+                analytics: false,
+                marketing: false,
+            },
+        }),
+    );
+});
 const page = await context.newPage();
 page.setDefaultTimeout(10000);
 const errors = [];
@@ -46,7 +67,7 @@ const claim = (title) =>
 try {
     for (let i = 0; i < 40; i++) {
         try {
-            await page.goto(url + '/login');
+            await page.goto(url + '/login', { waitUntil: 'domcontentloaded' });
             break;
         } catch (error) {
             if (i === 39) {
@@ -57,19 +78,15 @@ try {
         }
     }
 
-    const essentialCookies = page.getByRole('button', {
-        name: /Solo necessari|Solo essenziali|Rifiuta/,
-    });
-
-    if (await essentialCookies.count()) {
-        await essentialCookies.first().click();
-    }
-
     await page.locator('#email').fill('counterparty-browser@example.test');
     await page.locator('#password').fill('password');
     await page.locator('form button[type=submit]').click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'));
-    await page.waitForLoadState('networkidle');
+    await page.waitForURL((u) => !u.pathname.includes('/login'), {
+        waitUntil: 'domcontentloaded',
+    });
+    await page
+        .getByRole('button', { name: /Apri menu utente|Open user menu/ })
+        .waitFor();
     await page.goto(url + '/credits-debts');
     await page.getByText('Credito iniziale', { exact: true }).first().click();
 
@@ -81,7 +98,7 @@ try {
     } else {
         await page
             .getByRole('link', {
-                name: 'Emanuela · EUR · Saldo e pagamento comune',
+                name: 'Saldo e pagamenti · EUR',
                 exact: true,
             })
             .click();
@@ -105,13 +122,13 @@ try {
         .getByText('Residuo: 50,00 EUR', { exact: true })
         .waitFor();
     await page
-        .getByRole('button', { name: 'Gestisci allocazione', exact: true })
+        .getByRole('button', { name: 'Ripartisci pagamento', exact: true })
         .last()
         .click();
     await page.getByLabel('Credito iniziale', { exact: true }).fill('50.00');
     await page.getByLabel('Cena', { exact: true }).fill('50.00');
     await page
-        .getByRole('button', { name: 'Conferma allocazione', exact: true })
+        .getByRole('button', { name: 'Conferma ripartizione', exact: true })
         .click();
     await page
         .getByRole('heading', { name: 'Registra pagamento', exact: true })
@@ -127,12 +144,11 @@ try {
         .waitFor();
     await page.goto(url + '/shared-expenses');
     await page
-        .getByRole('link', {
-            name: 'Emanuela · EUR · Saldo e pagamento comune',
-            exact: true,
-        })
+        .getByRole('heading', { name: 'Emanuela', exact: true })
+        .locator('..')
+        .getByRole('link', { name: 'Vedi situazione completa', exact: true })
         .click();
-    assert.equal(await page.locator('#common-scope').inputValue(), 'shared');
+    assert.equal(await page.locator('#common-scope').inputValue(), 'all');
     assert.ok(
         await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth,
@@ -199,6 +215,9 @@ try {
         .waitFor();
     // A delayed real Inertia navigation must show feedback before its response arrives.
     await page.waitForLoadState('networkidle');
+    await page.waitForFunction(
+        () => navigator.serviceWorker.controller !== null,
+    );
     assert.equal(
         await page.evaluate(() => navigator.serviceWorker.controller !== null),
         true,

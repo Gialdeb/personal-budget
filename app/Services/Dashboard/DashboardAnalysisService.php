@@ -147,19 +147,24 @@ class DashboardAnalysisService
             ->withSum('payments as paid_amount_sum', 'amount')
             ->get(['id', 'type', 'total_amount', 'currency_code', 'due_date']);
 
+        $transactionsByMonth = $transactions->groupBy(fn (Transaction $transaction): ?string => $transaction->transaction_date?->format('Y-m'));
+        $occurrencesByMonth = $occurrences->groupBy(fn (RecurringEntryOccurrence $occurrence): ?string => $occurrence->expected_date?->format('Y-m'));
+        $scheduledByMonth = $scheduled->groupBy(fn (ScheduledEntry $entry): ?string => $entry->scheduled_date?->format('Y-m'));
+        $creditDebtsByMonth = $creditDebts->groupBy(fn (CreditDebtItem $item): ?string => $item->due_date?->format('Y-m'));
+
         $periods = collect();
         for ($period = $start->startOfMonth(); $period->lte($end); $period = $period->addMonth()) {
             $periods->push($period);
         }
 
-        $points = $periods->map(function (CarbonImmutable $period) use ($accountContext, $creditDebts, $occurrences, $scheduled, $selected, $today, $transactions): array {
+        $points = $periods->map(function (CarbonImmutable $period) use ($accountContext, $creditDebtsByMonth, $occurrencesByMonth, $scheduledByMonth, $selected, $today, $transactionsByMonth): array {
             $key = $period->format('Y-m');
-            $actual = $transactions->filter(fn (Transaction $transaction): bool => $transaction->transaction_date?->format('Y-m') === $key);
+            $actual = $transactionsByMonth->get($key, collect());
             $actualIncome = $this->sumTransactions($actual, $accountContext['base_currency'], TransactionDirectionEnum::INCOME);
             $actualExpense = $this->sumTransactions($actual, $accountContext['base_currency'], TransactionDirectionEnum::EXPENSE);
-            $recurring = $occurrences->filter(fn (RecurringEntryOccurrence $occurrence): bool => $occurrence->expected_date?->format('Y-m') === $key);
-            $planned = $scheduled->filter(fn (ScheduledEntry $entry): bool => $entry->scheduled_date?->format('Y-m') === $key);
-            $due = $creditDebts->filter(fn (CreditDebtItem $item): bool => $item->due_date?->format('Y-m') === $key);
+            $recurring = $occurrencesByMonth->get($key, collect());
+            $planned = $scheduledByMonth->get($key, collect());
+            $due = $creditDebtsByMonth->get($key, collect());
             $recurringExpense = $this->sumOccurrences($recurring, $accountContext['base_currency'], TransactionDirectionEnum::EXPENSE, RecurringEntryTypeEnum::RECURRING);
             $installmentExpense = $this->sumOccurrences($recurring, $accountContext['base_currency'], TransactionDirectionEnum::EXPENSE, RecurringEntryTypeEnum::INSTALLMENT);
             $recurringIncome = $this->sumOccurrences($recurring, $accountContext['base_currency'], TransactionDirectionEnum::INCOME);

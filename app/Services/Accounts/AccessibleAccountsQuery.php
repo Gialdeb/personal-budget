@@ -141,6 +141,12 @@ class AccessibleAccountsQuery
      */
     public function get(User|int $user, string $scope = 'all', ?string $accountUuid = null): Collection
     {
+        $snapshotKey = self::class.':accounts:'.json_encode([$user instanceof User ? $user->id : $user, $scope, $accountUuid]);
+        $request = request();
+        if ($request->isMethod('GET') && $request->attributes->has($snapshotKey)) {
+            return $request->attributes->get($snapshotKey)->map(fn (Account $account): Account => clone $account);
+        }
+
         $accounts = $this->query($user, $scope, $accountUuid)
             ->with([
                 'bank:id,uuid,name,display_name',
@@ -149,7 +155,12 @@ class AccessibleAccountsQuery
             ])
             ->get();
 
-        return AccountDisplayOrder::sort($accounts);
+        $accounts = AccountDisplayOrder::sort($accounts);
+        if ($request->isMethod('GET')) {
+            $request->attributes->set($snapshotKey, $accounts->map(fn (Account $account): Account => clone $account));
+        }
+
+        return $accounts;
     }
 
     /**

@@ -18,6 +18,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\CreditDebts\CounterpartyBalanceService;
+use App\Services\CreditDebts\ManualEconomicSubjectResolver;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\SharedExpenses\SharedExpenseSettlementService;
 use App\Support\CurrencyMinorUnits;
@@ -51,7 +52,7 @@ class CounterpartyReconciliationService
             throw ValidationException::withMessages(['counterparty' => 'Invalid economic ownership.']);
         }
         $relation = CounterpartyRelation::query()->where(['user_id' => $user->id, 'counterparty_id' => $counterparty->id, 'currency_code' => $currency])->first();
-        $anomalies = [];
+        $anomalies = app(ManualEconomicSubjectResolver::class)->relationIssues($user, $counterparty, $currency);
         $convert = function (string $amount, string $source) use ($currency, &$anomalies): ?int {
             try {
                 return CurrencyMinorUnits::fromDecimal($amount, $currency);
@@ -209,7 +210,7 @@ class CounterpartyReconciliationService
         $blocking = collect($anomalies)->filter(fn (array $anomaly): bool => ! in_array($anomaly['code'], ['ineffective_legacy_settlement', 'unallocated_payment'], true) || ($anomaly['code'] === 'unallocated_payment' && ! $anomaly['acknowledged']));
         $missing = collect($anomalies)->whereIn('code', ['legacy_obligation_not_captured', 'legacy_payment_not_captured']);
         $hardErrors = $blocking->reject(fn (array $anomaly): bool => in_array($anomaly['code'], ['legacy_obligation_not_captured', 'legacy_payment_not_captured'], true) || ($missing->isNotEmpty() && $anomaly['code'] === 'legacy_ledger_mismatch'));
-        $readiness = $relation === null ? ($issues === [] ? 'not_migrated' : 'blocked') : ($hardErrors->isNotEmpty() ? 'blocked' : ($missing->isNotEmpty() ? 'shadowing' : ($delta === 0 && $internal['consistent'] ? 'reconciled' : 'blocked')));
+        $readiness = $relation === null ? ($issues === [] && $hardErrors->isEmpty() ? 'not_migrated' : 'blocked') : ($hardErrors->isNotEmpty() ? 'blocked' : ($missing->isNotEmpty() ? 'shadowing' : ($delta === 0 && $internal['consistent'] ? 'reconciled' : 'blocked')));
         $ledgerEntries = $relation?->ledgerEntries()->orderBy('id')->get()->toArray() ?? [];
 
         return ['relation_uuid' => $relation?->uuid, 'currency_code' => $currency, 'migration_state' => $relation?->migration_state, 'readiness' => $readiness,

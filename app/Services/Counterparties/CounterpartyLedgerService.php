@@ -14,12 +14,14 @@ use App\Models\CounterpartyLedgerEntry;
 use App\Models\CounterpartyObligation;
 use App\Models\CounterpartyPayment;
 use App\Models\CounterpartyRelation;
+use App\Models\CreditDebtItem;
 use App\Models\CreditDebtPayment;
 use App\Models\SharedExpenseSettlement;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\CreditDebts\ManualEconomicSubjectResolver;
 use App\Support\CurrencyMinorUnits;
 use App\Support\MoneyAmount;
 use Closure;
@@ -393,6 +395,7 @@ class CounterpartyLedgerService
     private function locked(CounterpartyRelation $relation, Closure $operation): mixed
     {
         return DB::transaction(function () use ($relation, $operation): mixed {
+            TrackedItem::query()->whereKey($relation->counterparty_id)->lockForUpdate()->firstOrFail();
             $relation = CounterpartyRelation::query()->lockForUpdate()->findOrFail($relation->id);
             $party = $relation->counterparty;
             $this->require($party !== null && $party->user_id === $relation->user_id && $party->account_id === null, 'relation', 'Invalid economic ownership.');
@@ -414,6 +417,12 @@ class CounterpartyLedgerService
 
     private function validateSource(CounterpartyRelation $relation, SourceType $sourceType, string $sourceIdentity, ?int $obligationId = null): void
     {
+        if ($sourceType === SourceType::CREDIT_DEBT_ITEM) {
+            $item = CreditDebtItem::withTrashed()->where('uuid', $sourceIdentity)->lockForUpdate()->first();
+            $this->require($item !== null && app(ManualEconomicSubjectResolver::class)->consistent($item)
+                && $item->user_id === $relation->user_id && $item->counterparty_id === $relation->counterparty_id && $item->currency_code === $relation->currency_code, 'source', 'Manual source economic subject does not match its relation.');
+            $this->require(! CounterpartyObligation::query()->where('source_type', $sourceType->value)->where('source_identity', $sourceIdentity)->when($obligationId !== null, fn ($query) => $query->where('id', '!=', $obligationId))->exists(), 'source', 'Manual source already belongs to a ledger obligation.');
+        }
         $query = $relation->ledgerEntries()->where('source_type', $sourceType->value)->where('source_identity', $sourceIdentity)->whereNotNull('obligation_id');
         if ($obligationId !== null) {
             $query->where('obligation_id', '!=', $obligationId);

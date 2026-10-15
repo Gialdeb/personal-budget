@@ -53,7 +53,7 @@ class TransactionsController extends Controller
         protected WebsiteLogoService $websiteLogoService
     ) {}
 
-    public function index(Request $request): RedirectResponse
+    public function index(Request $request): Response|RedirectResponse|JsonResponse
     {
         $user = $request->user();
         ['year' => $year] = $this->managementContextResolver->resolveDashboard($request, $user);
@@ -63,10 +63,10 @@ class TransactionsController extends Controller
             session('dashboard_month')
         );
 
-        return redirect()->route('transactions.show', [
-            'year' => $year,
-            'month' => $month,
-        ]);
+        $request->route()->setParameter('year', $year);
+        $request->route()->setParameter('month', $month);
+
+        return $this->show($request);
     }
 
     public function show(Request $request): Response|RedirectResponse|JsonResponse
@@ -84,12 +84,20 @@ class TransactionsController extends Controller
             $month = $focusedTransaction->transaction_date->month;
         }
 
-        if ((int) $request->route('year') !== $year || (int) $request->route('month') !== $month) {
+        if (! $request->routeIs('transactions.index') && ((int) $request->route('year') !== $year || (int) $request->route('month') !== $month)) {
             return redirect()->route('transactions.show', [
                 ...$request->query(),
                 'year' => $year,
                 'month' => $month,
             ]);
+        }
+
+        if ($request->routeIs('transactions.index')) {
+            $request->route()->setParameter('year', $year);
+            $request->route()->setParameter('month', $month);
+            $request->attributes->set('inertia.canonical_url', route('transactions.show', [
+                ...$request->query(), 'year' => $year, 'month' => $month,
+            ], absolute: false));
         }
 
         $this->managementContextResolver->persist($user, $year, $month);
@@ -224,7 +232,12 @@ class TransactionsController extends Controller
             'category_uuid' => ['required', 'uuid'],
             'type_key' => ['required', 'string', 'in:income,expense,bill,debt,saving'],
             'website_url' => ['nullable', 'string', 'max:2048'],
+            'context' => ['nullable', 'string', 'in:credit_debt'],
         ]);
+
+        if (($validated['context'] ?? null) === 'credit_debt') {
+            abort_unless((bool) config('features.credits_debts.enabled'), 404);
+        }
 
         $account = $this->accessibleAccountsQuery
             ->editable($request->user())
@@ -264,7 +277,7 @@ class TransactionsController extends Controller
         $trackedItem = DB::transaction(function () use ($request, $account, $category, $validated, $websiteAttributes): TrackedItem {
             $slug = Str::slug((string) $validated['name']);
 
-            if ($this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account)) {
+            if (($validated['context'] ?? null) !== 'credit_debt' && $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account)) {
                 $trackedItem = TrackedItem::query()
                     ->sharedForAccount($account->id)
                     ->where('slug', $slug)
@@ -354,6 +367,7 @@ class TransactionsController extends Controller
                 'is_active' => true,
                 'settings' => [
                     ...$settings,
+                    ...(($validated['context'] ?? null) === 'credit_debt' ? ['economic_subject' => true] : []),
                     'transaction_group_keys' => $groupKeys,
                     'transaction_category_uuids' => $categoryUuids,
                 ],
@@ -367,7 +381,9 @@ class TransactionsController extends Controller
         });
 
         return response()->json([
-            'item' => $this->trackedItemOptionPayloadForAccount($account, $trackedItem),
+            'item' => ($validated['context'] ?? null) === 'credit_debt'
+                ? $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(collect([$trackedItem]))[0]
+                : $this->trackedItemOptionPayloadForAccount($account, $trackedItem),
         ]);
     }
 

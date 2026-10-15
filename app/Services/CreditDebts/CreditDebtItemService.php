@@ -3,6 +3,7 @@
 namespace App\Services\CreditDebts;
 
 use App\Models\CreditDebtItem;
+use App\Models\TrackedItem;
 use App\Models\User;
 use App\Services\Counterparties\ManualCreditDebtShadowService;
 use App\Support\MoneyAmount;
@@ -20,7 +21,7 @@ class CreditDebtItemService
     {
         abort_unless((bool) config('features.credits_debts.enabled'), 404);
 
-        unset($data['counterparty_uuid']);
+        unset($data['counterparty_uuid'], $data['reference_uuid']);
 
         return DB::transaction(function () use ($user, $data): CreditDebtItem {
             $item = CreditDebtItem::query()->create([...$data, 'user_id' => $user->id]);
@@ -40,8 +41,19 @@ class CreditDebtItemService
         $this->ensureOwnedBy($user, $item);
 
         return DB::transaction(function () use ($user, $item, $data): CreditDebtItem {
+            $preview = $item->fresh();
+            TrackedItem::query()->ownedBy($user->id)->whereIn('id', array_filter([$preview->reference_id, $preview->counterparty_id, $data['reference_id'] ?? null, $data['counterparty_id'] ?? null]))->orderBy('id')->lockForUpdate()->get();
             $item = CreditDebtItem::query()->forUser($user)->lockForUpdate()->findOrFail($item->id);
-            unset($data['counterparty_uuid']);
+            if ($item->reference_id !== $preview->reference_id || $item->counterparty_id !== $preview->counterparty_id) {
+                throw ValidationException::withMessages(['reference_id' => 'Il soggetto è cambiato. Ricarica la posizione.']);
+            }
+            unset($data['counterparty_uuid'], $data['reference_uuid']);
+
+            $candidate = clone $item;
+            $candidate->fill($data);
+            app(ManualEconomicSubjectResolver::class)->normalize($candidate, array_key_exists('counterparty_id', $data));
+            $data['reference_id'] = $candidate->reference_id;
+            $data['counterparty_id'] = $candidate->counterparty_id;
 
             if ($item->payments()->exists()) {
                 if (array_key_exists('counterparty_id', $data) && ($data['counterparty_id'] === null ? null : (int) $data['counterparty_id']) !== $item->counterparty_id) {

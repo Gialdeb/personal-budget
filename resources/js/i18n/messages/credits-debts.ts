@@ -16,9 +16,9 @@ export const creditsDebtsMessages = {
         periodTotal: 'Nel periodo',
         detailDescription:
             'Dettaglio del credito o debito selezionato, con scadenza, importi residui e cronologia dei pagamenti.',
-        searchPlaceholder: 'Cerca per controparte, importo, nota...',
+        searchPlaceholder: 'Cerca per riferimento, importo, nota...',
         searchPlaceholderExtended:
-            'Cerca per controparte, descrizione, importo, nota...',
+            'Cerca per riferimento, descrizione, importo, nota...',
         filter: 'Filtra',
         year: 'Anno',
         month: 'Mese',
@@ -67,6 +67,17 @@ export const creditsDebtsMessages = {
         total: 'Totale',
         currency: 'Valuta',
         reference: 'Riferimento',
+        referenceName: 'Nome del riferimento',
+        referenceRequired: 'Seleziona un riferimento valido.',
+        referenceMissing:
+            'Completa il riferimento per modificare questo credito/debito.',
+        referenceReviewRequired:
+            'Verifica il riferimento prima di modificare questo credito/debito.',
+        referenceLocked:
+            'Il riferimento non può essere cambiato perché sono presenti pagamenti o uno storico collegato.',
+        owedToYou: '{name} ti deve',
+        youOwe: 'Devi a {name}',
+        balanceAndPayments: 'Saldo e pagamenti',
         referencePlaceholder: 'Cerca o crea riferimento',
         createReferenceAction: 'Crea riferimento',
         createReference: 'Crea “{name}”',
@@ -160,9 +171,9 @@ export const creditsDebtsMessages = {
         periodTotal: 'In period',
         detailDescription:
             'Details for the selected credit or debt, including due date, remaining amounts, and payment history.',
-        searchPlaceholder: 'Search by counterparty, amount, note...',
+        searchPlaceholder: 'Search by reference, amount, note...',
         searchPlaceholderExtended:
-            'Search by counterparty, description, amount, note...',
+            'Search by reference, description, amount, note...',
         filter: 'Filter',
         year: 'Year',
         month: 'Month',
@@ -211,6 +222,17 @@ export const creditsDebtsMessages = {
         total: 'Total',
         currency: 'Currency',
         reference: 'Reference',
+        referenceName: 'Reference name',
+        referenceRequired: 'Select a valid reference.',
+        referenceMissing:
+            'Complete the reference before editing this credit/debt.',
+        referenceReviewRequired:
+            'Review the reference before editing this credit/debt.',
+        referenceLocked:
+            'The reference cannot be changed because payments or related history already exist.',
+        owedToYou: '{name} owes you',
+        youOwe: 'You owe {name}',
+        balanceAndPayments: 'Balance and payments',
         referencePlaceholder: 'Search or create reference',
         createReferenceAction: 'Create reference',
         createReference: 'Create “{name}”',

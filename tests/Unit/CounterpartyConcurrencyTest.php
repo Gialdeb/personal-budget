@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\CounterpartyObligation;
 use App\Models\CounterpartyPayment;
 use App\Models\CounterpartyRelation;
 use App\Models\CreditDebtItem;
@@ -12,7 +13,10 @@ use App\Models\User;
 use App\Services\Counterparties\CounterpartyBackfillService;
 use App\Services\Counterparties\CounterpartyPaymentService;
 use App\Services\Counterparties\CounterpartyProjectionService;
+use App\Services\CreditDebts\CreditDebtItemService;
+use App\Services\CreditDebts\CreditDebtPaymentService;
 use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\Models\Activity;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -100,3 +104,78 @@ test('a legacy request waiting on the counterparty lock cannot write after concu
         $worker->stop();
     }
 })->with(['manual', 'shared']);
+
+test('concurrent subject alignment applies once without creating economic facts', function () {
+    $user = User::factory()->create();
+    $pino = TrackedItem::create(['user_id' => $user->id, 'name' => 'Pino', 'slug' => fake()->uuid(), 'is_active' => true, 'settings' => ['economic_subject' => true]]);
+    $mario = TrackedItem::create(['user_id' => $user->id, 'name' => 'Mario', 'slug' => fake()->uuid(), 'is_active' => true]);
+    $item = legacyCreditDebtItem($user, ['reference_id' => $pino->id, 'counterparty_id' => $mario->id, 'total_amount' => '280.00']);
+    $bootstrap = 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();';
+    $code = $bootstrap.'echo json_encode(app(App\\Services\\CreditDebts\\AlignManualEconomicSubjects::class)->item(App\\Models\\User::findOrFail('.$user->id.'),'.var_export($item->uuid, true).',true));';
+    $workers = [];
+    foreach (range(1, 2) as $index) {
+        $worker = new Process([PHP_BINARY, '-r', $code], base_path(), ['APP_ENV' => 'testing', 'DB_CONNECTION' => 'pgsql', 'DB_DATABASE' => config('database.connections.pgsql.database'), 'DB_HOST' => config('database.connections.pgsql.host'), 'DB_PORT' => (string) config('database.connections.pgsql.port'), 'DB_USERNAME' => config('database.connections.pgsql.username'), 'DB_PASSWORD' => config('database.connections.pgsql.password') ?? '', 'DB_URL' => '', 'CACHE_STORE' => 'array', 'SESSION_DRIVER' => 'array', 'BROADCAST_CONNECTION' => 'log', 'NIGHTWATCH_ENABLED' => 'false'], timeout: 30);
+        $worker->start();
+        $workers[] = $worker;
+    }
+    $statuses = [];
+    foreach ($workers as $worker) {
+        $worker->wait();
+        expect($worker->isSuccessful())->toBeTrue($worker->getErrorOutput());
+        $statuses[] = json_decode($worker->getOutput(), true, flags: JSON_THROW_ON_ERROR)['status'];
+    }
+    expect($statuses)->toContain('applied', 'unchanged')->and($item->fresh()->counterparty_id)->toBe($pino->id)
+        ->and(Activity::where('event', 'economic_subject_aligned')->count())->toBe(1)
+        ->and(Transaction::count())->toBe(0)->and(CreditDebtPayment::withTrashed()->count())->toBe(0)
+        ->and(CounterpartyObligation::count())->toBe(0);
+});
+
+test('subject edits and manual payments serialize on the same economic subject', function (string $first) {
+    config(['features.credits_debts.enabled' => true, 'counterparty_ledger.shadow_manual_enabled' => false]);
+    $user = User::factory()->create();
+    $account = createTestAccount($user);
+    $original = TrackedItem::create(['user_id' => $user->id, 'name' => 'Mario', 'slug' => fake()->uuid(), 'is_active' => true]);
+    $target = TrackedItem::create(['user_id' => $user->id, 'name' => 'Pino', 'slug' => fake()->uuid(), 'is_active' => true]);
+    $item = CreditDebtItem::factory()->forAccount($account)->create(['reference_id' => $original->id]);
+    $workerName = 'subject_race_'.fake()->uuid();
+    $bootstrap = 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); config(["features.credits_debts.enabled"=>true,"counterparty_ledger.shadow_manual_enabled"=>false]); Illuminate\\Support\\Facades\\DB::select("select set_config(?, ?, false)",["application_name",'.var_export($workerName, true).']); $user=App\\Models\\User::findOrFail('.$user->id.'); $item=App\\Models\\CreditDebtItem::findOrFail('.$item->id.');';
+    $payment = 'app(App\\Services\\CreditDebts\\CreditDebtPaymentService::class)->create($user,$item,["amount"=>"25.00","paid_at"=>"2026-10-15","account_id"=>'.$account->id.']);';
+    $edit = 'app(App\\Services\\CreditDebts\\CreditDebtItemService::class)->update($user,$item,["reference_id"=>'.$target->id.']);';
+    $code = $bootstrap.'try {'.($first === 'edit' ? $payment : $edit).'echo "unexpected-write";} catch(Illuminate\\Validation\\ValidationException $e) {echo json_encode($e->errors());}';
+    $worker = new Process([PHP_BINARY, '-r', $code], base_path(), ['APP_ENV' => 'testing', 'DB_CONNECTION' => 'pgsql', 'DB_DATABASE' => config('database.connections.pgsql.database'), 'DB_HOST' => config('database.connections.pgsql.host'), 'DB_PORT' => (string) config('database.connections.pgsql.port'), 'DB_USERNAME' => config('database.connections.pgsql.username'), 'DB_PASSWORD' => config('database.connections.pgsql.password') ?? '', 'DB_URL' => '', 'CACHE_STORE' => 'array', 'SESSION_DRIVER' => 'array', 'BROADCAST_CONNECTION' => 'log', 'NIGHTWATCH_ENABLED' => 'false'], timeout: 30);
+    DB::beginTransaction();
+    try {
+        TrackedItem::whereKey($original->id)->lockForUpdate()->firstOrFail();
+        $worker->start();
+        $waiting = false;
+        for ($attempt = 0; $attempt < 100; $attempt++) {
+            DB::select('select pg_stat_clear_snapshot()');
+            $waiting = (bool) DB::selectOne('select exists(select 1 from pg_stat_activity where application_name = ? and wait_event_type = ?) as waiting', [$workerName, 'Lock'])->waiting;
+            if ($waiting) {
+                break;
+            }
+            usleep(50000);
+        }
+        expect($waiting)->toBeTrue('Worker must wait on the actual subject lock. '.$worker->getErrorOutput());
+        if ($first === 'edit') {
+            app(CreditDebtItemService::class)->update($user, $item, ['reference_id' => $target->id]);
+        } else {
+            app(CreditDebtPaymentService::class)->create($user, $item, ['amount' => '25.00', 'paid_at' => '2026-10-15', 'account_id' => $account->id]);
+        }
+        DB::commit();
+        $worker->wait();
+        expect($worker->isSuccessful())->toBeTrue($worker->getErrorOutput())->and($worker->getOutput())->not->toContain('unexpected-write');
+        expect($item->fresh()->counterparty_id)->toBe($first === 'edit' ? $target->id : $original->id)
+            ->and($item->fresh()->reference_id)->toBe($item->fresh()->counterparty_id)
+            ->and(CreditDebtPayment::count())->toBe($first === 'edit' ? 0 : 1)
+            ->and(Transaction::count())->toBe($first === 'edit' ? 0 : 1);
+        if ($first === 'payment') {
+            expect(Transaction::sole()->tracked_item_id)->toBe($original->id);
+        }
+    } finally {
+        if (DB::transactionLevel() > 0) {
+            DB::rollBack();
+        }
+        $worker->stop();
+    }
+})->with(['edit', 'payment']);

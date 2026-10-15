@@ -47,6 +47,8 @@ class CreditDebtPaymentService
                 ->lockForUpdate()
                 ->findOrFail($item->id);
 
+            app(ManualEconomicSubjectResolver::class)->assertConsistent($lockedItem);
+
             if ((string) $lockedItem->counterparty_id !== (string) $item->counterparty_id) {
                 throw ValidationException::withMessages(['counterparty' => 'La controparte è cambiata. Ricarica la posizione prima di registrare il pagamento.']);
             }

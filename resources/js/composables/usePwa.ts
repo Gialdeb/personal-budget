@@ -277,7 +277,13 @@ function attachGlobalListeners(): void {
     }
 
     if (controllerChangeHandler === null) {
+        let hadController = navigator.serviceWorker.controller !== null;
+
         controllerChangeHandler = () => {
+            const hasController = navigator.serviceWorker.controller !== null;
+            const updateActivated = hadController && hasController;
+            hadController = hasController;
+
             if (consumeReloadOnActivateFlag()) {
                 window.location.reload();
 
@@ -286,7 +292,7 @@ function attachGlobalListeners(): void {
 
             waitingWorker.value = null;
             isApplyingUpdate.value = false;
-            isUpdateReady.value = true;
+            isUpdateReady.value = updateActivated;
         };
 
         navigator.serviceWorker.addEventListener(
