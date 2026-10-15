@@ -2,6 +2,11 @@
 
 return [
     'validation' => [
+        'reference_confirmation_required' => 'Explicitly confirm the reference before saving this older credit/debt.',
+        'reference_confirmation_invalid' => 'Select an active personal reference belonging to you.',
+        'reference_confirmation_payments' => 'This credit/debt already has recorded payments, including cancelled payments. Its reference cannot be confirmed or changed here until the payment history has been reviewed.',
+        'reference_confirmation_captured' => 'This credit/debt is already linked to a recorded financial position. Its reference cannot be confirmed or changed here until the existing links have been reviewed and corrected.',
+        'reference_confirmation_deleted' => 'This credit/debt was deleted and cannot be confirmed.',
         'counterparty_in_use' => 'The counterparty has linked movements or obligations. You can deactivate it, but cannot delete it.',
         'settlement_direction_changed' => 'The balance changed direction. Cancel the settlement and record it again.',
         'settlement_currency_mismatch' => 'The settlement account must use EUR.',

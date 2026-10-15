@@ -98,6 +98,30 @@ class CreditDebtItem extends Model
         return $this->belongsTo(TrackedItem::class, 'counterparty_id');
     }
 
+    public function scopeConfirmedEconomicIdentity(Builder $query): void
+    {
+        $query->whereNotNull('credit_debt_items.reference_id')->whereColumn('credit_debt_items.reference_id', 'credit_debt_items.counterparty_id')
+            ->whereHas('reference', fn (Builder $reference): Builder => $reference->whereNull('account_id')
+                ->whereColumn('tracked_items.user_id', 'credit_debt_items.user_id'));
+    }
+
+    public function scopeWithReferenceConfirmationHistory(Builder $query): void
+    {
+        $query->withExists([
+            'payments as reference_has_payment_history' => fn (Builder $payments): Builder => $payments->withTrashed(),
+        ]);
+        $cast = in_array($query->getConnection()->getDriverName(), ['mysql', 'mariadb'], true) ? 'char' : 'text';
+        foreach ([CounterpartyObligation::class, CounterpartyLedgerEntry::class, CounterpartySourceLink::class] as $index => $model) {
+            $capture = $model::query()->selectRaw('1')->where('source_type', 'credit_debt_item');
+            if ($model === CounterpartySourceLink::class) {
+                $capture->whereColumn('source_identity', 'credit_debt_items.uuid');
+            } else {
+                $capture->whereRaw('source_identity = cast(credit_debt_items.uuid as '.$cast.')');
+            }
+            $query->addSelect(['reference_capture_'.$index => $capture->limit(1)]);
+        }
+    }
+
     public function activeCommonObligation(): HasOne
     {
         return $this->hasOne(CounterpartyObligation::class, 'source_identity', 'uuid')

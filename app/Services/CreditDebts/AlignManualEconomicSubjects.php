@@ -12,6 +12,26 @@ class AlignManualEconomicSubjects
 {
     public function __construct(private readonly ManualEconomicSubjectResolver $resolver) {}
 
+    /** Called by the item update transaction with the item and reference rows locked. */
+    public function confirmReference(User $user, CreditDebtItem $item, int $referenceId): void
+    {
+        $party = TrackedItem::query()->ownedBy($user->id)->whereNull('account_id')->whereKey($referenceId)->first();
+        if ($party === null || ! $party->is_active || $item->user_id !== $user->id) {
+            throw ValidationException::withMessages(['reference_id' => __('credit_debts.validation.reference_confirmation_invalid')]);
+        }
+        if ($reason = $this->resolver->confirmationBlockReason($item)) {
+            throw ValidationException::withMessages(['reference_id' => $reason]);
+        }
+        $before = ['reference_id' => $item->reference_id, 'counterparty_id' => $item->counterparty_id];
+        $after = ['reference_id' => $referenceId, 'counterparty_id' => $referenceId];
+        $party->update(['settings' => [...($party->settings ?? []), 'economic_subject' => true]]);
+        DB::table('credit_debt_items')->where('id', $item->id)->update($after);
+        activity('credit_debts')->causedBy($user)->performedOn($item)->event('economic_subject_aligned')
+            ->withProperties(['item_uuid' => $item->uuid, 'mode' => 'user_confirmation', 'timestamp' => now()->toIso8601String(), 'before' => $before, 'after' => $after])
+            ->log('credit_debt.economic_subject_aligned');
+        $item->refresh();
+    }
+
     /** @return array<string, mixed> */
     public function item(User $user, string $uuid, bool $apply = false): array
     {

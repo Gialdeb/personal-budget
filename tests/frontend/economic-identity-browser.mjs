@@ -11,7 +11,7 @@ const browser = await chromium.launch({ headless: true, channel: 'chrome' });
 let activePage;
 
 try {
-    for (const name of ['A', 'B', 'C', 'D']) {
+    for (const name of Object.keys(fixtures)) {
         const context = await browser.newContext({
             viewport: { width, height: 900 },
             isMobile: width < 600,
@@ -100,6 +100,126 @@ try {
             true,
             `${name}: no shared overflow`,
         );
+
+        if (name === 'R') {
+            assert.equal(
+                await page
+                    .getByRole('heading', {
+                        name: 'Roberta Delta',
+                        exact: true,
+                    })
+                    .count(),
+                0,
+            );
+            await page.goto(origin + '/credits-debts', {
+                waitUntil: 'domcontentloaded',
+            });
+            await page
+                .getByRole('button')
+                .filter({ hasText: 'Roberta Delta' })
+                .filter({ hasText: 'Conferma riferimento' })
+                .click();
+            const dialog = page.getByRole('dialog');
+            assert.equal(
+                await dialog
+                    .getByText(
+                        'Questo è un credito/debito precedente. Conferma che Roberta Delta è il riferimento corretto.',
+                        { exact: true },
+                    )
+                    .count(),
+                1,
+            );
+            await dialog
+                .getByRole('button', {
+                    name: 'Conferma Roberta Delta',
+                    exact: true,
+                })
+                .click();
+            await dialog
+                .getByText(
+                    'Riferimento confermato. Salva per completare la modifica.',
+                    { exact: true },
+                )
+                .waitFor();
+            const saved = page.waitForResponse(
+                (response) =>
+                    response.request().method() === 'PUT' &&
+                    response.url().includes(fixtures.R.item),
+            );
+            await dialog
+                .getByRole('button', { name: 'Aggiorna', exact: true })
+                .click();
+            assert.ok((await saved).status() < 400);
+            await dialog.waitFor({ state: 'hidden' });
+            await page.goto(origin + '/shared-expenses', {
+                waitUntil: 'domcontentloaded',
+            });
+            const heading = page.getByRole('heading', {
+                name: 'Roberta Delta',
+                exact: true,
+            });
+            await heading.waitFor();
+            assert.equal(await heading.count(), 1);
+            const relationship = heading.locator('..');
+            const copy = (await relationship.innerText()).replace(/\s/g, '');
+            assert.ok(copy.includes('350,00'), copy);
+            assert.ok(copy.includes('Creditomanuale'), copy);
+            assert.ok(copy.includes('Nessunaspesacondivisaregistrata'), copy);
+            assert.equal(
+                await page
+                    .getByRole('heading', {
+                        name: 'Da confermare',
+                        exact: true,
+                    })
+                    .count(),
+                0,
+            );
+            assert.equal(
+                await page.evaluate(
+                    () => document.documentElement.scrollWidth <= innerWidth,
+                ),
+                true,
+            );
+            await relationship.screenshot({
+                path:
+                    '/private/tmp/roberta-relationship-' +
+                    width +
+                    '-' +
+                    standalone +
+                    '.png',
+            });
+            await relationship
+                .getByRole('link', {
+                    name: 'Vedi situazione completa',
+                    exact: true,
+                })
+                .click();
+            await page
+                .getByRole('heading', {
+                    name: 'Situazione con Roberta Delta',
+                    exact: true,
+                })
+                .waitFor();
+            await page.waitForFunction(
+                () => navigator.serviceWorker.controller !== null,
+            );
+            assert.equal(errors.length, 0, errors.join('\n'));
+            console.log(
+                JSON.stringify({
+                    case: 'Roberta',
+                    width,
+                    standalone,
+                    confirmed: true,
+                    balance: '350.00',
+                    manualOnly: true,
+                    serviceWorker: true,
+                    errors: 0,
+                }),
+            );
+            await context.close();
+            continue;
+        }
+
         const card = page
             .getByRole('heading', { name: 'Mario Rossi', exact: true })
             .locator('..');
@@ -114,7 +234,7 @@ try {
             );
             assert.ok(
                 copy.includes('Spesecondivise') &&
-                    copy.includes('Altricrediti/debiti'),
+                    copy.includes('Crediti/debitimanuali'),
                 copy,
             );
 
@@ -126,7 +246,7 @@ try {
                 await page
                     .getByRole('heading', { name: 'Pino Mauro', exact: true })
                     .count(),
-                0,
+                name === 'A' ? 1 : 0,
             );
             await card
                 .getByRole('link', {

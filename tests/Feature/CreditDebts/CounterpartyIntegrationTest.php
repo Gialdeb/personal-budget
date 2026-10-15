@@ -294,7 +294,7 @@ test('counterparty-only manual balances keep their shared card visible without s
     $counterparty = integrationCounterparty($user);
     CreditDebtItem::factory()->create(['user_id' => $user->id, 'counterparty_id' => $counterparty->id, 'total_amount' => '200.00']);
     $this->actingAs($user)->get(route('shared-expenses.index', ['year' => now()->year, 'month' => now()->month, 'effect' => 'all']))->assertInertia(fn (Assert $page) => $page
-        ->has('entries', 0)->has('visibleCounterparties', 0)->where("balances.{$counterparty->uuid}", 0)->where("counterpartyBalances.{$counterparty->uuid}.0.total_cents", 20000));
+        ->has('entries', 0)->has('visibleCounterparties', 1)->where("balances.{$counterparty->uuid}", 0)->where("counterpartyBalances.{$counterparty->uuid}.0.total_cents", 20000));
 });
 
 test('transaction UI hides generic actions for manual payments and shared settlements', function (string $source) {

@@ -11,6 +11,8 @@ class UpdateCreditDebtItemRequest extends StoreCreditDebtItemRequest
     {
         $rules = parent::rules();
 
+        $rules['confirm_reference'] = ['sometimes', 'boolean'];
+
         $rules['type'][0] = 'sometimes';
         $rules['description'][0] = 'sometimes';
         $rules['total_amount'][0] = 'sometimes';

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SharedExpenses\StoreSharedExpenseCounterpartyRequest;
+use App\Models\CounterpartyRelation;
 use App\Models\CreditDebtItem;
 use App\Models\SharedExpenseLedgerEntry;
 use App\Models\SharedExpenseSettlement;
@@ -50,22 +51,30 @@ class SharedExpenseController extends Controller
         $dateFrom = $request->date('date_from')?->toDateString();
         $dateTo = $request->date('date_to')?->toDateString();
         $effect = $request->has('effect') ? $request->string('effect')->toString() : ($entryUuid ? 'all' : 'pending');
-        $counterparties = TrackedItem::query()->sharedExpenseHistory($user->id)->orderBy('name')->get(['id', 'uuid', 'user_id', 'account_id', 'name', 'is_active', 'is_shared_expense_counterpart']);
-        $counterpartyIds = $counterparties->pluck('id');
         $accountIds = $this->accessibleAccountsQuery->get($user)->pluck('id');
         $sharedPeople = TrackedItem::query()->ownedBy($user->id)
             ->where(function ($query) use ($user, $accountIds): void {
                 $query->whereIn('id', Transaction::query()->whereIn('account_id', $accountIds)->select('shared_expense_counterparty_id')->whereNotNull('shared_expense_counterparty_id'))
-                    ->orWhereIn('id', SharedExpenseLedgerEntry::query()->where('user_id', $user->id)->select('counterparty_id'))
-                    ->orWhereIn('id', SharedExpenseSettlement::query()->where('user_id', $user->id)->select('counterparty_id'));
+                    ->orWhereIn('id', SharedExpenseLedgerEntry::query()->where('user_id', $user->id)->select('counterparty_id'));
             })->pluck('id');
+        $manualItems = CreditDebtItem::query()->forUser($user)->with('reference')->withCount('payments')->get();
+        $resolver = app(ManualEconomicSubjectResolver::class);
+        $confirmedManualItems = $manualItems->filter(fn (CreditDebtItem $item): bool => $resolver->consistent($item))->groupBy('counterparty_id');
+        $settlementPeople = SharedExpenseSettlement::query()->where('user_id', $user->id)->pluck('counterparty_id');
+        $paymentPeople = CounterpartyRelation::query()->where('user_id', $user->id)->whereNotNull('activated_at')
+            ->whereHas('payments')->pluck('counterparty_id');
+        $economicPeople = $sharedPeople->merge($confirmedManualItems->keys())->merge($settlementPeople)->merge($paymentPeople)->unique();
+        $counterparties = TrackedItem::query()->ownedBy($user->id)
+            ->where(fn ($query) => $query->where('is_shared_expense_counterpart', true)->orWhereIn('id', $economicPeople))
+            ->orderBy('name')->get(['id', 'uuid', 'user_id', 'account_id', 'name', 'is_active', 'is_shared_expense_counterpart']);
+        $counterpartyIds = $counterparties->pluck('id');
         $unassignedRepayments = SharedExpenseSettlement::query()->where('user_id', $user->id)
             ->whereIn('counterparty_id', $counterpartyIds)->with(['transaction.refundTransaction', 'transaction.account'])->get()
             ->filter(fn (SharedExpenseSettlement $settlement): bool => $this->sharedExpenseSettlementService->settlementEffectCents($settlement) !== 0)
             ->pluck('counterparty_id')->unique();
-        $manualReferenceIssues = CreditDebtItem::query()->forUser($user)->with('reference')->get()
-            ->reject(fn (CreditDebtItem $item): bool => app(ManualEconomicSubjectResolver::class)->consistent($item))
-            ->map(fn (CreditDebtItem $item): array => ['reference_uuid' => $item->reference?->uuid, 'counterparty_id' => $item->counterparty_id])->values();
+        $manualReferenceIssues = $manualItems
+            ->reject(fn (CreditDebtItem $item): bool => $resolver->consistent($item))
+            ->map(fn (CreditDebtItem $item): array => ['reference_uuid' => $item->reference?->uuid])->values();
         $editableAccounts = $this->accessibleAccountsQuery->getEditable($user);
         $transactions = Transaction::query()
             ->whereIn('account_id', $accountIds)
@@ -267,11 +276,10 @@ class SharedExpenseController extends Controller
             'selectedEntryUuid' => $entryUuid,
             'filters' => ['month' => $month, 'year' => $year, 'counterparty' => $counterpartyUuid, 'search' => $search, 'date_from' => $dateFrom, 'date_to' => $dateTo, 'effect' => $effect],
             'counterparties' => $counterparties->filter(fn (TrackedItem $item): bool => $item->is_active && $item->is_shared_expense_counterpart)->map(fn (TrackedItem $item) => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
-            'historicalCounterparties' => $counterparties->whereIn('id', $sharedPeople)->map(fn (TrackedItem $item): array => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
+            'historicalCounterparties' => $counterparties->whereIn('id', $economicPeople)->map(fn (TrackedItem $item): array => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
             'entries' => $paginator->items(),
             'reviewEntries' => $effect === 'all' || $effect === '' ? [] : $reviewEntries,
-            'referenceReviewPeople' => $counterparties->filter(fn (TrackedItem $item): bool => $manualReferenceIssues->contains(fn (array $issue): bool => $issue['reference_uuid'] === $item->uuid || $issue['counterparty_id'] === $item->id))->pluck('uuid'),
-            'unresolvedReferenceCount' => $manualReferenceIssues->count(),
+            'referenceReviewPeople' => $counterparties->filter(fn (TrackedItem $item): bool => $manualReferenceIssues->contains(fn (array $issue): bool => $issue['reference_uuid'] === $item->uuid))->pluck('uuid'),
             'pagination' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),
@@ -281,9 +289,20 @@ class SharedExpenseController extends Controller
             ],
             'counterpartyEntryCounts' => $entryCounts->all(),
             'visibleCounterparties' => $counterparties
-                ->whereIn('id', $sharedPeople)
-                ->filter(fn (TrackedItem $item): bool => ($entryCounts[$item->uuid] ?? 0) > 0 || $item->uuid === $counterpartyUuid || collect($counterpartyBalances[$item->uuid] ?? [])->contains(fn (array $balance): bool => $balance['shared_cents'] !== 0 || $balance['total_cents'] !== 0))
+                ->whereIn('id', $economicPeople)
                 ->map(fn (TrackedItem $item): array => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
+            'relationshipOrigins' => $counterparties->mapWithKeys(function (TrackedItem $item) use ($confirmedManualItems, $sharedPeople, $settlementPeople, $paymentPeople): array {
+                $manual = $confirmedManualItems->get($item->id, collect());
+                $origins = $manual->map(fn (CreditDebtItem $position): string => 'manual_'.$position->type->value);
+                if ($sharedPeople->contains($item->id)) {
+                    $origins->push('shared');
+                }
+                if ($manual->sum('payments_count') > 0 || $settlementPeople->contains($item->id) || $paymentPeople->contains($item->id)) {
+                    $origins->push('payments');
+                }
+
+                return [$item->uuid => $origins->unique()->values()->all()];
+            }),
             'balances' => $balances,
             'commonRelations' => app(CounterpartyViewService::class)->forUser($request->user()),
             'counterpartyBalances' => $counterpartyBalances,

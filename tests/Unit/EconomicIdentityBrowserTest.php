@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\Category;
+use App\Models\CounterpartyObligation;
 use App\Models\CreditDebtItem;
 use App\Models\TrackedItem;
+use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
@@ -21,13 +23,18 @@ test('economic identity and shared UX work in desktop mobile and standalone brow
     try {
         $this->artisan('migrate:fresh', ['--force' => true])->assertSuccessful();
         $fixtures = [];
-        foreach (['A', 'B', 'C', 'D'] as $case) {
+        foreach (explode(',', getenv('ECONOMIC_BROWSER_CASES') ?: 'A,B,C,D,R') as $case) {
             $user = User::factory()->create(['email' => 'economic-'.strtolower($case).'@example.test', 'locale' => 'it', 'base_currency_code' => 'EUR']);
             $account = createTestAccount($user, ['name' => 'Conto verifica', 'opening_balance' => 1000, 'current_balance' => 1000]);
-            Category::create(['user_id' => $user->id, 'name' => 'Entrate verifica', 'slug' => 'entrate-verifica', 'direction_type' => 'income', 'group_type' => 'income', 'is_active' => true, 'is_selectable' => true]);
+            $category = Category::create(['user_id' => $user->id, 'name' => 'Entrate verifica', 'slug' => 'entrate-verifica', 'direction_type' => 'income', 'group_type' => 'income', 'is_active' => true, 'is_selectable' => true]);
             $mario = TrackedItem::create(['user_id' => $user->id, 'name' => 'Mario Rossi', 'slug' => 'mario', 'is_active' => true, 'is_shared_expense_counterpart' => true]);
             $pino = TrackedItem::create(['user_id' => $user->id, 'name' => 'Pino Mauro', 'slug' => 'pino', 'is_active' => true, 'settings' => ['economic_subject' => true]]);
-            if ($case !== 'D') {
+            if ($case === 'R') {
+                $roberta = TrackedItem::create(['user_id' => $user->id, 'name' => 'Roberta Delta', 'slug' => 'roberta', 'is_active' => true]);
+                $legacy = legacyCreditDebtItem($user, ['reference_id' => $roberta->id, 'description' => 'Credito Roberta', 'total_amount' => '350.00', 'account_id' => $account->id, 'category_id' => $category->id]);
+                $unconfirmed = TrackedItem::create(['user_id' => $user->id, 'name' => 'Da confermare', 'slug' => 'da-confermare', 'is_active' => true]);
+                legacyCreditDebtItem($user, ['reference_id' => $unconfirmed->id, 'counterparty_id' => $roberta->id, 'total_amount' => '99.00']);
+            } elseif ($case !== 'D') {
                 userTransaction($user, $account, ['description' => 'Pulizie casa', 'amount' => $case === 'C' ? 40 : 122, 'shared_expense_counterparty_id' => $mario->id, 'shared_expense_paid_by' => $case === 'C' ? 'counterparty' : 'self', 'shared_expense_my_share_cents' => $case === 'C' ? 2000 : 6100, 'shared_expense_counterparty_share_cents' => $case === 'C' ? 2000 : 6100]);
                 CreditDebtItem::factory()->forAccount($account)->create(['description' => 'Posizione manuale', 'reference_id' => $case === 'A' ? $pino->id : $mario->id, 'type' => $case === 'C' ? 'debit' : 'credit', 'total_amount' => $case === 'C' ? 100 : 280]);
             } else {
@@ -40,6 +47,10 @@ test('economic identity and shared UX work in desktop mobile and standalone brow
                 legacyCreditDebtItem($user, ['description' => 'Riferimento da completare']);
             }
             $fixtures[$case] = ['email' => $user->email, 'mario' => $mario->uuid, 'pino' => $pino->uuid];
+            if ($case === 'R') {
+                $fixtures[$case]['roberta'] = $roberta->uuid;
+                $fixtures[$case]['item'] = $legacy->uuid;
+            }
         }
         $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
         $port = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
@@ -53,6 +64,13 @@ test('economic identity and shared UX work in desktop mobile and standalone brow
         $browser->run();
         expect($browser->isSuccessful())->toBeTrue($browser->getErrorOutput().$browser->getOutput());
         fwrite(STDOUT, $browser->getOutput());
+        if (array_keys($fixtures) === ['R']) {
+            $confirmed = CreditDebtItem::where('uuid', $fixtures['R']['item'])->sole();
+            expect($confirmed->reference_id)->toBe($confirmed->counterparty_id)
+                ->and($confirmed->reference->isEconomicSubject())->toBeTrue()
+                ->and(Transaction::count())->toBe(0)
+                ->and(CounterpartyObligation::count())->toBe(0);
+        }
         if (getenv('ECONOMIC_BROWSER_INTERACTIVE') && $width === 1440) {
             $manifest = getenv('ECONOMIC_BROWSER_SESSION') ?: sys_get_temp_dir().'/economic-browser-session.json';
             file_put_contents($manifest, json_encode(['url' => $url, 'fixtures' => $fixtures], JSON_THROW_ON_ERROR));

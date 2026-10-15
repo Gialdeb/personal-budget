@@ -22,6 +22,7 @@ use App\Support\CurrencyMinorUnits;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     config(['features.credits_debts.enabled' => true, 'counterparty_ledger.shadow_manual_enabled' => false]);
@@ -421,11 +422,22 @@ test('shadow revisions and deletions append history without changing the obligat
         ->and(app(CounterpartyReconciliationService::class)->inspect($relation)['delta_minor'])->toBe(0);
 });
 
-test('enabling shadow does not import existing positions payments or new legacy associations', function () {
+test('enabling shadow does not import positions or payments when a legacy reference is explicitly confirmed', function () {
     [$user, $party, $relation] = counterpartyDomain();
     $item = legacyCreditDebtItem($user, ['total_amount' => '200.00']);
     config(['counterparty_ledger.shadow_manual_enabled' => true]);
-    app(CreditDebtItemService::class)->update($user, $item, ['reference_id' => $party->id]);
+    $service = app(CreditDebtItemService::class);
+    expect(fn () => $service->update($user, $item, ['reference_id' => $party->id]))->toThrow(ValidationException::class);
+    expect($item->fresh()->reference_id)->toBeNull()->and($item->fresh()->counterparty_id)->toBeNull()
+        ->and(Activity::where('event', 'economic_subject_aligned')->count())->toBe(0);
+    $uuid = $item->uuid;
+    $service->update($user, $item, ['reference_id' => $party->id, 'confirm_reference' => true]);
+    expect($item->fresh()->reference_id)->toBe($party->id)->and($item->fresh()->counterparty_id)->toBe($party->id)
+        ->and($item->fresh()->uuid)->toBe($uuid)->and($item->fresh()->total_amount)->toBe('200.00')
+        ->and($party->fresh()->isEconomicSubject())->toBeTrue()
+        ->and(Activity::where('event', 'economic_subject_aligned')->count())->toBe(1)
+        ->and(CounterpartyObligation::count())->toBe(0)->and(CounterpartyLedgerEntry::count())->toBe(0)
+        ->and(CounterpartyPayment::count())->toBe(0)->and(Transaction::count())->toBe(0);
     $account = createTestAccount($user);
     app(CreditDebtPaymentService::class)->create($user, $item, ['amount' => '100.00', 'account_id' => $account->id, 'paid_at' => today()->toDateString()]);
     expect(CounterpartyObligation::count())->toBe(0)->and(CounterpartyLedgerEntry::count())->toBe(0)->and(CounterpartyPayment::count())->toBe(0)->and(Transaction::count())->toBe(1);

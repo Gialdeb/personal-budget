@@ -3017,7 +3017,10 @@ test('a shared occurrence chooses its actual payer independently of the plan def
         expect(Transaction::query()->sole()->shared_expense_paid_by)->toBe('self')
             ->and($occurrence->fresh()->sharedExpenseLedgerEntry)->toBeNull();
     }
-})->with(['self', 'counterparty']);
+})->with([
+    'paid by the user' => ['self'],
+    'paid by the reference' => ['counterparty'],
+]);
 
 test('partial counterparty payments accumulate on the linked ledger until the occurrence is settled', function () {
     $this->travelTo(CarbonImmutable::parse('2026-01-15'));

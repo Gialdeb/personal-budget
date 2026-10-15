@@ -72,7 +72,13 @@ export const creditsDebtsMessages = {
         referenceMissing:
             'Completa il riferimento per modificare questo credito/debito.',
         referenceReviewRequired:
-            'Verifica il riferimento prima di modificare questo credito/debito.',
+            'Questo è un credito/debito precedente. Conferma che {name} è il riferimento corretto.',
+        confirmReferenceAction: 'Conferma riferimento',
+        confirmNamedReference: 'Conferma {name}',
+        referenceConfirmedPendingSave:
+            'Riferimento confermato. Salva per completare la modifica.',
+        referenceConfirmationRequired:
+            'Conferma il riferimento con il pulsante prima di salvare.',
         referenceLocked:
             'Il riferimento non può essere cambiato perché sono presenti pagamenti o uno storico collegato.',
         owedToYou: '{name} ti deve',
@@ -227,7 +233,13 @@ export const creditsDebtsMessages = {
         referenceMissing:
             'Complete the reference before editing this credit/debt.',
         referenceReviewRequired:
-            'Review the reference before editing this credit/debt.',
+            'This is an older credit/debt. Confirm that {name} is the correct reference.',
+        confirmReferenceAction: 'Confirm reference',
+        confirmNamedReference: 'Confirm {name}',
+        referenceConfirmedPendingSave:
+            'Reference confirmed. Save to complete the update.',
+        referenceConfirmationRequired:
+            'Confirm the reference using the button before saving.',
         referenceLocked:
             'The reference cannot be changed because payments or related history already exist.',
         owedToYou: '{name} owes you',

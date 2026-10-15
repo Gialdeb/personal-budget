@@ -42,7 +42,7 @@ class CounterpartyBalanceService
     public function legacyBalance(User $user, TrackedItem $counterparty, string $currency): array
     {
         abort_unless($counterparty->user_id === $user->id && $counterparty->account_id === null, 404);
-        $items = CreditDebtItem::query()->forUser($user)->where('counterparty_id', $counterparty->id)
+        $items = CreditDebtItem::query()->forUser($user)->confirmedEconomicIdentity()->where('counterparty_id', $counterparty->id)
             ->where('currency_code', $currency)->with('payments')->get();
         $manual = $items->sum(fn (CreditDebtItem $item): int => $item->legacyRemainingCents() * ($item->type === CreditDebtTypeEnum::CREDIT ? 1 : -1));
         $shared = $this->sharedBalances->legacyBalanceCents($user, $counterparty, $currency);
@@ -56,8 +56,8 @@ class CounterpartyBalanceService
      */
     public function forUser(User $user, ?Collection $counterparties = null): array
     {
-        $counterparties ??= TrackedItem::query()->sharedExpenseHistory($user->id)->orderBy('name')->get();
-        $manualCurrencies = CreditDebtItem::query()->forUser($user)->whereNotNull('counterparty_id')
+        $counterparties ??= TrackedItem::query()->economicRelationshipHistory($user->id)->orderBy('name')->get();
+        $manualCurrencies = CreditDebtItem::query()->forUser($user)->confirmedEconomicIdentity()
             ->with('payments')->get()->groupBy('counterparty_id');
         $transactionCurrencies = Transaction::query()->whereIn('account_id', $this->accounts->ids($user))
             ->whereIn('shared_expense_counterparty_id', $counterparties->pluck('id'))->with('refundTransaction')->get()->groupBy('shared_expense_counterparty_id');
@@ -75,6 +75,8 @@ class CounterpartyBalanceService
                 ->concat(($manualCurrencies[$counterparty->id] ?? collect())->pluck('currency_code'))
                 ->concat(($transactionCurrencies[$counterparty->id] ?? collect())->pluck('currency'))
                 ->concat(($ledgerCurrencies[$counterparty->id] ?? collect())->pluck('currency'))
+                ->concat($activeRelations->where('counterparty_id', $counterparty->id)->pluck('currency_code'))
+                ->concat(($settlements[$counterparty->id] ?? collect())->map(fn ($settlement) => $settlement->transaction?->currency)->filter())
                 ->unique()->sort()->values();
 
             return [$counterparty->uuid => $currencies->map(function (string $currency) use ($user, $counterparty, $manualCurrencies, $transactionCurrencies, $ledgerCurrencies, $settlements, $activeRelations, $allocation): array {

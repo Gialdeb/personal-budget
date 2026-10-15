@@ -21,7 +21,7 @@ class CreditDebtItemService
     {
         abort_unless((bool) config('features.credits_debts.enabled'), 404);
 
-        unset($data['counterparty_uuid'], $data['reference_uuid']);
+        unset($data['confirm_reference'], $data['counterparty_uuid'], $data['reference_uuid']);
 
         return DB::transaction(function () use ($user, $data): CreditDebtItem {
             $item = CreditDebtItem::query()->create([...$data, 'user_id' => $user->id]);
@@ -47,11 +47,27 @@ class CreditDebtItemService
             if ($item->reference_id !== $preview->reference_id || $item->counterparty_id !== $preview->counterparty_id) {
                 throw ValidationException::withMessages(['reference_id' => 'Il soggetto è cambiato. Ricarica la posizione.']);
             }
-            unset($data['counterparty_uuid'], $data['reference_uuid']);
+            $confirmed = in_array($data['confirm_reference'] ?? false, [true, 1, '1'], true);
+            unset($data['confirm_reference'], $data['counterparty_uuid'], $data['reference_uuid']);
+            $resolver = app(ManualEconomicSubjectResolver::class);
+            if (! $resolver->consistent($item)) {
+                if ($reason = $resolver->confirmationBlockReason($item)) {
+                    throw ValidationException::withMessages(['reference_id' => $reason]);
+                }
+                if (! $confirmed) {
+                    throw ValidationException::withMessages(['reference_id' => __('credit_debts.validation.reference_confirmation_required')]);
+                }
+                $referenceId = (int) ($data['reference_id'] ?? $item->reference_id);
+                if (isset($data['counterparty_id']) && (int) $data['counterparty_id'] !== $referenceId) {
+                    throw ValidationException::withMessages(['reference_id' => __('credit_debts.validation.reference_confirmation_invalid')]);
+                }
+                app(AlignManualEconomicSubjects::class)->confirmReference($user, $item, $referenceId);
+                unset($data['counterparty_id']);
+            }
 
             $candidate = clone $item;
             $candidate->fill($data);
-            app(ManualEconomicSubjectResolver::class)->normalize($candidate, array_key_exists('counterparty_id', $data));
+            $resolver->normalize($candidate, array_key_exists('counterparty_id', $data));
             $data['reference_id'] = $candidate->reference_id;
             $data['counterparty_id'] = $candidate->counterparty_id;
 

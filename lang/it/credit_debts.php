@@ -2,6 +2,11 @@
 
 return [
     'validation' => [
+        'reference_confirmation_required' => 'Conferma esplicitamente il riferimento prima di salvare questo credito/debito precedente.',
+        'reference_confirmation_invalid' => 'Seleziona un riferimento personale attivo e appartenente a te.',
+        'reference_confirmation_payments' => 'Questo credito/debito ha già pagamenti registrati, anche annullati. Il riferimento non può essere confermato o cambiato da questo form: lo storico deve essere verificato prima.',
+        'reference_confirmation_captured' => 'Questo credito/debito è già collegato a una situazione registrata. Il riferimento non può essere confermato o cambiato da questo form: occorre verificare e correggere i collegamenti esistenti.',
+        'reference_confirmation_deleted' => 'Questo credito/debito è stato eliminato e non può essere confermato.',
         'counterparty_in_use' => 'La controparte ha movimenti o obbligazioni collegati. Puoi disattivarla, ma non eliminarla.',
         'settlement_direction_changed' => 'Il saldo ha cambiato direzione. Annulla il pareggio e registralo nuovamente.',
         'settlement_currency_mismatch' => 'Il conto del pareggio deve essere in EUR.',

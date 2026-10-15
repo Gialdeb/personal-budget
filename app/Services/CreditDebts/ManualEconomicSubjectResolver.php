@@ -64,6 +64,28 @@ class ManualEconomicSubjectResolver
             ->values()->all();
     }
 
+    public function confirmationBlockReason(CreditDebtItem $item): ?string
+    {
+        if ($item->trashed()) {
+            return __('credit_debts.validation.reference_confirmation_deleted');
+        }
+        $attributes = $item->getAttributes();
+        $captured = array_key_exists('reference_capture_0', $attributes)
+            ? $attributes['reference_capture_0'] !== null || $attributes['reference_capture_1'] !== null || $attributes['reference_capture_2'] !== null
+            : $this->captured($item);
+        if ($captured) {
+            return __('credit_debts.validation.reference_confirmation_captured');
+        }
+        $hasPayments = array_key_exists('reference_has_payment_history', $attributes)
+            ? (bool) $attributes['reference_has_payment_history']
+            : $item->payments()->withTrashed()->exists();
+        if ($hasPayments) {
+            return __('credit_debts.validation.reference_confirmation_payments');
+        }
+
+        return null;
+    }
+
     public function captured(CreditDebtItem $item): bool
     {
         return CounterpartyObligation::query()->where('source_type', 'credit_debt_item')->where('source_identity', $item->uuid)->exists()

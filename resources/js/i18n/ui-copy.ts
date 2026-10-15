@@ -2,6 +2,16 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'I pagamenti collegati sono già inclusi nei residui. Le somme da collegare sono indicate separatamente.':
+        'Linked payments are already included in the remaining balances. Unallocated amounts are shown separately.',
+    'I crediti/debiti precedenti non confermati non sono inclusi in questo saldo.':
+        'Unconfirmed older credits/debts are not included in this balance.',
+    'Nessuna spesa condivisa registrata': 'No shared expense recorded',
+    'Origine del rapporto': 'Relationship origin',
+    'Rapporti con le persone': 'Relationships with people',
+    'Pagamenti e rimborsi': 'Payments and refunds',
+    'Debito manuale': 'Manual debt',
+    'Credito manuale': 'Manual credit',
     Annullata: 'Cancelled',
     'Apri movimento': 'Open movement',
     'La tua quota': 'Your share',

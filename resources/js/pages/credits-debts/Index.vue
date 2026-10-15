@@ -124,6 +124,7 @@ type CreditDebtItem = {
     note: string | null;
     counterparty?: { uuid: string; name: string } | null;
     reference_needs_review?: boolean;
+    reference_confirmation_blocked_reason?: string | null;
     reference: { uuid?: string; name?: string; label?: string } | null;
     account: Option | null;
     category: Option | null;
@@ -259,6 +260,7 @@ const itemForm = useForm({
     total_amount: '',
     currency_code: fallbackCurrency.value,
     reference_uuid: '',
+    confirm_reference: false,
     account_uuid: '',
     category_uuid: '',
     due_date: '',
@@ -452,11 +454,42 @@ const itemCategoryError = computed(
         (itemForm.errors as Record<string, string | undefined>).category_id,
 );
 const itemReferenceLocked = computed(() =>
-    Boolean(editingItem.value && editingItem.value.payments_count > 0),
+    Boolean(
+        editingItem.value &&
+        (editingItem.value.payments_count > 0 ||
+            editingItem.value.reference_confirmation_blocked_reason),
+    ),
 );
+const confirmationReferenceName = computed(
+    () =>
+        selectedAccountReferences.value.find(
+            (option) => option.value === itemForm.reference_uuid,
+        )?.label ?? '',
+);
+watch(
+    () => itemForm.reference_uuid,
+    () => {
+        itemForm.confirm_reference = false;
+        itemForm.clearErrors('reference_uuid', 'confirm_reference');
+    },
+);
+function confirmReference(): void {
+    itemForm.confirm_reference = true;
+    itemForm.clearErrors('reference_uuid', 'confirm_reference');
+
+    for (const field of [
+        'reference_id',
+        'counterparty_id',
+        'counterparty_uuid',
+    ]) {
+        delete (itemForm.errors as Record<string, string | undefined>)[field];
+    }
+}
+
 const itemReferenceError = computed(() => {
     const errors = itemForm.errors as Record<string, string | undefined>;
     const error =
+        errors.confirm_reference ??
         errors.reference_uuid ??
         errors.reference_id ??
         errors.counterparty_uuid ??
@@ -466,15 +499,38 @@ const itemReferenceError = computed(() => {
         return undefined;
     }
 
+    if (editingItem.value?.reference_needs_review) {
+        return error;
+    }
+
     if (/storico|pagament|ledger|rettifica/i.test(error)) {
         return t('creditsDebts.referenceLocked');
     }
 
-    if (editingItem.value?.reference_needs_review) {
-        return t('creditsDebts.referenceReviewRequired');
+    return t('creditsDebts.referenceRequired');
+});
+const itemReferenceMessage = computed(() => {
+    if (itemReferenceError.value) {
+        return itemReferenceError.value;
     }
 
-    return t('creditsDebts.referenceRequired');
+    const item = editingItem.value;
+
+    if (item?.reference_needs_review) {
+        if (item.reference_confirmation_blocked_reason) {
+            return item.reference_confirmation_blocked_reason;
+        }
+
+        return itemForm.confirm_reference
+            ? t('creditsDebts.referenceConfirmedPendingSave')
+            : itemForm.reference_uuid
+              ? t('creditsDebts.referenceReviewRequired', {
+                    name: confirmationReferenceName.value,
+                })
+              : t('creditsDebts.referenceMissing');
+    }
+
+    return itemReferenceLocked.value ? t('creditsDebts.referenceLocked') : null;
 });
 const selectedReferenceRelations = computed(() => {
     const item = selectedItem.value;
@@ -666,10 +722,14 @@ function referenceWarning(item: CreditDebtItem): string | null {
         return null;
     }
 
-    return t(
-        item.reference?.uuid
-            ? 'creditsDebts.referenceReviewRequired'
-            : 'creditsDebts.referenceMissing',
+    return (
+        item.reference_confirmation_blocked_reason ??
+        t(
+            item.reference?.uuid
+                ? 'creditsDebts.referenceReviewRequired'
+                : 'creditsDebts.referenceMissing',
+            { name: referenceName(item) },
+        )
     );
 }
 
@@ -919,6 +979,7 @@ function resetItemForm(type: 'credit' | 'debit' = 'credit'): void {
         total_amount: '',
         currency_code: fallbackCurrency.value,
         reference_uuid: '',
+        confirm_reference: false,
         account_uuid: '',
         category_uuid: '',
         due_date: '',
@@ -989,6 +1050,7 @@ async function openEdit(item: CreditDebtItem): Promise<void> {
     }
 
     editingItem.value = item;
+    itemForm.confirm_reference = false;
     itemForm.clearErrors();
     isHydratingItemForm.value = true;
     itemForm.type = item.type;
@@ -1022,6 +1084,18 @@ function validateItemForm(): boolean {
             t('creditsDebts.referenceRequired'),
         );
         isValid = false;
+    }
+
+    if (editingItem.value?.reference_needs_review) {
+        const reason = editingItem.value.reference_confirmation_blocked_reason;
+
+        if (reason || !itemForm.confirm_reference) {
+            itemForm.setError(
+                'confirm_reference',
+                reason ?? t('creditsDebts.referenceConfirmationRequired'),
+            );
+            isValid = false;
+        }
     }
 
     if (!itemForm.description.trim()) {
@@ -1513,8 +1587,15 @@ const ListColumn = defineComponent({
                                                   ? 'bg-slate-50 ring-1 ring-slate-200 ring-inset dark:bg-slate-900 dark:ring-slate-700'
                                                   : '',
                                           ),
-                                          onClick: () =>
-                                              emit('select', item.uuid),
+                                          onClick: () => {
+                                              if (item.reference_needs_review) {
+                                                  selectedUuid.value =
+                                                      item.uuid;
+                                                  void openEdit(item);
+                                              } else {
+                                                  emit('select', item.uuid);
+                                              }
+                                          },
                                       },
                                       [
                                           h(
@@ -1583,11 +1664,25 @@ const ListColumn = defineComponent({
                                                       ? h(
                                                             'p',
                                                             {
-                                                                class: 'mt-1 text-xs text-amber-700 dark:text-amber-300',
+                                                                class: cn(
+                                                                    'mt-1 text-xs text-amber-700 dark:text-amber-300',
+                                                                    item
+                                                                        .reference
+                                                                        ?.uuid &&
+                                                                        !item.reference_confirmation_blocked_reason
+                                                                        ? 'font-medium underline underline-offset-2'
+                                                                        : '',
+                                                                ),
                                                             },
-                                                            referenceWarning(
-                                                                item,
-                                                            ) ?? '',
+                                                            item.reference
+                                                                ?.uuid &&
+                                                                !item.reference_confirmation_blocked_reason
+                                                                ? t(
+                                                                      'creditsDebts.confirmReferenceAction',
+                                                                  )
+                                                                : (referenceWarning(
+                                                                      item,
+                                                                  ) ?? ''),
                                                         )
                                                       : null,
                                                   h(
@@ -3107,19 +3202,31 @@ const ListColumn = defineComponent({
                             content-class="z-[260]"
                             @create-option="createReferenceFromContext"
                         />
-                        <p
-                            v-if="itemReferenceLocked"
-                            class="text-sm text-muted-foreground"
-                        >
-                            {{ t('creditsDebts.referenceLocked') }}
-                        </p>
-                        <p
-                            v-if="editingItem && referenceWarning(editingItem)"
+                        <div
+                            v-if="itemReferenceMessage"
                             role="status"
-                            class="text-sm text-amber-700 dark:text-amber-300"
+                            class="grid gap-2 text-sm text-amber-700 dark:text-amber-300"
                         >
-                            {{ referenceWarning(editingItem) }}
-                        </p>
+                            <p>{{ itemReferenceMessage }}</p>
+                            <Button
+                                v-if="
+                                    editingItem?.reference_needs_review &&
+                                    !editingItem.reference_confirmation_blocked_reason &&
+                                    itemForm.reference_uuid &&
+                                    !itemForm.confirm_reference
+                                "
+                                type="button"
+                                variant="outline"
+                                :disabled="itemForm.processing"
+                                @click="confirmReference"
+                            >
+                                {{
+                                    t('creditsDebts.confirmNamedReference', {
+                                        name: confirmationReferenceName,
+                                    })
+                                }}
+                            </Button>
+                        </div>
                         <p
                             v-if="
                                 !editingItem &&
@@ -3130,7 +3237,6 @@ const ListColumn = defineComponent({
                         >
                             {{ t('creditsDebts.createReferenceHelp') }}
                         </p>
-                        <InputError :message="itemReferenceError" />
                     </div>
                     <div>
                         <Label for="credit-debt-description">{{
@@ -3296,7 +3402,12 @@ const ListColumn = defineComponent({
                         <Button
                             type="submit"
                             class="rounded-2xl"
-                            :disabled="itemForm.processing"
+                            :disabled="
+                                itemForm.processing ||
+                                Boolean(
+                                    editingItem?.reference_confirmation_blocked_reason,
+                                )
+                            "
                             >{{
                                 editingItem
                                     ? t('creditsDebts.update')

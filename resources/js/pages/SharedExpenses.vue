@@ -136,7 +136,10 @@ const props = defineProps<{
     entries: Entry[];
     reviewEntries: Entry[];
     referenceReviewPeople: string[];
-    unresolvedReferenceCount: number;
+    relationshipOrigins: Record<
+        string,
+        ('manual_credit' | 'manual_debit' | 'shared' | 'payments')[]
+    >;
     balances: Record<string, number>;
     counterpartyBalances: Record<
         string,
@@ -339,6 +342,20 @@ const stateLabel = (entry: Entry): string =>
             } as const
         )[entry.display_state],
     );
+function relationshipOriginLabels(uuid: string): string[] {
+    return (props.relationshipOrigins[uuid] ?? []).map((origin) =>
+        ui(
+            (
+                {
+                    manual_credit: 'Credito manuale',
+                    manual_debit: 'Debito manuale',
+                    shared: 'Spese condivise',
+                    payments: 'Pagamenti e rimborsi',
+                } as const
+            )[origin],
+        ),
+    );
+}
 function subjectBalances(uuid: string) {
     return (props.counterpartyBalances[uuid] ?? []).filter(
         (balance) =>
@@ -738,6 +755,12 @@ function deleteSettlement(entry: Entry): void {
                 }}
             </p>
 
+            <h2
+                v-if="visibleCounterparties.length"
+                class="text-xl font-semibold"
+            >
+                {{ ui('Rapporti con le persone') }}
+            </h2>
             <section
                 v-if="visibleCounterparties.length"
                 class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
@@ -750,6 +773,18 @@ function deleteSettlement(entry: Entry): void {
                     <h2 class="text-lg font-semibold break-words">
                         {{ item.name }}
                     </h2>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        {{ ui('Origine del rapporto') }}:
+                        {{ relationshipOriginLabels(item.uuid).join(' · ') }}
+                    </p>
+                    <p
+                        v-if="
+                            !relationshipOrigins[item.uuid]?.includes('shared')
+                        "
+                        class="mt-1 text-xs text-muted-foreground"
+                    >
+                        {{ ui('Nessuna spesa condivisa registrata') }}
+                    </p>
                     <div
                         v-for="balance in subjectBalances(item.uuid)"
                         :key="balance.currency"
@@ -789,7 +824,7 @@ function deleteSettlement(entry: Entry): void {
                                 </dd>
                             </div>
                             <div class="flex flex-wrap justify-between gap-2">
-                                <dt>{{ ui('Altri crediti/debiti') }}</dt>
+                                <dt>{{ ui('Crediti/debiti manuali') }}</dt>
                                 <dd class="font-semibold tabular-nums">
                                     {{ balance.manual_cents > 0 ? '+' : ''
                                     }}{{
@@ -815,6 +850,20 @@ function deleteSettlement(entry: Entry): void {
                                 </dd>
                             </div>
                         </dl>
+                        <p
+                            v-if="
+                                relationshipOrigins[item.uuid]?.includes(
+                                    'payments',
+                                )
+                            "
+                            class="text-xs text-muted-foreground"
+                        >
+                            {{
+                                ui(
+                                    'I pagamenti collegati sono già inclusi nei residui. Le somme da collegare sono indicate separatamente.',
+                                )
+                            }}
+                        </p>
                         <Link
                             :href="
                                 completeSituationUrl(
@@ -832,7 +881,7 @@ function deleteSettlement(entry: Entry): void {
                     >
                         {{
                             ui(
-                                'Alcuni riferimenti richiedono verifica. Il saldo complessivo va verificato.',
+                                'I crediti/debiti precedenti non confermati non sono inclusi in questo saldo.',
                             )
                         }}
                     </p>
@@ -937,22 +986,6 @@ function deleteSettlement(entry: Entry): void {
                         </SelectContent>
                     </Select>
                 </div>
-            </div>
-            <div
-                v-if="unresolvedReferenceCount"
-                role="status"
-                class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm dark:border-amber-500/30 dark:bg-amber-500/10"
-            >
-                {{
-                    ui(
-                        'Alcuni crediti/debiti richiedono la verifica del riferimento. Non sono stati associati automaticamente a una persona.',
-                    )
-                }}
-                <Link
-                    :href="creditsDebtsIndex.url()"
-                    class="ml-1 inline-flex min-h-11 items-center font-medium underline"
-                    >{{ ui('Verifica riferimenti') }}</Link
-                >
             </div>
             <div
                 class="grid grid-cols-3 gap-2 rounded-2xl bg-muted p-1"

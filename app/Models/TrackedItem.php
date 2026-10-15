@@ -188,18 +188,24 @@ class TrackedItem extends Model
             ->where('is_shared_expense_counterpart', true);
     }
 
-    public function scopeSharedExpenseHistory(Builder $query, int $userId): Builder
+    public function scopeEconomicRelationshipHistory(Builder $query, int $userId): Builder
     {
         return $query
             ->ownedBy($userId)
-            ->where(function (Builder $query): void {
+            ->where(function (Builder $query) use ($userId): void {
                 $query
                     ->where('is_shared_expense_counterpart', true)
                     ->orWhereIn('id', Transaction::query()->select('shared_expense_counterparty_id')->whereNotNull('shared_expense_counterparty_id'))
                     ->orWhereIn('id', SharedExpenseLedgerEntry::query()->select('counterparty_id'))
                     ->orWhereIn('id', SharedExpenseSettlement::query()->select('counterparty_id'))
-                    ->orWhereIn('id', CreditDebtItem::query()->select('counterparty_id')->whereNotNull('counterparty_id'));
+                    ->orWhereIn('id', CreditDebtItem::query()->where('user_id', $userId)->confirmedEconomicIdentity()->select('counterparty_id'))
+                    ->orWhereIn('id', CounterpartyRelation::query()->where('user_id', $userId)->whereNotNull('activated_at')->whereHas('payments')->select('counterparty_id'));
             });
+    }
+
+    public function scopeSharedExpenseHistory(Builder $query, int $userId): Builder
+    {
+        return $query->economicRelationshipHistory($userId);
     }
 
     public function scopeInCatalog(Builder $query, int $userId, ?int $accountId = null): Builder

@@ -47,10 +47,14 @@ class CreditDebtItemResource extends JsonResource
         }
         $status = $paid + $compensated <= 0 ? 'open' : ($remaining > 0 ? 'partial' : 'settled');
 
+        $resolver = app(ManualEconomicSubjectResolver::class);
+        $needsReview = ! $resolver->consistent($this->resource);
+
         return [
             'uuid' => $this->uuid,
             'origin' => 'manual',
-            'reference_needs_review' => ! app(ManualEconomicSubjectResolver::class)->consistent($this->resource),
+            'reference_needs_review' => $needsReview,
+            'reference_confirmation_blocked_reason' => $needsReview ? $resolver->confirmationBlockReason($this->resource) : null,
             'read_only' => false,
             'source_url' => null,
             'type' => $this->type?->value,

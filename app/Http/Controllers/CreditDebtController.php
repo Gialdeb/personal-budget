@@ -59,6 +59,7 @@ class CreditDebtController extends Controller
                 'activeCommonObligation.ledgerEntries',
                 'activeCommonObligation.allocationEntries',
             ])
+            ->withReferenceConfirmationHistory()
             ->withCount('payments')
             ->latest();
 
@@ -111,7 +112,7 @@ class CreditDebtController extends Controller
     {
         Gate::authorize('view', $creditDebtItem);
 
-        return CreditDebtItemResource::make($creditDebtItem->load([
+        return CreditDebtItemResource::make($creditDebtItem->newQuery()->withReferenceConfirmationHistory()->findOrFail($creditDebtItem->id)->load([
             'counterparty',
             'account',
             'category',

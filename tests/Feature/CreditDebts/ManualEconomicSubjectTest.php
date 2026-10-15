@@ -100,7 +100,7 @@ test('Pino Mario and Mario Mario balances preserve the two economic subjects', f
     $transaction = userTransaction($user, $account, ['tracked_item_id' => $merchant->id, 'amount' => '122.00', 'shared_expense_counterparty_id' => $mario->id, 'shared_expense_paid_by' => 'self', 'shared_expense_my_share_cents' => 6100, 'shared_expense_counterparty_share_cents' => 6100]);
     $item = legacyCreditDebtItem($user, ['reference_id' => $same ? $mario->id : $pino->id, 'counterparty_id' => $mario->id, 'total_amount' => 280]);
     $balances = app(CounterpartyBalanceService::class);
-    expect($balances->balance($user, $mario, 'EUR')['total_cents'])->toBe(34100);
+    expect($balances->balance($user, $mario, 'EUR')['total_cents'])->toBe($same ? 34100 : 6100);
     $count = Transaction::count();
     app(AlignManualEconomicSubjects::class)->item($user, $item->uuid, true);
     expect($balances->balance($user, $mario, 'EUR')['total_cents'])->toBe($same ? 34100 : 6100);
