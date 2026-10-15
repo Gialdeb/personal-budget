@@ -11,6 +11,7 @@ export type RecurringCalendarCell = {
     summary: RecurringMonthlyCalendarDay | null;
 };
 defineProps<{
+    compactCounters?: boolean;
     calendarWeeks: RecurringCalendarCell[][];
     weekdayLabels: string[];
     selectedDate: string | null;
@@ -22,7 +23,10 @@ const emit = defineEmits<{ select: [date: string] }>();
 const { t } = useI18n();
 </script>
 <template>
-    <div class="space-y-4 p-4 lg:p-6">
+    <div
+        class="space-y-4 lg:p-6"
+        :class="compactCounters ? 'px-1 py-3 sm:p-4' : 'p-4'"
+    >
         <div class="space-y-2 lg:hidden">
             <div
                 class="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold tracking-[0.14em] text-slate-500 uppercase dark:text-slate-400"
@@ -46,9 +50,17 @@ const { t } = useI18n();
                         v-for="cell in week"
                         :key="`mobile-${cell.date}`"
                         type="button"
-                        class="min-h-[76px] rounded-[18px] border px-1.5 py-2 text-left transition-all"
+                        class="min-h-[76px] border py-2 text-left align-top transition-all"
+                        :style="
+                            compactCounters
+                                ? { alignSelf: 'stretch' }
+                                : undefined
+                        "
                         :class="
                             cn(
+                                compactCounters
+                                    ? 'rounded-xl px-1'
+                                    : 'rounded-[18px] px-1.5',
                                 cell.isCurrentMonth
                                     ? 'border-slate-200/80 bg-white hover:border-sky-300 hover:bg-sky-50/70 dark:border-white/10 dark:bg-slate-900/70 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/8'
                                     : 'border-dashed border-slate-200/40 bg-slate-100/35 text-slate-300 dark:border-white/6 dark:bg-slate-950/30 dark:text-slate-700',
@@ -83,37 +95,43 @@ const { t } = useI18n();
                             </span>
                             <span
                                 v-if="cell.summary?.occurrences_count"
-                                class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                class="rounded-full bg-slate-100 px-1 py-0.5 text-[10px] leading-none font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                             >
                                 {{ filteredOccurrencesCount(cell.summary) }}
                             </span>
                         </div>
 
-                        <div
-                            v-if="cell.summary && cell.isCurrentMonth"
-                            class="mt-2 space-y-1"
-                        >
-                            <p
-                                v-if="cell.summary.income_total > 0"
-                                class="truncate text-[10px] leading-none font-semibold text-emerald-600 dark:text-emerald-300"
+                        <slot name="day-content" :cell="cell" :mobile="true">
+                            <div
+                                v-if="cell.summary && cell.isCurrentMonth"
+                                class="mt-2 space-y-1"
                             >
-                                +<SensitiveValue
-                                    :value="
-                                        formatMoney(cell.summary.income_total)
-                                    "
-                                />
-                            </p>
-                            <p
-                                v-if="cell.summary.expense_total > 0"
-                                class="truncate text-[10px] leading-none font-semibold text-rose-600 dark:text-rose-300"
-                            >
-                                -<SensitiveValue
-                                    :value="
-                                        formatMoney(cell.summary.expense_total)
-                                    "
-                                />
-                            </p>
-                        </div>
+                                <p
+                                    v-if="cell.summary.income_total > 0"
+                                    class="truncate text-[10px] leading-none font-semibold text-emerald-600 dark:text-emerald-300"
+                                >
+                                    +<SensitiveValue
+                                        :value="
+                                            formatMoney(
+                                                cell.summary.income_total,
+                                            )
+                                        "
+                                    />
+                                </p>
+                                <p
+                                    v-if="cell.summary.expense_total > 0"
+                                    class="truncate text-[10px] leading-none font-semibold text-rose-600 dark:text-rose-300"
+                                >
+                                    -<SensitiveValue
+                                        :value="
+                                            formatMoney(
+                                                cell.summary.expense_total,
+                                            )
+                                        "
+                                    />
+                                </p>
+                            </div>
+                        </slot>
                     </button>
                 </div>
             </div>
@@ -188,71 +206,79 @@ const { t } = useI18n();
                                 </span>
                             </div>
 
-                            <div
-                                v-if="cell.summary && cell.isCurrentMonth"
-                                class="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2"
+                            <slot
+                                name="day-content"
+                                :cell="cell"
+                                :mobile="false"
                             >
                                 <div
-                                    v-if="cell.summary.income_total > 0"
-                                    class="rounded-2xl bg-emerald-500/10 px-2 py-1.5 text-emerald-700 sm:px-2.5 sm:py-2 dark:bg-emerald-500/12 dark:text-emerald-300"
+                                    v-if="cell.summary && cell.isCurrentMonth"
+                                    class="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2"
                                 >
-                                    <span
-                                        class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
+                                    <div
+                                        v-if="cell.summary.income_total > 0"
+                                        class="rounded-2xl bg-emerald-500/10 px-2 py-1.5 text-emerald-700 sm:px-2.5 sm:py-2 dark:bg-emerald-500/12 dark:text-emerald-300"
                                     >
-                                        +
-                                    </span>
-                                    <span
-                                        class="hidden text-[10px] tracking-[0.18em] uppercase sm:block"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.labels.plannedIncome',
-                                            )
-                                        }}
-                                    </span>
-                                    <span
-                                        class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
-                                    >
-                                        <SensitiveValue
-                                            :value="
-                                                formatMoney(
-                                                    cell.summary.income_total,
+                                        <span
+                                            class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
+                                        >
+                                            +
+                                        </span>
+                                        <span
+                                            class="hidden text-[10px] tracking-[0.18em] uppercase sm:block"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.plannedIncome',
                                                 )
-                                            "
-                                        />
-                                    </span>
-                                </div>
-                                <div
-                                    v-if="cell.summary.expense_total > 0"
-                                    class="rounded-2xl bg-rose-500/10 px-2 py-1.5 text-rose-700 sm:px-2.5 sm:py-2 dark:bg-rose-500/12 dark:text-rose-300"
-                                >
-                                    <span
-                                        class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
+                                            }}
+                                        </span>
+                                        <span
+                                            class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
+                                        >
+                                            <SensitiveValue
+                                                :value="
+                                                    formatMoney(
+                                                        cell.summary
+                                                            .income_total,
+                                                    )
+                                                "
+                                            />
+                                        </span>
+                                    </div>
+                                    <div
+                                        v-if="cell.summary.expense_total > 0"
+                                        class="rounded-2xl bg-rose-500/10 px-2 py-1.5 text-rose-700 sm:px-2.5 sm:py-2 dark:bg-rose-500/12 dark:text-rose-300"
                                     >
-                                        -
-                                    </span>
-                                    <span
-                                        class="hidden text-[10px] tracking-[0.18em] uppercase sm:block"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.labels.plannedExpenses',
-                                            )
-                                        }}
-                                    </span>
-                                    <span
-                                        class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
-                                    >
-                                        <SensitiveValue
-                                            :value="
-                                                formatMoney(
-                                                    cell.summary.expense_total,
+                                        <span
+                                            class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
+                                        >
+                                            -
+                                        </span>
+                                        <span
+                                            class="hidden text-[10px] tracking-[0.18em] uppercase sm:block"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.plannedExpenses',
                                                 )
-                                            "
-                                        />
-                                    </span>
+                                            }}
+                                        </span>
+                                        <span
+                                            class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
+                                        >
+                                            <SensitiveValue
+                                                :value="
+                                                    formatMoney(
+                                                        cell.summary
+                                                            .expense_total,
+                                                    )
+                                                "
+                                            />
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
+                            </slot>
                         </button>
                     </div>
                 </div>

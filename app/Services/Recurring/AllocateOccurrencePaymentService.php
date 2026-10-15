@@ -2,6 +2,7 @@
 
 namespace App\Services\Recurring;
 
+use App\Models\CounterpartyPayment;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\RecurringOccurrencePaymentAllocation;
 use App\Models\Transaction;
@@ -36,7 +37,9 @@ class AllocateOccurrencePaymentService
                 || $transaction->recurring_entry_occurrence_id !== null
                 || $transaction->creditDebtPayment()->exists()
                 || $transaction->sharedExpenseSettlement()->exists()
+                || CounterpartyPayment::query()->where('transaction_id', $transaction->id)->exists()
                 || $transaction->refundTransaction()->where('status', 'confirmed')->exists()
+                || ! in_array($transaction->kind?->value, ['manual', 'scheduled'], true)
                 || $transaction->status?->value !== 'confirmed'
                 || $transaction->direction !== $entry->direction
                 || $transaction->currency !== $entry->currency

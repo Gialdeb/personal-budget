@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useRecaptchaV3 } from '@/composables/useRecaptchaV3';
 import AuthBase from '@/layouts/auth/AuthShowcaseLayout.vue';
 import { login } from '@/routes';

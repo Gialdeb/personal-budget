@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\FinancialIndexRequest;
 use App\Http\Requests\Recurring\AllocateOccurrencePaymentRequest;
 use App\Http\Requests\Recurring\ConvertRecurringOccurrenceRequest;
 use App\Http\Requests\Recurring\UpdateRecurringOccurrenceAmountRequest;
 use App\Http\Requests\Recurring\UpdateRecurringOccurrenceRequest;
+use App\Models\CounterpartyPayment;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
@@ -19,6 +21,7 @@ use App\Services\Recurring\UpdateRecurringOccurrenceService;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\SharedExpenses\SharedExpenseOccurrencePostingService;
 use Carbon\CarbonInterface;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -68,6 +71,39 @@ class RecurringEntryOccurrenceController extends Controller
             ]));
     }
 
+    public function paymentCandidates(FinancialIndexRequest $request, RecurringEntry $recurringEntry, RecurringEntryOccurrence $occurrence): JsonResponse
+    {
+        $occurrence = $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true);
+        abort_unless($recurringEntry->user_id === $request->user()->id && $recurringEntry->shared_expense_counterparty_id === null, 404);
+        $query = Transaction::query()->where('user_id', $request->user()->id)
+            ->whereIn('account_id', app(AccessibleAccountsQuery::class)->editableIds($request->user()))
+            ->where('status', 'confirmed')->whereIn('kind', ['manual', 'scheduled'])
+            ->where('direction', $recurringEntry->direction)->where('currency', $recurringEntry->currency)
+            ->where('is_transfer', false)->whereNull('recurring_entry_occurrence_id')->whereNull('shared_expense_counterparty_id')
+            ->whereDoesntHave('occurrencePaymentAllocations')->whereDoesntHave('creditDebtPayment')->whereDoesntHave('sharedExpenseSettlement')
+            ->whereDoesntHave('refundTransaction', fn ($refund) => $refund->where('status', 'confirmed'))
+            ->whereNotIn('id', CounterpartyPayment::query()->whereNotNull('transaction_id')->select('transaction_id'))
+            ->whereNotIn('id', RecurringEntryOccurrence::query()->whereNotNull('converted_transaction_id')->select('converted_transaction_id'))
+            ->whereNotIn('id', RecurringEntryOccurrence::query()->whereNotNull('matched_transaction_id')->select('matched_transaction_id'))
+            ->with('account');
+        if ($request->filled('date_from')) {
+            $query->whereDate('transaction_date', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('transaction_date', '<=', $request->input('date_to'));
+        }
+        $rows = $query->orderByDesc('transaction_date')->orderByDesc('id')->simplePaginate(20);
+
+        return response()->json([
+            'transactions' => $rows->getCollection()->map(fn (Transaction $transaction): array => [
+                'uuid' => $transaction->uuid, 'date' => $transaction->transaction_date->toDateString(),
+                'amount' => (float) $transaction->amount, 'description' => $transaction->description,
+                'account' => $transaction->account?->name,
+            ])->values()->all(),
+            'has_more' => $rows->hasMorePages(),
+        ]);
+    }
+
     public function allocatePayment(AllocateOccurrencePaymentRequest $request, RecurringEntry $recurringEntry, RecurringEntryOccurrence $occurrence, AllocateOccurrencePaymentService $service): RedirectResponse
     {
         $occurrence = $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true);
@@ -75,7 +111,7 @@ class RecurringEntryOccurrenceController extends Controller
             ->where('uuid', $request->validated('transaction_uuid'))->firstOrFail();
         $service->allocate($occurrence, $transaction, $request->user(), (string) $request->validated('amount'));
 
-        return to_route('recurring-entries.show', $recurringEntry->uuid);
+        return to_route('recurring-entries.show', [$recurringEntry->uuid, 'highlight' => $occurrence->uuid]);
     }
 
     public function skip(

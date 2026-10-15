@@ -81,13 +81,13 @@ Route::patch('/settings/locale', [LocaleController::class, 'update'])
 // SHARING ACCOUNTS
 Route::prefix('account-invitations')->name('account-invitations.')->group(function () {
     Route::get('/{accountInvitation}/onboarding', [AccountInvitationOnboardingController::class, 'show'])
-        ->name('onboarding.show');
+        ->whereUuid('accountInvitation')->name('onboarding.show');
     Route::post('/{accountInvitation}/register', [AccountInvitationOnboardingController::class, 'register'])
-        ->name('register');
+        ->whereUuid('accountInvitation')->name('register');
 
     Route::post('/{accountInvitation}/accept-authenticated', [AccountInvitationOnboardingController::class, 'acceptAuthenticated'])
         ->middleware(['auth'])
-        ->name('accept-authenticated');
+        ->whereUuid('accountInvitation')->name('accept-authenticated');
 });
 
 Route::middleware(['auth', 'verified', 'not_banned'])->prefix('admin-invitations')->name('admin-invitations.')->group(function () {

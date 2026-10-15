@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
 import { computed, watch, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { update } from '@/actions/App/Http/Controllers/SalaryEmploymentController';
@@ -16,6 +15,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useForm } from '@/composables/useNotifiedForm';
 import type { RecurringEntryFormOptions } from '@/types';
 export type SalaryPaymentConfig = {
     id: number;

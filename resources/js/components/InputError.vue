@@ -1,7 +1,18 @@
 <script setup lang="ts">
-defineProps<{
+import { watch } from 'vue';
+import { notifyValidation } from '@/lib/notifications';
+const props = defineProps<{
     message?: string;
 }>();
+watch(
+    () => props.message,
+    (message) => {
+        if (message) {
+            notifyValidation(message);
+        }
+    },
+    { immediate: true },
+);
 </script>
 
 <template>

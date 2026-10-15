@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
 import {
     ArrowDownLeft,
@@ -59,9 +59,11 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatMoneyValue, normalizeMoneyValue } from '@/lib/money';
+import { fetchWithNotifications } from '@/lib/notifications';
 import { cn } from '@/lib/utils';
 import {
     destroy as destroyCreditDebt,
@@ -1380,7 +1382,8 @@ async function createReferenceFromContext(name: string): Promise<void> {
     creatingReference.value = true;
 
     try {
-        const response = await fetch(storeTrackedItem().url, {
+        const response = await fetchWithNotifications(storeTrackedItem().url, {
+            notification: 'Riferimento creato correttamente.',
             method: 'POST',
             headers: {
                 Accept: 'application/json',

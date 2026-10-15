@@ -429,3 +429,73 @@ test('imported legacy documents cannot be updated or deleted through old HTTP en
         ->and($manual->fresh()->amount)->toBe('30.00')->and($settlement->fresh()->amount_cents)->toBe(2000)->and(Transaction::count())->toBe(2)
         ->and(app(CounterpartyReconciliationService::class)->inspect($relation)['readiness'])->toBe('reconciled');
 });
+
+test('person history separates document totals from claims and preserves balance across filters', function () {
+    [$user, , $account, $relation] = publicCounterpartyFixture(800, '200.00');
+    $claim = $relation->obligations()->where('source_type', 'shared_ledger_share')->firstOrFail();
+    commonCreatedPayment($user, $relation, [...commonPaymentInput($account, '4.00'), 'allocations' => [['obligation_uuid' => $claim->uuid, 'amount' => '4.00']]]);
+    $this->actingAs($user)->get(route('counterparties.show', [$relation, 'kind' => 'shared', 'state' => 'partial', 'period' => '2026-10']))
+        ->assertSuccessful()->assertInertia(fn ($page) => $page
+        ->where('relation.balance_minor', '20400')->where('activity.total', 1)
+        ->where('activity.data.0.expense_total_minor', '1600')
+        ->where('activity.data.0.my_share_minor', '800')
+        ->where('activity.data.0.counterparty_share_minor', '800')
+        ->where('activity.data.0.paid_minor', '400')
+        ->where('activity.data.0.remaining_minor', '400'));
+    $this->get(route('counterparties.show', [$relation, 'kind' => 'payment']))->assertInertia(fn ($page) => $page
+        ->where('relation.balance_minor', '20400')->where('activity.total', 1)->where('activity.data.0.kind', 'payment'));
+});
+
+test('person history paginates a stable filtered timeline without truncating allocation choices', function () {
+    [$user, $party, , $relation] = publicCounterpartyFixture(0);
+    foreach (range(1, 25) as $index) {
+        app(CreditDebtItemService::class)->create($user, ['counterparty_id' => $party->id, 'type' => 'credit', 'description' => 'Prestito '.$index, 'total_amount' => '10.00', 'currency_code' => 'EUR']);
+    }
+    $this->actingAs($user)->get(route('counterparties.show', [$relation, 'kind' => 'manual', 'search' => 'Prestito', 'scope' => 'shared']))
+        ->assertInertia(fn ($page) => $page->has('activity.data', 20)->has('obligations', 26)->where('activity.total', 25)->where('activity.last_page', 2)
+            ->where('activity.next_page_url', fn ($url) => str_contains($url, 'kind=manual') && str_contains($url, 'search=Prestito') && str_contains($url, 'scope=shared')));
+    $this->get(route('counterparties.show', [$relation, 'kind' => 'manual', 'search' => 'Prestito', 'page' => 2]))
+        ->assertInertia(fn ($page) => $page->has('activity.data', 5)->where('activity.current_page', 2)->where('activity.from', 21)->where('activity.to', 25));
+});
+
+test('realistic person presentation covers three months payments partial claims and offsets', function () {
+    [$user, $party, $account, $relation] = publicCounterpartyFixture(0);
+    $user->update(['locale' => 'it']);
+    $party->update(['name' => 'Mario Rossi']);
+    app(CreditDebtItemService::class)->create($user, ['counterparty_id' => $party->id, 'type' => 'debit', 'description' => 'Anticipo vacanza', 'total_amount' => '80.00', 'currency_code' => 'EUR']);
+    foreach (range(1, 12) as $index) {
+        SharedExpenseLedgerEntry::query()->create(['user_id' => $user->id, 'counterparty_id' => $party->id,
+            'entry_date' => $index <= 8 ? '2026-10-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT) : ($index <= 10 ? '2026-09-12' : '2026-08-10'),
+            'title' => ['Pulizie casa', 'Spesa al supermercato', 'Cena insieme', 'Bolletta luce'][($index - 1) % 4].' '.$index,
+            'currency' => 'EUR', 'total_cents' => 1600, 'my_share_cents' => 800, 'counterparty_share_cents' => 800,
+            'paid_by' => $index % 3 === 0 ? 'counterparty' : 'self', 'status' => 'recorded']);
+    }
+    $positive = $relation->obligations()->where('source_type', 'shared_ledger_share')->where('recognized_minor', '>', 0)->orderBy('economic_date')->get();
+    $negative = $relation->obligations()->where('source_type', 'shared_ledger_share')->where('recognized_minor', '<', 0)->firstOrFail();
+    foreach (['4.00', '2.00', '8.00'] as $index => $amount) {
+        commonCreatedPayment($user, $relation, [...commonPaymentInput($account, $amount, 'visual-received-'.$index), 'allocations' => [['obligation_uuid' => $positive[$index]->uuid, 'amount' => $amount]]]);
+    }
+    commonCreatedPayment($user, $relation, [...commonPaymentInput($account, '8.00', 'visual-sent', 'sent'), 'allocations' => [['obligation_uuid' => $negative->uuid, 'amount' => '8.00']]]);
+    $manualPositive = $relation->obligations()->where('source_type', 'credit_debt_item')->where('recognized_minor', '>', 0)->firstOrFail();
+    $manualNegative = $relation->obligations()->where('source_type', 'credit_debt_item')->where('recognized_minor', '<', 0)->firstOrFail();
+    foreach (range(1, 3) as $index) {
+        app(CounterpartyPaymentService::class)->compensate($user, $relation, ['operation_key' => 'visual-offset-'.$index, 'positive_uuid' => $manualPositive->uuid, 'negative_uuid' => $manualNegative->uuid, 'amount' => '1.00', 'date' => '2026-10-14']);
+    }
+    $dto = app(CounterpartyViewService::class)->show($user, $relation);
+    expect($dto['activity']->total())->toBe(21)->and($dto['historyPeriods'])->toContain('2026-10', '2026-09', '2026-08')
+        ->and(collect($dto['obligations'])->where('domain', 'shared')->count())->toBe(12)
+        ->and(collect($dto['obligations'])->where('remaining_minor', '400')->count())->toBe(1)
+        ->and(collect($dto['obligations'])->where('remaining_minor', '600')->count())->toBe(1);
+    $this->actingAs($user);
+    $responses = ['detail' => route('counterparties.show', $relation), 'detail-page2' => route('counterparties.show', [$relation, 'page' => 2])];
+    foreach (['pending', 'settled', 'all'] as $effect) {
+        $responses['shared-'.$effect] = route('shared-expenses.index', ['year' => 2026, 'month' => 10, 'effect' => $effect]);
+    }
+    foreach ($responses as $name => $url) {
+        $response = $this->get($url)->assertSuccessful();
+        if ($directory = getenv('SOAMCO_PRESENTATION_FIXTURE_DIR')) {
+            file_put_contents($directory.'/'.$name.'.html', $response->getContent());
+            file_put_contents($directory.'/'.$name.'.json', json_encode($response->viewData('page'), JSON_THROW_ON_ERROR));
+        }
+    }
+});

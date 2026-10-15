@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
     Check,
@@ -13,9 +13,17 @@ import {
     Undo2,
     X,
 } from 'lucide-vue-next';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watch,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
+    show as showRecurringEntry,
     cancel,
     destroy,
     pause,
@@ -23,6 +31,8 @@ import {
     updateInstallmentDistribution,
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import {
+    paymentCandidates,
+    allocatePayment,
     convert as convertOccurrence,
     undoConversion,
     skip as skipOccurrence,
@@ -54,6 +64,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
@@ -66,6 +77,156 @@ import type {
 const ui = useUiCopy();
 
 const props = defineProps<RecurringEntryShowPageProps>();
+type Occurrence =
+    RecurringEntryShowPageProps['recurringEntry']['occurrences'][number];
+type YearChunk = {
+    year: number;
+    offset: number;
+    next_offset: number | null;
+    occurrences: Occurrence[];
+};
+const yearRows = ref<Record<number, Occurrence[]>>({});
+const yearNext = ref<Record<number, number | null>>({});
+const yearFirst = ref<Record<number, number>>({});
+const openYears = ref<number[]>([]);
+const loadingYears = ref<number[]>([]);
+const failedYears = ref<number[]>([]);
+const retryOffsets = ref<Record<number, number>>({});
+const distributionLoading = ref(false);
+const distributionRows = ref<Occurrence[]>([]);
+const historyOpen = ref(false);
+let loadGeneration = 0;
+watch(
+    () => props.recurringEntry,
+    (payload) => {
+        loadGeneration++;
+        const chunk = payload.occurrence_page;
+        yearRows.value = { [chunk.year]: payload.occurrences };
+        yearNext.value = { [chunk.year]: chunk.next_offset };
+        yearFirst.value = { [chunk.year]: chunk.offset };
+        const current = Number(props.dateOptions.today.slice(0, 4));
+        openYears.value = [...new Set([current, chunk.year])];
+        loadingYears.value = [];
+        failedYears.value = [];
+
+        if (current !== chunk.year) {
+            if (
+                payload.occurrence_years.some(
+                    (group) => group.year === current && group.count > 0,
+                )
+            ) {
+                void loadYear(current);
+            } else {
+                yearRows.value[current] = [];
+            }
+        }
+    },
+    { immediate: true },
+);
+const occurrenceYears = computed(() => {
+    const current = Number(props.dateOptions.today.slice(0, 4));
+    const years = props.recurringEntry.occurrence_years ?? [];
+
+    return (
+        years.some((group) => group.year === current)
+            ? [...years]
+            : [
+                  ...years,
+                  {
+                      year: current,
+                      count: 0,
+                      overdue_count: 0,
+                      overdue_amount: 0,
+                  },
+              ]
+    ).sort((a, b) => a.year - b.year);
+});
+const loadedOccurrences = computed(() => Object.values(yearRows.value).flat());
+const latestAmountChange = computed(() =>
+    props.recurringEntry.amount_history.at(-1),
+);
+async function fetchYear(year: number, offset: number): Promise<YearChunk> {
+    const response = await fetch(
+        showRecurringEntry.url(props.recurringEntry.entry.uuid, {
+            query: { occurrence_year: year, occurrence_offset: offset },
+        }),
+        {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        },
+    );
+
+    if (!response.ok) {
+        throw new Error('Unable to load occurrences');
+    }
+
+    return response.json();
+}
+async function loadYear(year: number, offset = 0): Promise<void> {
+    if (loadingYears.value.includes(year)) {
+        return;
+    }
+
+    const generation = loadGeneration;
+    loadingYears.value.push(year);
+    failedYears.value = failedYears.value.filter((value) => value !== year);
+
+    try {
+        const chunk = await fetchYear(year, offset);
+
+        if (generation !== loadGeneration) {
+            return;
+        }
+
+        const existing = yearRows.value[year] ?? [];
+        yearRows.value[year] = [
+            ...new Map(
+                [...existing, ...chunk.occurrences].map((row) => [
+                    row.uuid,
+                    row,
+                ]),
+            ).values(),
+        ].sort(
+            (a, b) =>
+                (a.due_date ?? a.expected_date ?? '').localeCompare(
+                    b.due_date ?? b.expected_date ?? '',
+                ) || a.sequence_number - b.sequence_number,
+        );
+
+        if (!existing.length || offset >= (yearFirst.value[year] ?? 0)) {
+            yearNext.value[year] = chunk.next_offset;
+        }
+
+        yearFirst.value[year] = Math.min(
+            yearFirst.value[year] ?? offset,
+            offset,
+        );
+    } catch {
+        if (generation === loadGeneration) {
+            retryOffsets.value[year] = offset;
+            failedYears.value.push(year);
+        }
+    } finally {
+        if (generation === loadGeneration) {
+            loadingYears.value = loadingYears.value.filter(
+                (value) => value !== year,
+            );
+        }
+    }
+}
+function toggleYear(year: number): void {
+    if (openYears.value.includes(year)) {
+        openYears.value = openYears.value.filter((value) => value !== year);
+    } else {
+        openYears.value.push(year);
+
+        if (!yearRows.value[year]) {
+            void loadYear(year);
+        }
+    }
+}
 function toggleSkippedOccurrence(
     occurrence: (typeof props.recurringEntry.occurrences)[number],
 ): void {
@@ -132,6 +293,104 @@ function registerPayment(
         },
     });
 }
+const linkPaymentOpen = ref(false);
+const linkPaymentOccurrence = ref<Occurrence | null>(null);
+const linkPaymentLoading = ref(false);
+const linkPaymentFailed = ref(false);
+const candidatePage = ref(1);
+const candidateHasMore = ref(false);
+const candidateFrom = ref('');
+const candidateTo = ref('');
+const paymentCandidatesList = ref<
+    Array<{
+        uuid: string;
+        date: string;
+        amount: number;
+        description: string | null;
+        account: string | null;
+    }>
+>([]);
+const linkPaymentForm = useForm({ transaction_uuid: '', amount: '' });
+async function loadPaymentCandidates(pageNumber = 1): Promise<void> {
+    if (!linkPaymentOccurrence.value || linkPaymentLoading.value) {
+        return;
+    }
+
+    linkPaymentLoading.value = true;
+    linkPaymentFailed.value = false;
+
+    try {
+        const response = await fetch(
+            paymentCandidates.url(
+                [entry.value.uuid, linkPaymentOccurrence.value.uuid],
+                {
+                    query: {
+                        page: pageNumber,
+                        date_from: candidateFrom.value || undefined,
+                        date_to: candidateTo.value || undefined,
+                    },
+                },
+            ),
+            { headers: { Accept: 'application/json' } },
+        );
+
+        if (!response.ok) {
+            throw new Error('Unable to load payments');
+        }
+
+        const result = await response.json();
+        paymentCandidatesList.value =
+            pageNumber === 1
+                ? result.transactions
+                : [...paymentCandidatesList.value, ...result.transactions];
+        candidateHasMore.value = result.has_more;
+        candidatePage.value = pageNumber;
+    } catch {
+        linkPaymentFailed.value = true;
+    } finally {
+        linkPaymentLoading.value = false;
+    }
+}
+function openLinkPayment(occurrence: Occurrence): void {
+    linkPaymentOccurrence.value = occurrence;
+    paymentCandidatesList.value = [];
+    candidateFrom.value = '';
+    candidateTo.value = '';
+    linkPaymentForm.reset();
+    linkPaymentForm.clearErrors();
+    linkPaymentOpen.value = true;
+    void loadPaymentCandidates();
+}
+function chooseExistingPayment(payment: {
+    uuid: string;
+    amount: number;
+}): void {
+    linkPaymentForm.transaction_uuid = payment.uuid;
+    linkPaymentForm.amount = String(
+        Math.min(
+            payment.amount,
+            linkPaymentOccurrence.value?.remaining_amount ?? 0,
+        ),
+    );
+}
+function submitLinkPayment(): void {
+    if (!linkPaymentOccurrence.value) {
+        return;
+    }
+
+    linkPaymentForm.post(
+        allocatePayment.url([
+            entry.value.uuid,
+            linkPaymentOccurrence.value.uuid,
+        ]),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                linkPaymentOpen.value = false;
+            },
+        },
+    );
+}
 const cancelDialogOpen = ref(false);
 const resumeDialogOpen = ref(false);
 const pauseDialogOpen = ref(false);
@@ -185,7 +444,7 @@ const occurrenceForm = useForm({ due_date: '', account_uuid: '' });
 
 const auth = computed(() => page.props.auth as Auth);
 const undoingExternalPayment = computed(() =>
-    props.recurringEntry.occurrences.some(
+    loadedOccurrences.value.some(
         (occurrence) =>
             occurrence.uuid === undoConversionOccurrenceUuid.value &&
             occurrence.external_payment != null &&
@@ -226,7 +485,7 @@ const installmentDistributionIsValid = computed(
 );
 const affectedConvertedInstallments = computed(
     () =>
-        props.recurringEntry.occurrences.filter(
+        distributionRows.value.filter(
             (occurrence) => occurrence.converted_transaction !== null,
         ).length,
 );
@@ -314,6 +573,13 @@ function occurrenceState(
         };
     }
 
+    if (occurrence.status === 'cancelled') {
+        return {
+            label: ui('Annullata'),
+            tone: 'bg-muted text-muted-foreground',
+        };
+    }
+
     if (occurrence.status === 'skipped') {
         return {
             label: t('transactions.recurring.enums.occurrenceStatus.skipped'),
@@ -330,7 +596,7 @@ function occurrenceState(
 
     if (occurrence.settlement_status === 'partial') {
         return {
-            label: ui('Parzialmente saldata'),
+            label: ui('Parzialmente pagata'),
             tone: 'bg-primary/10 text-primary',
         };
     }
@@ -342,11 +608,11 @@ function occurrenceState(
         };
     }
 
-    if (
-        occurrence.settlement_status === 'settled' &&
-        !occurrence.converted_transaction
-    ) {
-        return { label: 'Saldata', tone: 'bg-primary/10 text-primary' };
+    if (occurrence.settlement_status === 'settled') {
+        return {
+            label: ui('Pagata'),
+            tone: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
+        };
     }
 
     if (
@@ -369,7 +635,7 @@ function occurrenceState(
     }
 
     return {
-        label: t('transactions.recurring.table.pendingBadge'),
+        label: ui('Prevista'),
         tone: 'bg-slate-900/6 text-slate-700 dark:bg-white/8 dark:text-slate-300',
     };
 }
@@ -428,14 +694,39 @@ function handleDelete(): void {
     });
 }
 
-function openInstallmentDistribution(): void {
-    installmentAmounts.value = props.recurringEntry.occurrences.map(
-        (occurrence) => ({
+async function openInstallmentDistribution(): Promise<void> {
+    if (distributionLoading.value) {
+        return;
+    }
+
+    distributionLoading.value = true;
+
+    try {
+        const rows: Occurrence[] = [];
+
+        for (const group of occurrenceYears.value) {
+            let offset: number | null = 0;
+
+            while (offset !== null) {
+                const chunk: YearChunk = await fetchYear(group.year, offset);
+                rows.push(...chunk.occurrences);
+                offset = chunk.next_offset;
+            }
+        }
+
+        distributionRows.value = rows.sort(
+            (a, b) => a.sequence_number - b.sequence_number,
+        );
+        installmentAmounts.value = distributionRows.value.map((occurrence) => ({
             uuid: occurrence.uuid,
             amount: String(occurrence.expected_amount ?? ''),
-        }),
-    );
-    installmentDistributionDialogOpen.value = true;
+        }));
+        installmentDistributionDialogOpen.value = true;
+    } catch {
+        failedYears.value = [Number(props.dateOptions.today.slice(0, 4))];
+    } finally {
+        distributionLoading.value = false;
+    }
 }
 
 function compensateLastInstallment(changedUuid: string): void {
@@ -680,11 +971,13 @@ onMounted(() => {
         );
         const visibleRow = rows.find((row) => row.offsetParent !== null);
 
+        visibleRow?.focus({ preventScroll: true });
         visibleRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 });
 
 onBeforeUnmount(() => {
+    loadGeneration++;
     window.removeEventListener(
         'app:mobile-primary-action',
         handleMobilePrimaryAction as EventListener,
@@ -813,6 +1106,7 @@ function isFutureOccurrence(
                                 "
                                 variant="outline"
                                 class="rounded-2xl"
+                                :disabled="distributionLoading"
                                 @click="openInstallmentDistribution"
                             >
                                 {{ ui('Modifica importi rate') }}
@@ -912,65 +1206,121 @@ function isFutureOccurrence(
                 data-testid="plan-amount-history"
                 class="space-y-3 rounded-2xl border bg-muted/30 p-4"
             >
-                <h2 class="text-base font-semibold">
-                    {{ t('transactions.recurring.detail.amountHistory') }}
-                </h2>
-                <div
-                    class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
+                <button
+                    type="button"
+                    class="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+                    :aria-expanded="historyOpen"
+                    aria-controls="amount-history-details"
+                    @click="historyOpen = !historyOpen"
                 >
-                    <SensitiveValue
-                        :value="
-                            formatCurrency(
-                                recurringEntry.amount_history[0]
-                                    .previous_amount,
-                                recurringEntry.amount_history[0].currency,
-                            )
-                        "
-                    />
-                    <span>{{
-                        t('transactions.recurring.detail.amountUntil', {
-                            date: new Date(
-                                `${recurringEntry.amount_history[0].previous_until}T00:00:00`,
-                            ).toLocaleDateString(locale),
-                        })
-                    }}</span>
-                </div>
-                <div
-                    v-for="change in recurringEntry.amount_history"
-                    :key="change.id"
-                    class="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm"
-                >
-                    <div class="space-y-1">
-                        <SensitiveValue
-                            class="font-semibold"
-                            :value="
-                                formatCurrency(
-                                    change.new_amount,
-                                    change.currency,
-                                )
-                            "
-                        />
-                        <p class="text-muted-foreground">
-                            {{
-                                t('transactions.recurring.detail.amountFrom', {
-                                    date: new Date(
-                                        `${change.effective_from}T00:00:00`,
-                                    ).toLocaleDateString(locale),
-                                })
-                            }}
-                        </p>
-                    </div>
-                    <Badge variant="secondary" class="gap-1 tabular-nums">
-                        <SensitiveValue
-                            :value="`${change.difference > 0 ? '+' : ''}${formatCurrency(change.difference, change.currency)}`"
-                        />
-                        <template v-if="change.percentage !== null">
-                            ·
+                    <span class="space-y-1">
+                        <span class="block text-base font-semibold">{{
+                            t('transactions.recurring.detail.amountHistory')
+                        }}</span>
+                        <span class="block text-sm"
+                            >{{ ui('Importo corrente') }}
                             <SensitiveValue
-                                :value="`${change.percentage > 0 ? '+' : ''}${change.percentage.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`"
+                                class="font-semibold"
+                                :value="formatMoney(entry.expected_amount ?? 0)"
                             />
-                        </template>
-                    </Badge>
+                            ·
+                            {{
+                                ui('{count} variazioni', {
+                                    count: recurringEntry.amount_history.length,
+                                })
+                            }}</span
+                        >
+                        <span
+                            v-if="latestAmountChange"
+                            class="block text-xs text-muted-foreground"
+                            >{{ ui('Ultima variazione') }}:
+                            <SensitiveValue
+                                :value="`${latestAmountChange.difference > 0 ? '+' : ''}${formatCurrency(latestAmountChange.difference, latestAmountChange.currency)}`"
+                            />
+                            ·
+                            {{
+                                new Date(
+                                    `${latestAmountChange.effective_from}T00:00:00`,
+                                ).toLocaleDateString(locale)
+                            }}</span
+                        >
+                    </span>
+                    <span class="text-sm font-medium text-primary">{{
+                        ui(
+                            historyOpen
+                                ? 'Chiudi storico importi'
+                                : 'Vedi storico importi',
+                        )
+                    }}</span>
+                </button>
+                <div
+                    v-if="historyOpen"
+                    id="amount-history-details"
+                    class="space-y-3 border-t pt-3"
+                >
+                    <article
+                        v-for="change in recurringEntry.amount_history"
+                        :key="change.id"
+                        class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background p-3 text-sm"
+                    >
+                        <div class="space-y-1">
+                            <p
+                                class="flex flex-wrap items-center gap-2 font-semibold tabular-nums"
+                            >
+                                <SensitiveValue
+                                    :value="
+                                        formatCurrency(
+                                            change.previous_amount,
+                                            change.currency,
+                                        )
+                                    "
+                                /><span aria-hidden="true">→</span
+                                ><SensitiveValue
+                                    :value="
+                                        formatCurrency(
+                                            change.new_amount,
+                                            change.currency,
+                                        )
+                                    "
+                                />
+                            </p>
+                            <time
+                                class="text-xs text-muted-foreground"
+                                :datetime="change.effective_from"
+                                >{{
+                                    new Date(
+                                        `${change.effective_from}T00:00:00`,
+                                    ).toLocaleDateString(locale)
+                                }}</time
+                            >
+                        </div>
+                        <p
+                            class="rounded-lg px-3 py-2 font-semibold tabular-nums"
+                            :class="
+                                change.difference > 0
+                                    ? 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
+                                    : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                            "
+                        >
+                            <span aria-hidden="true">{{
+                                change.difference > 0
+                                    ? '↑'
+                                    : change.difference < 0
+                                      ? '↓'
+                                      : '→'
+                            }}</span>
+                            <SensitiveValue
+                                :value="`${change.difference > 0 ? '+' : ''}${formatCurrency(change.difference, change.currency)}`"
+                            />
+                            <SensitiveValue
+                                v-if="
+                                    change.previous_amount !== 0 &&
+                                    change.percentage !== null
+                                "
+                                :value="` (${change.percentage > 0 ? '+' : ''}${change.percentage.toLocaleString(locale, { maximumFractionDigits: 2 })}%)`"
+                            />
+                        </p>
+                    </article>
                 </div>
             </section>
 
@@ -1035,430 +1385,128 @@ function isFutureOccurrence(
                     </h2>
                 </div>
 
-                <div class="space-y-4 p-4 sm:hidden">
-                    <article
-                        v-for="occurrence in props.recurringEntry.occurrences"
-                        :key="occurrence.uuid"
-                        :data-occurrence-uuid="occurrence.uuid"
-                        class="space-y-4 rounded-[24px] border bg-white/90 p-4 transition-all dark:bg-slate-950/70"
-                        :class="
-                            highlightedOccurrenceUuid === occurrence.uuid
-                                ? 'border-violet-400 ring-2 ring-violet-300/60 dark:border-violet-500 dark:ring-violet-500/25'
-                                : 'border-slate-200/80 dark:border-white/10'
-                        "
+                <div
+                    v-for="group in occurrenceYears"
+                    :key="group.year"
+                    class="border-t first:border-t-0"
+                    :data-year="group.year"
+                >
+                    <button
+                        type="button"
+                        class="flex min-h-16 w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/40"
+                        :aria-expanded="openYears.includes(group.year)"
+                        :aria-controls="`occurrences-${group.year}`"
+                        @click="toggleYear(group.year)"
                     >
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="space-y-1">
-                                <p
-                                    class="text-sm font-semibold text-slate-950 dark:text-white"
-                                >
-                                    {{
-                                        occurrence.due_date ??
-                                        occurrence.expected_date
-                                    }}
-                                </p>
-                                <Badge
-                                    class="rounded-full"
-                                    :class="occurrenceState(occurrence).tone"
-                                >
-                                    {{ occurrenceState(occurrence).label }}
-                                </Badge>
-                            </div>
-                            <form
-                                v-if="
-                                    amountEditingOccurrenceUuid ===
-                                    occurrence.uuid
-                                "
-                                class="w-40 space-y-2"
-                                @submit.prevent="submitAmount(occurrence.uuid)"
+                        <span class="min-w-0 flex-1 space-y-1.5">
+                            <span
+                                class="flex flex-wrap items-center gap-x-3 gap-y-1"
                             >
-                                <div class="flex items-center gap-1.5">
-                                    <Input
-                                        v-model="amountForm.amount"
-                                        type="number"
-                                        inputmode="decimal"
-                                        min="0.01"
-                                        step="0.01"
-                                        autofocus
-                                        class="h-9 rounded-xl text-right"
-                                    />
-                                    <Button
-                                        type="submit"
-                                        size="icon"
-                                        class="size-9 shrink-0 rounded-xl"
-                                        :disabled="amountForm.processing"
-                                        :aria-label="
-                                            t(
-                                                'transactions.recurring.actions.saveAmount',
-                                            )
-                                        "
-                                    >
-                                        <LoaderCircle
-                                            v-if="amountForm.processing"
-                                            class="size-4 animate-spin"
-                                        />
-                                        <Check v-else class="size-4" />
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        size="icon"
-                                        variant="ghost"
-                                        class="size-9 shrink-0 rounded-xl"
-                                        :aria-label="
-                                            t(
-                                                'transactions.recurring.actions.cancelAmountEdit',
-                                            )
-                                        "
-                                        @click="cancelAmountEdit"
-                                    >
-                                        <X class="size-4" />
-                                    </Button>
-                                </div>
-                                <InputError
-                                    :message="amountForm.errors.amount"
+                                <span
+                                    class="text-lg font-semibold tabular-nums"
+                                    >{{ group.year }}</span
+                                >
+                                <span class="text-xs text-muted-foreground">{{
+                                    ui('{count} movimenti', {
+                                        count: group.count,
+                                    })
+                                }}</span>
+                            </span>
+                            <span
+                                v-if="group.overdue_count > 0"
+                                class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-800 dark:text-amber-200"
+                                :data-overdue-year="group.year"
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    class="size-1.5 rounded-full bg-amber-500"
+                                ></span>
+                                <span>{{ ui('Importi non corrisposti') }}</span>
+                                <SensitiveValue
+                                    class="font-semibold tabular-nums"
+                                    :value="formatMoney(group.overdue_amount)"
                                 />
-                            </form>
-                            <div v-else class="flex items-center gap-1.5">
-                                <p
-                                    class="text-sm font-semibold text-slate-950 dark:text-white"
-                                >
-                                    <SensitiveValue
-                                        :value="
-                                            formatMoney(
-                                                occurrence.expected_amount ?? 0,
-                                            )
-                                        "
-                                    />
-                                </p>
-                                <Button
-                                    v-if="occurrence.can_update_amount"
-                                    type="button"
-                                    size="icon"
-                                    variant="ghost"
-                                    class="size-8 rounded-xl text-violet-700 dark:text-violet-300"
-                                    :aria-label="
-                                        t(
-                                            'transactions.recurring.actions.editAmount',
-                                        )
-                                    "
-                                    @click="startAmountEdit(occurrence)"
-                                >
-                                    <Pencil class="size-3.5" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        <dl
-                            v-if="(occurrence.allocated_amount ?? 0) > 0"
-                            class="grid min-w-0 grid-cols-3 gap-2 rounded-xl bg-muted/50 p-3 text-xs"
-                        >
-                            <div
-                                v-for="(amount, label) in {
-                                    amountDue: occurrence.expected_amount,
-                                    amountPaid: occurrence.allocated_amount,
-                                    amountRemaining:
-                                        occurrence.remaining_amount,
-                                }"
-                                :key="label"
-                                class="min-w-0"
-                            >
-                                <dt class="text-muted-foreground">
-                                    {{
-                                        t(
-                                            `transactions.recurring.labels.${label}`,
-                                        )
-                                    }}
-                                </dt>
-                                <dd class="mt-1 font-semibold tabular-nums">
-                                    <SensitiveValue
-                                        :value="formatMoney(amount ?? 0)"
-                                    />
-                                </dd>
-                            </div>
-                        </dl>
-
-                        <div class="space-y-1 text-sm">
-                            <p class="text-slate-700 dark:text-slate-200">
                                 <span
-                                    class="text-slate-500 dark:text-slate-400"
-                                >
+                                    class="text-amber-700/80 dark:text-amber-300/80"
+                                    >·
                                     {{
-                                        t(
-                                            'transactions.recurring.labels.account',
-                                        )
-                                    }}:
-                                </span>
-                                {{
-                                    occurrence.resource?.name ??
-                                    t('transactions.recurring.labels.noAccount')
-                                }}
-                                <span
-                                    v-if="occurrence.resource?.is_overridden"
-                                    class="ml-1 text-xs text-violet-700 dark:text-violet-300"
+                                        ui('{count} scadenze arretrate', {
+                                            count: group.overdue_count,
+                                        })
+                                    }}</span
                                 >
-                                    {{
-                                        t(
-                                            'transactions.recurring.table.overrideBadge',
-                                        )
-                                    }}
-                                </span>
-                            </p>
-                            <p
-                                v-if="occurrence.has_date_override"
-                                class="text-xs text-violet-700 dark:text-violet-300"
-                            >
-                                {{
-                                    t(
-                                        'transactions.recurring.table.overrideBadge',
-                                    )
-                                }}
-                            </p>
-                            <p
-                                v-if="
-                                    occurrence.converted_transaction?.show_url
-                                "
-                                class="text-slate-600 dark:text-slate-300"
-                            >
-                                <Link
-                                    :href="
-                                        occurrence.converted_transaction
-                                            .show_url
-                                    "
-                                    class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.recurring.actions.openTransaction',
-                                        )
-                                    }}
-                                </Link>
-                            </p>
-                            <p
-                                v-if="
-                                    occurrence.converted_transaction
-                                        ?.refund_transaction?.transaction_date
-                                "
-                                class="text-xs text-amber-700 dark:text-amber-300"
-                            >
-                                {{
-                                    t(
-                                        'transactions.recurring.table.refundReference',
-                                        {
-                                            date: occurrence
-                                                .converted_transaction
-                                                .refund_transaction
-                                                .transaction_date,
-                                        },
-                                    )
-                                }}
-                            </p>
-                            <p
-                                v-if="
-                                    !occurrence.converted_transaction &&
-                                    !occurrence.external_payment
-                                "
-                                class="text-xs text-slate-500 dark:text-slate-400"
-                            >
-                                {{
-                                    t(
-                                        'transactions.recurring.table.noLinkedTransaction',
-                                    )
-                                }}
-                            </p>
-                        </div>
-
-                        <OccurrencePayments
-                            :payments="occurrence.payments"
-                            :external-payment="occurrence.external_payment"
-                            :history="occurrence.payment_history"
-                            :currency="entry.currency"
-                        />
-                        <div class="flex flex-wrap gap-2">
-                            <Button
-                                v-if="occurrence.can_register_payment"
-                                variant="outline"
-                                class="h-11 rounded-full px-3 text-xs"
-                                :disabled="paymentLoading"
-                                @click="registerPayment(occurrence)"
-                                >{{ ui('Registra pagamento') }}</Button
-                            >
-                            <Button
-                                v-if="occurrence.can_update_occurrence"
-                                variant="outline"
-                                class="h-9 rounded-full px-3 text-xs"
-                                @click="startOccurrenceEdit(occurrence)"
-                            >
-                                <Pencil class="mr-1.5 size-3.5" />
-                                {{
-                                    t(
-                                        'transactions.recurring.actions.editOccurrence',
-                                    )
-                                }}
-                            </Button>
-                            <Button
-                                v-if="
-                                    occurrence.can_skip ||
-                                    occurrence.can_restore
-                                "
-                                variant="outline"
-                                class="h-9 rounded-full px-3 text-xs"
-                                @click="toggleSkippedOccurrence(occurrence)"
-                            >
-                                {{
-                                    t(
-                                        occurrence.can_restore
-                                            ? 'transactions.recurring.actions.restoreOccurrence'
-                                            : 'transactions.recurring.actions.skipOccurrence',
-                                    )
-                                }}
-                            </Button>
-                            <Button
-                                v-if="
-                                    occurrence.can_convert &&
-                                    occurrence.status !== 'skipped'
-                                "
-                                variant="outline"
-                                class="h-9 rounded-full px-3 text-xs"
-                                @click="requestConvert(occurrence)"
-                            >
-                                {{
-                                    entry.shared_expense_counterparty
-                                        ? 'Registra pagamento'
-                                        : t(
-                                              'transactions.recurring.actions.convert',
-                                          )
-                                }}
-                            </Button>
-                            <Button
-                                v-if="occurrence.can_undo_conversion"
-                                variant="outline"
-                                class="h-9 rounded-full px-3 text-xs"
-                                @click="
-                                    undoConversionOccurrenceUuid =
-                                        occurrence.uuid
-                                "
-                            >
-                                {{
-                                    occurrence.external_payment &&
-                                    (!occurrence.converted_transaction ||
-                                        occurrence.converted_transaction
-                                            .is_refunded)
-                                        ? 'Annulla pagamento'
-                                        : t(
-                                              'transactions.recurring.actions.undoConversion',
-                                          )
-                                }}
-                            </Button>
-                            <Button
-                                v-if="
-                                    occurrence.converted_transaction?.can_refund
-                                "
-                                variant="outline"
-                                class="h-9 rounded-full px-3 text-xs"
-                                @click="
-                                    refundDialogTransactionUuid =
-                                        occurrence.converted_transaction.uuid
-                                "
-                            >
-                                {{ t('transactions.recurring.actions.refund') }}
-                            </Button>
-                        </div>
-                    </article>
-                </div>
-
-                <div class="hidden overflow-x-auto sm:block">
-                    <table class="min-w-full text-sm">
-                        <thead
-                            class="bg-slate-950/[0.03] text-left text-xs tracking-[0.16em] text-slate-500 uppercase dark:bg-white/[0.04] dark:text-slate-400"
+                            </span>
+                        </span>
+                        <span
+                            aria-hidden="true"
+                            class="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted/60 text-lg text-muted-foreground"
+                            >{{
+                                openYears.includes(group.year) ? '−' : '+'
+                            }}</span
                         >
-                            <tr>
-                                <th class="px-4 py-3">
-                                    {{
-                                        t('transactions.recurring.labels.date')
-                                    }}
-                                </th>
-                                <th class="px-4 py-3">
-                                    {{
-                                        t(
-                                            'transactions.recurring.labels.amount',
-                                        )
-                                    }}
-                                </th>
-                                <th class="px-4 py-3">
-                                    {{
-                                        t(
-                                            'transactions.recurring.labels.account',
-                                        )
-                                    }}
-                                </th>
-                                <th class="px-4 py-3">
-                                    {{
-                                        t(
-                                            'transactions.recurring.labels.occurrenceStatus',
-                                        )
-                                    }}
-                                </th>
-                                <th class="px-4 py-3">
-                                    {{
-                                        t(
-                                            'transactions.recurring.labels.convertedTransaction',
-                                        )
-                                    }}
-                                </th>
-                                <th class="px-4 py-3 text-right">
-                                    {{
-                                        t(
-                                            'transactions.recurring.labels.actions',
-                                        )
-                                    }}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="occurrence in props.recurringEntry
-                                    .occurrences"
+                    </button>
+                    <div
+                        v-if="openYears.includes(group.year)"
+                        :id="`occurrences-${group.year}`"
+                        :aria-busy="loadingYears.includes(group.year)"
+                    >
+                        <div v-if="yearFirst[group.year] > 0" class="px-4 pb-2">
+                            <Button
+                                variant="ghost"
+                                :disabled="loadingYears.includes(group.year)"
+                                @click="
+                                    loadYear(
+                                        group.year,
+                                        Math.max(0, yearFirst[group.year] - 12),
+                                    )
+                                "
+                                >{{ ui('Mostra precedenti') }}</Button
+                            >
+                        </div>
+                        <div class="space-y-4 p-4 sm:hidden">
+                            <article
+                                v-for="occurrence in yearRows[group.year] ?? []"
                                 :key="occurrence.uuid"
                                 :data-occurrence-uuid="occurrence.uuid"
-                                class="border-t transition-colors"
+                                tabindex="-1"
+                                class="space-y-4 rounded-[24px] border bg-white/90 p-4 transition-all dark:bg-slate-950/70"
                                 :class="
                                     highlightedOccurrenceUuid ===
                                     occurrence.uuid
-                                        ? 'border-violet-300 bg-violet-50/75 dark:border-violet-500/40 dark:bg-violet-500/10'
-                                        : 'border-slate-200/70 dark:border-white/10'
+                                        ? 'border-violet-400 ring-2 ring-violet-300/60 dark:border-violet-500 dark:ring-violet-500/25'
+                                        : 'border-slate-200/80 dark:border-white/10'
                                 "
                             >
-                                <td
-                                    class="px-4 py-4 text-slate-700 dark:text-slate-200"
+                                <div
+                                    class="flex items-start justify-between gap-3"
                                 >
                                     <div class="space-y-1">
-                                        <p>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-white"
+                                        >
                                             {{
                                                 occurrence.due_date ??
                                                 occurrence.expected_date
                                             }}
                                         </p>
-                                        <p
-                                            v-if="occurrence.has_date_override"
-                                            class="text-xs text-violet-700 dark:text-violet-300"
+                                        <Badge
+                                            class="rounded-full"
+                                            :class="
+                                                occurrenceState(occurrence).tone
+                                            "
                                         >
                                             {{
-                                                t(
-                                                    'transactions.recurring.table.overrideBadge',
-                                                )
+                                                occurrenceState(occurrence)
+                                                    .label
                                             }}
-                                        </p>
+                                        </Badge>
                                     </div>
-                                </td>
-                                <td
-                                    class="px-4 py-4 font-semibold text-slate-950 dark:text-white"
-                                >
                                     <form
                                         v-if="
                                             amountEditingOccurrenceUuid ===
                                             occurrence.uuid
                                         "
-                                        class="max-w-64 space-y-2"
+                                        class="w-40 space-y-2"
                                         @submit.prevent="
                                             submitAmount(occurrence.uuid)
                                         "
@@ -1471,12 +1519,12 @@ function isFutureOccurrence(
                                                 min="0.01"
                                                 step="0.01"
                                                 autofocus
-                                                class="h-9 w-32 rounded-xl text-right"
+                                                class="h-9 rounded-xl text-right"
                                             />
                                             <Button
                                                 type="submit"
                                                 size="icon"
-                                                class="size-9 rounded-xl"
+                                                class="size-9 shrink-0 rounded-xl"
                                                 :disabled="
                                                     amountForm.processing
                                                 "
@@ -1496,7 +1544,7 @@ function isFutureOccurrence(
                                                 type="button"
                                                 size="icon"
                                                 variant="ghost"
-                                                class="size-9 rounded-xl"
+                                                class="size-9 shrink-0 rounded-xl"
                                                 :aria-label="
                                                     t(
                                                         'transactions.recurring.actions.cancelAmountEdit',
@@ -1515,14 +1563,18 @@ function isFutureOccurrence(
                                         v-else
                                         class="flex items-center gap-1.5"
                                     >
-                                        <SensitiveValue
-                                            :value="
-                                                formatMoney(
-                                                    occurrence.expected_amount ??
-                                                        0,
-                                                )
-                                            "
-                                        />
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-white"
+                                        >
+                                            <SensitiveValue
+                                                :value="
+                                                    formatMoney(
+                                                        occurrence.expected_amount ??
+                                                            0,
+                                                    )
+                                                "
+                                            />
+                                        </p>
                                         <Button
                                             v-if="occurrence.can_update_amount"
                                             type="button"
@@ -1539,109 +1591,111 @@ function isFutureOccurrence(
                                             <Pencil class="size-3.5" />
                                         </Button>
                                     </div>
-                                    <dl
-                                        v-if="
-                                            (occurrence.allocated_amount ?? 0) >
-                                            0
-                                        "
-                                        class="mt-2 space-y-1 text-xs"
-                                    >
-                                        <div
-                                            v-for="(amount, label) in {
-                                                amountDue:
-                                                    occurrence.expected_amount,
-                                                amountPaid:
-                                                    occurrence.allocated_amount,
-                                                amountRemaining:
-                                                    occurrence.remaining_amount,
-                                            }"
-                                            :key="label"
-                                            class="flex gap-2"
-                                        >
-                                            <dt class="text-muted-foreground">
-                                                {{
-                                                    t(
-                                                        `transactions.recurring.labels.${label}`,
-                                                    )
-                                                }}
-                                            </dt>
-                                            <dd
-                                                class="font-semibold tabular-nums"
-                                            >
-                                                <SensitiveValue
-                                                    :value="
-                                                        formatMoney(amount ?? 0)
-                                                    "
-                                                />
-                                            </dd>
-                                        </div>
-                                    </dl>
-                                </td>
-                                <td
-                                    class="px-4 py-4 text-slate-700 dark:text-slate-200"
+                                </div>
+
+                                <dl
+                                    class="grid min-w-0 grid-cols-3 gap-2 rounded-xl bg-muted/50 p-3 text-xs"
                                 >
-                                    <div class="space-y-1">
-                                        <p>
+                                    <div
+                                        v-for="(amount, label) in {
+                                            amountDue:
+                                                occurrence.expected_amount,
+                                            amountPaid:
+                                                occurrence.allocated_amount,
+                                            amountRemaining:
+                                                occurrence.remaining_amount,
+                                        }"
+                                        :key="label"
+                                        class="min-w-0"
+                                    >
+                                        <dt class="text-muted-foreground">
                                             {{
-                                                occurrence.resource?.name ??
-                                                t(
-                                                    'transactions.recurring.labels.noAccount',
+                                                ui(
+                                                    label === 'amountPaid'
+                                                        ? 'Già pagato'
+                                                        : label === 'amountDue'
+                                                          ? 'Totale'
+                                                          : 'Residuo',
                                                 )
                                             }}
-                                        </p>
-                                        <p
+                                        </dt>
+                                        <dd
+                                            class="mt-1 font-semibold break-words tabular-nums"
+                                            :class="
+                                                label === 'amountPaid'
+                                                    ? 'text-base text-emerald-700 dark:text-emerald-300'
+                                                    : label ===
+                                                            'amountRemaining' &&
+                                                        (amount ?? 0) > 0
+                                                      ? 'text-base text-foreground'
+                                                      : ''
+                                            "
+                                        >
+                                            <SensitiveValue
+                                                :value="
+                                                    formatMoney(amount ?? 0)
+                                                "
+                                            />
+                                        </dd>
+                                    </div>
+                                </dl>
+
+                                <div class="space-y-1 text-sm">
+                                    <p
+                                        class="text-slate-700 dark:text-slate-200"
+                                    >
+                                        <span
+                                            class="text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.account',
+                                                )
+                                            }}:
+                                        </span>
+                                        {{
+                                            occurrence.resource?.name ??
+                                            t(
+                                                'transactions.recurring.labels.noAccount',
+                                            )
+                                        }}
+                                        <span
                                             v-if="
                                                 occurrence.resource
                                                     ?.is_overridden
                                             "
-                                            class="text-xs text-violet-700 dark:text-violet-300"
+                                            class="ml-1 text-xs text-violet-700 dark:text-violet-300"
                                         >
                                             {{
                                                 t(
                                                     'transactions.recurring.table.overrideBadge',
                                                 )
                                             }}
-                                        </p>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-4">
-                                    <div class="flex flex-wrap gap-2">
-                                        <Badge
-                                            class="rounded-full"
-                                            :class="
-                                                occurrenceState(occurrence).tone
-                                            "
-                                        >
-                                            {{
-                                                occurrenceState(occurrence)
-                                                    .label
-                                            }}
-                                        </Badge>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-4">
-                                    <div
-                                        v-if="occurrence.converted_transaction"
-                                        class="space-y-1"
+                                        </span>
+                                    </p>
+                                    <p
+                                        v-if="occurrence.has_date_override"
+                                        class="text-xs text-violet-700 dark:text-violet-300"
                                     >
-                                        <p
-                                            class="text-xs text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                occurrence.converted_transaction
-                                                    .transaction_date
-                                            }}
-                                        </p>
+                                        {{
+                                            t(
+                                                'transactions.recurring.table.overrideBadge',
+                                            )
+                                        }}
+                                    </p>
+                                    <p
+                                        v-if="
+                                            occurrence.converted_transaction
+                                                ?.show_url
+                                        "
+                                        class="text-slate-600 dark:text-slate-300"
+                                    >
                                         <Link
-                                            v-if="
-                                                occurrence.converted_transaction
-                                                    .show_url
-                                            "
                                             :href="
                                                 occurrence.converted_transaction
                                                     .show_url
                                             "
-                                            class="inline-flex text-xs font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                                            class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
                                         >
                                             {{
                                                 t(
@@ -1649,29 +1703,62 @@ function isFutureOccurrence(
                                                 )
                                             }}
                                         </Link>
-                                        <p
-                                            v-if="
-                                                occurrence.converted_transaction
-                                                    .refund_transaction
-                                                    ?.transaction_date
-                                            "
-                                            class="text-xs text-amber-700 dark:text-amber-300"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.table.refundReference',
-                                                    {
-                                                        date: occurrence
-                                                            .converted_transaction
-                                                            .refund_transaction
-                                                            .transaction_date,
-                                                    },
-                                                )
-                                            }}
-                                        </p>
-                                    </div>
-                                    <span
-                                        v-else
+                                    </p>
+                                    <p
+                                        v-if="
+                                            occurrence.converted_transaction
+                                                ?.refund_transaction
+                                                ?.transaction_date
+                                        "
+                                        class="text-xs text-amber-700 dark:text-amber-300"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.table.refundReference',
+                                                {
+                                                    date: occurrence
+                                                        .converted_transaction
+                                                        .refund_transaction
+                                                        .transaction_date,
+                                                },
+                                            )
+                                        }}
+                                    </p>
+                                    <Link
+                                        v-if="
+                                            !occurrence.converted_transaction &&
+                                            occurrence.payments?.length
+                                        "
+                                        :href="
+                                            occurrence.payments[
+                                                occurrence.payments.length - 1
+                                            ].show_url
+                                        "
+                                        class="inline-flex min-h-9 items-center text-sm font-medium text-sky-700 dark:text-sky-300"
+                                        >{{ ui('Apri ultimo pagamento') }}</Link
+                                    >
+                                    <Link
+                                        v-if="
+                                            !occurrence.converted_transaction &&
+                                            !occurrence.payments?.length &&
+                                            occurrence.payment_history?.length
+                                        "
+                                        :href="
+                                            occurrence.payment_history[
+                                                occurrence.payment_history
+                                                    .length - 1
+                                            ].show_url
+                                        "
+                                        class="inline-flex min-h-9 items-center text-sm font-medium text-sky-700 dark:text-sky-300"
+                                        >{{ ui('Apri ultimo pagamento') }}</Link
+                                    >
+                                    <p
+                                        v-if="
+                                            !occurrence.converted_transaction &&
+                                            !occurrence.external_payment &&
+                                            !occurrence.payments?.length &&
+                                            !occurrence.payment_history?.length
+                                        "
                                         class="text-xs text-slate-500 dark:text-slate-400"
                                     >
                                         {{
@@ -1679,135 +1766,767 @@ function isFutureOccurrence(
                                                 'transactions.recurring.table.noLinkedTransaction',
                                             )
                                         }}
-                                    </span>
+                                    </p>
+                                </div>
+
+                                <details
+                                    v-if="
+                                        occurrence.payments?.length ||
+                                        occurrence.external_payment ||
+                                        occurrence.payment_history?.length
+                                    "
+                                    class="min-w-0 text-sm"
+                                >
+                                    <summary
+                                        class="cursor-pointer py-2 text-muted-foreground"
+                                    >
+                                        {{ ui('Dettagli pagamenti') }}
+                                    </summary>
                                     <OccurrencePayments
-                                        :history="occurrence.payment_history"
                                         :payments="occurrence.payments"
                                         :external-payment="
                                             occurrence.external_payment
                                         "
+                                        :history="occurrence.payment_history"
                                         :currency="entry.currency"
                                     />
-                                </td>
-                                <td class="px-4 py-4">
-                                    <div
-                                        class="flex flex-wrap justify-end gap-2"
+                                </details>
+                                <div class="flex flex-wrap gap-2">
+                                    <Button
+                                        v-if="occurrence.can_register_payment"
+                                        variant="outline"
+                                        class="h-11 rounded-full px-3 text-xs"
+                                        :disabled="paymentLoading"
+                                        @click="registerPayment(occurrence)"
+                                        >{{ ui('Registra pagamento') }}</Button
+                                    ><Button
+                                        v-if="occurrence.can_register_payment"
+                                        variant="ghost"
+                                        class="min-h-9 rounded-full px-3 text-xs"
+                                        @click="openLinkPayment(occurrence)"
+                                        >{{
+                                            ui('Collega pagamento esistente')
+                                        }}</Button
                                     >
-                                        <Button
-                                            v-if="
-                                                occurrence.can_register_payment
-                                            "
-                                            variant="outline"
-                                            class="h-9 rounded-full px-3 text-xs"
-                                            :disabled="paymentLoading"
-                                            @click="registerPayment(occurrence)"
-                                            >{{
-                                                ui('Registra pagamento')
-                                            }}</Button
-                                        >
-                                        <Button
-                                            v-if="
-                                                occurrence.can_update_occurrence
-                                            "
-                                            variant="outline"
-                                            class="h-9 rounded-full px-3 text-xs"
-                                            @click="
-                                                startOccurrenceEdit(occurrence)
-                                            "
-                                        >
-                                            <Pencil class="mr-1.5 size-3.5" />
-                                            {{
-                                                t(
-                                                    'transactions.recurring.actions.editOccurrence',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="
-                                                occurrence.can_skip ||
+                                    <Button
+                                        v-if="occurrence.can_update_occurrence"
+                                        variant="outline"
+                                        class="h-9 rounded-full px-3 text-xs"
+                                        @click="startOccurrenceEdit(occurrence)"
+                                    >
+                                        <Pencil class="mr-1.5 size-3.5" />
+                                        {{
+                                            t(
+                                                'transactions.recurring.actions.editOccurrence',
+                                            )
+                                        }}
+                                    </Button>
+                                    <Button
+                                        v-if="
+                                            occurrence.can_skip ||
+                                            occurrence.can_restore
+                                        "
+                                        variant="outline"
+                                        class="h-9 rounded-full px-3 text-xs"
+                                        @click="
+                                            toggleSkippedOccurrence(occurrence)
+                                        "
+                                    >
+                                        {{
+                                            t(
                                                 occurrence.can_restore
-                                            "
-                                            variant="outline"
-                                            class="h-9 rounded-full px-3 text-xs"
-                                            @click="
-                                                toggleSkippedOccurrence(
-                                                    occurrence,
-                                                )
-                                            "
-                                        >
-                                            {{
-                                                t(
-                                                    occurrence.can_restore
-                                                        ? 'transactions.recurring.actions.restoreOccurrence'
-                                                        : 'transactions.recurring.actions.skipOccurrence',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="
-                                                occurrence.can_convert &&
-                                                occurrence.status !== 'skipped'
-                                            "
-                                            variant="outline"
-                                            class="h-9 rounded-full px-3 text-xs"
-                                            @click="requestConvert(occurrence)"
-                                        >
-                                            {{
-                                                entry.shared_expense_counterparty
-                                                    ? 'Registra pagamento'
-                                                    : t(
-                                                          'transactions.recurring.actions.convert',
-                                                      )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="
-                                                occurrence.can_undo_conversion
-                                            "
-                                            variant="outline"
-                                            class="h-9 rounded-full px-3 text-xs"
-                                            @click="
-                                                undoConversionOccurrenceUuid =
-                                                    occurrence.uuid
-                                            "
-                                        >
-                                            {{
-                                                occurrence.external_payment &&
-                                                (!occurrence.converted_transaction ||
-                                                    occurrence
-                                                        .converted_transaction
-                                                        .is_refunded)
-                                                    ? 'Annulla pagamento'
-                                                    : t(
-                                                          'transactions.recurring.actions.undoConversion',
-                                                      )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="
+                                                    ? 'transactions.recurring.actions.restoreOccurrence'
+                                                    : 'transactions.recurring.actions.skipOccurrence',
+                                            )
+                                        }}
+                                    </Button>
+                                    <Button
+                                        v-if="
+                                            occurrence.can_convert &&
+                                            occurrence.status !== 'skipped'
+                                        "
+                                        variant="outline"
+                                        class="h-9 rounded-full px-3 text-xs"
+                                        @click="requestConvert(occurrence)"
+                                    >
+                                        {{
+                                            entry.shared_expense_counterparty
+                                                ? 'Registra pagamento'
+                                                : t(
+                                                      'transactions.recurring.actions.convert',
+                                                  )
+                                        }}
+                                    </Button>
+                                    <Button
+                                        v-if="occurrence.can_undo_conversion"
+                                        variant="outline"
+                                        class="h-9 rounded-full px-3 text-xs"
+                                        @click="
+                                            undoConversionOccurrenceUuid =
+                                                occurrence.uuid
+                                        "
+                                    >
+                                        {{
+                                            occurrence.external_payment &&
+                                            (!occurrence.converted_transaction ||
                                                 occurrence.converted_transaction
-                                                    ?.can_refund
-                                            "
-                                            variant="outline"
-                                            class="h-9 rounded-full px-3 text-xs"
-                                            @click="
-                                                refundDialogTransactionUuid =
-                                                    occurrence
-                                                        .converted_transaction
-                                                        .uuid
-                                            "
-                                        >
+                                                    .is_refunded)
+                                                ? 'Annulla pagamento'
+                                                : t(
+                                                      'transactions.recurring.actions.undoConversion',
+                                                  )
+                                        }}
+                                    </Button>
+                                    <Button
+                                        v-if="
+                                            occurrence.converted_transaction
+                                                ?.can_refund
+                                        "
+                                        variant="outline"
+                                        class="h-9 rounded-full px-3 text-xs"
+                                        @click="
+                                            refundDialogTransactionUuid =
+                                                occurrence.converted_transaction
+                                                    .uuid
+                                        "
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.actions.refund',
+                                            )
+                                        }}
+                                    </Button>
+                                </div>
+                            </article>
+                        </div>
+
+                        <div class="hidden overflow-x-auto sm:block">
+                            <table class="min-w-full text-sm">
+                                <thead
+                                    class="bg-slate-950/[0.03] text-left text-xs tracking-[0.16em] text-slate-500 uppercase dark:bg-white/[0.04] dark:text-slate-400"
+                                >
+                                    <tr>
+                                        <th class="px-4 py-3">
                                             {{
                                                 t(
-                                                    'transactions.recurring.actions.refund',
+                                                    'transactions.recurring.labels.date',
                                                 )
                                             }}
-                                        </Button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.amount',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.account',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.occurrenceStatus',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.convertedTransaction',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3 text-right">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.actions',
+                                                )
+                                            }}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="occurrence in yearRows[
+                                            group.year
+                                        ] ?? []"
+                                        :key="occurrence.uuid"
+                                        :data-occurrence-uuid="occurrence.uuid"
+                                        tabindex="-1"
+                                        class="border-t transition-colors"
+                                        :class="
+                                            highlightedOccurrenceUuid ===
+                                            occurrence.uuid
+                                                ? 'border-violet-300 bg-violet-50/75 dark:border-violet-500/40 dark:bg-violet-500/10'
+                                                : 'border-slate-200/70 dark:border-white/10'
+                                        "
+                                    >
+                                        <td
+                                            class="px-4 py-4 text-slate-700 dark:text-slate-200"
+                                        >
+                                            <div class="space-y-1">
+                                                <p>
+                                                    {{
+                                                        occurrence.due_date ??
+                                                        occurrence.expected_date
+                                                    }}
+                                                </p>
+                                                <p
+                                                    v-if="
+                                                        occurrence.has_date_override
+                                                    "
+                                                    class="text-xs text-violet-700 dark:text-violet-300"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.table.overrideBadge',
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td
+                                            class="px-4 py-4 font-semibold text-slate-950 dark:text-white"
+                                        >
+                                            <form
+                                                v-if="
+                                                    amountEditingOccurrenceUuid ===
+                                                    occurrence.uuid
+                                                "
+                                                class="max-w-64 space-y-2"
+                                                @submit.prevent="
+                                                    submitAmount(
+                                                        occurrence.uuid,
+                                                    )
+                                                "
+                                            >
+                                                <div
+                                                    class="flex items-center gap-1.5"
+                                                >
+                                                    <Input
+                                                        v-model="
+                                                            amountForm.amount
+                                                        "
+                                                        type="number"
+                                                        inputmode="decimal"
+                                                        min="0.01"
+                                                        step="0.01"
+                                                        autofocus
+                                                        class="h-9 w-32 rounded-xl text-right"
+                                                    />
+                                                    <Button
+                                                        type="submit"
+                                                        size="icon"
+                                                        class="size-9 rounded-xl"
+                                                        :disabled="
+                                                            amountForm.processing
+                                                        "
+                                                        :aria-label="
+                                                            t(
+                                                                'transactions.recurring.actions.saveAmount',
+                                                            )
+                                                        "
+                                                    >
+                                                        <LoaderCircle
+                                                            v-if="
+                                                                amountForm.processing
+                                                            "
+                                                            class="size-4 animate-spin"
+                                                        />
+                                                        <Check
+                                                            v-else
+                                                            class="size-4"
+                                                        />
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        class="size-9 rounded-xl"
+                                                        :aria-label="
+                                                            t(
+                                                                'transactions.recurring.actions.cancelAmountEdit',
+                                                            )
+                                                        "
+                                                        @click="
+                                                            cancelAmountEdit
+                                                        "
+                                                    >
+                                                        <X class="size-4" />
+                                                    </Button>
+                                                </div>
+                                                <InputError
+                                                    :message="
+                                                        amountForm.errors.amount
+                                                    "
+                                                />
+                                            </form>
+                                            <div
+                                                v-else
+                                                class="flex items-center gap-1.5"
+                                            >
+                                                <SensitiveValue
+                                                    :value="
+                                                        formatMoney(
+                                                            occurrence.expected_amount ??
+                                                                0,
+                                                        )
+                                                    "
+                                                />
+                                                <Button
+                                                    v-if="
+                                                        occurrence.can_update_amount
+                                                    "
+                                                    type="button"
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    class="size-8 rounded-xl text-violet-700 dark:text-violet-300"
+                                                    :aria-label="
+                                                        t(
+                                                            'transactions.recurring.actions.editAmount',
+                                                        )
+                                                    "
+                                                    @click="
+                                                        startAmountEdit(
+                                                            occurrence,
+                                                        )
+                                                    "
+                                                >
+                                                    <Pencil class="size-3.5" />
+                                                </Button>
+                                            </div>
+                                            <dl class="mt-2 space-y-1 text-xs">
+                                                <div
+                                                    v-for="(amount, label) in {
+                                                        amountDue:
+                                                            occurrence.expected_amount,
+                                                        amountPaid:
+                                                            occurrence.allocated_amount,
+                                                        amountRemaining:
+                                                            occurrence.remaining_amount,
+                                                    }"
+                                                    :key="label"
+                                                    class="flex gap-2"
+                                                >
+                                                    <dt
+                                                        class="text-muted-foreground"
+                                                    >
+                                                        {{
+                                                            ui(
+                                                                label ===
+                                                                    'amountPaid'
+                                                                    ? 'Già pagato'
+                                                                    : label ===
+                                                                        'amountDue'
+                                                                      ? 'Totale'
+                                                                      : 'Residuo',
+                                                            )
+                                                        }}
+                                                    </dt>
+                                                    <dd
+                                                        class="font-semibold tabular-nums"
+                                                        :class="
+                                                            label ===
+                                                            'amountPaid'
+                                                                ? 'text-base text-emerald-700 dark:text-emerald-300'
+                                                                : label ===
+                                                                        'amountRemaining' &&
+                                                                    (amount ??
+                                                                        0) > 0
+                                                                  ? 'text-base text-foreground'
+                                                                  : ''
+                                                        "
+                                                    >
+                                                        <SensitiveValue
+                                                            :value="
+                                                                formatMoney(
+                                                                    amount ?? 0,
+                                                                )
+                                                            "
+                                                        />
+                                                    </dd>
+                                                </div>
+                                            </dl>
+                                        </td>
+                                        <td
+                                            class="px-4 py-4 text-slate-700 dark:text-slate-200"
+                                        >
+                                            <div class="space-y-1">
+                                                <p>
+                                                    {{
+                                                        occurrence.resource
+                                                            ?.name ??
+                                                        t(
+                                                            'transactions.recurring.labels.noAccount',
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    v-if="
+                                                        occurrence.resource
+                                                            ?.is_overridden
+                                                    "
+                                                    class="text-xs text-violet-700 dark:text-violet-300"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.table.overrideBadge',
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-4">
+                                            <div class="flex flex-wrap gap-2">
+                                                <Badge
+                                                    class="rounded-full"
+                                                    :class="
+                                                        occurrenceState(
+                                                            occurrence,
+                                                        ).tone
+                                                    "
+                                                >
+                                                    {{
+                                                        occurrenceState(
+                                                            occurrence,
+                                                        ).label
+                                                    }}
+                                                </Badge>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-4">
+                                            <div
+                                                v-if="
+                                                    occurrence.converted_transaction
+                                                "
+                                                class="space-y-1"
+                                            >
+                                                <p
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        occurrence
+                                                            .converted_transaction
+                                                            .transaction_date
+                                                    }}
+                                                </p>
+                                                <Link
+                                                    v-if="
+                                                        occurrence
+                                                            .converted_transaction
+                                                            .show_url
+                                                    "
+                                                    :href="
+                                                        occurrence
+                                                            .converted_transaction
+                                                            .show_url
+                                                    "
+                                                    class="inline-flex text-xs font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.actions.openTransaction',
+                                                        )
+                                                    }}
+                                                </Link>
+                                                <p
+                                                    v-if="
+                                                        occurrence
+                                                            .converted_transaction
+                                                            .refund_transaction
+                                                            ?.transaction_date
+                                                    "
+                                                    class="text-xs text-amber-700 dark:text-amber-300"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.table.refundReference',
+                                                            {
+                                                                date: occurrence
+                                                                    .converted_transaction
+                                                                    .refund_transaction
+                                                                    .transaction_date,
+                                                            },
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                            <Link
+                                                v-else-if="
+                                                    occurrence.payments?.length
+                                                "
+                                                :href="
+                                                    occurrence.payments[
+                                                        occurrence.payments
+                                                            .length - 1
+                                                    ].show_url
+                                                "
+                                                class="inline-flex min-h-9 items-center text-sm font-medium text-sky-700 dark:text-sky-300"
+                                                >{{
+                                                    ui('Apri ultimo pagamento')
+                                                }}</Link
+                                            >
+                                            <Link
+                                                v-else-if="
+                                                    occurrence.payment_history
+                                                        ?.length
+                                                "
+                                                :href="
+                                                    occurrence.payment_history[
+                                                        occurrence
+                                                            .payment_history
+                                                            .length - 1
+                                                    ].show_url
+                                                "
+                                                class="inline-flex min-h-9 items-center text-sm font-medium text-sky-700 dark:text-sky-300"
+                                                >{{
+                                                    ui('Apri ultimo pagamento')
+                                                }}</Link
+                                            >
+                                            <span
+                                                v-else-if="
+                                                    !occurrence.external_payment
+                                                "
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.table.noLinkedTransaction',
+                                                    )
+                                                }}
+                                            </span>
+                                            <details
+                                                v-if="
+                                                    occurrence.payments
+                                                        ?.length ||
+                                                    occurrence.external_payment ||
+                                                    occurrence.payment_history
+                                                        ?.length
+                                                "
+                                                class="min-w-0 text-sm"
+                                            >
+                                                <summary
+                                                    class="cursor-pointer py-2 text-muted-foreground"
+                                                >
+                                                    {{
+                                                        ui('Dettagli pagamenti')
+                                                    }}
+                                                </summary>
+                                                <OccurrencePayments
+                                                    :history="
+                                                        occurrence.payment_history
+                                                    "
+                                                    :payments="
+                                                        occurrence.payments
+                                                    "
+                                                    :external-payment="
+                                                        occurrence.external_payment
+                                                    "
+                                                    :currency="entry.currency"
+                                                />
+                                            </details>
+                                        </td>
+                                        <td class="px-4 py-4">
+                                            <div
+                                                class="flex flex-wrap justify-end gap-2"
+                                            >
+                                                <Button
+                                                    v-if="
+                                                        occurrence.can_register_payment
+                                                    "
+                                                    variant="outline"
+                                                    class="h-9 rounded-full px-3 text-xs"
+                                                    :disabled="paymentLoading"
+                                                    @click="
+                                                        registerPayment(
+                                                            occurrence,
+                                                        )
+                                                    "
+                                                    >{{
+                                                        ui('Registra pagamento')
+                                                    }}</Button
+                                                ><Button
+                                                    v-if="
+                                                        occurrence.can_register_payment
+                                                    "
+                                                    variant="ghost"
+                                                    class="min-h-9 rounded-full px-3 text-xs"
+                                                    @click="
+                                                        openLinkPayment(
+                                                            occurrence,
+                                                        )
+                                                    "
+                                                    >{{
+                                                        ui(
+                                                            'Collega pagamento esistente',
+                                                        )
+                                                    }}</Button
+                                                >
+                                                <Button
+                                                    v-if="
+                                                        occurrence.can_update_occurrence
+                                                    "
+                                                    variant="outline"
+                                                    class="h-9 rounded-full px-3 text-xs"
+                                                    @click="
+                                                        startOccurrenceEdit(
+                                                            occurrence,
+                                                        )
+                                                    "
+                                                >
+                                                    <Pencil
+                                                        class="mr-1.5 size-3.5"
+                                                    />
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.actions.editOccurrence',
+                                                        )
+                                                    }}
+                                                </Button>
+                                                <Button
+                                                    v-if="
+                                                        occurrence.can_skip ||
+                                                        occurrence.can_restore
+                                                    "
+                                                    variant="outline"
+                                                    class="h-9 rounded-full px-3 text-xs"
+                                                    @click="
+                                                        toggleSkippedOccurrence(
+                                                            occurrence,
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        t(
+                                                            occurrence.can_restore
+                                                                ? 'transactions.recurring.actions.restoreOccurrence'
+                                                                : 'transactions.recurring.actions.skipOccurrence',
+                                                        )
+                                                    }}
+                                                </Button>
+                                                <Button
+                                                    v-if="
+                                                        occurrence.can_convert &&
+                                                        occurrence.status !==
+                                                            'skipped'
+                                                    "
+                                                    variant="outline"
+                                                    class="h-9 rounded-full px-3 text-xs"
+                                                    @click="
+                                                        requestConvert(
+                                                            occurrence,
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        entry.shared_expense_counterparty
+                                                            ? 'Registra pagamento'
+                                                            : t(
+                                                                  'transactions.recurring.actions.convert',
+                                                              )
+                                                    }}
+                                                </Button>
+                                                <Button
+                                                    v-if="
+                                                        occurrence.can_undo_conversion
+                                                    "
+                                                    variant="outline"
+                                                    class="h-9 rounded-full px-3 text-xs"
+                                                    @click="
+                                                        undoConversionOccurrenceUuid =
+                                                            occurrence.uuid
+                                                    "
+                                                >
+                                                    {{
+                                                        occurrence.external_payment &&
+                                                        (!occurrence.converted_transaction ||
+                                                            occurrence
+                                                                .converted_transaction
+                                                                .is_refunded)
+                                                            ? 'Annulla pagamento'
+                                                            : t(
+                                                                  'transactions.recurring.actions.undoConversion',
+                                                              )
+                                                    }}
+                                                </Button>
+                                                <Button
+                                                    v-if="
+                                                        occurrence
+                                                            .converted_transaction
+                                                            ?.can_refund
+                                                    "
+                                                    variant="outline"
+                                                    class="h-9 rounded-full px-3 text-xs"
+                                                    @click="
+                                                        refundDialogTransactionUuid =
+                                                            occurrence
+                                                                .converted_transaction
+                                                                .uuid
+                                                    "
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.actions.refund',
+                                                        )
+                                                    }}
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-4 pt-2">
+                            <p
+                                v-if="group.count === 0"
+                                class="text-sm text-muted-foreground"
+                            >
+                                {{ ui('Nessun movimento in questo anno') }}
+                            </p>
+                            <p
+                                v-if="failedYears.includes(group.year)"
+                                role="alert"
+                                class="mb-2 text-sm text-destructive"
+                            >
+                                {{ ui('Caricamento non riuscito. Riprova.') }}
+                            </p>
+                            <Button
+                                v-if="
+                                    loadingYears.includes(group.year) ||
+                                    yearNext[group.year] != null ||
+                                    failedYears.includes(group.year)
+                                "
+                                variant="outline"
+                                class="min-h-11 w-full rounded-xl sm:w-auto"
+                                :disabled="loadingYears.includes(group.year)"
+                                @click="
+                                    loadYear(
+                                        group.year,
+                                        failedYears.includes(group.year)
+                                            ? (retryOffsets[group.year] ?? 0)
+                                            : (yearNext[group.year] ?? 0),
+                                    )
+                                "
+                            >
+                                <LoaderCircle
+                                    v-if="loadingYears.includes(group.year)"
+                                    class="mr-2 size-4 animate-spin"
+                                />
+                                {{
+                                    ui(
+                                        loadingYears.includes(group.year)
+                                            ? 'Caricamento…'
+                                            : 'Mostra altre',
+                                    )
+                                }}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
@@ -2358,15 +3077,12 @@ function isFutureOccurrence(
                                 class="text-xs text-slate-500 dark:text-slate-400"
                             >
                                 {{
-                                    occurrenceState(
-                                        props.recurringEntry.occurrences[index],
-                                    ).label
+                                    occurrenceState(distributionRows[index])
+                                        .label
                                 }}
                                 ·
                                 {{
-                                    occurrenceDateValue(
-                                        props.recurringEntry.occurrences[index],
-                                    )
+                                    occurrenceDateValue(distributionRows[index])
                                 }}
                             </p>
                         </div>
@@ -2435,6 +3151,120 @@ function isFutureOccurrence(
                         ui('Conferma nuovi importi')
                     }}</Button></DialogFooter
                 >
+            </DialogContent>
+        </Dialog>
+        <Dialog v-model:open="linkPaymentOpen">
+            <DialogContent class="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+                <DialogHeader
+                    ><DialogTitle>{{
+                        ui('Collega pagamento esistente')
+                    }}</DialogTitle
+                    ><DialogDescription>{{
+                        ui(
+                            'Seleziona un movimento già registrato. Non verrà creato un nuovo pagamento.',
+                        )
+                    }}</DialogDescription></DialogHeader
+                >
+                <form
+                    class="flex flex-wrap items-end gap-2"
+                    @submit.prevent="loadPaymentCandidates()"
+                >
+                    <label class="min-w-0 flex-1 text-xs"
+                        >{{ ui('Dal giorno')
+                        }}<Input v-model="candidateFrom" type="date"
+                    /></label>
+                    <label class="min-w-0 flex-1 text-xs"
+                        >{{ ui('Al giorno')
+                        }}<Input v-model="candidateTo" type="date"
+                    /></label>
+                    <Button variant="outline" :disabled="linkPaymentLoading">{{
+                        ui('Cerca pagamenti')
+                    }}</Button>
+                </form>
+                <p
+                    v-if="linkPaymentFailed"
+                    role="alert"
+                    class="text-sm text-destructive"
+                >
+                    {{ ui('Caricamento non riuscito. Riprova.') }}
+                </p>
+                <div class="space-y-2">
+                    <button
+                        v-for="payment in paymentCandidatesList"
+                        :key="payment.uuid"
+                        type="button"
+                        class="flex min-h-14 w-full flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-left text-sm"
+                        :class="
+                            linkPaymentForm.transaction_uuid === payment.uuid
+                                ? 'border-sky-400 bg-sky-50 dark:bg-sky-950/50'
+                                : 'hover:bg-muted'
+                        "
+                        :aria-pressed="
+                            linkPaymentForm.transaction_uuid === payment.uuid
+                        "
+                        @click="chooseExistingPayment(payment)"
+                    >
+                        <span class="min-w-0 break-words"
+                            >{{ payment.date }} ·
+                            {{ payment.description || payment.account
+                            }}<span
+                                class="block text-xs text-muted-foreground"
+                                >{{ payment.account }}</span
+                            ></span
+                        ><SensitiveValue
+                            class="font-semibold"
+                            :value="formatMoney(payment.amount)"
+                        />
+                    </button>
+                    <p
+                        v-if="
+                            !linkPaymentLoading && !paymentCandidatesList.length
+                        "
+                        class="text-sm text-muted-foreground"
+                    >
+                        {{
+                            ui('Nessun pagamento disponibile in questo periodo')
+                        }}
+                    </p>
+                    <Button
+                        v-if="candidateHasMore || linkPaymentLoading"
+                        variant="ghost"
+                        :disabled="linkPaymentLoading"
+                        @click="loadPaymentCandidates(candidatePage + 1)"
+                        ><LoaderCircle
+                            v-if="linkPaymentLoading"
+                            class="mr-2 size-4 animate-spin"
+                        />{{ ui('Mostra altre') }}</Button
+                    >
+                </div>
+                <form
+                    v-if="linkPaymentForm.transaction_uuid"
+                    class="space-y-3 border-t pt-3"
+                    @submit.prevent="submitLinkPayment"
+                >
+                    <label class="block space-y-1 text-sm"
+                        >{{ ui('Importo da collegare')
+                        }}<Input
+                            v-model="linkPaymentForm.amount"
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            :max="linkPaymentOccurrence?.remaining_amount"
+                    /></label>
+                    <InputError
+                        :message="
+                            linkPaymentForm.errors.amount ||
+                            linkPaymentForm.errors.transaction_uuid
+                        "
+                    />
+                    <DialogFooter
+                        ><Button
+                            type="submit"
+                            :disabled="linkPaymentForm.processing"
+                            >{{ ui('Conferma collegamento') }}</Button
+                        ></DialogFooter
+                    >
+                </form>
             </DialogContent>
         </Dialog>
         <TransactionFormSheet

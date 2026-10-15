@@ -36,10 +36,11 @@ class RecurringOccurrenceReadService
         $byOccurrence = $transactions->groupBy('recurring_entry_occurrence_id');
         $byId = $transactions->keyBy('id');
         foreach ($occurrences as $occurrence) {
-            $personal = ($byOccurrence[$occurrence->id] ?? collect())
+            $personalTransactions = ($byOccurrence[$occurrence->id] ?? collect())
                 ->concat(collect([$byId->get($occurrence->converted_transaction_id), $byId->get($occurrence->matched_transaction_id)])->filter())
-                ->unique('id')->reject(fn (Transaction $transaction): bool => $transaction->occurrencePaymentAllocations->contains('occurrence_id', $occurrence->id))
-                ->sum(fn (Transaction $transaction): int => $transaction->activeAmountCents());
+                ->unique('id')->reject(fn (Transaction $transaction): bool => $transaction->occurrencePaymentAllocations->contains('occurrence_id', $occurrence->id));
+            $personal = $personalTransactions->sum(fn (Transaction $transaction): int => $transaction->activeAmountCents());
+            $occurrence->setRelation('personalReadTransactions', $personalTransactions);
             $allocated = (int) ($allocations->get($occurrence->id)?->total ?? 0);
             $external = $occurrence->externalPaymentCents();
             $this->snapshots[$occurrence] = ['allocated' => $allocated, 'personal' => $personal, 'external' => $external,
@@ -56,6 +57,14 @@ class RecurringOccurrenceReadService
     public function allocated(RecurringEntryOccurrence $occurrence): int
     {
         return $this->snapshots[$occurrence]['allocated'] ?? $occurrence->allocatedPaymentCents();
+    }
+
+    public function paid(RecurringEntryOccurrence $occurrence): int
+    {
+        $snapshot = $this->snapshots[$occurrence] ?? null;
+
+        return $snapshot === null ? $occurrence->allocatedPaymentCents() + $occurrence->personalPaymentCents() + $occurrence->externalPaymentCents()
+            : $snapshot['allocated'] + $snapshot['personal'] + $snapshot['external'];
     }
 
     public function count(RecurringEntryOccurrence $occurrence): int

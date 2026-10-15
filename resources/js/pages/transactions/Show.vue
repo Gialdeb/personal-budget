@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     TriangleAlert,
+    Bookmark,
     ArrowUpRight,
     ArrowDown,
     ArrowUp,
@@ -40,17 +41,20 @@ import {
 import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
+import RecurringCalendarGrid from '@/components/recurring/RecurringCalendarGrid.vue';
+import type { RecurringCalendarCell } from '@/components/recurring/RecurringCalendarGrid.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
 import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import TransactionCategoryQuickCreate from '@/components/transactions/TransactionCategoryQuickCreate.vue';
+import TransactionClassificationBadges from '@/components/transactions/TransactionClassificationBadges.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
+import TransactionVisibilityToggle from '@/components/transactions/TransactionVisibilityToggle.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -73,24 +77,24 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useForm } from '@/composables/useNotifiedForm';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useTransactionFilters } from '@/composables/useTransactionFilters';
 import { useTransactionFocus } from '@/composables/useTransactionFocus';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
+import { fetchWithNotifications } from '@/lib/notifications';
+import { filterOpeningBalanceTransactions } from '@/lib/opening-balance-visibility.js';
 import {
-    filterOpeningBalanceTransactions,
-    persistOpeningBalanceVisibility,
-    readOpeningBalanceVisibility,
-} from '@/lib/opening-balance-visibility.js';
+    calendarCategoryOrder,
+    transactionDayCounts,
+} from '@/lib/transaction-calendar.js';
 import {
-    persistPlannedRecurringVisibility,
-    readPlannedRecurringVisibility,
-} from '@/lib/planned-recurring-visibility.js';
-import {
-    persistTransactionVisibility,
-    readTransactionVisibility,
-} from '@/lib/transaction-visibility.js';
+    matchesTransactionDisplay,
+    rowCategory,
+    transactionTones,
+} from '@/lib/transaction-presentation.js';
 import { cn } from '@/lib/utils';
 import { show as transactionsRoute } from '@/routes/transactions';
 import type {
@@ -147,8 +151,6 @@ type TransactionExchangePreview = {
     should_preview: boolean;
 };
 
-type TransactionVisibilityFilter = 'active' | 'deleted' | 'all';
-type SharedExpenseFilter = 'all' | 'shared' | 'not_shared';
 const heroStorageKey = 'transactions-sheet-hero-collapsed';
 
 const props = defineProps<
@@ -173,7 +175,7 @@ watch(
 const { locale, t } = useI18n();
 const { isPrivacyModeEnabled } = usePrivacyMode();
 const page = usePage();
-const sharedExpenseFilter = ref<SharedExpenseFilter>('all');
+const showShared = ref(true);
 const inlineDateInput = ref<HTMLInputElement | null>(null);
 const mobilePeriodAccountSelectorElement = ref<HTMLElement | null>(null);
 const isMobilePeriodAccountSelectorOutOfView = ref(false);
@@ -216,9 +218,59 @@ const selectedCategory = ref('all');
 const selectedAccount = ref('all');
 const transactionSearch = ref('');
 const dateSortDirection = ref<'asc' | 'desc'>('desc');
-const visibilityFilter = ref<TransactionVisibilityFilter>('active');
+const showDeleted = ref(false);
 const showOpeningBalances = ref(true);
-const showPlannedRecurring = ref(false);
+const showTransfers = ref(true);
+const selectedDay = ref('');
+const transactionCalendarOpen = ref(false);
+const transactionCalendarStorageKey = 'soamco:transactions:calendar-open:v1';
+onMounted(() => {
+    try {
+        transactionCalendarOpen.value =
+            window.localStorage.getItem(transactionCalendarStorageKey) ===
+            'true';
+    } catch {
+        transactionCalendarOpen.value = false;
+    }
+});
+function rememberCalendarState(event: Event): void {
+    const open = (event.currentTarget as HTMLDetailsElement).open;
+    transactionCalendarOpen.value = open;
+
+    try {
+        window.localStorage.setItem(
+            transactionCalendarStorageKey,
+            String(open),
+        );
+    } catch {
+        // The disclosure remains usable when browser storage is unavailable.
+    }
+}
+
+const showIncome = ref(true);
+const showExpenses = ref(true);
+const showRefunded = ref(false);
+const showRecurring = ref(true);
+const {
+    rememberFilters,
+    customized: hasActiveFilters,
+    restoreDefaults,
+    filterQuery,
+} = useTransactionFilters({
+    transfer: showTransfers,
+    day: selectedDay,
+    income: showIncome,
+    expense: showExpenses,
+    opening: showOpeningBalances,
+    refunded: showRefunded,
+    shared: showShared,
+    deleted: showDeleted,
+    recurring: showRecurring,
+    macrogroup: selectedMacrogroup,
+    category: selectedCategory,
+    account: selectedAccount,
+    search: transactionSearch,
+});
 const isHeroCollapsed = ref(false);
 const formOpen = ref(false);
 const editingTransaction = ref<MonthlyTransactionSheetTransaction | null>(null);
@@ -248,7 +300,7 @@ const { focusMissing } = useTransactionFocus({
     reveal: () => {
         resetFilters();
         transactionSearch.value = '';
-        visibilityFilter.value = 'active';
+        showDeleted.value = false;
     },
     highlight: (uuid) => triggerRowFeedback(uuid, 'highlight'),
     edit: (uuid) => {
@@ -333,7 +385,6 @@ watch(
     (value, previousValue) => {
         sheet.value = value;
         editingInlineUuid.value = null;
-        resetFilters();
         resetInlineEntry();
 
         if (!previousValue || pendingMutation.value === null) {
@@ -926,14 +977,6 @@ const periodNotice = computed(() => {
     });
 });
 
-const hasActiveFilters = computed(
-    () =>
-        selectedMacrogroup.value !== 'all' ||
-        selectedCategory.value !== 'all' ||
-        selectedAccount.value !== 'all' ||
-        sharedExpenseFilter.value === 'shared',
-);
-
 const normalizedTransactionSearch = computed(() =>
     transactionSearch.value.trim().toLocaleLowerCase(locale.value),
 );
@@ -957,36 +1000,101 @@ const filteredDeletedTransactions = computed(() =>
     ),
 );
 
-const filteredPlannedRecurringTransactions = computed(() => {
-    if (!showPlannedRecurring.value || visibilityFilter.value === 'deleted') {
-        return [];
-    }
+const calendarCounts = computed(() =>
+    transactionDayCounts(
+        [
+            ...sheet.value.transactions,
+            ...(showDeleted.value ? sheet.value.deleted_transactions : []),
+        ].filter(
+            (transaction) =>
+                matchesFilters(transaction, true) &&
+                matchesTransactionSearch(transaction),
+        ),
+    ),
+);
+const calendarLabels = computed(() => ({
+    income: t('transactions.sheet.filters.showIncome'),
+    expense: t('transactions.sheet.filters.showExpenses'),
+    shared: t('transactions.sheet.filters.showShared'),
+    recurring: t('transactions.sheet.filters.recurring'),
+    refunded: t('transactions.sheet.filters.showRefunded'),
+    transfer: ui('Trasferimenti'),
+    opening: t('transactions.sheet.filters.showOpeningBalances'),
+    deleted: t('transactions.sheet.filters.showDeleted'),
+}));
+const calendarWeekdays = computed(() =>
+    Array.from({ length: 7 }, (_, index) =>
+        new Date(Date.UTC(2026, 0, 5 + index)).toLocaleDateString(
+            locale.value,
+            { weekday: 'short', timeZone: 'UTC' },
+        ),
+    ),
+);
+function calendarDayHeading(date: string): string {
+    return new Date(`${date}T12:00:00`).toLocaleDateString(locale.value, {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+}
+const transactionCalendarWeeks = computed<RecurringCalendarCell[][]>(() => {
+    const start = new Date(Date.UTC(props.year, props.month - 1, 1));
+    start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const cells = Array.from({ length: 42 }, (_, index) => {
+        const date = new Date(start);
+        date.setUTCDate(start.getUTCDate() + index);
+        const iso = date.toISOString().slice(0, 10);
+        const count = calendarCounts.value[iso]?.total ?? 0;
 
-    return sheet.value.planned_occurrences.filter(
-        (transaction: MonthlyTransactionSheetTransaction) =>
-            matchesFilters(transaction) &&
-            matchesTransactionSearch(transaction),
+        return {
+            date: iso,
+            dayNumber: date.getUTCDate(),
+            isCurrentMonth: date.getUTCMonth() === props.month - 1,
+            isToday: iso === todayIso,
+            summary: count
+                ? {
+                      date: iso,
+                      anchor: iso,
+                      income_total: 0,
+                      expense_total: 0,
+                      occurrences_count: count,
+                      pending_count: 0,
+                      converted_count: 0,
+                      occurrences: [],
+                  }
+                : null,
+        };
+    });
+
+    return Array.from({ length: 6 }, (_, index) =>
+        cells.slice(index * 7, index * 7 + 7),
     );
 });
+function calendarBadges(date: string) {
+    return calendarCategoryOrder
+        .filter(
+            (category) =>
+                (calendarCounts.value[date]?.counts[category] ?? 0) > 0,
+        )
+        .map((category) => ({
+            category,
+            count: calendarCounts.value[date].counts[category],
+        }));
+}
 
 const displayedTransactions = computed(() =>
     [
-        ...(visibilityFilter.value === 'deleted'
-            ? []
-            : filteredTransactions.value),
-        ...(visibilityFilter.value === 'active'
-            ? []
-            : filteredDeletedTransactions.value),
-        ...filteredPlannedRecurringTransactions.value,
+        ...filteredTransactions.value,
+        ...(showDeleted.value ? filteredDeletedTransactions.value : []),
     ]
         .slice()
         .sort(compareTransactionsForDisplay),
 );
 
 onMounted(() => {
-    visibilityFilter.value = readTransactionVisibility();
-    showOpeningBalances.value = readOpeningBalanceVisibility();
-    showPlannedRecurring.value = readPlannedRecurringVisibility();
     isHeroCollapsed.value =
         window.localStorage.getItem(heroStorageKey) === 'true';
 
@@ -1015,18 +1123,6 @@ function scrollToMobilePeriodAccountSelector(): void {
 }
 
 onBeforeUnmount(() => mobilePeriodAccountSelectorObserver?.disconnect());
-
-watch(visibilityFilter, (value) => {
-    persistTransactionVisibility(value);
-});
-
-watch(showOpeningBalances, (value) => {
-    persistOpeningBalanceVisibility(value);
-});
-
-watch(showPlannedRecurring, (value) => {
-    persistPlannedRecurringVisibility(value);
-});
 
 watch(isHeroCollapsed, (value) => {
     window.localStorage.setItem(heroStorageKey, value ? 'true' : 'false');
@@ -1114,22 +1210,11 @@ const filteredLastMovementDate = computed(() => {
     );
 });
 
-const totalVisibleRows = computed(() => {
-    const activeCount =
-        visibilityFilter.value === 'deleted'
-            ? 0
-            : sheet.value.meta.transactions_count;
-    const deletedCount =
-        visibilityFilter.value === 'active'
-            ? 0
-            : sheet.value.meta.deleted_transactions_count;
-    const plannedCount =
-        showPlannedRecurring.value && visibilityFilter.value !== 'deleted'
-            ? sheet.value.meta.planned_occurrences_count
-            : 0;
-
-    return activeCount + deletedCount + plannedCount;
-});
+const totalVisibleRows = computed(
+    () =>
+        sheet.value.meta.transactions_count +
+        (showDeleted.value ? sheet.value.meta.deleted_transactions_count : 0),
+);
 
 const summaryCards = computed<SummaryMetricCard[]>(() => {
     const summaryByKey = Object.fromEntries(
@@ -1609,7 +1694,7 @@ async function refreshExchangePreviewForForm(
     errorTarget.value = null;
 
     try {
-        const response = await fetch(
+        const response = await fetchWithNotifications(
             previewExchangeSnapshot.url({
                 year: props.year,
                 month: props.month,
@@ -1858,21 +1943,25 @@ async function createTrackedItemFromContext(
     typeKey: string,
     categoryUuid: string,
 ): Promise<MonthlyTransactionSheetTrackedItemOption> {
-    const response = await fetch('/transactions/tracked-items', {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': readCsrfToken(),
-            'X-Requested-With': 'XMLHttpRequest',
+    const response = await fetchWithNotifications(
+        '/transactions/tracked-items',
+        {
+            notification: 'Riferimento creato correttamente.',
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': readCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                name,
+                account_uuid: accountUuid,
+                category_uuid: categoryUuid,
+                type_key: typeKey,
+            }),
         },
-        body: JSON.stringify({
-            name,
-            account_uuid: accountUuid,
-            category_uuid: categoryUuid,
-            type_key: typeKey,
-        }),
-    });
+    );
 
     if (!response.ok) {
         const payload = await response.json().catch(() => null);
@@ -2024,7 +2113,7 @@ async function refreshInlineBalanceAdjustmentPreview(): Promise<void> {
     inlineBalanceAdjustmentLoading.value = true;
 
     try {
-        const response = await fetch(
+        const response = await fetchWithNotifications(
             `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
             {
                 method: 'POST',
@@ -2108,7 +2197,7 @@ async function refreshInlineBalanceAdjustmentCurrentBalance(): Promise<void> {
     inlineBalanceAdjustmentCurrentBalanceLoading.value = true;
 
     try {
-        const response = await fetch(
+        const response = await fetchWithNotifications(
             `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
             {
                 method: 'POST',
@@ -2233,16 +2322,6 @@ function groupBadgeTone(groupKey: string | null | undefined): string {
         }[groupKey ?? ''] ??
         'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
     );
-}
-
-function transactionTypeBadgeTone(
-    transaction: MonthlyTransactionSheetTransaction,
-): string {
-    if (transaction.kind === 'refund') {
-        return 'border border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/12 dark:text-emerald-200';
-    }
-
-    return groupBadgeTone(transaction.type_key);
 }
 
 function groupPanelTone(groupKey: string | null | undefined): string {
@@ -2546,10 +2625,6 @@ function transactionFeedbackClass(transactionUuid: string): string {
         : 'bg-sky-50/85 ring-1 ring-sky-200 transition-all duration-700 dark:bg-sky-500/10 dark:ring-sky-500/25';
 }
 
-function visibilityFilterLabel(value: TransactionVisibilityFilter): string {
-    return t(`transactions.sheet.filters.visibilityOptions.${value}`);
-}
-
 function compareTransactionsForDisplay(
     left: MonthlyTransactionSheetTransaction,
     right: MonthlyTransactionSheetTransaction,
@@ -2587,45 +2662,11 @@ function compareTransactionsForDisplay(
     return left.uuid.localeCompare(right.uuid);
 }
 
-function recurringTransactionBadge(
-    transaction: MonthlyTransactionSheetTransaction,
-): { label: string; tone: string } | null {
-    if (transaction.is_credit_debt_transaction) {
-        return {
-            label: t('transactions.sheet.grid.creditDebtBadge'),
-            tone:
-                transaction.credit_debt_item_type === 'credit'
-                    ? 'border border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200'
-                    : 'border border-rose-200 bg-rose-100 text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200',
-        };
-    }
-
-    if (transaction.is_projected_recurring) {
-        return {
-            label: t('transactions.sheet.grid.plannedRecurringBadge'),
-            tone: 'border border-violet-200 bg-violet-100 text-violet-800 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200',
-        };
-    }
-
-    if (transaction.is_recurring_transaction) {
-        return {
-            label: t('transactions.sheet.grid.recurringBadge'),
-            tone: 'border border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-200',
-        };
-    }
-
-    return null;
-}
-
 function recurringTransactionHelper(
     transaction: MonthlyTransactionSheetTransaction,
 ): string | null {
     if (transaction.is_credit_debt_transaction) {
         return t('transactions.sheet.grid.fromCreditDebt');
-    }
-
-    if (transaction.is_projected_recurring) {
-        return t('transactions.sheet.grid.fromRecurringPreview');
     }
 
     if (transaction.is_recurring_transaction) {
@@ -2663,69 +2704,13 @@ function creditCardCycleHelper(
 function transactionRowToneClass(
     transaction: MonthlyTransactionSheetTransaction,
 ): string {
-    if (transaction.is_deleted) {
-        return 'bg-slate-100/75 opacity-75 dark:bg-slate-900/75';
-    }
-
-    if (transaction.shared_expense_counterparty_uuid) {
-        return 'bg-violet-50/90 dark:bg-violet-500/12';
-    }
-
-    if (transaction.is_projected_recurring) {
-        return 'bg-violet-50/70 dark:bg-violet-500/8';
-    }
-
-    if (transaction.is_credit_debt_transaction) {
-        return transaction.credit_debt_item_type === 'credit'
-            ? 'bg-emerald-50/70 dark:bg-emerald-500/8'
-            : 'bg-rose-50/70 dark:bg-rose-500/8';
-    }
-
-    if (transaction.is_opening_balance) {
-        return 'bg-amber-50/70 dark:bg-amber-500/5';
-    }
-
-    if (transaction.is_recurring_transaction) {
-        return 'bg-sky-50/60 dark:bg-sky-500/6';
-    }
-
-    if (transaction.kind === 'refund') {
-        return 'bg-emerald-50/70 dark:bg-emerald-500/8';
-    }
-
-    return '';
+    return transactionTones[rowCategory(transaction)].row;
 }
 
 function transactionAccentClass(
     transaction: MonthlyTransactionSheetTransaction,
 ): string {
-    if (transaction.is_deleted) {
-        return 'border-l-4 border-slate-300 dark:border-slate-700';
-    }
-
-    if (transaction.shared_expense_counterparty_uuid) {
-        return 'border-l-4 border-violet-400 dark:border-violet-400/70';
-    }
-
-    if (transaction.is_projected_recurring) {
-        return 'border-l-4 border-violet-300 dark:border-violet-500/35';
-    }
-
-    if (transaction.is_credit_debt_transaction) {
-        return transaction.credit_debt_item_type === 'credit'
-            ? 'border-l-4 border-emerald-300 dark:border-emerald-500/35'
-            : 'border-l-4 border-rose-300 dark:border-rose-500/35';
-    }
-
-    if (transaction.is_recurring_transaction) {
-        return 'border-l-4 border-sky-300 dark:border-sky-500/35';
-    }
-
-    if (transaction.kind === 'refund') {
-        return 'border-l-4 border-emerald-300 dark:border-emerald-500/35';
-    }
-
-    return '';
+    return `border-l-4 ${transactionTones[rowCategory(transaction)].accent}`;
 }
 
 function handleYearSelection(value: unknown): void {
@@ -2736,10 +2721,13 @@ function handleYearSelection(value: unknown): void {
     }
 
     router.get(
-        transactionsRoute.url({
-            year,
-            month: sheet.value.filters.month,
-        }),
+        transactionsRoute.url(
+            {
+                year,
+                month: sheet.value.filters.month,
+            },
+            { query: filterQuery() },
+        ),
         {},
         {
             preserveScroll: true,
@@ -2757,10 +2745,13 @@ function handleMonthSelection(value: unknown): void {
     }
 
     router.get(
-        transactionsRoute.url({
-            year: sheet.value.filters.year,
-            month,
-        }),
+        transactionsRoute.url(
+            {
+                year: sheet.value.filters.year,
+                month,
+            },
+            { query: filterQuery() },
+        ),
         {},
         {
             preserveScroll: true,
@@ -2771,14 +2762,17 @@ function handleMonthSelection(value: unknown): void {
 }
 
 function resetFilters(): void {
-    sharedExpenseFilter.value = 'all';
+    showShared.value = true;
+    showDeleted.value = false;
+    showIncome.value = true;
+    showExpenses.value = true;
+    showRefunded.value = false;
+    showRecurring.value = true;
+    showOpeningBalances.value = true;
+    transactionSearch.value = '';
     selectedMacrogroup.value = 'all';
     selectedCategory.value = 'all';
     selectedAccount.value = 'all';
-}
-
-function setSharedExpenseOnly(value: boolean): void {
-    sharedExpenseFilter.value = value ? 'shared' : 'all';
 }
 
 function toggleDateSort(): void {
@@ -3233,6 +3227,7 @@ function submitInlineEdit(transactionUuid: string): void {
 
 function matchesFilters(
     transaction: MonthlyTransactionSheetTransaction,
+    ignoreDay = false,
 ): boolean {
     if (
         selectedMacrogroup.value !== 'all' &&
@@ -3249,15 +3244,16 @@ function matchesFilters(
     }
 
     if (
-        sharedExpenseFilter.value === 'shared' &&
-        !transaction.shared_expense_counterparty_uuid
-    ) {
-        return false;
-    }
-
-    if (
-        sharedExpenseFilter.value === 'not_shared' &&
-        transaction.shared_expense_counterparty_uuid
+        !matchesTransactionDisplay(transaction, {
+            transfer: showTransfers.value,
+            day: ignoreDay ? '' : selectedDay.value,
+            income: showIncome.value,
+            expense: showExpenses.value,
+            opening: showOpeningBalances.value,
+            refunded: showRefunded.value,
+            recurring: showRecurring.value,
+            shared: showShared.value,
+        })
     ) {
         return false;
     }
@@ -3297,24 +3293,6 @@ function matchesTransactionSearch(
     );
 }
 
-function setShowOpeningBalances(checked: boolean | 'indeterminate'): void {
-    showOpeningBalances.value = checked === true;
-}
-
-function setShowPlannedRecurring(checked: boolean | 'indeterminate'): void {
-    showPlannedRecurring.value = checked === true;
-}
-
-function setShowDeletedOnly(checked: boolean | 'indeterminate'): void {
-    visibilityFilter.value = checked === true ? 'deleted' : 'active';
-}
-
-function setVisibilityFilter(value: string): void {
-    if (value === 'active' || value === 'deleted' || value === 'all') {
-        visibilityFilter.value = value;
-    }
-}
-
 function restoreTransaction(transactionUuid: string): void {
     router.patch(
         `/transactions/${props.year}/${props.month}/${transactionUuid}/restore`,
@@ -3322,7 +3300,7 @@ function restoreTransaction(transactionUuid: string): void {
         {
             preserveScroll: true,
             onSuccess: () => {
-                visibilityFilter.value = 'active';
+                showDeleted.value = false;
                 pendingMutation.value = null;
                 triggerRowFeedback(transactionUuid, 'update');
             },
@@ -3353,7 +3331,7 @@ function confirmForceDelete(): void {
         {
             preserveScroll: true,
             onSuccess: () => {
-                visibilityFilter.value = 'deleted';
+                showDeleted.value = true;
                 pendingMutation.value = null;
             },
         },
@@ -4010,17 +3988,40 @@ resetInlineEntry();
 
             <div
                 v-if="isMobilePeriodAccountSelectorOutOfView"
-                class="pointer-events-none fixed inset-x-3 top-3 z-30 flex items-center justify-between gap-2 md:hidden"
+                class="pointer-events-none fixed inset-x-3 top-3 z-30 flex items-start justify-between gap-2 md:hidden"
             >
-                <button
-                    type="button"
-                    class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-                    :aria-label="periodLabel"
-                    @click="scrollToMobilePeriodAccountSelector"
+                <div
+                    class="flex max-w-[calc(55%-0.25rem)] min-w-0 flex-col items-start gap-1.5"
                 >
-                    <Calendar class="size-3.5 shrink-0 text-primary" />
-                    <span class="truncate capitalize">{{ periodLabel }}</span>
-                </button>
+                    <button
+                        type="button"
+                        class="pointer-events-auto inline-flex w-full min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                        :aria-label="periodLabel"
+                        @click="scrollToMobilePeriodAccountSelector"
+                    >
+                        <Calendar class="size-3.5 shrink-0 text-primary" />
+                        <span class="truncate capitalize">{{
+                            periodLabel
+                        }}</span>
+                    </button>
+                    <button
+                        v-if="selectedDay"
+                        type="button"
+                        class="pointer-events-auto inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50/95 px-2.5 py-1 text-xs font-semibold text-sky-800 shadow-sm backdrop-blur dark:border-sky-500/30 dark:bg-sky-950/95 dark:text-sky-200"
+                        :aria-label="ui('Rimuovi filtro giorno')"
+                        @click="selectedDay = ''"
+                    >
+                        <span class="truncate">{{
+                            new Date(
+                                `${selectedDay}T12:00:00`,
+                            ).toLocaleDateString(locale, {
+                                day: 'numeric',
+                                month: 'long',
+                            })
+                        }}</span
+                        ><X class="size-3.5 shrink-0" aria-hidden="true" />
+                    </button>
+                </div>
                 <button
                     type="button"
                     class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
@@ -4137,132 +4138,108 @@ resetInlineEntry();
                 class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
             >
                 <CardContent class="p-4 sm:p-5">
-                    <div
-                        class="grid gap-3 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]"
-                    >
-                        <div class="space-y-2">
-                            <p
-                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                    <details open class="group">
+                        <summary
+                            class="flex min-h-10 cursor-pointer items-center justify-between gap-3 text-sm font-semibold text-foreground"
+                        >
+                            <span>{{
+                                t('transactions.sheet.filters.typeMacrogroup')
+                            }}</span
+                            ><span
+                                class="text-xs font-normal text-muted-foreground"
+                                >{{ headerMacrogroupLabel }}
+                                <span aria-hidden="true">⌄</span></span
                             >
-                                {{
-                                    t(
-                                        'transactions.sheet.filters.typeMacrogroup',
-                                    )
-                                }}
-                            </p>
-                            <Select
-                                :model-value="selectedMacrogroup"
-                                @update:model-value="
-                                    selectedMacrogroup = String($event)
-                                "
-                            >
-                                <SelectTrigger
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
+                        </summary>
+                        <div class="mt-3 grid gap-3 xl:grid-cols-3">
+                            <div class="space-y-2">
+                                <p
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                 >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent class="z-[170]">
-                                    <SelectItem
-                                        v-for="option in macrogroupFilterOptions"
-                                        :key="option.value"
-                                        :value="String(option.value)"
+                                    {{
+                                        t(
+                                            'transactions.sheet.filters.typeMacrogroup',
+                                        )
+                                    }}
+                                </p>
+                                <Select
+                                    :model-value="selectedMacrogroup"
+                                    @update:model-value="
+                                        selectedMacrogroup = String($event)
+                                    "
+                                >
+                                    <SelectTrigger
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
                                     >
-                                        {{ option.label }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent class="z-[170]">
+                                        <SelectItem
+                                            v-for="option in macrogroupFilterOptions"
+                                            :key="option.value"
+                                            :value="String(option.value)"
+                                        >
+                                            {{ option.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
-                        <div class="space-y-2">
-                            <p
-                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                            >
-                                {{ t('transactions.sheet.filters.category') }}
-                            </p>
-                            <SearchableSelect
-                                v-model="selectedCategory"
-                                :options="categoryFilterOptions"
-                                :placeholder="
-                                    t('transactions.index.labels.allCategories')
-                                "
-                                :search-placeholder="
-                                    t(
-                                        'transactions.sheet.filters.searchCategory',
-                                    )
-                                "
-                                clearable
-                                clear-value="all"
-                                trigger-class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
-                            />
-                        </div>
-
-                        <div class="hidden space-y-2 md:block">
-                            <p
-                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                            >
-                                {{ t('transactions.sheet.filters.account') }}
-                            </p>
-                            <SearchableSelect
-                                v-model="selectedAccount"
-                                :options="accountFilterOptions"
-                                :placeholder="
-                                    t('transactions.index.labels.allAccounts')
-                                "
-                                :search-placeholder="
-                                    t(
-                                        'transactions.sheet.filters.searchAccount',
-                                    )
-                                "
-                                clearable
-                                clear-value="all"
-                                trigger-class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
-                            />
-                        </div>
-
-                        <div class="space-y-2">
-                            <p
-                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                            >
-                                {{ t('transactions.sheet.filters.visibility') }}
-                            </p>
-                            <Select
-                                :model-value="visibilityFilter"
-                                @update:model-value="
-                                    setVisibilityFilter(String($event))
-                                "
-                            >
-                                <SelectTrigger
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
+                            <div class="space-y-2">
+                                <p
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                 >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent class="z-[170]">
-                                    <SelectItem value="active">
-                                        {{ visibilityFilterLabel('active') }}
-                                    </SelectItem>
-                                    <SelectItem value="deleted">
-                                        {{ visibilityFilterLabel('deleted') }}
-                                    </SelectItem>
-                                    <SelectItem value="all">
-                                        {{ visibilityFilterLabel('all') }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                    {{
+                                        t('transactions.sheet.filters.category')
+                                    }}
+                                </p>
+                                <SearchableSelect
+                                    v-model="selectedCategory"
+                                    :options="categoryFilterOptions"
+                                    :placeholder="
+                                        t(
+                                            'transactions.index.labels.allCategories',
+                                        )
+                                    "
+                                    :search-placeholder="
+                                        t(
+                                            'transactions.sheet.filters.searchCategory',
+                                        )
+                                    "
+                                    clearable
+                                    clear-value="all"
+                                    trigger-class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
+                                />
+                            </div>
 
-                        <div class="flex items-end">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                class="h-11 w-full rounded-2xl"
-                                :disabled="!hasActiveFilters"
-                                @click="resetFilters"
-                            >
-                                <RotateCcw class="mr-2 size-4" />
-                                {{ t('transactions.sheet.actions.reset') }}
-                            </Button>
+                            <div class="hidden space-y-2 md:block">
+                                <p
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                >
+                                    {{
+                                        t('transactions.sheet.filters.account')
+                                    }}
+                                </p>
+                                <SearchableSelect
+                                    v-model="selectedAccount"
+                                    :options="accountFilterOptions"
+                                    :placeholder="
+                                        t(
+                                            'transactions.index.labels.allAccounts',
+                                        )
+                                    "
+                                    :search-placeholder="
+                                        t(
+                                            'transactions.sheet.filters.searchAccount',
+                                        )
+                                    "
+                                    clearable
+                                    clear-value="all"
+                                    trigger-class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
+                                />
+                            </div>
                         </div>
-                    </div>
+                    </details>
                 </CardContent>
             </Card>
 
@@ -4275,9 +4252,7 @@ resetInlineEntry();
                     <CardHeader
                         class="border-b border-slate-200/70 bg-slate-50/70 px-4 py-4 sm:px-5 dark:border-white/10 dark:bg-slate-900/60"
                     >
-                        <div
-                            class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
-                        >
+                        <div class="flex flex-col gap-3">
                             <div class="space-y-1">
                                 <CardTitle
                                     class="text-lg text-slate-950 dark:text-white"
@@ -4306,76 +4281,83 @@ resetInlineEntry();
                                     }}
                                 </p>
                             </div>
-                            <div class="flex flex-wrap gap-2">
-                                <label
-                                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
-                                >
-                                    <Checkbox
-                                        :model-value="
-                                            sharedExpenseFilter === 'shared'
-                                        "
-                                        @update:model-value="
-                                            setSharedExpenseOnly(
-                                                Boolean($event),
-                                            )
-                                        "
-                                    />
-                                    <span>{{
-                                        ui('Mostra solo condivise')
-                                    }}</span>
-                                </label>
-
-                                <label
-                                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
-                                >
-                                    <Checkbox
-                                        :model-value="showOpeningBalances"
-                                        @update:model-value="
-                                            setShowOpeningBalances
-                                        "
-                                    />
-                                    <span>
-                                        {{
-                                            t(
-                                                'transactions.sheet.filters.showOpeningBalances',
-                                            )
-                                        }}
-                                    </span>
-                                </label>
-                                <label
-                                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
-                                >
-                                    <Checkbox
-                                        :model-value="showPlannedRecurring"
-                                        @update:model-value="
-                                            setShowPlannedRecurring
-                                        "
-                                    />
-                                    <span>
-                                        {{
-                                            t(
-                                                'transactions.sheet.filters.showPlannedRecurring',
-                                            )
-                                        }}
-                                    </span>
-                                </label>
-                                <label
-                                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
-                                >
-                                    <Checkbox
-                                        :model-value="
-                                            visibilityFilter === 'deleted'
-                                        "
-                                        @update:model-value="setShowDeletedOnly"
-                                    />
-                                    <span>
-                                        {{
-                                            t(
-                                                'transactions.sheet.filters.showDeletedOnly',
-                                            )
-                                        }}
-                                    </span>
-                                </label>
+                            <div
+                                class="flex flex-wrap gap-2"
+                                role="group"
+                                :aria-label="
+                                    t(
+                                        'transactions.sheet.filters.displayOptions',
+                                    )
+                                "
+                            >
+                                <TransactionVisibilityToggle
+                                    v-model="showIncome"
+                                    category="income"
+                                    :label="
+                                        t(
+                                            'transactions.sheet.filters.showIncome',
+                                        )
+                                    "
+                                />
+                                <TransactionVisibilityToggle
+                                    v-model="showExpenses"
+                                    category="expense"
+                                    :label="
+                                        t(
+                                            'transactions.sheet.filters.showExpenses',
+                                        )
+                                    "
+                                />
+                                <TransactionVisibilityToggle
+                                    v-model="showShared"
+                                    category="shared"
+                                    :label="
+                                        t(
+                                            'transactions.sheet.filters.showShared',
+                                        )
+                                    "
+                                />
+                                <TransactionVisibilityToggle
+                                    v-model="showRecurring"
+                                    category="recurring"
+                                    :label="
+                                        t(
+                                            'transactions.sheet.filters.recurring',
+                                        )
+                                    "
+                                />
+                                <TransactionVisibilityToggle
+                                    v-model="showRefunded"
+                                    category="refunded"
+                                    :label="
+                                        t(
+                                            'transactions.sheet.filters.showRefunded',
+                                        )
+                                    "
+                                />
+                                <TransactionVisibilityToggle
+                                    v-model="showTransfers"
+                                    category="transfer"
+                                    :label="ui('Trasferimenti')"
+                                />
+                                <TransactionVisibilityToggle
+                                    v-model="showOpeningBalances"
+                                    category="opening"
+                                    :label="
+                                        t(
+                                            'transactions.sheet.filters.showOpeningBalances',
+                                        )
+                                    "
+                                />
+                                <TransactionVisibilityToggle
+                                    v-model="showDeleted"
+                                    category="deleted"
+                                    :label="
+                                        t(
+                                            'transactions.sheet.filters.showDeleted',
+                                        )
+                                    "
+                                />
                                 <Badge
                                     variant="outline"
                                     class="rounded-full border-slate-200 bg-white/80 px-3 py-1 text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
@@ -4391,6 +4373,44 @@ resetInlineEntry();
                                               )
                                     }}
                                 </Badge>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    class="h-auto gap-1.5 rounded-full px-2.5 py-1 text-xs text-muted-foreground"
+                                    :aria-pressed="rememberFilters"
+                                    @click="rememberFilters = !rememberFilters"
+                                >
+                                    <Bookmark
+                                        class="size-3.5"
+                                        :class="
+                                            rememberFilters
+                                                ? 'fill-current text-primary'
+                                                : ''
+                                        "
+                                        aria-hidden="true"
+                                    />
+                                    {{
+                                        t(
+                                            rememberFilters
+                                                ? 'transactions.sheet.filters.saved'
+                                                : 'transactions.sheet.filters.remember',
+                                        )
+                                    }}
+                                </Button>
+                                <Button
+                                    v-if="hasActiveFilters || rememberFilters"
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    class="h-auto rounded-full px-2.5 py-1 text-xs text-muted-foreground"
+                                    @click="restoreDefaults"
+                                    >{{
+                                        t(
+                                            'transactions.sheet.filters.restoreDefaults',
+                                        )
+                                    }}</Button
+                                >
                                 <Badge
                                     variant="outline"
                                     class="rounded-full border-slate-200 bg-white/80 px-3 py-1 text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
@@ -4402,9 +4422,127 @@ resetInlineEntry();
                     </CardHeader>
 
                     <CardContent class="p-0">
+                        <details
+                            class="group/calendar border-b border-border px-4 py-3 sm:px-5"
+                            :open="transactionCalendarOpen"
+                            @toggle="rememberCalendarState"
+                        >
+                            <summary
+                                class="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
+                            >
+                                <span class="inline-flex items-center gap-2"
+                                    ><Calendar
+                                        class="size-4 text-sky-700 dark:text-sky-300"
+                                    />{{ ui('Filtra per giorno') }}</span
+                                >
+                                <span
+                                    class="inline-flex items-center gap-2 text-xs font-semibold text-primary"
+                                >
+                                    <span class="group-open/calendar:hidden">{{
+                                        ui('Apri calendario')
+                                    }}</span>
+                                    <span
+                                        class="hidden group-open/calendar:inline"
+                                        >{{ ui('Chiudi calendario') }}</span
+                                    >
+                                    <ChevronDown
+                                        class="size-4 transition-transform group-open/calendar:rotate-180"
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                            </summary>
+                            <div
+                                class="mt-2 flex items-center justify-between gap-2"
+                            >
+                                <span class="text-sm font-semibold">{{
+                                    periodLabel
+                                }}</span>
+                            </div>
+                            <RecurringCalendarGrid
+                                compact-counters
+                                :calendar-weeks="transactionCalendarWeeks"
+                                :weekday-labels="calendarWeekdays"
+                                :selected-date="selectedDay || null"
+                                :format-money="
+                                    (value) => formatCurrency(value, currency)
+                                "
+                                :format-day-heading="calendarDayHeading"
+                                :filtered-occurrences-count="
+                                    (day) => day.occurrences_count
+                                "
+                                @select="
+                                    selectedDay =
+                                        selectedDay === $event ? '' : $event
+                                "
+                            >
+                                <template #day-content="{ cell, mobile }">
+                                    <div
+                                        v-if="cell.isCurrentMonth"
+                                        class="mt-2 flex gap-1"
+                                        :class="
+                                            mobile ? 'flex-col' : 'flex-wrap'
+                                        "
+                                    >
+                                        <span
+                                            v-for="badge in calendarBadges(
+                                                cell.date,
+                                            )"
+                                            :key="badge.category"
+                                            class="inline-flex min-w-0 items-center rounded-md border font-semibold tabular-nums"
+                                            :class="[
+                                                transactionTones[badge.category]
+                                                    .badge,
+                                                mobile
+                                                    ? 'justify-center gap-1 px-0.5 py-1 text-[11px] leading-none'
+                                                    : 'gap-1 px-1 py-0.5 text-[10px]',
+                                            ]"
+                                            :title="
+                                                calendarLabels[badge.category]
+                                            "
+                                            :aria-label="`${calendarLabels[badge.category]}: ${badge.count}`"
+                                        >
+                                            <span
+                                                v-if="!mobile"
+                                                class="truncate"
+                                                >{{
+                                                    calendarLabels[
+                                                        badge.category
+                                                    ]
+                                                }}</span
+                                            ><span
+                                                v-else
+                                                aria-hidden="true"
+                                                class="size-1 rounded-full bg-current"
+                                            ></span
+                                            >{{ badge.count }}
+                                        </span>
+                                    </div>
+                                </template>
+                            </RecurringCalendarGrid>
+                        </details>
+
                         <div
                             class="flex flex-col gap-3 border-b border-slate-200/70 px-4 py-3 sm:flex-row sm:items-center dark:border-white/10"
                         >
+                            <Button
+                                v-if="selectedDay"
+                                type="button"
+                                variant="outline"
+                                class="min-h-11 shrink-0 justify-between gap-2 rounded-xl border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200"
+                                :aria-label="ui('Rimuovi filtro giorno')"
+                                @click="selectedDay = ''"
+                                ><span
+                                    >{{
+                                        new Date(
+                                            `${selectedDay}T12:00:00`,
+                                        ).toLocaleDateString(locale, {
+                                            day: 'numeric',
+                                            month: 'long',
+                                        })
+                                    }}
+                                    · {{ ui('Tutti i giorni') }}</span
+                                ><X class="size-4" aria-hidden="true"
+                            /></Button>
                             <div class="relative min-w-0 flex-1">
                                 <Search
                                     class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
@@ -5275,41 +5413,12 @@ resetInlineEntry();
                                                 <div
                                                     class="flex flex-wrap gap-2"
                                                 >
-                                                    <Badge
-                                                        v-if="
-                                                            !transaction.is_opening_balance
+                                                    <TransactionClassificationBadges
+                                                        :transaction="
+                                                            transaction
                                                         "
-                                                        :class="
-                                                            cn(
-                                                                'rounded-full px-2.5 py-1 text-[11px]',
-                                                                transactionTypeBadgeTone(
-                                                                    transaction,
-                                                                ),
-                                                            )
-                                                        "
-                                                    >
-                                                        {{ transaction.type }}
-                                                    </Badge>
-                                                    <Badge
-                                                        v-if="
-                                                            transaction.shared_expense_counterparty_uuid
-                                                        "
-                                                        class="rounded-full border border-violet-200 bg-violet-100 px-2.5 py-1 text-[11px] text-violet-800 dark:border-violet-400/25 dark:bg-violet-500/15 dark:text-violet-200"
-                                                    >
-                                                        {{ ui('Condivisa') }}
-                                                    </Badge>
-                                                    <Badge
-                                                        v-if="
-                                                            transaction.is_opening_balance
-                                                        "
-                                                        class="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.sheet.grid.openingBadge',
-                                                            )
-                                                        }}
-                                                    </Badge>
+                                                    />
+
                                                     <TooltipProvider
                                                         v-if="
                                                             isBalanceAdjustmentTransaction(
@@ -5403,39 +5512,6 @@ resetInlineEntry();
                                                         {{
                                                             balanceAdjustmentEffectLabel(
                                                                 transaction,
-                                                            )
-                                                        }}
-                                                    </Badge>
-                                                    <Badge
-                                                        v-if="
-                                                            recurringTransactionBadge(
-                                                                transaction,
-                                                            )
-                                                        "
-                                                        :class="
-                                                            cn(
-                                                                'rounded-full px-2.5 py-1 text-[11px]',
-                                                                recurringTransactionBadge(
-                                                                    transaction,
-                                                                )?.tone,
-                                                            )
-                                                        "
-                                                    >
-                                                        {{
-                                                            recurringTransactionBadge(
-                                                                transaction,
-                                                            )?.label
-                                                        }}
-                                                    </Badge>
-                                                    <Badge
-                                                        v-if="
-                                                            transaction.is_deleted
-                                                        "
-                                                        class="rounded-full border border-slate-300 bg-slate-200/80 px-2.5 py-1 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.sheet.grid.deletedBadge',
                                                             )
                                                         }}
                                                     </Badge>
@@ -6925,42 +7001,10 @@ resetInlineEntry();
                                     >
                                         <div class="space-y-1">
                                             <div class="flex flex-wrap gap-2">
-                                                <Badge
-                                                    v-if="
-                                                        !transaction.is_opening_balance
-                                                    "
-                                                    :class="
-                                                        cn(
-                                                            'rounded-full px-2.5 py-1 text-[11px]',
-                                                            transactionTypeBadgeTone(
-                                                                transaction,
-                                                            ),
-                                                        )
-                                                    "
-                                                >
-                                                    {{ transaction.type }}
-                                                </Badge>
-                                                <Badge
-                                                    v-if="
-                                                        transaction.shared_expense_counterparty_uuid
-                                                    "
-                                                    class="rounded-full bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
-                                                    >{{
-                                                        ui('Condivisa')
-                                                    }}</Badge
-                                                >
-                                                <Badge
-                                                    v-if="
-                                                        transaction.is_opening_balance
-                                                    "
-                                                    class="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.sheet.grid.openingBadge',
-                                                        )
-                                                    }}
-                                                </Badge>
+                                                <TransactionClassificationBadges
+                                                    :transaction="transaction"
+                                                />
+
                                                 <TooltipProvider
                                                     v-if="
                                                         isBalanceAdjustmentTransaction(
@@ -7050,39 +7094,6 @@ resetInlineEntry();
                                                     {{
                                                         balanceAdjustmentEffectLabel(
                                                             transaction,
-                                                        )
-                                                    }}
-                                                </Badge>
-                                                <Badge
-                                                    v-if="
-                                                        recurringTransactionBadge(
-                                                            transaction,
-                                                        )
-                                                    "
-                                                    :class="
-                                                        cn(
-                                                            'rounded-full px-2.5 py-1 text-[11px]',
-                                                            recurringTransactionBadge(
-                                                                transaction,
-                                                            )?.tone,
-                                                        )
-                                                    "
-                                                >
-                                                    {{
-                                                        recurringTransactionBadge(
-                                                            transaction,
-                                                        )?.label
-                                                    }}
-                                                </Badge>
-                                                <Badge
-                                                    v-if="
-                                                        transaction.is_deleted
-                                                    "
-                                                    class="rounded-full border border-slate-300 bg-slate-200/80 px-2.5 py-1 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.sheet.grid.deletedBadge',
                                                         )
                                                     }}
                                                 </Badge>

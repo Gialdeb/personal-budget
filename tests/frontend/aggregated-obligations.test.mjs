@@ -41,7 +41,7 @@ test('reimbursement mobile form reuses shared quick choices and compiles', () =>
     assert.match(content, /MobileAmountInput/);
     assert.match(content, /website_url: newReferenceWebsite/);
     assert.match(content, /sm:grid-cols-2/);
-    assert.match(content, /text-2xl font-bold tabular-nums/);
+    assert.match(content, /text-2xl font-bold[^"\n]*tabular-nums/);
     assert.match(content, /ui\('Devi a \{name\} \{amount\}'/);
     assert.match(
         content,

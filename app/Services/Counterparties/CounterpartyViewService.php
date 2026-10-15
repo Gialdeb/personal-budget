@@ -19,6 +19,8 @@ use App\Services\CreditDebts\CounterpartyBalanceService;
 use App\Support\CurrencyMinorUnits;
 use App\Support\MoneyAmount;
 use Carbon\CarbonImmutable;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class CounterpartyViewService
@@ -34,19 +36,22 @@ class CounterpartyViewService
         return CounterpartyRelation::query()->where('user_id', $user->id)->when(! config('counterparty_ledger.public_enabled'), fn ($query) => $query->whereNotNull('activated_at'))->with('counterparty')->get()->map(fn ($relation): array => $this->relation($relation))->all();
     }
 
-    public function show(User $user, CounterpartyRelation $relation): array
+    public function show(User $user, CounterpartyRelation $relation, array $filters = [], bool $paginate = false): array
     {
-        abort_unless($relation->user_id === $user->id && $relation->counterparty->user_id === $user->id && $relation->counterparty->account_id === null, 404);
+        abort_unless($relation->user_id === $user->id && $relation->counterparty !== null && $relation->counterparty->user_id === $user->id && $relation->counterparty->account_id === null, 404);
         abort_unless(config('counterparty_ledger.public_enabled') || $relation->activated_at !== null, 404);
         $models = $relation->obligations()->get();
         $projections = $this->projections->obligations($models)->keyBy('uuid');
         $amounts = $this->authority->obligationAmounts($models);
         $identities = $models->pluck('source_identity')->merge($projections->pluck('source_identity'))->filter(fn ($identity): bool => Str::isUuid($identity))->unique();
         $manualTitles = CreditDebtItem::withTrashed()->whereIn('uuid', $identities)->pluck('description', 'uuid');
-        $ledgerTitles = SharedExpenseLedgerEntry::query()->whereIn('uuid', $identities)->pluck('title', 'uuid');
-        $transactionTitles = Transaction::withTrashed()->whereIn('uuid', $identities)->pluck('description', 'uuid');
-        $recurringTitles = RecurringEntryOccurrence::query()->whereIn('uuid', $identities)->with('recurringEntry:id,title')->get()->mapWithKeys(fn ($occurrence): array => [$occurrence->uuid => $occurrence->recurringEntry?->title]);
-        $obligations = $models->map(function (CounterpartyObligation $obligation) use ($projections, $amounts, $manualTitles, $ledgerTitles, $transactionTitles, $recurringTitles): array {
+        $ledgerSources = SharedExpenseLedgerEntry::query()->whereIn('uuid', $identities)->get()->keyBy('uuid');
+        $ledgerTitles = $ledgerSources->pluck('title', 'uuid');
+        $transactionSources = Transaction::withTrashed()->whereIn('uuid', $identities)->get()->keyBy('uuid');
+        $transactionTitles = $transactionSources->pluck('description', 'uuid');
+        $recurringSources = RecurringEntryOccurrence::query()->whereIn('uuid', $identities)->with('recurringEntry:id,title')->get()->keyBy('uuid');
+        $recurringTitles = $recurringSources->map(fn ($occurrence) => $occurrence->recurringEntry?->title);
+        $obligations = $models->map(function (CounterpartyObligation $obligation) use ($projections, $amounts, $manualTitles, $ledgerTitles, $transactionTitles, $recurringTitles, $ledgerSources, $transactionSources, $recurringSources, $relation): array {
             $row = $projections[$obligation->uuid];
             $manual = $obligation->source_type->value === 'credit_debt_item';
             $title = null;
@@ -58,7 +63,20 @@ class CounterpartyViewService
                 $title = $transactionTitles->get($row['source_identity']) ?? $recurringTitles->get($row['source_identity']);
             }
 
-            return ['uuid' => $obligation->uuid, 'title' => $title ?? ($manual ? 'Credito/debito manuale' : 'Spesa condivisa'), 'domain' => $manual ? 'manual' : 'shared', 'direction' => $row['direction_sign'] > 0 ? 'received' : 'sent',
+            $source = $manual ? null : ($row['source_type'] === 'shared_ledger_share'
+                ? $ledgerSources->get($row['source_identity'])
+                : ($transactionSources->get($row['source_identity']) ?? $recurringSources->get($row['source_identity'])));
+            $document = ['expense_total_minor' => null, 'my_share_minor' => null, 'counterparty_share_minor' => null];
+            if ($source !== null && count($row['component_snapshots']) <= 1) {
+                $convert = fn (int $cents): string => (string) CurrencyMinorUnits::fromDecimal(MoneyAmount::decimal($cents), $relation->currency_code);
+                $document = [
+                    'expense_total_minor' => $source instanceof SharedExpenseLedgerEntry ? $convert($source->total_cents) : (string) CurrencyMinorUnits::fromDecimal($source instanceof Transaction ? $source->amount : $source->expected_amount, $relation->currency_code),
+                    'my_share_minor' => $source instanceof SharedExpenseLedgerEntry ? $convert($source->my_share_cents) : ($source->shared_expense_my_share_cents === null ? null : $convert($source->shared_expense_my_share_cents)),
+                    'counterparty_share_minor' => $source instanceof SharedExpenseLedgerEntry ? $convert($source->counterparty_share_cents) : ($source->shared_expense_counterparty_share_cents === null ? null : $convert($source->shared_expense_counterparty_share_cents)),
+                ];
+            }
+
+            return [...$document, 'uuid' => $obligation->uuid, 'title' => $title ?? ($manual ? 'Credito/debito manuale' : 'Spesa condivisa'), 'domain' => $manual ? 'manual' : 'shared', 'direction' => $row['direction_sign'] > 0 ? 'received' : 'sent',
                 'economic_date' => $row['economic_date'], 'due_date' => $row['due_date'], 'original_minor' => (string) abs($row['recognized_minor']), 'remaining_minor' => (string) $row['remaining_minor'],
                 'paid_minor' => (string) $amounts[$obligation->id]['paid'], 'compensated_minor' => (string) $amounts[$obligation->id]['compensated']];
         })->sortBy(fn (array $row): string => $row['economic_date'].':'.$row['uuid'])->values()->all();
@@ -82,10 +100,42 @@ class CounterpartyViewService
         })->all();
         $compensations = $relation->ledgerEntries()->where('event_type', 'compensation')->orderByDesc('id')->get()->map(fn ($entry): array => ['uuid' => $entry->uuid, 'date' => $entry->economic_date->toDateString(), 'amount_minor' => (string) ($entry->metadata['amount_minor'] ?? 0), 'active' => ! CounterpartyLedgerEntry::query()->where('reversal_of_id', $entry->id)->exists()])->all();
 
-        return ['relation' => $this->relation($relation), 'obligations' => $obligations, 'payments' => $payments, 'compensations' => $compensations,
-            'operations' => CounterpartyOperation::query()->where('relation_id', $relation->id)->orderByDesc('id')->get(['uuid', 'kind', 'actor_id', 'created_at', 'result'])->toArray(),
+        $history = $this->history($relation, $obligations, $payments, $compensations, $filters);
+
+        $visibleRows = collect($history['activity']->items());
+        $visiblePaymentIds = $visibleRows->where('kind', 'payment')->pluck('uuid');
+        $visibleCompensationIds = $visibleRows->where('kind', 'compensation')->pluck('uuid');
+        $choices = collect($obligations)->map(fn (array $row): array => Arr::only($row, ['uuid', 'title', 'domain', 'direction', 'economic_date', 'remaining_minor']))->all();
+
+        return [...$history, 'paymentCount' => count($payments), 'relation' => $this->relation($relation), 'obligations' => $paginate ? $choices : $obligations, 'payments' => $paginate ? collect($payments)->whereIn('uuid', $visiblePaymentIds)->values()->all() : $payments, 'compensations' => $paginate ? collect($compensations)->whereIn('uuid', $visibleCompensationIds)->values()->all() : $compensations,
+            'operations' => CounterpartyOperation::query()->where('relation_id', $relation->id)->orderByDesc('id')->limit(20)->get(['uuid', 'kind', 'actor_id', 'created_at', 'result'])->toArray(),
             'accounts' => $this->accounts->editable($user)->where('accounts.currency_code', $relation->currency_code)->where('accounts.is_active', true)->get()->map(fn ($account): array => ['uuid' => $account->uuid, 'name' => $account->name])->all(),
             'today' => CarbonImmutable::today(config('app.timezone'))->toDateString()];
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function history(CounterpartyRelation $relation, array $obligations, array $payments, array $compensations, array $filters): array
+    {
+        $rows = collect($obligations)->map(fn (array $row): array => ['kind' => $row['domain'], 'date' => $row['economic_date'], 'title' => $row['title'], 'state' => (int) $row['remaining_minor'] === 0 ? 'settled' : ((int) $row['paid_minor'] + (int) $row['compensated_minor'] > 0 ? 'partial' : 'open'), ...$row])
+            ->concat(collect($payments)->map(fn (array $row): array => ['kind' => 'payment', 'title' => $row['note'] ?? 'Pagamento', 'state' => (int) $row['effective_minor'] === 0 ? 'cancelled' : 'recorded', ...$row]))
+            ->concat(collect($compensations)->map(fn (array $row): array => ['kind' => 'compensation', 'title' => 'Compensazione', 'state' => $row['active'] ? 'recorded' : 'cancelled', ...$row]));
+        $periods = $rows->pluck('date')->map(fn (string $date): string => substr($date, 0, 7))->unique()->sortDesc()->values()->all();
+        $filters = [
+            'period' => in_array($filters['period'] ?? '', $periods, true) ? $filters['period'] : 'all',
+            'kind' => in_array($filters['kind'] ?? '', ['shared', 'manual', 'payment', 'compensation'], true) ? $filters['kind'] : 'all',
+            'state' => in_array($filters['state'] ?? '', ['open', 'partial', 'settled', 'recorded', 'cancelled'], true) ? $filters['state'] : 'all',
+            'search' => mb_substr(is_string($filters['search'] ?? null) ? $filters['search'] : '', 0, 200),
+        ];
+        $rows = $rows->filter(fn (array $row): bool => ($filters['period'] === 'all' || str_starts_with($row['date'], $filters['period']))
+            && ($filters['kind'] === 'all' || $row['kind'] === $filters['kind'])
+            && ($filters['state'] === 'all' || $row['state'] === $filters['state'])
+            && ($filters['search'] === '' || Str::contains($row['title'], $filters['search'], ignoreCase: true)))
+            ->sortByDesc(fn (array $row): string => $row['date'].':'.$row['uuid'])->values();
+        $page = min(max(1, LengthAwarePaginator::resolveCurrentPage()), max(1, (int) ceil($rows->count() / 20)));
+        $paginator = new LengthAwarePaginator($rows->forPage($page, 20)->values(), $rows->count(), 20, $page, ['path' => route('counterparties.show', $relation)]);
+        $paginator->withQueryString();
+
+        return ['activity' => $paginator, 'historyFilters' => $filters, 'historyPeriods' => $periods];
     }
 
     public function sourceSettlement(int $userId, string $sourceUuid, string $sourceType): ?array

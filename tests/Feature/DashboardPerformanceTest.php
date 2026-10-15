@@ -184,7 +184,10 @@ test('heavy authenticated pages preserve payloads and expose their measured cost
                 expect(count($queries))->toBeLessThanOrEqual($queryBudgets[$name] ?? 100, $name);
             }
             if ($name === 'transactions.show') {
-                expect(collect($queries)->filter(fn ($query): bool => preg_match('/counterparty_(relations|ledger_entries|obligations|payments|allocation_entries|source_links)/', $query['sql'])))->toBeEmpty($name);
+                $counterpartyQueries = collect($queries)->filter(fn ($query): bool => preg_match('/counterparty_(relations|ledger_entries|obligations|payments|allocation_entries|source_links)/', $query['sql']));
+                expect($counterpartyQueries)->toHaveCount(1, $name);
+                expect($counterpartyQueries->first()['sql'])
+                    ->toStartWith('select "id", "transaction_id", "return_of_id" from "counterparty_payments" where "transaction_id" in (');
             }
             $duplicates = collect($queries)->groupBy(fn ($q) => $q['sql'].json_encode($q['bindings']))->sum(fn ($group) => max(0, $group->count() - 1));
             if ($iteration > 1 && ! getenv('PAGE_PERFORMANCE_BASELINE')) {
@@ -219,7 +222,7 @@ test('heavy authenticated pages preserve payloads and expose their measured cost
                 'canonical_url' => $landing->isSuccessful() ? $landing->json('url') : null,
             ];
             if (! getenv('PAGE_PERFORMANCE_BASELINE')) {
-                $landing->assertSuccessful()->assertJsonPath('url', '/transactions/2026/10');
+                $landing->assertSuccessful()->assertJsonPath('url', '/transactions');
             }
             $queries = $finalQueries;
         }

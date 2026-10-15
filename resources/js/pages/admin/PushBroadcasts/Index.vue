@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import {
     BellRing,
     Filter,
@@ -33,6 +33,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useToastFeedback } from '@/composables/useToastFeedback';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';

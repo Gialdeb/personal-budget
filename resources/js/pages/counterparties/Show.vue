@@ -1,7 +1,22 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import {
+    ArrowDownLeft,
+    ArrowUpRight,
+    ArrowLeftRight,
+    Receipt,
+    HandCoins,
+    CalendarDays,
+    Search,
+} from 'lucide-vue-next';
+import { computed, ref, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import * as actions from '@/actions/App/Http/Controllers/CounterpartyPaymentController';
+import CounterpartyActivity from '@/components/shared-expenses/CounterpartyActivity.vue';
+import type {
+    Activity,
+    Payment,
+} from '@/components/shared-expenses/CounterpartyActivity.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -12,6 +27,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import {
@@ -23,29 +46,46 @@ import type { Claim } from '@/lib/counterparty-payments';
 import { index as creditsIndex } from '@/routes/credits-debts';
 import { index as sharedIndex } from '@/routes/shared-expenses';
 const ui = useUiCopy();
-type Obligation = Claim & {
-    title: string;
-    original_minor: string;
-    paid_minor: string;
-    compensated_minor: string;
-    due_date: string | null;
-};
-type Payment = {
-    uuid: string;
-    direction: string;
-    amount: string;
-    date: string;
-    account_uuid: string;
-    account_name: string;
-    note: string | null;
-    effective_minor: string;
-    returned_minor: string;
-    unallocated_minor: string;
-    is_return: boolean;
-    is_legacy: boolean;
-    scope: string;
-    allocations: { obligation_uuid: string; amount: string }[];
-};
+const kindOptions = [
+    { value: 'all', label: 'Tutti i tipi' },
+    {
+        value: 'shared',
+        label: 'Spese condivise',
+    },
+    {
+        value: 'manual',
+        label: 'Crediti/debiti manuali',
+    },
+    {
+        value: 'payment',
+        label: 'Pagamenti e rimborsi',
+    },
+    {
+        value: 'compensation',
+        label: 'Compensazioni',
+    },
+] as const;
+const stateOptions = [
+    {
+        value: 'all',
+        label: 'Tutti gli stati',
+    },
+    { value: 'open', label: 'Da regolare' },
+    {
+        value: 'partial',
+        label: 'Parzialmente regolata',
+    },
+    { value: 'settled', label: 'Regolata' },
+    {
+        value: 'recorded',
+        label: 'Registrato',
+    },
+    {
+        value: 'cancelled',
+        label: 'Annullato',
+    },
+] as const;
+
 const props = defineProps<{
     relation: {
         uuid: string;
@@ -61,7 +101,26 @@ const props = defineProps<{
         shared_minor: string;
         unallocated_minor: string;
     };
-    obligations: Obligation[];
+    activity: {
+        data: Activity[];
+        total: number;
+        from: number | null;
+        to: number | null;
+        current_page: number;
+        last_page: number;
+        prev_page_url: string | null;
+        next_page_url: string | null;
+    };
+    historyFilters: {
+        period: string;
+        kind: string;
+        state: string;
+        search: string;
+    };
+    historyPeriods: string[];
+    obligations: (Claim & {
+        title: string;
+    })[];
     payments: Payment[];
     accounts: { uuid: string; name: string }[];
     compensations: {
@@ -71,6 +130,7 @@ const props = defineProps<{
         active: boolean;
     }[];
     operations: { uuid: string; kind: string; created_at: string }[];
+    paymentCount: number;
     today: string;
     initialScope?: string;
 }>();
@@ -169,7 +229,8 @@ function resetPayment() {
     form.reset();
     form.operation_key = key();
 }
-function edit(payment: Payment, nextMode: typeof mode.value) {
+async function edit(payment: Payment, nextMode: typeof mode.value) {
+    paymentOpen.value = true;
     selected.value = payment;
     mode.value = nextMode;
     advanced.value = false;
@@ -213,6 +274,7 @@ function edit(payment: Payment, nextMode: typeof mode.value) {
         form.allow_unallocated = BigInt(payment.unallocated_minor) > 0n;
     }
 
+    await nextTick();
     document
         .getElementById('common-payment-form')
         ?.scrollIntoView({ behavior: 'smooth' });
@@ -315,103 +377,356 @@ function compensate() {
         },
     });
 }
-const operationLabel = computed<Record<string, string>>(() => ({
-    activate: ui('Attivazione'),
-    payment: ui('Pagamento'),
-    create: ui('Pagamento'),
-    cancel: ui('Annullamento amministrativo'),
-    revise: ui('Revisione'),
-    reallocate: ui('Modifica ripartizione'),
-    compensate: ui('Compensazione'),
-    reverse_compensation: ui('Storno compensazione'),
-    return: ui('Restituzione reale'),
-    allocation: ui('Modifica ripartizione'),
-    compensation: ui('Compensazione'),
-}));
+const { locale } = useI18n();
+const filters = ref({ ...props.historyFilters });
+const paymentOpen = ref(false);
+async function openPayment(): Promise<void> {
+    resetPayment();
+    paymentOpen.value = true;
+    await nextTick();
+    document
+        .getElementById('common-payment-form')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+const balance = computed(() => BigInt(props.relation.balance_minor));
+const balanceTone = computed(() =>
+    props.relation.amounts_available === false || balance.value === 0n
+        ? 'bg-muted/50'
+        : balance.value > 0n
+          ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+          : 'bg-rose-500/10 text-rose-800 dark:text-rose-200',
+);
+const absoluteBalance = computed(() =>
+    money(balance.value < 0n ? -balance.value : balance.value),
+);
+function periodLabel(period: string): string {
+    return new Intl.DateTimeFormat(locale.value, {
+        month: 'long',
+        year: 'numeric',
+    }).format(new Date(`${period}-01T12:00:00`));
+}
+function applyFilters(): void {
+    router.get(
+        actions.show.url(props.relation.uuid),
+        {
+            ...filters.value,
+            scope: props.initialScope,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+            only: ['activity', 'historyFilters'],
+        },
+    );
+}
+function visitHistory(url: string | null): void {
+    if (url) {
+        router.visit(url, {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['activity', 'historyFilters'],
+        });
+    }
+}
 </script>
 <template>
     <AppLayout>
         <Head :title="relation.name" />
         <div class="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-8">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <p class="text-sm text-muted-foreground">
-                        {{ ui('Situazione completa') }}
+            <header
+                class="overflow-hidden rounded-2xl border bg-card shadow-sm"
+            >
+                <div
+                    class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 text-sm"
+                >
+                    <p class="text-muted-foreground">
+                        {{ ui('Rapporti con le persone') }}
                     </p>
-                    <h1 class="text-2xl font-semibold">{{ relation.name }}</h1>
+                    <div class="flex gap-2">
+                        <Button as-child variant="ghost" size="sm"
+                            ><Link :href="creditsIndex.url()">{{
+                                ui('Crediti e debiti')
+                            }}</Link></Button
+                        ><Button as-child variant="ghost" size="sm"
+                            ><Link :href="sharedIndex.url()">{{
+                                ui('Spese condivise')
+                            }}</Link></Button
+                        >
+                    </div>
                 </div>
-                <div class="flex flex-wrap gap-3 text-sm">
-                    <Link :href="creditsIndex.url()">
-                        {{ ui('Crediti e debiti') }} </Link
-                    ><Link :href="sharedIndex.url()">
-                        {{ ui('Spese condivise') }}
-                    </Link>
+                <div
+                    class="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between md:p-7"
+                >
+                    <div class="min-w-0">
+                        <p class="text-sm text-muted-foreground">
+                            {{ ui('Situazione con') }}
+                        </p>
+                        <h1
+                            class="mt-1 text-3xl font-semibold tracking-tight break-words"
+                        >
+                            {{ relation.name }}
+                        </h1>
+                        <p class="mt-3 text-sm text-muted-foreground">
+                            {{ ui('Saldo complessivo · tutti i periodi') }}
+                        </p>
+                    </div>
+                    <div
+                        class="rounded-2xl px-5 py-4 sm:text-right"
+                        :class="balanceTone"
+                    >
+                        <p
+                            class="flex items-center gap-2 text-sm font-medium sm:justify-end"
+                        >
+                            <component
+                                :is="
+                                    balance > 0n
+                                        ? ArrowDownLeft
+                                        : balance < 0n
+                                          ? ArrowUpRight
+                                          : ArrowLeftRight
+                                "
+                                class="size-4"
+                                aria-hidden="true"
+                            />{{
+                                relation.amounts_available === false
+                                    ? ui('Saldo da verificare')
+                                    : balance === 0n
+                                      ? ui('Siete in pari')
+                                      : balance > 0n
+                                        ? ui('Ti deve')
+                                        : ui('Devi')
+                            }}
+                        </p>
+                        <p
+                            class="mt-2 text-3xl font-semibold whitespace-nowrap tabular-nums"
+                        >
+                            {{ absoluteBalance }}
+                        </p>
+                    </div>
                 </div>
-            </div>
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <p
+                    v-if="relation.amounts_available === false"
+                    class="px-5 pb-5 text-sm text-destructive"
+                >
+                    {{
+                        ui(
+                            'Saldo da verificare: alcuni movimenti richiedono un controllo.',
+                        )
+                    }}
+                </p>
+            </header>
+            <section
+                class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            >
                 <div
                     v-for="card in [
                         {
-                            title: ui('Saldo complessivo'),
-                            value: relation.balance_minor,
-                        },
-                        {
-                            title: ui('Altri crediti/debiti'),
-                            value: relation.manual_minor,
-                        },
-                        {
                             title: ui('Spese condivise'),
                             value: relation.shared_minor,
+                            icon: Receipt,
+                        },
+                        {
+                            title: ui('Crediti/debiti manuali'),
+                            value: relation.manual_minor,
+                            icon: HandCoins,
                         },
                         {
                             title: ui('Pagamenti da collegare'),
                             value: relation.unallocated_minor,
+                            icon: ArrowLeftRight,
                         },
                     ]"
                     :key="card.title"
-                    class="rounded-xl border bg-card p-4"
+                    class="rounded-2xl border bg-card p-4"
                 >
-                    <p class="text-sm text-muted-foreground">
-                        {{ card.title }}
+                    <p
+                        class="flex items-center gap-2 text-xs font-medium text-muted-foreground"
+                    >
+                        <component
+                            :is="card.icon"
+                            class="size-4"
+                            aria-hidden="true"
+                        />{{ card.title }}
                     </p>
-                    <p class="mt-2 text-xl font-semibold">
+                    <p
+                        class="mt-3 text-xl font-semibold whitespace-nowrap tabular-nums"
+                    >
                         {{ money(card.value) }}
                     </p>
                 </div>
-            </div>
-            <p
-                v-if="
-                    relation.amounts_available !== false &&
-                    BigInt(relation.balance_minor) === 0n
-                "
-                class="text-lg"
-            >
-                {{ ui('Saldo complessivo: {amount}', { amount: money('0') }) }}
-            </p>
-            <p v-else-if="relation.amounts_available !== false" class="text-lg">
-                {{
-                    BigInt(relation.balance_minor) >= 0n
-                        ? ui('{name} ti deve', { name: relation.name })
-                        : ui('Devi a {name}', { name: relation.name })
-                }}
-                {{
-                    money(
-                        BigInt(relation.balance_minor) < 0n
-                            ? -BigInt(relation.balance_minor)
-                            : relation.balance_minor,
-                    )
-                }}
-            </p>
-            <p
-                v-if="relation.amounts_available === false"
-                class="text-sm text-destructive"
-            >
+                <div class="rounded-2xl border bg-card p-4">
+                    <p
+                        class="flex items-center gap-2 text-xs font-medium text-muted-foreground"
+                    >
+                        <ArrowDownLeft class="size-4" aria-hidden="true" />{{
+                            ui('Pagamenti e rimborsi')
+                        }}
+                    </p>
+                    <p class="mt-3 text-xl font-semibold tabular-nums">
+                        {{ paymentCount }}
+                    </p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        {{ ui('Registrazioni nello storico') }}
+                    </p>
+                </div>
+            </section>
+            <p class="text-xs leading-relaxed text-muted-foreground">
                 {{
                     ui(
-                        'Saldo da verificare: alcuni movimenti richiedono un controllo.',
+                        'Pagamenti e rimborsi collegati sono già inclusi nei residui. Le somme da collegare sono indicate separatamente. I filtri modificano solo lo storico.',
                     )
                 }}
             </p>
+            <div v-if="relation.can_manage" class="flex justify-end">
+                <Button class="min-h-11 w-full sm:w-auto" @click="openPayment"
+                    ><ArrowLeftRight class="size-4" aria-hidden="true" />{{
+                        ui('Registra pagamento')
+                    }}</Button
+                >
+            </div>
+            <section class="space-y-5" aria-labelledby="history-title">
+                <div>
+                    <h2 id="history-title" class="text-xl font-semibold">
+                        {{ ui('Movimenti e pagamenti') }}
+                    </h2>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        {{
+                            ui(
+                                'Spese, crediti, rimborsi e compensazioni in un unico storico.',
+                            )
+                        }}
+                    </p>
+                </div>
+                <form
+                    class="grid grid-cols-2 items-end gap-3 rounded-2xl border bg-card p-3 lg:grid-cols-4"
+                    @submit.prevent="applyFilters"
+                >
+                    <div class="min-w-0 space-y-1.5">
+                        <Label for="history-period">{{ ui('Periodo') }}</Label
+                        ><Select
+                            v-model="filters.period"
+                            @update:model-value="applyFilters"
+                            ><SelectTrigger
+                                id="history-period"
+                                class="h-11 w-full rounded-2xl"
+                                ><CalendarDays
+                                    class="size-4 shrink-0"
+                                    aria-hidden="true" /><SelectValue /></SelectTrigger
+                            ><SelectContent
+                                ><SelectItem value="all">{{
+                                    ui('Tutti i periodi')
+                                }}</SelectItem
+                                ><SelectItem
+                                    v-for="period in historyPeriods"
+                                    :key="period"
+                                    :value="period"
+                                    >{{ periodLabel(period) }}</SelectItem
+                                ></SelectContent
+                            ></Select
+                        >
+                    </div>
+                    <div class="min-w-0 space-y-1.5">
+                        <Label for="history-kind">{{
+                            ui('Tipo movimento')
+                        }}</Label
+                        ><Select
+                            v-model="filters.kind"
+                            @update:model-value="applyFilters"
+                            ><SelectTrigger
+                                id="history-kind"
+                                class="h-11 w-full rounded-2xl"
+                                ><SelectValue /></SelectTrigger
+                            ><SelectContent
+                                ><SelectItem
+                                    v-for="option in kindOptions"
+                                    :key="option.value"
+                                    :value="option.value"
+                                    >{{ ui(option.label) }}</SelectItem
+                                ></SelectContent
+                            ></Select
+                        >
+                    </div>
+                    <div class="min-w-0 space-y-1.5">
+                        <Label for="history-state">{{ ui('Stato') }}</Label
+                        ><Select
+                            v-model="filters.state"
+                            @update:model-value="applyFilters"
+                            ><SelectTrigger
+                                id="history-state"
+                                class="h-11 w-full rounded-2xl"
+                                ><SelectValue /></SelectTrigger
+                            ><SelectContent
+                                ><SelectItem
+                                    v-for="option in stateOptions"
+                                    :key="option.value"
+                                    :value="option.value"
+                                    >{{ ui(option.label) }}</SelectItem
+                                ></SelectContent
+                            ></Select
+                        >
+                    </div>
+                    <div class="min-w-0 space-y-1.5">
+                        <Label for="history-search">{{ ui('Ricerca') }}</Label>
+                        <div class="flex gap-1">
+                            <Input
+                                id="history-search"
+                                v-model="filters.search"
+                                class="h-11 min-w-0 rounded-2xl"
+                                :placeholder="ui('Descrizione o nota')"
+                                type="search"
+                            /><Button
+                                type="submit"
+                                variant="outline"
+                                class="size-11 shrink-0 rounded-xl px-0"
+                                :aria-label="ui('Cerca')"
+                                ><Search class="size-4" aria-hidden="true"
+                            /></Button>
+                        </div>
+                    </div>
+                </form>
+                <p
+                    class="text-xs text-muted-foreground"
+                    role="status"
+                    aria-live="polite"
+                >
+                    {{
+                        activity.total
+                            ? `${activity.from}–${activity.to} / ${activity.total}`
+                            : '0'
+                    }}
+                    {{ ui('movimenti') }}
+                </p>
+                <CounterpartyActivity
+                    :rows="activity.data"
+                    :relation="relation"
+                    @edit="edit"
+                    @cancel="confirmation = { type: 'cancel', uuid: $event }"
+                    @reverse="confirmation = { type: 'reverse', uuid: $event }"
+                />
+                <nav
+                    v-if="activity.last_page > 1"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-3"
+                    :aria-label="ui('Paginazione movimenti')"
+                >
+                    <Button
+                        variant="outline"
+                        class="min-h-11"
+                        :disabled="!activity.prev_page_url"
+                        @click="visitHistory(activity.prev_page_url)"
+                        >{{ ui('Precedente') }}</Button
+                    ><span class="text-sm tabular-nums"
+                        >{{ activity.current_page }} /
+                        {{ activity.last_page }}</span
+                    ><Button
+                        variant="outline"
+                        class="min-h-11"
+                        :disabled="!activity.next_page_url"
+                        @click="visitHistory(activity.next_page_url)"
+                        >{{ ui('Successiva') }}</Button
+                    >
+                </nav>
+            </section>
             <div
                 v-if="!relation.can_manage"
                 class="space-y-3 rounded-xl border p-4"
@@ -434,292 +749,272 @@ const operationLabel = computed<Record<string, string>>(() => ({
                     {{ ui('Attiva gestione comune') }}
                 </Button>
             </div>
-            <form
+            <details
                 v-if="relation.can_manage"
-                id="common-payment-form"
-                class="space-y-4 rounded-xl border bg-card p-4 md:p-6"
-                @submit.prevent="submit"
+                :open="paymentOpen"
+                class="rounded-2xl border bg-card"
+                @toggle="
+                    paymentOpen = ($event.target as HTMLDetailsElement).open
+                "
             >
-                <h2 class="text-xl font-semibold">
-                    {{
-                        mode === 'return'
-                            ? ui('Restituzione reale di denaro')
-                            : mode === 'revise'
-                              ? ui('Revisione pagamento')
-                              : mode === 'allocations'
-                                ? ui('Ripartisci pagamento')
-                                : ui('Registra pagamento')
-                    }}
-                </h2>
-                <p
-                    v-if="mode === 'revise'"
-                    class="text-sm text-muted-foreground"
+                <summary
+                    class="min-h-11 cursor-pointer px-5 py-4 font-semibold"
                 >
-                    {{
-                        ui(
-                            'Il pagamento precedente sarà stornato e sostituito. Lo storico resta consultabile.',
-                        )
-                    }}
-                </p>
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <Label for="common-direction">
-                            {{ ui('Direzione') }} </Label
+                    {{ ui('Registra pagamento') }}
+                </summary>
+                <form
+                    id="common-payment-form"
+                    class="space-y-4 rounded-xl border bg-card p-4 md:p-6"
+                    @submit.prevent="submit"
+                >
+                    <h2 class="text-xl font-semibold">
+                        {{
+                            mode === 'return'
+                                ? ui('Restituzione reale di denaro')
+                                : mode === 'revise'
+                                  ? ui('Revisione pagamento')
+                                  : mode === 'allocations'
+                                    ? ui('Ripartisci pagamento')
+                                    : ui('Registra pagamento')
+                        }}
+                    </h2>
+                    <p
+                        v-if="mode === 'revise'"
+                        class="text-sm text-muted-foreground"
+                    >
+                        {{
+                            ui(
+                                'Il pagamento precedente sarà stornato e sostituito. Lo storico resta consultabile.',
+                            )
+                        }}
+                    </p>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <Label for="common-direction">
+                                {{ ui('Direzione') }} </Label
+                            ><select
+                                id="common-direction"
+                                v-model="form.direction"
+                                :disabled="mode !== 'create'"
+                                class="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                                @change="advanced = false"
+                            >
+                                <option value="received">
+                                    {{
+                                        ui('Ricevuto da {name}', {
+                                            name: relation.name,
+                                        })
+                                    }}
+                                </option>
+                                <option value="sent">
+                                    {{
+                                        ui('Pagato a {name}', {
+                                            name: relation.name,
+                                        })
+                                    }}
+                                </option>
+                            </select>
+                        </div>
+                        <div>
+                            <Label for="common-amount">
+                                {{ ui('Importo (') }}
+                                {{ relation.currency }})</Label
+                            ><Input
+                                id="common-amount"
+                                v-model="form.amount"
+                                :readonly="mode === 'allocations'"
+                                inputmode="decimal"
+                                required
+                            />
+                        </div>
+                        <div v-if="mode !== 'allocations'">
+                            <Label for="common-date"> {{ ui('Data') }} </Label
+                            ><Input
+                                id="common-date"
+                                v-model="form.date"
+                                type="date"
+                                required
+                            />
+                        </div>
+                        <div v-if="mode !== 'allocations'">
+                            <Label for="common-account">
+                                {{ ui('Conto') }} </Label
+                            ><select
+                                id="common-account"
+                                v-model="form.account_uuid"
+                                required
+                                class="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                            >
+                                <option value="" disabled>
+                                    {{ ui('Seleziona conto') }}
+                                </option>
+                                <option
+                                    v-for="account in accounts"
+                                    :key="account.uuid"
+                                    :value="account.uuid"
+                                >
+                                    {{ account.name }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div v-if="mode !== 'return'">
+                        <Label for="common-scope">
+                            {{ ui('Cosa stai regolando') }} </Label
                         ><select
-                            id="common-direction"
-                            v-model="form.direction"
-                            :disabled="mode !== 'create'"
+                            id="common-scope"
+                            v-model="form.scope"
                             class="mt-1 h-10 w-full rounded-md border bg-background px-3"
                             @change="advanced = false"
                         >
-                            <option value="received">
-                                {{
-                                    ui('Ricevuto da {name}', {
-                                        name: relation.name,
-                                    })
-                                }}
+                            <option value="all">
+                                {{ ui('Tutte le obbligazioni compatibili') }}
                             </option>
-                            <option value="sent">
-                                {{
-                                    ui('Pagato a {name}', {
-                                        name: relation.name,
-                                    })
-                                }}
+                            <option value="shared">
+                                {{ ui('Solo spese condivise') }}
                             </option>
                         </select>
                     </div>
-                    <div>
-                        <Label for="common-amount">
-                            {{ ui('Importo (') }}
-                            {{ relation.currency }})</Label
+                    <details v-if="mode !== 'allocations'">
+                        <summary class="cursor-pointer text-sm">
+                            {{ ui('Note opzionali') }}
+                        </summary>
+                        <Label for="common-note" class="sr-only">
+                            {{ ui('Note') }} </Label
                         ><Input
-                            id="common-amount"
-                            v-model="form.amount"
-                            :readonly="mode === 'allocations'"
-                            inputmode="decimal"
-                            required
+                            id="common-note"
+                            v-model="form.note"
+                            class="mt-2"
                         />
-                    </div>
-                    <div v-if="mode !== 'allocations'">
-                        <Label for="common-date"> {{ ui('Data') }} </Label
-                        ><Input
-                            id="common-date"
-                            v-model="form.date"
-                            type="date"
-                            required
-                        />
-                    </div>
-                    <div v-if="mode !== 'allocations'">
-                        <Label for="common-account"> {{ ui('Conto') }} </Label
-                        ><select
-                            id="common-account"
-                            v-model="form.account_uuid"
-                            required
-                            class="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                    </details>
+                    <div class="rounded-lg bg-muted p-4">
+                        <div
+                            class="flex flex-wrap justify-between gap-3 text-sm"
                         >
-                            <option value="" disabled>
-                                {{ ui('Seleziona conto') }}
-                            </option>
-                            <option
-                                v-for="account in accounts"
-                                :key="account.uuid"
-                                :value="account.uuid"
+                            <span>
+                                {{ ui('Saldo prima:') }}
+                                {{ money(before) }}</span
+                            ><span>{{
+                                mode === 'allocations'
+                                    ? ui('Nessun movimento bancario')
+                                    : ui('Pagamento:') + ' ' + money(amount)
+                            }}</span
+                            ><strong>
+                                {{ ui('Saldo dopo:') }}
+                                {{ money(after) }}</strong
                             >
-                                {{ account.name }}
-                            </option>
-                        </select>
+                        </div>
+                        <template v-if="mode !== 'return'"
+                            ><p class="mt-3 font-medium">
+                                {{ money(allocated) }}
+                                {{ ui('saranno applicati a:') }}
+                            </p>
+                            <ul class="mt-1 space-y-1 text-sm">
+                                <li
+                                    v-for="allocation in proposed"
+                                    :key="allocation.obligation_uuid"
+                                >
+                                    {{
+                                        obligations.find(
+                                            (o) =>
+                                                o.uuid ===
+                                                allocation.obligation_uuid,
+                                        )?.title
+                                    }}: {{ money(allocation.minor) }}
+                                </li>
+                            </ul>
+                            <p v-if="amount > allocated" class="mt-2 text-sm">
+                                {{ ui('Quota non allocata:') }}
+                                {{ money(amount - allocated) }}
+                                {{
+                                    ui(
+                                        '. È necessaria un’autorizzazione esplicita.',
+                                    )
+                                }}
+                            </p></template
+                        >
                     </div>
-                </div>
-                <div v-if="mode !== 'return'">
-                    <Label for="common-scope">
-                        {{ ui('Cosa stai regolando') }} </Label
-                    ><select
-                        id="common-scope"
-                        v-model="form.scope"
-                        class="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                        @change="advanced = false"
+                    <Button
+                        v-if="mode !== 'return' && !advanced"
+                        type="button"
+                        variant="outline"
+                        @click="manageAllocation"
                     >
-                        <option value="all">
-                            {{ ui('Tutte le obbligazioni compatibili') }}
-                        </option>
-                        <option value="shared">
-                            {{ ui('Solo spese condivise') }}
-                        </option>
-                    </select>
-                </div>
-                <details v-if="mode !== 'allocations'">
-                    <summary class="cursor-pointer text-sm">
-                        {{ ui('Note opzionali') }}
-                    </summary>
-                    <Label for="common-note" class="sr-only">
-                        {{ ui('Note') }} </Label
-                    ><Input id="common-note" v-model="form.note" class="mt-2" />
-                </details>
-                <div class="rounded-lg bg-muted p-4">
-                    <div class="flex flex-wrap justify-between gap-3 text-sm">
-                        <span>
-                            {{ ui('Saldo prima:') }} {{ money(before) }}</span
-                        ><span>{{
-                            mode === 'allocations'
-                                ? ui('Nessun movimento bancario')
-                                : ui('Pagamento:') + ' ' + money(amount)
-                        }}</span
-                        ><strong>
-                            {{ ui('Saldo dopo:') }} {{ money(after) }}</strong
+                        {{ ui('Ripartisci pagamento') }}
+                    </Button>
+                    <div v-if="advanced && mode !== 'return'" class="space-y-3">
+                        <div
+                            v-for="allocation in form.allocations"
+                            :key="allocation.obligation_uuid"
+                            class="grid items-center gap-2 sm:grid-cols-2"
                         >
-                    </div>
-                    <template v-if="mode !== 'return'"
-                        ><p class="mt-3 font-medium">
-                            {{ money(allocated) }}
-                            {{ ui('saranno applicati a:') }}
-                        </p>
-                        <ul class="mt-1 space-y-1 text-sm">
-                            <li
-                                v-for="allocation in proposed"
-                                :key="allocation.obligation_uuid"
-                            >
-                                {{
+                            <Label
+                                :for="
+                                    'allocation-' + allocation.obligation_uuid
+                                "
+                                >{{
                                     obligations.find(
                                         (o) =>
                                             o.uuid ===
                                             allocation.obligation_uuid,
                                     )?.title
-                                }}: {{ money(allocation.minor) }}
-                            </li>
-                        </ul>
-                        <p v-if="amount > allocated" class="mt-2 text-sm">
-                            {{ ui('Quota non allocata:') }}
-                            {{ money(amount - allocated) }}
+                                }}</Label
+                            ><Input
+                                :id="'allocation-' + allocation.obligation_uuid"
+                                v-model="allocation.amount"
+                                inputmode="decimal"
+                            />
+                        </div>
+                        <label class="flex items-center gap-2 text-sm"
+                            ><input
+                                v-model="form.allow_unallocated"
+                                type="checkbox"
+                            />
                             {{
                                 ui(
-                                    '. È necessaria un’autorizzazione esplicita.',
+                                    'Consento esplicitamente una quota non allocata',
                                 )
                             }}
-                        </p></template
-                    >
-                </div>
-                <Button
-                    v-if="mode !== 'return' && !advanced"
-                    type="button"
-                    variant="outline"
-                    @click="manageAllocation"
-                >
-                    {{ ui('Ripartisci pagamento') }}
-                </Button>
-                <div v-if="advanced && mode !== 'return'" class="space-y-3">
-                    <div
-                        v-for="allocation in form.allocations"
-                        :key="allocation.obligation_uuid"
-                        class="grid items-center gap-2 sm:grid-cols-2"
-                    >
-                        <Label
-                            :for="'allocation-' + allocation.obligation_uuid"
-                            >{{
-                                obligations.find(
-                                    (o) =>
-                                        o.uuid === allocation.obligation_uuid,
-                                )?.title
-                            }}</Label
-                        ><Input
-                            :id="'allocation-' + allocation.obligation_uuid"
-                            v-model="allocation.amount"
-                            inputmode="decimal"
-                        />
-                    </div>
-                    <label class="flex items-center gap-2 text-sm"
-                        ><input
-                            v-model="form.allow_unallocated"
-                            type="checkbox"
-                        />
-                        {{
-                            ui('Consento esplicitamente una quota non allocata')
-                        }}
-                    </label>
-                    <p class="text-sm text-muted-foreground">
-                        {{
-                            ui(
-                                'Le eccedenze rispetto al saldo ammesso sono bloccate; questa opzione non crea anticipi.',
-                            )
-                        }}
-                    </p>
-                </div>
-                <div
-                    v-if="form.hasErrors"
-                    role="alert"
-                    class="space-y-1 text-sm text-destructive"
-                >
-                    <p v-for="(error, index) in form.errors" :key="index">
-                        {{ error }}
-                    </p>
-                </div>
-                <div class="flex flex-wrap gap-3">
-                    <Button
-                        type="submit"
-                        :disabled="form.processing || !accounts.length"
-                        >{{
-                            mode === 'return'
-                                ? ui('Conferma restituzione')
-                                : mode === 'allocations'
-                                  ? ui('Conferma ripartizione')
-                                  : ui('Conferma pagamento')
-                        }}</Button
-                    ><Button
-                        v-if="mode !== 'create'"
-                        type="button"
-                        variant="outline"
-                        @click="resetPayment"
-                    >
-                        {{ ui('Annulla modifica') }}
-                    </Button>
-                </div>
-            </form>
-            <section class="space-y-3">
-                <h2 class="text-xl font-semibold">
-                    {{ ui('Obbligazioni e residui') }}
-                </h2>
-                <article
-                    v-for="obligation in obligations"
-                    :key="obligation.uuid"
-                    class="rounded-xl border p-4"
-                >
-                    <div class="flex flex-wrap justify-between gap-2">
-                        <strong>{{ obligation.title }}</strong
-                        ><span
-                            >{{
-                                obligation.direction === 'received'
-                                    ? ui('A tuo favore')
-                                    : ui('Da pagare')
+                        </label>
+                        <p class="text-sm text-muted-foreground">
+                            {{
+                                ui(
+                                    'Le eccedenze rispetto al saldo ammesso sono bloccate; questa opzione non crea anticipi.',
+                                )
                             }}
-                            ·
-                            {{
-                                obligation.domain === 'manual'
-                                    ? ui('Manuale')
-                                    : ui('Condivisa')
-                            }}</span
-                        >
+                        </p>
                     </div>
-                    <div class="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                        <span>
-                            {{ ui('Originale:') }}
-                            {{ money(obligation.original_minor) }}</span
-                        ><span>
-                            {{ ui('Pagato:') }}
-                            {{ money(obligation.paid_minor) }}</span
-                        ><span>
-                            {{ ui('Compensato:') }}
-                            {{ money(obligation.compensated_minor) }}</span
-                        ><strong>
-                            {{ ui('Residuo:') }}
-                            {{ money(obligation.remaining_minor) }}</strong
-                        ><span>
-                            {{ ui('Scadenza:') }}
-                            {{
-                                obligation.due_date ?? ui('Non concordata')
-                            }}</span
-                        >
+                    <div
+                        v-if="form.hasErrors"
+                        role="alert"
+                        class="space-y-1 text-sm text-destructive"
+                    >
+                        <p v-for="(error, index) in form.errors" :key="index">
+                            {{ error }}
+                        </p>
                     </div>
-                </article>
-            </section>
+                    <div class="flex flex-wrap gap-3">
+                        <Button
+                            type="submit"
+                            :disabled="form.processing || !accounts.length"
+                            >{{
+                                mode === 'return'
+                                    ? ui('Conferma restituzione')
+                                    : mode === 'allocations'
+                                      ? ui('Conferma ripartizione')
+                                      : ui('Conferma pagamento')
+                            }}</Button
+                        ><Button
+                            v-if="mode !== 'create'"
+                            type="button"
+                            variant="outline"
+                            @click="resetPayment"
+                        >
+                            {{ ui('Annulla modifica') }}
+                        </Button>
+                    </div>
+                </form>
+            </details>
             <details v-if="relation.can_manage" class="rounded-xl border p-4">
                 <summary class="cursor-pointer font-semibold">
                     {{ ui('Compensazione senza movimento bancario') }}
@@ -806,135 +1101,6 @@ const operationLabel = computed<Record<string, string>>(() => ({
                     </Button>
                 </form>
             </details>
-            <section class="space-y-3">
-                <h2 class="text-xl font-semibold">
-                    {{ ui('Pagamenti e storico') }}
-                </h2>
-                <article
-                    v-for="payment in payments"
-                    :key="payment.uuid"
-                    class="space-y-3 rounded-xl border p-4"
-                >
-                    <div class="flex flex-wrap justify-between gap-2">
-                        <strong
-                            >{{
-                                payment.is_return
-                                    ? ui('Restituzione reale')
-                                    : payment.direction === 'received'
-                                      ? ui('Ricevuto')
-                                      : ui('Pagato')
-                            }}
-                            {{ payment.amount }} {{ relation.currency }}</strong
-                        ><span
-                            >{{ payment.date }} ·
-                            {{ payment.account_name }}</span
-                        >
-                    </div>
-                    <p class="text-sm">
-                        {{
-                            BigInt(payment.effective_minor) === 0n
-                                ? ui(
-                                      'Annullato · documento originale preservato',
-                                  )
-                                : ui('Allocato:') +
-                                  ' ' +
-                                  money(
-                                      BigInt(payment.effective_minor) -
-                                          BigInt(payment.returned_minor) -
-                                          BigInt(payment.unallocated_minor),
-                                  ) +
-                                  ' · ' +
-                                  ui('Non allocato:') +
-                                  ' ' +
-                                  money(payment.unallocated_minor)
-                        }}<template v-if="BigInt(payment.returned_minor) > 0n">
-                            {{ ui('· Restituito:') }}
-                            {{ money(payment.returned_minor) }}</template
-                        >
-                    </p>
-                    <p v-if="payment.note" class="text-sm">
-                        {{ payment.note }}
-                    </p>
-                    <div
-                        v-if="
-                            relation.can_manage &&
-                            BigInt(payment.effective_minor) > 0n
-                        "
-                        class="flex flex-wrap gap-2"
-                    >
-                        <template v-if="!payment.is_return"
-                            ><Button
-                                v-if="BigInt(payment.returned_minor) === 0n"
-                                variant="outline"
-                                size="sm"
-                                @click="edit(payment, 'revise')"
-                            >
-                                {{ ui('Revisiona') }} </Button
-                            ><Button
-                                variant="outline"
-                                size="sm"
-                                @click="edit(payment, 'allocations')"
-                            >
-                                {{ ui('Ripartisci pagamento') }} </Button
-                            ><Button
-                                variant="outline"
-                                size="sm"
-                                @click="edit(payment, 'return')"
-                            >
-                                {{ ui('Restituzione reale') }}
-                            </Button></template
-                        ><Button
-                            v-if="BigInt(payment.returned_minor) === 0n"
-                            variant="outline"
-                            size="sm"
-                            @click="
-                                confirmation = {
-                                    type: 'cancel',
-                                    uuid: payment.uuid,
-                                }
-                            "
-                        >
-                            {{ ui('Annullamento amministrativo') }}
-                        </Button>
-                    </div>
-                </article>
-                <article
-                    v-for="entry in compensations"
-                    :key="entry.uuid"
-                    class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
-                >
-                    <span>
-                        {{ ui('Compensazione') }}
-                        {{ money(entry.amount_minor) }} · {{ entry.date }} ·
-                        {{ entry.active ? ui('Attiva') : ui('Stornata') }}</span
-                    ><Button
-                        v-if="entry.active && relation.can_manage"
-                        variant="outline"
-                        @click="
-                            confirmation = { type: 'reverse', uuid: entry.uuid }
-                        "
-                    >
-                        {{ ui('Storna compensazione') }}
-                    </Button>
-                </article>
-                <details>
-                    <summary class="cursor-pointer text-sm">
-                        {{ ui('Cronologia operazioni') }}
-                    </summary>
-                    <ul class="mt-3 space-y-2 text-sm">
-                        <li
-                            v-for="operation in operations"
-                            :key="operation.uuid"
-                        >
-                            {{ operation.created_at }} ·
-                            {{
-                                operationLabel[operation.kind] ??
-                                ui('Operazione registrata')
-                            }}
-                        </li>
-                    </ul>
-                </details>
-            </section>
             <Dialog
                 :open="confirmation !== null"
                 @update:open="

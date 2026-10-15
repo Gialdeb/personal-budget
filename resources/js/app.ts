@@ -1,7 +1,12 @@
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import { createNotivue } from 'notivue';
+import 'notivue/notification.css';
+import 'notivue/notification-progress.css';
+import 'notivue/animations.css';
 import type { DefineComponent } from 'vue';
 import { createApp, h, nextTick, watch } from 'vue';
+import AppNotifications from '@/components/AppNotifications.vue';
 import '../css/app.css';
 import MaintenanceStateOverlay from '@/components/MaintenanceStateOverlay.vue';
 import NavigationProgress from '@/components/NavigationProgress.vue';
@@ -11,6 +16,7 @@ import { initializeAppTouchGuards } from '@/composables/useAppTouchGuards';
 import { initializeNavigationFeedback } from '@/composables/useNavigationFeedback';
 import { createAppI18n } from '@/i18n';
 import { initializeAnalytics } from '@/lib/analytics';
+import { notificationConfig } from '@/lib/notification-config.js';
 import { initializeSessionIsolation } from '@/lib/session-isolation';
 import {
     destroy as destroyPushTokenAction,
@@ -66,13 +72,18 @@ createInertiaApp({
                         {
                             'data-maintenance-content-root': '',
                         },
-                        [h(App, props), h(PwaStatusBanner)],
+                        [
+                            h(AppNotifications),
+                            h(App, props),
+                            h(PwaStatusBanner),
+                        ],
                     ),
                     h(MaintenanceStateOverlay),
                     h(NavigationProgress),
                 ]),
         })
             .use(plugin)
+            .use(createNotivue(notificationConfig))
             .use(i18n)
             .mount(el);
 

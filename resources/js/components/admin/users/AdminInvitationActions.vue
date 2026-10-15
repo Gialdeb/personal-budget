@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
 import { ShieldPlus } from 'lucide-vue-next';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -16,6 +15,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { useForm } from '@/composables/useNotifiedForm';
 import type { AdminUserItem } from '@/types';
 
 const props = defineProps<{ user: AdminUserItem }>();

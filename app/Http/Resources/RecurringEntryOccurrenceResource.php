@@ -6,6 +6,7 @@ use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
+use App\Services\Recurring\RecurringOccurrenceReadService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -40,10 +41,10 @@ class RecurringEntryOccurrenceResource extends JsonResource
         $isDue = in_array($this->status?->value, ['pending', 'generated', 'refunded'], true)
             && ($this->due_date ?? $this->expected_date)?->lte(today());
         $requiresAmountConfirmation = (bool) $entry?->is_amount_variable && ! $entry?->auto_create_transaction && $this->amount_confirmed_at === null && $this->converted_transaction_id === null && $this->matched_transaction_id === null;
-        $hasAllocations = $this->resource->paymentAllocations()->exists();
-        $allocatedCents = $this->resource->allocatedPaymentCents() + $this->resource->externalPaymentCents() + $this->resource->personalPaymentCents();
+        $hasAllocations = $this->resource->relationLoaded('paymentAllocations') ? $this->resource->paymentAllocations->isNotEmpty() : $this->resource->paymentAllocations()->exists();
+        $allocatedCents = app(RecurringOccurrenceReadService::class)->paid($this->resource);
         $ledger = $this->sharedExpenseLedgerEntry;
-        $remainingCents = $this->resource->remainingPaymentCents();
+        $remainingCents = app(RecurringOccurrenceReadService::class)->remaining($this->resource);
         $paidCents = 0;
         $payments = $this->resource->paymentAllocations->filter(fn ($allocation): bool => $allocation->transaction !== null
             && $allocation->transaction->status?->value === 'confirmed'
@@ -81,7 +82,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'status' => $this->status?->value,
             'allocated_amount' => $allocatedCents / 100,
             'payments' => $payments,
-            'payment_history' => $this->resource->settlementTransactions()->with('refundTransaction')->where('id', '!=', $this->converted_transaction_id ?? 0)->orderBy('id')->get()->map(fn (Transaction $transaction): array => [
+            'payment_history' => ($this->resource->relationLoaded('settlementTransactions') ? $this->resource->settlementTransactions : $this->resource->settlementTransactions()->with('refundTransaction')->get())->concat(collect([$this->matchedTransaction])->filter())->unique('id')->where('id', '!=', $this->converted_transaction_id ?? 0)->sortBy('id')->values()->map(fn (Transaction $transaction): array => [
                 'uuid' => $transaction->uuid, 'date' => $transaction->transaction_date->toDateString(),
                 'amount' => (float) $transaction->amount, 'show_url' => $this->transactionShowUrl($transaction),
                 'refunded' => $transaction->refundTransaction !== null,
@@ -99,7 +100,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'can_register_payment' => $canEdit
                 && $entry?->user_id === $request->user()?->id
                 && $entry?->shared_expense_counterparty_id === null
-                && $this->resource->newQuery()->openObligations()->whereKey($this->id)->exists(),
+                && ($this->read_can_register_payment ?? $this->resource->newQuery()->openObligations()->whereKey($this->id)->exists()),
             'remaining_amount' => $remainingCents / 100,
             'settlement_status' => $remainingCents === 0 ? 'settled' : ($allocatedCents > 0 ? 'partial' : ($isDue ? ($requiresAmountConfirmation ? 'amount_confirmation' : 'due') : null)),
             'automatic_posting_blocked_at' => $this->automatic_posting_blocked_at?->toJSON(),
@@ -179,6 +180,10 @@ class RecurringEntryOccurrenceResource extends JsonResource
     {
         if ($this->convertedTransaction === null) {
             return false;
+        }
+
+        if ($this->read_can_refund !== null) {
+            return (bool) $this->read_can_refund;
         }
 
         $latestConvertedOccurrenceId = RecurringEntryOccurrence::query()

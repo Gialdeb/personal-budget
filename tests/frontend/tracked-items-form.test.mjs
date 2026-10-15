@@ -51,7 +51,7 @@ test('shared eligibility is opt-in and the common picker explains an empty catal
         'utf8',
     );
     assert.match(picker, /@create-option="createCounterparty"/);
-    assert.match(picker, /fetch\(storeCounterparty\.url\(\)/);
+    assert.match(picker, /fetchWithNotifications\(storeCounterparty\.url\(\)/);
     const quickActions = readFileSync(
         new URL(
             '../../resources/js/pages/settings/QuickActions.vue',

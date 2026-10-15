@@ -18,7 +18,7 @@ class RecurringEntryIndexResource extends JsonResource
     {
         $editableAccountIds = $request->attributes->get('recurring_editable_account_ids', []);
         $canEdit = in_array((int) $this->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
-        $occurrences = $this->occurrences;
+        $occurrences = $this->detail_summary !== null ? collect() : $this->occurrences;
         $pendingOccurrences = $occurrences->filter(function ($occurrence): bool {
             return in_array($occurrence->status, [
                 RecurringOccurrenceStatusEnum::PENDING,
@@ -112,7 +112,12 @@ class RecurringEntryIndexResource extends JsonResource
                 'email' => $this->updatedByUser->email,
             ],
             'can_edit' => $canEdit,
-            'stats' => [
+            'stats' => $this->detail_summary !== null ? [
+                ...$this->detail_summary,
+                'remaining_occurrences' => $this->detail_summary['pending_occurrences'],
+                'remaining_amount' => $this->entry_type?->value === 'installment' ? $this->detail_summary['remaining_amount'] : null,
+                'can_realign_refunded_schedule' => $this->entry_type?->value === 'recurring' && ! $this->trial_duration && $this->detail_summary['can_realign_refunded_schedule'],
+            ] : [
                 'total_occurrences' => $occurrences->count(),
                 'pending_occurrences' => $pendingOccurrences->count(),
                 'converted_occurrences' => $convertedOccurrences->count(),

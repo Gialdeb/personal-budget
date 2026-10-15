@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import { Button } from '@/components/ui/button';
 import { useUiCopy } from '@/i18n/ui-copy';
+import { fetchWithNotifications } from '@/lib/notifications';
 import { store as storeCounterparty } from '@/routes/shared-expenses/counterparties';
 
 const ui = useUiCopy();
@@ -69,7 +70,8 @@ async function createCounterparty(name: string): Promise<void> {
     counterpartyCreationError.value = null;
 
     try {
-        const response = await fetch(storeCounterparty.url(), {
+        const response = await fetchWithNotifications(storeCounterparty.url(), {
+            notification: 'Controparte creata correttamente.',
             method: 'POST',
             headers: {
                 Accept: 'application/json',

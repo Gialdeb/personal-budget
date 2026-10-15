@@ -18,7 +18,7 @@ class CounterpartyPaymentController extends Controller
 {
     public function show(Request $request, CounterpartyRelation $relation, CounterpartyViewService $view): Response
     {
-        return Inertia::render('counterparties/Show', [...$view->show($request->user(), $relation), 'initialScope' => $request->query('scope') === 'shared' ? 'shared' : 'all']);
+        return Inertia::render('counterparties/Show', [...$view->show($request->user(), $relation, $request->only(['period', 'kind', 'state', 'search']), paginate: true), 'initialScope' => $request->query('scope') === 'shared' ? 'shared' : 'all']);
     }
 
     public function activate(CounterpartyOperationRequest $request, CounterpartyRelation $relation, CounterpartyPaymentService $service): JsonResponse|RedirectResponse

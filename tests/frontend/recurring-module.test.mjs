@@ -83,7 +83,7 @@ test('open occurrences use the normal transaction form and share payment history
     assert.equal(
         (show.match(/v-if="\s*occurrence.can_register_payment\s*"/g) ?? [])
             .length,
-        2,
+        4,
     );
     assert.match(
         transaction,

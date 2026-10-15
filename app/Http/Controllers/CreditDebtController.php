@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CreditDebts\StoreCreditDebtItemRequest;
 use App\Http\Requests\CreditDebts\UpdateCreditDebtItemRequest;
+use App\Http\Requests\FinancialIndexRequest;
 use App\Http\Resources\CreditDebtItemResource;
 use App\Models\Account;
 use App\Models\Category;
@@ -42,7 +43,7 @@ class CreditDebtController extends Controller
         protected CounterpartyBalanceService $counterpartyBalanceService,
     ) {}
 
-    public function index(Request $request): JsonResponse|InertiaResponse
+    public function index(FinancialIndexRequest $request): JsonResponse|InertiaResponse
     {
         Gate::authorize('viewAny', CreditDebtItem::class);
 

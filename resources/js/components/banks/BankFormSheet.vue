@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
@@ -14,6 +13,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { useForm } from '@/composables/useNotifiedForm';
 import { store, update } from '@/routes/banks';
 import type { UserBankItem } from '@/types';
 

@@ -57,7 +57,7 @@ test('transactions index follows the active management year instead of the real 
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
             ->component('transactions/Show')
-            ->url('/transactions/2025/5')
+            ->url('/transactions')
             ->where('year', 2025)
             ->where('month', 5));
 });
@@ -2954,7 +2954,7 @@ test('scheduled transactions cannot be deleted and expose recurring management l
                 ->contains(fn ($item) => $item['uuid'] === $transaction->uuid
                     && $item['can_delete'] === false
                     && $item['can_edit'] === false
-                    && $item['recurring_entry_show_url'] === route('recurring-entries.show', $entry->uuid)))
+                    && $item['recurring_entry_show_url'] === route('recurring-entries.show', [$entry->uuid, 'highlight' => $occurrence->uuid])))
         );
 });
 
@@ -5018,7 +5018,7 @@ test('transactions landing renders its focused month and canonical inertia URL w
     $this->actingAs($user)->withSession(['dashboard_month' => 5])
         ->get(route('transactions.index', ['highlight' => $transaction->uuid]), ['X-Inertia' => 'true', 'X-Inertia-Version' => app(PwaManifestData::class)->version()])
         ->assertSuccessful()
-        ->assertJsonPath('url', '/transactions/2025/9?highlight='.$transaction->uuid)
+        ->assertJsonPath('url', '/transactions?highlight='.$transaction->uuid)
         ->assertJsonPath('props.year', 2025)
         ->assertJsonPath('props.month', 9)
         ->assertJsonPath('props.monthlySheet.transactions.0.uuid', $transaction->uuid)

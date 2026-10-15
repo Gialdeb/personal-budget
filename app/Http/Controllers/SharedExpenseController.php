@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\FinancialIndexRequest;
 use App\Http\Requests\SharedExpenses\ResolveSharedExpenseReferenceRequest;
 use App\Http\Requests\SharedExpenses\StoreSharedExpenseCounterpartyRequest;
 use App\Models\CounterpartyRelation;
@@ -45,7 +46,7 @@ class SharedExpenseController extends Controller
         protected CounterpartyBalanceService $counterpartyBalanceService,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(FinancialIndexRequest $request): Response
     {
         $user = $request->user();
         ['year' => $year, 'month' => $contextMonth] = $this->managementContextResolver->resolveDashboard($request, $user);

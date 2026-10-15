@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useForm, usePage } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BankSearchSelect from '@/components/banks/BankSearchSelect.vue';
@@ -23,6 +23,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import { resolveCreditCardCycle } from '@/lib/credit-card-cycle';
 import { store, update } from '@/routes/accounts';

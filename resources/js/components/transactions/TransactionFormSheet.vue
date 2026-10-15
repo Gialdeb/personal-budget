@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useForm, usePage } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
 import { CalendarDays, Plus } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
@@ -33,8 +33,10 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
+import { fetchWithNotifications } from '@/lib/notifications';
 import { transactionTemplateSplit } from '@/lib/transaction-template-split';
 import type {
     MonthlyTransactionSheetData,
@@ -942,24 +944,28 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
     creatingTrackedItem.value = true;
 
     try {
-        const response = await fetch(storeTrackedItemOption.url(), {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': readCsrfToken(),
-                'X-Requested-With': 'XMLHttpRequest',
+        const response = await fetchWithNotifications(
+            storeTrackedItemOption.url(),
+            {
+                notification: 'Riferimento creato correttamente.',
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': readCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    name,
+                    account_uuid: form.account_uuid,
+                    category_uuid: form.category_uuid,
+                    type_key: form.type_key,
+                    ...(isMobile.value && newReferenceOpen.value
+                        ? { website_url: newReferenceWebsite.value || null }
+                        : {}),
+                }),
             },
-            body: JSON.stringify({
-                name,
-                account_uuid: form.account_uuid,
-                category_uuid: form.category_uuid,
-                type_key: form.type_key,
-                ...(isMobile.value && newReferenceOpen.value
-                    ? { website_url: newReferenceWebsite.value || null }
-                    : {}),
-            }),
-        });
+        );
 
         if (!response.ok) {
             const payload = await response.json().catch(() => null);
@@ -1096,7 +1102,7 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
     balanceAdjustmentLoading.value = true;
 
     try {
-        const response = await fetch(
+        const response = await fetchWithNotifications(
             `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
             {
                 method: 'POST',
@@ -1164,7 +1170,7 @@ async function refreshAccountCurrentBalance(): Promise<void> {
     accountCurrentBalanceLoading.value = true;
 
     try {
-        const response = await fetch(
+        const response = await fetchWithNotifications(
             `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
             {
                 method: 'POST',
@@ -1226,7 +1232,7 @@ async function refreshExchangePreview(): Promise<void> {
     exchangePreviewError.value = null;
 
     try {
-        const response = await fetch(
+        const response = await fetchWithNotifications(
             previewExchangeSnapshot.url({
                 year: props.year,
                 month: props.month,

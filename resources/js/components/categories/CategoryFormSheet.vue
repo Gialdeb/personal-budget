@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
@@ -22,11 +21,13 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { useForm } from '@/composables/useNotifiedForm';
 import {
     categoryColorOptions,
     categoryIconOptions,
     resolveCategoryIcon,
 } from '@/lib/category-appearance';
+import { fetchWithNotifications } from '@/lib/notifications';
 import { store, update } from '@/routes/categories';
 import type { CategoryItem, CategoryOption } from '@/types';
 
@@ -338,17 +339,21 @@ async function submit(): Promise<void> {
         form.clearErrors();
 
         try {
-            const response = await fetch(props.storeUrl ?? store.url(), {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': readCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest',
+            const response = await fetchWithNotifications(
+                props.storeUrl ?? store.url(),
+                {
+                    notification: 'Categoria creata correttamente.',
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': readCsrfToken(),
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(payload),
                 },
-                credentials: 'same-origin',
-                body: JSON.stringify(payload),
-            });
+            );
             const result = await response.json().catch(() => null);
 
             if (!response.ok) {

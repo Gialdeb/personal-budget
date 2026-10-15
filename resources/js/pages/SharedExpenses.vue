@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
-import { computed, nextTick, ref, watch } from 'vue';
+import { ArrowUpRight, UsersRound } from 'lucide-vue-next';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { show as commonCounterpartyShow } from '@/actions/App/Http/Controllers/CounterpartyPaymentController';
 import {
@@ -34,8 +35,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { fetchWithNotifications } from '@/lib/notifications';
 import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { index as sharedExpensesIndex } from '@/routes/shared-expenses';
 import { store as storeSettlement } from '@/routes/shared-expenses/settlements';
@@ -220,24 +223,31 @@ const availableYears = computed(
 const selectedYear = computed(() => String(props.filters.year));
 const selectedMonth = computed(() => String(props.filters.month));
 let timeout: ReturnType<typeof setTimeout> | undefined;
-watch([search, counterparty, effect], () => {
+function visitFilters(): void {
     clearTimeout(timeout);
-    timeout = setTimeout(
-        () =>
-            router.get(
-                sharedExpensesIndex.url(),
-                {
-                    search: search.value || undefined,
-                    month: props.filters.month,
-                    year: props.filters.year,
-                    counterparty: counterparty.value || undefined,
-                    effect: effect.value || undefined,
-                },
-                { preserveState: true, replace: true },
-            ),
-        250,
+    router.get(
+        sharedExpensesIndex.url(),
+        {
+            search: search.value || undefined,
+            month: props.filters.month,
+            year: props.filters.year,
+            counterparty: counterparty.value || undefined,
+            effect: effect.value || undefined,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            showProgress: false,
+        },
     );
+}
+watch(search, () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(visitFilters, 250);
 });
+watch([counterparty, effect], visitFilters);
+onBeforeUnmount(() => clearTimeout(timeout));
 function monthLabel(month: number): string {
     return new Intl.DateTimeFormat(locale.value, { month: 'long' }).format(
         new Date(Date.UTC(props.filters.year, month - 1, 1)),
@@ -248,6 +258,7 @@ function updatePeriod(year: number, month: number): void {
         return;
     }
 
+    clearTimeout(timeout);
     router.get(
         sharedExpensesIndex.url(),
         {
@@ -569,7 +580,8 @@ async function createSettlementReference() {
     creatingReference.value = true;
 
     try {
-        const response = await fetch(storeTrackedItem().url, {
+        const response = await fetchWithNotifications(storeTrackedItem().url, {
+            notification: 'Riferimento creato correttamente.',
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -824,9 +836,24 @@ function deleteSettlement(entry: Entry): void {
                 <div
                     v-for="item in visibleCounterparties"
                     :key="item.uuid"
-                    class="flex min-w-0 flex-col rounded-2xl border bg-card p-4 text-sm"
+                    class="flex min-w-0 flex-col rounded-2xl border bg-card p-5 text-sm shadow-sm transition-shadow hover:shadow-md"
+                    :class="
+                        subjectBalances(item.uuid).length === 1
+                            ? subjectBalances(item.uuid)[0].total_cents > 0
+                                ? 'border-t-4 border-t-emerald-500/50'
+                                : subjectBalances(item.uuid)[0].total_cents < 0
+                                  ? 'border-t-4 border-t-rose-500/50'
+                                  : 'border-t-4 border-t-border'
+                            : ''
+                    "
                 >
-                    <h2 class="text-lg font-semibold break-words">
+                    <h2
+                        class="flex items-center gap-2 text-lg font-semibold break-words"
+                    >
+                        <UsersRound
+                            class="size-5 shrink-0 text-muted-foreground"
+                            aria-hidden="true"
+                        />
                         {{ item.name }}
                     </h2>
                     <p class="mt-1 text-xs text-muted-foreground">
@@ -855,7 +882,9 @@ function deleteSettlement(entry: Entry): void {
                             :class="
                                 balance.total_cents < 0
                                     ? 'text-rose-700 dark:text-rose-300'
-                                    : 'text-emerald-700 dark:text-emerald-300'
+                                    : balance.total_cents > 0
+                                      ? 'text-emerald-700 dark:text-emerald-300'
+                                      : 'text-foreground'
                             "
                         >
                             {{
@@ -927,9 +956,15 @@ function deleteSettlement(entry: Entry): void {
                                     balance.currency,
                                 )
                             "
-                            class="inline-flex min-h-11 items-center text-sm font-medium text-primary underline"
-                            >{{ ui('Vedi situazione completa') }}</Link
-                        >
+                            class="inline-flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                            :aria-label="
+                                ui('Situazione con {name}', { name: item.name })
+                            "
+                            >{{ ui('Apri situazione completa')
+                            }}<ArrowUpRight
+                                class="size-4 shrink-0"
+                                aria-hidden="true"
+                        /></Link>
                     </div>
                     <p
                         v-if="referenceReviewPeople.includes(item.uuid)"
@@ -1183,9 +1218,19 @@ function deleteSettlement(entry: Entry): void {
                                             }}
                                         </p>
                                     </div>
-                                    <p class="text-2xl font-bold tabular-nums">
-                                        {{ money(entry) }}
-                                    </p>
+                                    <div class="text-right">
+                                        <p
+                                            v-if="!entry.is_settlement"
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            {{ ui('Importo spesa') }}
+                                        </p>
+                                        <p
+                                            class="text-2xl font-bold whitespace-nowrap tabular-nums"
+                                        >
+                                            {{ money(entry) }}
+                                        </p>
+                                    </div>
                                 </div>
                                 <p
                                     v-if="!entry.is_settlement"
@@ -1263,11 +1308,7 @@ function deleteSettlement(entry: Entry): void {
                                 >
                                     <div>
                                         <dt class="text-muted-foreground">
-                                            {{
-                                                ui(
-                                                    'Importo originale da regolare',
-                                                )
-                                            }}
+                                            {{ ui('Quota da regolare') }}
                                         </dt>
                                         <dd class="font-semibold">
                                             {{

@@ -35,12 +35,22 @@ const quickCreateSource = readFileSync(
     'utf8',
 );
 
+const classificationSource = readFileSync(
+    new URL(
+        '../../resources/js/components/transactions/TransactionClassificationBadges.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 test('opening balance rows keep the opening badge visible', () => {
-    assert.match(source, /transactions\.sheet\.grid\.openingBadge/);
+    assert.match(
+        classificationSource,
+        /transactions\.sheet\.grid\.openingBadge/,
+    );
 });
 
 test('opening balance rows do not render the income or expense type badge', () => {
-    assert.match(source, /v-if="\s*!transaction\.is_opening_balance\s*"/);
+    assert.match(classificationSource, /category.value === 'opening'/);
 });
 
 test('transactions page exposes a toggle to show opening balances', () => {
@@ -49,23 +59,28 @@ test('transactions page exposes a toggle to show opening balances', () => {
 });
 
 test('transactions page exposes a toggle and dedicated markers for recurring movements', () => {
-    assert.match(source, /transactions\.sheet\.filters\.showPlannedRecurring/);
-    assert.match(source, /showPlannedRecurring/);
-    assert.match(source, /transactions\.sheet\.grid\.recurringBadge/);
-    assert.match(source, /transactions\.sheet\.grid\.plannedRecurringBadge/);
+    assert.match(source, /transactions\.sheet\.filters\.recurring/);
+    assert.match(source, /showRecurring/);
+    assert.doesNotMatch(source, /showPlannedRecurring|planned_occurrences/);
+    assert.match(
+        classificationSource,
+        /transactions\.sheet\.grid\.recurringBadge/,
+    );
+    assert.doesNotMatch(classificationSource, /plannedRecurringBadge/);
     assert.match(source, /data-transaction-row/);
     assert.match(source, /highlight/);
 });
 
 test('transactions page exposes visibility filter and restore action for deleted rows', () => {
-    assert.match(source, /transactions\.sheet\.filters\.visibility/);
-    assert.match(source, /transactions\.sheet\.filters\.showDeletedOnly/);
-    assert.match(source, /<SelectItem value="active">/);
-    assert.match(source, /<SelectItem value="deleted">/);
-    assert.match(source, /<SelectItem value="all">/);
+    assert.match(source, /transactions\.sheet\.filters\.showDeleted/);
+    assert.match(source, /v-model="showDeleted"/);
+    assert.doesNotMatch(source, /visibilityFilter|showDeletedOnly/);
     assert.match(source, /transactions\.sheet\.actions\.restore/);
     assert.match(source, /transactions\.sheet\.actions\.forceDelete/);
-    assert.match(source, /transactions\.sheet\.grid\.deletedBadge/);
+    assert.match(
+        classificationSource,
+        /transactions\.sheet\.grid\.deletedBadge/,
+    );
     assert.match(source, /restoreTransaction/);
     assert.match(source, /requestForceDelete/);
     assert.match(source, /confirmForceDelete/);
@@ -111,7 +126,8 @@ test('transactions page exposes an undo-refund action and highlights refund rows
     assert.match(source, /transactions\.sheet\.actions\.undoRefund/);
     assert.match(source, /transaction\.can_undo_refund/);
     assert.match(source, /transaction\.kind === 'refund'/);
-    assert.match(source, /function transactionTypeBadgeTone/);
+    assert.match(source, /TransactionClassificationBadges/);
+    assert.match(classificationSource, /transactionAttributes/);
     assert.doesNotMatch(source, /transactions\.sheet\.grid\.refundBadge/);
 });
 
@@ -484,7 +500,10 @@ test('transactions reference creation surfaces backend slug validation errors on
 });
 
 test('transactions tracked item create-option uses the account-aware endpoint and sends account plus category context', () => {
-    assert.match(source, /fetch\('\/transactions\/tracked-items'/);
+    assert.match(
+        source,
+        /fetchWithNotifications\(\s*'\/transactions\/tracked-items'/,
+    );
     assert.match(source, /account_uuid: accountUuid/);
     assert.match(source, /category_uuid: categoryUuid/);
     assert.match(source, /type_key: typeKey/);
@@ -492,7 +511,10 @@ test('transactions tracked item create-option uses the account-aware endpoint an
         formSheetSource,
         /import \{ storeTrackedItemOption \} from '@\/actions\/App\/Http\/Controllers\/TransactionsController'/,
     );
-    assert.match(formSheetSource, /fetch\(storeTrackedItemOption\.url\(\)/);
+    assert.match(
+        formSheetSource,
+        /fetchWithNotifications\(\s*storeTrackedItemOption\.url\(\)/,
+    );
     assert.match(formSheetSource, /account_uuid: form\.account_uuid/);
     assert.match(formSheetSource, /category_uuid: form\.category_uuid/);
     assert.match(formSheetSource, /type_key: form\.type_key/);
@@ -590,7 +612,7 @@ test('desktop table formats the secondary date from the user date preference ins
 
 test('transactions page marks credit debt generated movements and links back to the item', () => {
     assert.match(source, /is_credit_debt_transaction/);
-    assert.match(source, /creditDebtBadge/);
+    assert.match(classificationSource, /creditDebtBadge/);
     assert.match(source, /fromCreditDebt/);
     assert.match(source, /credit_debt_item_show_url/);
     assert.match(source, /creditDebtLink/);
@@ -1048,19 +1070,32 @@ test('desktop transaction forms expose the shared quick category create trigger 
     assert.match(formSheetSource, /<TransactionCategoryQuickCreate/);
 });
 
-test('shared expense toggle belongs to the register display options', () => {
+test('register display options contain exactly eight simple toggles', () => {
     const options = source.slice(
         source.indexOf('transactions.sheet.grid.title'),
         source.indexOf('transactions.sheet.grid.activeFilters'),
     );
-    assert.match(options, /setSharedExpenseOnly/);
-    assert.match(options, /setShowOpeningBalances/);
-    assert.match(options, /setShowPlannedRecurring/);
-    assert.match(options, /setShowDeletedOnly/);
+
+    for (const name of [
+        'showTransfers',
+        'showIncome',
+        'showExpenses',
+        'showOpeningBalances',
+        'showRefunded',
+        'showShared',
+        'showDeleted',
+        'showRecurring',
+    ]) {
+        assert.match(options, new RegExp('v-model="' + name + '"'));
+    }
+
     assert.equal(
-        (source.match(/@update:model-value="\s*setSharedExpenseOnly/g) ?? [])
-            .length,
-        1,
+        (options.match(/<TransactionVisibilityToggle/g) ?? []).length,
+        8,
+    );
+    assert.doesNotMatch(
+        options,
+        /restrictive|Only|inclusionHint|showPlannedRecurring/,
     );
 });
 
@@ -1114,4 +1149,67 @@ test('payment issue requires a dedicated dialog before sending the existing acti
         messagesSource,
         /non verrà registrata di nuovo automaticamente/,
     );
+});
+
+test('transaction visibility chips follow the requested display order', () => {
+    const models = [
+        ...source.matchAll(/<TransactionVisibilityToggle\s+v-model="([^"]+)"/g),
+    ].map((match) => match[1]);
+    assert.deepEqual(models, [
+        'showIncome',
+        'showExpenses',
+        'showShared',
+        'showRecurring',
+        'showRefunded',
+        'showTransfers',
+        'showOpeningBalances',
+        'showDeleted',
+    ]);
+});
+
+test('day filter can be cleared before search and from the floating month controls', () => {
+    const search = source.indexOf(
+        'v-model="transactionSearch"',
+        source.indexOf('<CardContent class="p-0">'),
+    );
+    const clear = source.lastIndexOf("ui('Rimuovi filtro giorno')", search);
+    assert.ok(clear > 0 && clear < search);
+    const floating = source.slice(
+        source.indexOf('v-if="isMobilePeriodAccountSelectorOutOfView"'),
+        source.indexOf('v-if="isMobilePeriodAccountSelectorOutOfView"') + 4000,
+    );
+    assert.match(floating, /v-if="selectedDay"/);
+    assert.match(floating, /@click="selectedDay = ''"/);
+    assert.match(source, /<RecurringCalendarGrid\s+compact-counters/);
+});
+
+test('calendar disclosure names its action and floating day uses compact spacing', () => {
+    assert.match(source, /ui\('Apri calendario'\)/);
+    assert.match(source, /ui\('Chiudi calendario'\)/);
+    assert.match(source, /group-open\/calendar:rotate-180/);
+    assert.match(source, /min-h-8 max-w-full items-center gap-1.5 rounded-lg/);
+});
+
+test('transactions calendar remembers disclosure state independently from filters', () => {
+    assert.match(source, /soamco:transactions:calendar-open:v1/);
+    assert.match(source, /:open="transactionCalendarOpen"/);
+    assert.match(source, /@toggle="rememberCalendarState"/);
+    assert.match(
+        source,
+        /localStorage.setItem\(\s*transactionCalendarStorageKey,\s*String\(open\),?\s*\)/,
+    );
+    const recurring = readFileSync(
+        new URL(
+            '../../resources/js/pages/transactions/recurring/Index.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const floating = recurring.slice(
+        recurring.indexOf('v-if="isMobilePeriodAccountSelectorOutOfView"'),
+        recurring.indexOf('v-if="isMobilePeriodAccountSelectorOutOfView"') +
+            4000,
+    );
+    assert.match(floating, /v-if="selectedDate"/);
+    assert.match(floating, /@click="selectedDate = null"/);
 });

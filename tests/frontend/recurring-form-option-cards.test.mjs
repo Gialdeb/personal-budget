@@ -22,7 +22,7 @@ test('partial payment breakdown renders due paid and remaining on mobile and des
         'utf8',
     );
     const breakdowns = source.match(
-        /<dl\s+v-if="\s*\(occurrence\.allocated_amount \?\? 0\) >\s*0\s*"[\s\S]*?<\/dl>/g,
+        /<dl\s[^>]*>[\s\S]*?amountDue:[\s\S]*?<\/dl>/g,
     );
     assert.equal(breakdowns?.length, 2);
 
@@ -50,15 +50,16 @@ test('partial payment breakdown renders due paid and remaining on mobile and des
                         remaining_amount: 50,
                     },
                     t: (key) => key,
+                    ui: (text) => text,
                     formatMoney: (amount) => `${amount.toFixed(2)} EUR`,
                 }),
             }),
         );
 
         for (const value of [
-            'amountDue',
-            'amountPaid',
-            'amountRemaining',
+            'Totale',
+            'Già pagato',
+            'Residuo',
             '500.00 EUR',
             '450.00 EUR',
             '50.00 EUR',
@@ -120,6 +121,11 @@ for (const change of [
                 },
                 setup: () => ({
                     recurringEntry: { amount_history: history },
+                    entry: { expected_amount: history[0]?.new_amount ?? 0 },
+                    historyOpen: true,
+                    latestAmountChange: history[0] ?? null,
+                    formatMoney: (amount) => String(amount),
+                    ui: (text) => text,
                     locale: 'it-IT',
                     t: (key, args) => `${key} ${args?.date ?? ''}`,
                     formatCurrency: (amount) =>
@@ -139,7 +145,7 @@ for (const change of [
                 html.includes(change.percentage > 0 ? '+16,67%' : '-14,29%'),
             );
             assert.ok(html.includes('01/01/2027'));
-            assert.ok(html.includes('31/12/2026'));
+            assert.ok(html.includes('amount-history-details'));
         }
     });
 }

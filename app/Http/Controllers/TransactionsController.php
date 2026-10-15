@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TransactionKindEnum;
+use App\Http\Requests\FinancialIndexRequest;
 use App\Http\Requests\Transactions\PreviewBalanceAdjustmentRequest;
 use App\Http\Requests\Transactions\PreviewTransactionExchangeRequest;
 use App\Http\Requests\Transactions\RefundTransactionRequest;
@@ -53,7 +54,7 @@ class TransactionsController extends Controller
         protected WebsiteLogoService $websiteLogoService
     ) {}
 
-    public function index(Request $request): Response|RedirectResponse|JsonResponse
+    public function index(FinancialIndexRequest $request): Response|RedirectResponse|JsonResponse
     {
         $user = $request->user();
         ['year' => $year] = $this->managementContextResolver->resolveDashboard($request, $user);
@@ -69,7 +70,7 @@ class TransactionsController extends Controller
         return $this->show($request);
     }
 
-    public function show(Request $request): Response|RedirectResponse|JsonResponse
+    public function show(FinancialIndexRequest $request): Response|RedirectResponse|JsonResponse
     {
         $user = $request->user();
         ['year' => $year, 'month' => $month] = $this->managementContextResolver->resolveTransactions($request, $user);

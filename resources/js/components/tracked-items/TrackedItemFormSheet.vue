@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
 import {
     Globe2,
     ImageOff,
@@ -22,7 +21,9 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { useForm } from '@/composables/useNotifiedForm';
 import { resolveCategoryIcon } from '@/lib/category-appearance';
+import { fetchWithNotifications } from '@/lib/notifications';
 import { logoPreview, store, update } from '@/routes/tracked-items';
 import type { TrackedItemItem } from '@/types';
 
@@ -219,7 +220,8 @@ async function loadLogoPreview(websiteUrl: string): Promise<void> {
     previewController = new AbortController();
 
     try {
-        const response = await fetch(logoPreview.url(), {
+        const response = await fetchWithNotifications(logoPreview.url(), {
+            notification: 'preview',
             method: 'POST',
             headers: {
                 Accept: 'application/json',

@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { createReusableTemplate, useMediaQuery } from '@vueuse/core';
-import { BellRing, Calendar, Gift, SlidersHorizontal } from 'lucide-vue-next';
+import {
+    BellRing,
+    Calendar,
+    Gift,
+    LoaderCircle,
+    SlidersHorizontal,
+} from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
@@ -16,6 +22,7 @@ import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
+import InstallmentPlanSummary from '@/components/recurring/InstallmentPlanSummary.vue';
 import RecurringPostingMode from '@/components/recurring/RecurringPostingMode.vue';
 import SalarySetupFields from '@/components/recurring/SalarySetupFields.vue';
 import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
@@ -52,8 +59,10 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
+import { fetchWithNotifications } from '@/lib/notifications';
 import { emptySalarySetup } from '@/lib/salary-presets';
 import { cn } from '@/lib/utils';
 import type {
@@ -892,9 +901,17 @@ const directionAccentClass = computed(() =>
         ? '!border-emerald-300 focus:!border-emerald-400 focus:!shadow-[0_0_0_3px_rgba(16,185,129,0.12)] !text-emerald-900 dark:!border-emerald-500/40 dark:!text-emerald-100'
         : '!border-rose-300 focus:!border-rose-400 focus:!shadow-[0_0_0_3px_rgba(244,63,94,0.12)] !text-rose-900 dark:!border-rose-500/40 dark:!text-rose-100',
 );
+const installmentAmountLabel = computed(() => {
+    const config = resolveRecurrenceConfig();
+
+    return config.recurrenceType === 'monthly' &&
+        config.recurrenceInterval === 1
+        ? ui('Rata mensile')
+        : ui('Importo per rata');
+});
 const primaryAmountLabel = computed(() =>
     selectedPlanType.value === 'installment'
-        ? ui('Importo rata')
+        ? installmentAmountLabel.value
         : t('transactions.recurring.form.labels.expectedAmount'),
 );
 const sheetTitle = computed(() =>
@@ -1534,21 +1551,24 @@ async function refreshExchangePreview(): Promise<void> {
     exchangePreviewError.value = null;
 
     try {
-        const response = await fetch(previewExchangeSnapshot.url(), {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': readCsrfToken(),
-                'X-Requested-With': 'XMLHttpRequest',
+        const response = await fetchWithNotifications(
+            previewExchangeSnapshot.url(),
+            {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': readCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    account_uuid: form.account_uuid,
+                    start_date: form.start_date,
+                    amount: parsedAmount,
+                }),
             },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-                account_uuid: form.account_uuid,
-                start_date: form.start_date,
-                amount: parsedAmount,
-            }),
-        });
+        );
 
         const payload = await response.json().catch(() => null);
 
@@ -2172,7 +2192,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
     creatingTrackedItem.value = true;
 
     try {
-        const response = await fetch(
+        const response = await fetchWithNotifications(
             isMobile.value
                 ? storeTransactionReference.url()
                 : storeTrackedItemOption.url(),
@@ -3565,7 +3585,26 @@ const firstTrialBillingDate = computed(() => {
                             <section
                                 class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
                             >
-                                <div class="grid gap-2">
+                                <div
+                                    class="relative grid content-start gap-2"
+                                    :aria-busy="exchangePreviewLoading"
+                                >
+                                    <span
+                                        v-if="exchangePreviewLoading"
+                                        class="pointer-events-none absolute top-0 right-0 text-sky-500"
+                                        role="status"
+                                        :aria-label="
+                                            t(
+                                                'transactions.form.placeholders.balanceAdjustmentLoading',
+                                            )
+                                        "
+                                        data-testid="amount-preview-loading"
+                                    >
+                                        <LoaderCircle
+                                            class="size-4 animate-spin motion-reduce:animate-none"
+                                            aria-hidden="true"
+                                        />
+                                    </span>
                                     <MobileAmountInput
                                         v-if="
                                             selectedPlanType === 'installment'
@@ -3637,7 +3676,6 @@ const firstTrialBillingDate = computed(() => {
                                     />
                                     <div
                                         v-if="
-                                            exchangePreviewLoading ||
                                             exchangePreview?.should_preview ||
                                             exchangePreviewError
                                         "
@@ -3652,18 +3690,8 @@ const firstTrialBillingDate = computed(() => {
                                                 )
                                             }}
                                         </p>
-                                        <p
-                                            v-if="exchangePreviewLoading"
-                                            class="mt-2 text-sm text-slate-600 dark:text-slate-300"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.form.placeholders.balanceAdjustmentLoading',
-                                                )
-                                            }}
-                                        </p>
                                         <template
-                                            v-else-if="
+                                            v-if="
                                                 exchangePreview &&
                                                 exchangePreview.should_preview
                                             "
@@ -3778,30 +3806,6 @@ const firstTrialBillingDate = computed(() => {
                                             }}
                                         </button>
                                     </div>
-                                    <p
-                                        v-if="form.total_amount"
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{ ui('Totale piano:') }}
-                                        {{
-                                            formatCurrency(
-                                                Number(form.total_amount),
-                                                selectedAccountCurrency,
-                                            )
-                                        }}
-                                        <span
-                                            v-if="
-                                                isEditing &&
-                                                installmentAmountDraft === null
-                                            "
-                                            class="block"
-                                            >{{
-                                                ui(
-                                                    'Importi personalizzati esistenti mantenuti. Modificare la rata ricalcola il piano con conferma.',
-                                                )
-                                            }}</span
-                                        >
-                                    </p>
                                     <InputError
                                         :message="
                                             form.errors.installments_count
@@ -3809,6 +3813,31 @@ const firstTrialBillingDate = computed(() => {
                                     />
                                 </div>
                             </section>
+
+                            <InstallmentPlanSummary
+                                v-if="selectedPlanType === 'installment'"
+                                :amount="installmentAmount"
+                                :total="form.total_amount"
+                                :count="form.installments_count"
+                                :amount-label="installmentAmountLabel"
+                                :currency="selectedAccountCurrency"
+                                :locale="formatLocale"
+                                :income="form.direction === 'income'"
+                            />
+                            <p
+                                v-if="
+                                    selectedPlanType === 'installment' &&
+                                    isEditing &&
+                                    installmentAmountDraft === null
+                                "
+                                class="text-xs leading-relaxed text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    ui(
+                                        'Importi personalizzati esistenti mantenuti. Modificare la rata ricalcola il piano con conferma.',
+                                    )
+                                }}
+                            </p>
 
                             <SharedExpenseFields
                                 v-if="!isSalary && !props.entry?.salary_url"

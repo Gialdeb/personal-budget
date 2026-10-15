@@ -10,6 +10,7 @@ use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\CounterpartyPayment;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Scope;
 use App\Models\SharedExpenseLedgerEntry;
@@ -60,6 +61,9 @@ class MonthlyTransactionSheetService
 
         $transactions = $this->getMonthlyTransactions($user, $year, $month);
         $deletedTransactions = $this->getDeletedMonthlyTransactions($user, $year, $month);
+        $registerTransactions = $transactions->concat($deletedTransactions);
+        $counterpartyPayments = CounterpartyPayment::query()->whereIn('transaction_id', $registerTransactions->pluck('id'))->get(['id', 'transaction_id', 'return_of_id'])->keyBy('transaction_id');
+        $registerTransactions->each(fn (Transaction $transaction) => $transaction->setRelation('registerCounterpartyPayment', $counterpartyPayments->get($transaction->id)));
         $budgets = $this->getMonthlyBudgets($user->id, $year, $month);
         $transactionList = $this->buildTransactionsList($user, $year, $month, $transactions, $editableAccountIds);
         $deletedTransactionList = $this->buildDeletedTransactionsList($deletedTransactions, $editableAccountIds);
@@ -184,6 +188,9 @@ class MonthlyTransactionSheetService
                 'refundedTransaction',
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
+                'occurrencePaymentAllocations.occurrence.recurringEntry',
+                'convertedRecurringOccurrences.recurringEntry',
+                'matchedRecurringOccurrences.recurringEntry',
                 'creditDebtPayment.item',
                 'sharedExpenseSettlement',
                 'createdByUser:id,uuid,name,email',
@@ -220,6 +227,9 @@ class MonthlyTransactionSheetService
                 'refundedTransaction',
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
+                'occurrencePaymentAllocations.occurrence.recurringEntry',
+                'convertedRecurringOccurrences.recurringEntry',
+                'matchedRecurringOccurrences.recurringEntry',
                 'creditDebtPayment.item',
                 'sharedExpenseSettlement',
                 'createdByUser:id,uuid,name,email',
@@ -231,6 +241,22 @@ class MonthlyTransactionSheetService
             ->get()
             ->filter(fn (Transaction $transaction): bool => $this->shouldDisplayTransactionInUserList($transaction))
             ->values();
+    }
+
+    private function reimbursementKind(Transaction $transaction): ?string
+    {
+        if ($transaction->kind === TransactionKindEnum::REFUND && $transaction->refunded_transaction_id !== null) {
+            return 'transaction_refund';
+        }
+        if ($transaction->sharedExpenseSettlement !== null) {
+            return 'shared_expense_settlement';
+        }
+        if ($transaction->creditDebtPayment !== null) {
+            return 'credit_debt_payment';
+        }
+        $payment = $transaction->relationLoaded('registerCounterpartyPayment') ? $transaction->getRelation('registerCounterpartyPayment') : null;
+
+        return $payment === null ? null : ($payment->return_of_id !== null ? 'counterparty_return' : 'counterparty_payment');
     }
 
     protected function shouldDisplayTransactionInUserList(Transaction $transaction): bool
@@ -829,6 +855,9 @@ class MonthlyTransactionSheetService
                 foreach (['merchant', 'relatedTransaction', 'recurringOccurrence', 'refundTransaction', 'refundedTransaction', 'creditDebtPayment', 'sharedExpenseSettlement', 'createdByUser', 'updatedByUser'] as $relation) {
                     $projection->setRelation($relation, null);
                 }
+                foreach (['occurrencePaymentAllocations', 'convertedRecurringOccurrences', 'matchedRecurringOccurrences'] as $relation) {
+                    $projection->setRelation($relation, $projection->newCollection());
+                }
                 $projection->setRelation('account', $account);
                 $projection->setRelation('category', Category::query()->whereKey($context['category_id'] ?? null)->first());
                 $projection->setRelation('trackedItem', TrackedItem::query()->where('user_id', $entry->user_id)->whereKey($context['tracked_item_id'] ?? null)->first());
@@ -876,7 +905,18 @@ class MonthlyTransactionSheetService
         $canDelete = ! $transaction->trashed() && $isDeleteAllowedKind;
         $canRestore = $transaction->trashed() && $isDeleteAllowedKind;
         $canForceDelete = $transaction->trashed() && $isDeleteAllowedKind;
-        $recurringEntryUuid = $transaction->recurringOccurrence?->recurringEntry?->uuid;
+        $linkedOccurrences = collect([$transaction->recurringOccurrence])
+            ->concat($transaction->occurrencePaymentAllocations->pluck('occurrence'))
+            ->concat($transaction->convertedRecurringOccurrences)->concat($transaction->matchedRecurringOccurrences)->filter()->unique('id')->values();
+        $primaryOccurrence = $linkedOccurrences->first();
+        $recurringEntryUuid = $primaryOccurrence?->recurringEntry?->uuid;
+        $recurringLinks = $linkedOccurrences->filter(fn ($occurrence): bool => $occurrence->recurringEntry !== null)->map(fn ($occurrence): array => [
+            'occurrence_uuid' => $occurrence->uuid,
+            'entry_uuid' => $occurrence->recurringEntry->uuid,
+            'title' => $occurrence->recurringEntry->title,
+            'due_date' => ($occurrence->due_date ?? $occurrence->expected_date)?->toDateString(),
+            'show_url' => route('recurring-entries.show', [$occurrence->recurringEntry->uuid, 'highlight' => $occurrence->uuid]),
+        ])->all();
         $canMutate = in_array((int) $transaction->account_id, $editableAccountIds, true);
         $isLinkedObligation = $transaction->creditDebtPayment !== null || $transaction->sharedExpenseSettlement !== null;
         $canRefund = ! $isLinkedObligation && $canMutate
@@ -912,7 +952,7 @@ class MonthlyTransactionSheetService
             'is_deleted' => $transaction->trashed(),
             'deleted_at' => $transaction->deleted_at?->toDateTimeString(),
             'is_projected_recurring' => false,
-            'is_recurring_transaction' => $transaction->recurringOccurrence !== null,
+            'is_recurring_transaction' => $linkedOccurrences->isNotEmpty(),
             'is_transfer' => (bool) $transaction->is_transfer,
             'direction' => $transaction->direction?->value,
             'direction_label' => $transaction->direction?->label(),
@@ -964,10 +1004,11 @@ class MonthlyTransactionSheetService
             'credit_card_payment_due_date' => $creditCardCycle !== null
                 ? $creditCardCycle['payment_due_date']->toDateString()
                 : null,
-            'recurring_occurrence_uuid' => $transaction->recurringOccurrence?->uuid,
+            'recurring_payment_links' => $recurringLinks,
+            'recurring_occurrence_uuid' => $primaryOccurrence?->uuid,
             'recurring_entry_uuid' => $recurringEntryUuid,
             'recurring_entry_show_url' => $recurringEntryUuid !== null
-                ? route('recurring-entries.show', $recurringEntryUuid)
+                ? route('recurring-entries.show', [$recurringEntryUuid, 'highlight' => $primaryOccurrence->uuid])
                 : null,
             'is_credit_debt_transaction' => $isCreditDebtTransaction,
             'credit_debt_item_uuid' => $creditDebtItem?->uuid,
@@ -1002,6 +1043,8 @@ class MonthlyTransactionSheetService
             'status' => $transaction->status?->value,
             'source_type' => $transaction->source_type?->value,
             'is_refunded' => $transaction->refundTransaction !== null,
+            'is_reimbursement' => $this->reimbursementKind($transaction) !== null,
+            'reimbursement_kind' => $this->reimbursementKind($transaction),
             'can_refund' => $canRefund,
             'requires_payment_confirmation' => $transaction->payment_verification_started_at !== null
                 && $transaction->payment_verified_at === null

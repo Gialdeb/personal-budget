@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useForm, usePage } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -25,7 +25,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
+import { fetchWithNotifications } from '@/lib/notifications';
 import type {
     ImportCategoryOption,
     ImportDestinationAccountOption,
@@ -376,21 +378,25 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
             (account) => String(account.id) === form.account_id,
         );
 
-        const response = await fetch('/transactions/tracked-items', {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': readCsrfToken(),
-                'X-Requested-With': 'XMLHttpRequest',
+        const response = await fetchWithNotifications(
+            '/transactions/tracked-items',
+            {
+                notification: 'Riferimento creato correttamente.',
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': readCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    name,
+                    account_uuid: selectedAccount?.uuid ?? '',
+                    category_uuid: form.category_uuid,
+                    type_key: mapImportTypeToTransactionTypeKey(form.type),
+                }),
             },
-            body: JSON.stringify({
-                name,
-                account_uuid: selectedAccount?.uuid ?? '',
-                category_uuid: form.category_uuid,
-                type_key: mapImportTypeToTransactionTypeKey(form.type),
-            }),
-        });
+        );
 
         if (!response.ok) {
             const payload = await response.json().catch(() => null);

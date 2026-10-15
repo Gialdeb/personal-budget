@@ -12,6 +12,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
 use App\Services\CreditDebts\DerivedObligationsService;
+use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\AllocateOccurrencePaymentService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\RecurringOccurrenceReadService;
@@ -349,4 +350,104 @@ test('batched rendering snapshots match fresh payment reads without influencing 
     app(AllocateOccurrencePaymentService::class)->allocate($occurrence, $another, $user, '200');
     $read->prepare(collect([$occurrence]));
     expect($read->remaining($occurrence))->toBe(0)->and($read->count($occurrence))->toBe(2);
+});
+
+test('late allocated payment retains both navigation links across different months', function () {
+    $occurrence = partialPaymentOccurrence('expense');
+    $entry = $occurrence->recurringEntry;
+    $entry->update(['auto_create_transaction' => false]);
+    $occurrence->update(['expected_date' => '2026-09-08', 'due_date' => '2026-09-08']);
+    $payment = partialPaymentTransaction($occurrence, 500);
+    app(AllocateOccurrencePaymentService::class)->allocate($occurrence, $payment, $entry->user, '500');
+    $this->actingAs($entry->user);
+    $sheet = app(MonthlyTransactionSheetService::class)->build($entry->user, 2026, 10);
+    $row = collect($sheet['transactions'])->firstWhere('uuid', $payment->uuid);
+    expect($row['is_recurring_transaction'])->toBeTrue()
+        ->and($row['recurring_occurrence_uuid'])->toBe($occurrence->uuid)
+        ->and($row['recurring_entry_show_url'])->toContain($entry->uuid, 'highlight='.$occurrence->uuid);
+    $this->getJson(route('recurring-entries.show', [$entry->uuid, 'highlight' => $occurrence->uuid]))->assertOk()
+        ->assertJsonPath('recurringEntry.occurrences.0.settlement_status', 'settled')
+        ->assertJsonPath('recurringEntry.occurrences.0.payments.0.uuid', $payment->uuid)
+        ->assertJsonPath('recurringEntry.occurrences.0.payments.0.date', '2026-10-09');
+});
+
+test('existing payment can be explicitly relinked without changing cash or creating transactions', function () {
+    $occurrence = partialPaymentOccurrence('expense');
+    $entry = $occurrence->recurringEntry;
+    $payment = partialPaymentTransaction($occurrence, 500);
+    $this->actingAs($entry->user);
+    $balance = $entry->account->fresh()->current_balance;
+    $candidatesUrl = route('recurring-entries.occurrences.payment-candidates', [$entry->uuid, $occurrence->uuid]);
+    $this->getJson($candidatesUrl.'?date_from=2026-10-01&date_to=2026-10-31')->assertOk()->assertJsonPath('transactions.0.uuid', $payment->uuid);
+    $this->getJson($candidatesUrl.'?date_from=2026-11-01')->assertOk()->assertJsonCount(0, 'transactions');
+    $route = route('recurring-entries.occurrences.payments.store', [$entry->uuid, $occurrence->uuid]);
+    $payload = ['transaction_uuid' => $payment->uuid, 'amount' => '500.00'];
+    $this->post($route, $payload)->assertSessionHasNoErrors()->assertRedirect(route('recurring-entries.show', [$entry->uuid, 'highlight' => $occurrence->uuid]));
+    $this->post($route, $payload)->assertSessionHasNoErrors();
+    expect(Transaction::count())->toBe(1)->and($occurrence->paymentAllocations()->count())->toBe(1)
+        ->and($entry->account->fresh()->current_balance)->toBe($balance)->and($occurrence->remainingPaymentCents())->toBe(0);
+    $this->getJson($candidatesUrl)->assertOk()->assertJsonCount(0, 'transactions');
+    $this->actingAs(User::factory()->create())->getJson($candidatesUrl)->assertNotFound();
+    $this->post($route, $payload)->assertNotFound();
+});
+
+test('legacy matched relation remains visible without an inverse transaction foreign key', function () {
+    $occurrence = partialPaymentOccurrence('expense');
+    $entry = $occurrence->recurringEntry;
+    $payment = partialPaymentTransaction($occurrence, 500);
+    $occurrence->update(['matched_transaction_id' => $payment->id, 'status' => 'completed']);
+    $this->actingAs($entry->user);
+    $sheet = app(MonthlyTransactionSheetService::class)->build($entry->user, 2026, 10);
+    $row = collect($sheet['transactions'])->firstWhere('uuid', $payment->uuid);
+    expect($row['is_recurring_transaction'])->toBeTrue()->and($row['recurring_occurrence_uuid'])->toBe($occurrence->uuid);
+    $this->getJson(route('recurring-entries.show', [$entry->uuid, 'highlight' => $occurrence->uuid]))->assertOk()
+        ->assertJsonPath('recurringEntry.occurrences.0.payment_history.0.uuid', $payment->uuid);
+});
+
+test('manual and automatic posting keep the source scadence when payment date changes', function (bool $automatic) {
+    $occurrence = partialPaymentOccurrence('expense');
+    $entry = $occurrence->recurringEntry;
+    $occurrence->update(['expected_date' => '2026-09-08', 'due_date' => '2026-09-08']);
+    $entry->account->update(['settings' => ['allow_negative_balance' => true]]);
+    UserYear::create(['user_id' => $entry->user_id, 'year' => 2026, 'is_closed' => false]);
+    $payment = app(RecurringEntryPostingService::class)->post($occurrence, $entry->user, ['transaction_date' => '2026-10-09', 'automatic_posting' => $automatic]);
+    $this->actingAs($entry->user);
+    $sheet = app(MonthlyTransactionSheetService::class)->build($entry->user, 2026, 10);
+    $row = collect($sheet['transactions'])->firstWhere('uuid', $payment->uuid);
+    expect($row['is_recurring_transaction'])->toBeTrue()->and($row['recurring_occurrence_uuid'])->toBe($occurrence->uuid)
+        ->and($payment->recurring_entry_occurrence_id)->toBe($occurrence->id)
+        ->and($occurrence->fresh()->converted_transaction_id)->toBe($payment->id);
+    $this->getJson(route('recurring-entries.show', [$entry->uuid, 'highlight' => $occurrence->uuid]))->assertOk()
+        ->assertJsonPath('recurringEntry.occurrences.0.converted_transaction.uuid', $payment->uuid)
+        ->assertJsonPath('recurringEntry.occurrences.0.converted_transaction.transaction_date', '2026-10-09');
+})->with([false, true]);
+
+test('one transaction allocated to several occurrences exposes every canonical link', function () {
+    $first = partialPaymentOccurrence('expense');
+    $entry = $first->recurringEntry;
+    $second = $entry->occurrences()->create(['sequence_number' => 2, 'expected_date' => '2026-10-09', 'expected_amount' => 500, 'status' => 'pending']);
+    $payment = partialPaymentTransaction($first, 500);
+    $service = app(AllocateOccurrencePaymentService::class);
+    $service->allocate($first, $payment, $entry->user, '300');
+    $service->allocate($second, $payment, $entry->user, '200');
+    $this->actingAs($entry->user);
+    $sheet = app(MonthlyTransactionSheetService::class)->build($entry->user, 2026, 10);
+    $row = collect($sheet['transactions'])->firstWhere('uuid', $payment->uuid);
+    expect(array_column($row['recurring_payment_links'], 'occurrence_uuid'))->toBe([$first->uuid, $second->uuid]);
+    expect($first->remainingPaymentCents())->toBe(20000)->and($second->remainingPaymentCents())->toBe(30000);
+});
+
+test('linking an existing payment rejects incompatible amounts and foreign transactions atomically', function () {
+    $occurrence = partialPaymentOccurrence('expense');
+    $entry = $occurrence->recurringEntry;
+    $payment = partialPaymentTransaction($occurrence, 100);
+    $route = route('recurring-entries.occurrences.payments.store', [$entry->uuid, $occurrence->uuid]);
+    $this->actingAs($entry->user)->post($route, ['transaction_uuid' => $payment->uuid, 'amount' => '101.00'])->assertSessionHasErrors('amount');
+    expect($occurrence->paymentAllocations()->count())->toBe(0)->and($occurrence->remainingPaymentCents())->toBe(50000);
+    $payment->update(['direction' => 'income']);
+    $this->post($route, ['transaction_uuid' => $payment->uuid, 'amount' => '100.00'])->assertSessionHasErrors('transaction_uuid');
+    $other = partialPaymentOccurrence('expense');
+    $foreign = partialPaymentTransaction($other, 100);
+    $this->post($route, ['transaction_uuid' => $foreign->uuid, 'amount' => '100.00'])->assertNotFound();
+    expect($occurrence->paymentAllocations()->count())->toBe(0);
 });

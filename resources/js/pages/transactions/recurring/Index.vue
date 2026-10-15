@@ -1441,19 +1441,40 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
 
             <div
                 v-if="isMobilePeriodAccountSelectorOutOfView"
-                class="pointer-events-none fixed inset-x-3 top-3 z-30 flex items-center justify-between gap-2 md:hidden"
+                class="pointer-events-none fixed inset-x-3 top-3 z-30 flex items-start justify-between gap-2 md:hidden"
             >
-                <button
-                    type="button"
-                    class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-                    :aria-label="props.activePeriod.period_label"
-                    @click="scrollToMobilePeriodAccountSelector"
+                <div
+                    class="flex max-w-[calc(55%-0.25rem)] min-w-0 flex-col items-start gap-1.5"
                 >
-                    <CalendarDays class="size-3.5 shrink-0 text-primary" />
-                    <span class="truncate capitalize">{{
-                        props.activePeriod.period_label
-                    }}</span>
-                </button>
+                    <button
+                        type="button"
+                        class="pointer-events-auto inline-flex w-full min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                        :aria-label="props.activePeriod.period_label"
+                        @click="scrollToMobilePeriodAccountSelector"
+                    >
+                        <CalendarDays class="size-3.5 shrink-0 text-primary" />
+                        <span class="truncate capitalize">{{
+                            props.activePeriod.period_label
+                        }}</span>
+                    </button>
+                    <button
+                        v-if="selectedDate"
+                        type="button"
+                        class="pointer-events-auto inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50/95 px-2.5 py-1 text-xs font-semibold text-sky-800 shadow-sm backdrop-blur dark:border-sky-500/30 dark:bg-sky-950/95 dark:text-sky-200"
+                        :aria-label="ui('Rimuovi filtro giorno')"
+                        @click="selectedDate = null"
+                    >
+                        <span class="truncate">{{
+                            new Date(
+                                `${selectedDate}T12:00:00`,
+                            ).toLocaleDateString(locale, {
+                                day: 'numeric',
+                                month: 'long',
+                            })
+                        }}</span
+                        ><X class="size-3.5 shrink-0" aria-hidden="true" />
+                    </button>
+                </div>
                 <button
                     type="button"
                     class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"

@@ -246,7 +246,7 @@ class CounterpartyPaymentService
     private function operation(User $user, CounterpartyRelation $relation, string $kind, array $data, Closure $action, bool $activeRequired = true): array
     {
         abort_unless(config('counterparty_ledger.public_enabled'), 404);
-        abort_unless($relation->user_id === $user->id && $relation->counterparty->user_id === $user->id && $relation->counterparty->account_id === null, 404);
+        abort_unless($relation->user_id === $user->id && $relation->counterparty !== null && $relation->counterparty->user_id === $user->id && $relation->counterparty->account_id === null, 404);
         $this->require(isset($data['operation_key']) && is_string($data['operation_key']) && strlen($data['operation_key']) > 0 && strlen($data['operation_key']) <= 191, 'operation_key', 'Chiave operazione obbligatoria.');
         $hash = $this->hash(['kind' => $kind, 'data' => $data, 'actor_id' => $user->id]);
 

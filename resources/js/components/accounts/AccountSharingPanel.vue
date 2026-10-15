@@ -17,6 +17,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { fetchWithNotifications } from '@/lib/notifications';
 import {
     revoke,
     restore,
@@ -192,11 +193,11 @@ async function loadSharingData(accountUuid: string): Promise<void> {
 
     try {
         const [membersResponse, invitationsResponse] = await Promise.all([
-            fetch(membersRoute.url(accountUuid), {
+            fetchWithNotifications(membersRoute.url(accountUuid), {
                 headers: requestHeaders(),
                 credentials: 'same-origin',
             }),
-            fetch(invitationsRoute.url(accountUuid), {
+            fetchWithNotifications(invitationsRoute.url(accountUuid), {
                 headers: requestHeaders(),
                 credentials: 'same-origin',
             }),
@@ -236,15 +237,19 @@ async function submitInvitation(): Promise<void> {
     feedback.value = null;
 
     try {
-        const response = await fetch(storeInvitation.url(props.account.uuid), {
-            method: 'POST',
-            headers: requestHeaders(true),
-            credentials: 'same-origin',
-            body: JSON.stringify({
-                email: inviteEmail.value,
-                role: inviteRole.value,
-            }),
-        });
+        const response = await fetchWithNotifications(
+            storeInvitation.url(props.account.uuid),
+            {
+                notification: 'Invito inviato correttamente.',
+                method: 'POST',
+                headers: requestHeaders(true),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    email: inviteEmail.value,
+                    role: inviteRole.value,
+                }),
+            },
+        );
 
         const payload = await parseJsonPayload(response);
 
@@ -305,7 +310,8 @@ async function updateMembership(
             : restore.url(membership.uuid);
 
     try {
-        const response = await fetch(routeDefinition, {
+        const response = await fetchWithNotifications(routeDefinition, {
+            notification: 'Condivisione aggiornata correttamente.',
             method: 'POST',
             headers: requestHeaders(true),
             credentials: 'same-origin',
@@ -361,7 +367,7 @@ async function changeMembershipRole(
     feedback.value = null;
 
     try {
-        const response = await fetch(
+        const response = await fetchWithNotifications(
             updateMembershipRole.url(membership.uuid),
             {
                 method: 'PATCH',

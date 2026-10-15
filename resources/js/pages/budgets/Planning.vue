@@ -33,6 +33,7 @@ import {
     cloneBudgetPlanningData,
 } from '@/lib/budget-planning';
 import { formatCurrency } from '@/lib/currency';
+import { fetchWithNotifications } from '@/lib/notifications';
 import { cn } from '@/lib/utils';
 import { budgetPlanning as budgetPlanningRoute } from '@/routes';
 import { copyPreviousYear, updateCell } from '@/routes/budget-planning';
@@ -249,7 +250,8 @@ async function saveCell(payload: {
     );
 
     try {
-        const response = await fetch(updateCell.url(), {
+        const response = await fetchWithNotifications(updateCell.url(), {
+            notification: 'Dati salvati correttamente.',
             method: 'PATCH',
             headers: {
                 Accept: 'application/json',
@@ -336,7 +338,7 @@ async function copyValuesFromPreviousYear(): Promise<void> {
     copyingPreviousYear.value = true;
 
     try {
-        const response = await fetch(copyPreviousYear.url(), {
+        const response = await fetchWithNotifications(copyPreviousYear.url(), {
             method: 'POST',
             headers: {
                 Accept: 'application/json',

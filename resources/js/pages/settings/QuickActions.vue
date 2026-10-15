@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
 import {
     Car,
@@ -54,9 +54,11 @@ import {
     SheetTitle,
     SheetDescription,
 } from '@/components/ui/sheet';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { fetchWithNotifications } from '@/lib/notifications';
 import {
     transactionTemplateIconChoices,
     transactionTemplateIcon,
@@ -248,25 +250,30 @@ async function createReference() {
     form.clearErrors('tracked_item_uuid');
 
     try {
-        const response = await fetch(storeTrackedItemOption.url(), {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN':
-                    document
-                        .querySelector('meta[name="csrf-token"]')
-                        ?.getAttribute('content') ?? '',
+        const response = await fetchWithNotifications(
+            storeTrackedItemOption.url(),
+            {
+                notification: 'Riferimento creato correttamente.',
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN':
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute('content') ?? '',
+                },
+                body: JSON.stringify({
+                    name: newReferenceName.value.trim(),
+                    website_url: newReferenceWebsite.value || null,
+                    account_uuid: form.account_uuid,
+                    category_uuid: form.category_uuid,
+                    type_key:
+                        selectedCategory.value?.group_key ?? form.direction,
+                }),
             },
-            body: JSON.stringify({
-                name: newReferenceName.value.trim(),
-                website_url: newReferenceWebsite.value || null,
-                account_uuid: form.account_uuid,
-                category_uuid: form.category_uuid,
-                type_key: selectedCategory.value?.group_key ?? form.direction,
-            }),
-        });
+        );
         const payload = await response.json();
 
         if (!response.ok) {

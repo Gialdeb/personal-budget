@@ -132,6 +132,13 @@ export type MonthlyTransactionSheetTransaction = {
     credit_card_payment_due_date?: string | null;
     recurring_occurrence_uuid: string | null;
     recurring_entry_uuid: string | null;
+    recurring_payment_links?: Array<{
+        occurrence_uuid: string;
+        entry_uuid: string;
+        title: string;
+        due_date: string | null;
+        show_url: string;
+    }>;
     recurring_entry_show_url: string | null;
     is_credit_debt_transaction?: boolean;
     credit_debt_item_uuid?: string | null;
@@ -149,6 +156,14 @@ export type MonthlyTransactionSheetTransaction = {
     balance_after_raw: number | null;
     status: string | null;
     source_type: string | null;
+    is_reimbursement?: boolean;
+    reimbursement_kind?:
+        | 'transaction_refund'
+        | 'shared_expense_settlement'
+        | 'credit_debt_payment'
+        | 'counterparty_payment'
+        | 'counterparty_return'
+        | null;
     is_refunded?: boolean;
     can_refund?: boolean;
     requires_payment_confirmation?: boolean;
@@ -594,6 +609,18 @@ export type RecurringEntriesIndexPageProps = {
 };
 
 export type RecurringEntryShowPayload = {
+    occurrence_years: Array<{
+        year: number;
+        count: number;
+        overdue_count: number;
+        overdue_amount: number;
+    }>;
+    occurrence_page: {
+        year: number;
+        offset: number;
+        next_offset: number | null;
+    };
+
     entry: RecurringEntryIndexCard;
     amount_history: Array<{
         id: number;

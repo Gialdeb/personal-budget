@@ -92,6 +92,10 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
                 'error' => fn (): ?string => $request->session()->get('error'),
+                'warning' => fn (): ?string => $request->session()->get('warning'),
+                'warn' => fn (): ?string => $request->session()->get('warn'),
+                'info' => fn (): ?string => $request->session()->get('info'),
+                'status' => fn (): ?string => $request->session()->get('status'),
             ],
             'locale' => fn () => [
                 'current' => $localeResolver->current($request),

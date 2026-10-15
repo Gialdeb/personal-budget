@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     CircleAlert,
     LifeBuoy,
@@ -43,10 +43,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getInitials } from '@/composables/useInitials';
+import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { formatCurrency } from '@/lib/currency';
+import { fetchWithNotifications, notify } from '@/lib/notifications';
 import {
     cleanupCurrentBrowserPushRegistration,
     clearMissingServiceWorkerCleanupDeadline,
@@ -822,7 +824,8 @@ async function submitPushTokenRequest(
     method: 'POST' | 'DELETE',
     payload: Record<string, unknown>,
 ): Promise<PushTokenResponse> {
-    const response = await fetch(url, {
+    const response = await fetchWithNotifications(url, {
+        notification: 'silent',
         method,
         headers: {
             Accept: 'application/json',
@@ -903,6 +906,7 @@ function setPushWebFeedback(
     variant: FeedbackState['variant'],
     message: string,
 ): void {
+    notify(variant === 'default' ? 'success' : 'error', message);
     pushWebFeedback.value = {
         variant,
         title:

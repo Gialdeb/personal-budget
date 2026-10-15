@@ -12,7 +12,9 @@ use App\Http\Requests\Recurring\PreviewRecurringEntryExchangeRequest;
 use App\Http\Requests\Recurring\StoreRecurringEntryRequest;
 use App\Http\Requests\Recurring\UpdateInstallmentDistributionRequest;
 use App\Http\Requests\Recurring\UpdateRecurringEntryRequest;
+use App\Http\Requests\RecurringEntryDetailRequest;
 use App\Http\Resources\RecurringEntryIndexResource;
+use App\Http\Resources\RecurringEntryOccurrenceResource;
 use App\Http\Resources\RecurringEntryShowResource;
 use App\Models\Account;
 use App\Models\Category;
@@ -28,6 +30,7 @@ use App\Services\Categories\CategoryFoundationService;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\DeleteRecurringEntryService;
 use App\Services\Recurring\RecalculateInstallmentPlanAmountService;
+use App\Services\Recurring\RecurringEntryDetailReadService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Services\Salary\SalaryEmploymentService;
@@ -75,11 +78,12 @@ class RecurringEntryController extends Controller
         return Inertia::render('transactions/recurring/Index', $payload);
     }
 
-    public function show(Request $request, RecurringEntry $recurringEntry): Response|JsonResponse
+    public function show(RecurringEntryDetailRequest $request, RecurringEntry $recurringEntry): Response|JsonResponse
     {
         $entry = $this->accessibleRecurringEntry($request, $recurringEntry);
         $editableAccountIds = $this->accessibleAccountsQuery->editableIds($request->user());
         $request->attributes->set('recurring_editable_account_ids', $editableAccountIds);
+        request()->attributes->set('recurring_editable_account_ids', $editableAccountIds);
         $entry->load([
             'account',
             'scope',
@@ -88,22 +92,35 @@ class RecurringEntryController extends Controller
             'merchant',
             'createdByUser:id,uuid,name,email',
             'updatedByUser:id,uuid,name,email',
-            'occurrences' => fn ($query) => $query
-                ->orderByRaw('COALESCE(due_date, expected_date)')
-                ->orderBy('sequence_number')
-                ->orderBy('id'),
-            'occurrences.recurringEntry',
-            'occurrences.account',
-            'occurrences.sharedExpenseLedgerEntry.counterparty',
-            'occurrences.recurringEntry.account',
-            'occurrences.convertedTransaction.refundTransaction',
-            'occurrences.matchedTransaction.refundTransaction',
-            'occurrences.paymentAllocations.transaction.account',
-            'occurrences.paymentAllocations.transaction.trackedItem',
-            'occurrences.paymentAllocations.transaction.refundTransaction',
+            'sharedExpenseCounterparty',
             'amountChanges',
             'salarySchedule.employment',
         ]);
+
+        $read = app(RecurringEntryDetailReadService::class);
+        if ($request->filled('occurrence_year') && $request->expectsJson()) {
+            $year = $request->integer('occurrence_year');
+            $chunk = $read->page($entry, $year, $request->integer('occurrence_offset'), $request->input('highlight'));
+
+            return response()->json([
+                'year' => $year, 'offset' => $chunk['offset'], 'next_offset' => $chunk['next_offset'],
+                'occurrences' => RecurringEntryOccurrenceResource::collection($chunk['rows'])->resolve(),
+            ]);
+        }
+        $years = $read->years($entry);
+        $year = $request->integer('occurrence_year', today()->year);
+        if ($request->filled('highlight')) {
+            $target = $entry->occurrences()->where('uuid', $request->input('highlight'))->first();
+            $year = $target ? ($target->due_date ?? $target->expected_date)->year : $year;
+        }
+        $chunk = $read->page($entry, $year, 0, $request->input('highlight'));
+        $entry->setRelation('occurrences', $chunk['rows']);
+        $summary = $read->summary($entry);
+        $years = array_map(fn (array $group): array => [...$group, ...($summary['overdue_by_year'][$group['year']] ?? ['overdue_count' => 0, 'overdue_amount' => 0])], $years);
+        unset($summary['overdue_by_year']);
+        $entry->setAttribute('detail_summary', $summary);
+        $entry->setAttribute('occurrence_years', $years);
+        $entry->setAttribute('occurrence_page', ['year' => $year, 'offset' => $chunk['offset'], 'next_offset' => $chunk['next_offset']]);
 
         $payload = [
             'recurringEntry' => (new RecurringEntryShowResource($entry))->resolve(),

@@ -1,3 +1,4 @@
+import { fetchWithNotifications } from '@/lib/notifications';
 import { destroy, store } from '@/routes/admin/rich-content-assets';
 import { resolveManagedImagePath } from './tinymce-editor-core';
 
@@ -15,7 +16,8 @@ export async function uploadManagedEditorImage(file) {
     const formData = new FormData();
     formData.append('image', file);
 
-    const response = await fetch(store.url(), {
+    const response = await fetchWithNotifications(store.url(), {
+        notification: 'Immagine caricata correttamente.',
         method: 'POST',
         body: formData,
         headers: {
@@ -40,7 +42,7 @@ export async function deleteManagedEditorImage(path) {
         return false;
     }
 
-    const response = await fetch(destroy.url(), {
+    const response = await fetchWithNotifications(destroy.url(), {
         method: 'DELETE',
         body: JSON.stringify({ path: managedPath }),
         headers: {

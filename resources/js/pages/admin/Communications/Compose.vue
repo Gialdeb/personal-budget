@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { fetchWithNotifications } from '@/lib/notifications';
 import { index as adminIndex } from '@/routes/admin';
 import { index as communicationComposerIndex } from '@/routes/admin/communications/compose';
 import type {
@@ -203,7 +204,7 @@ async function loadRecipients(): Promise<void> {
     isLoadingRecipients.value = true;
 
     try {
-        const response = await fetch(
+        const response = await fetchWithNotifications(
             `${props.recipient_lookup_url}?search=${encodeURIComponent(recipientSearch.value.trim())}`,
             {
                 headers: {
@@ -236,7 +237,8 @@ async function loadPreview(): Promise<void> {
     previewErrors.value = {};
 
     try {
-        const response = await fetch(props.preview_url, {
+        const response = await fetchWithNotifications(props.preview_url, {
+            notification: 'preview',
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -289,7 +291,8 @@ async function submit(): Promise<void> {
     setFeedback(null);
 
     try {
-        const response = await fetch(props.send_url, {
+        const response = await fetchWithNotifications(props.send_url, {
+            notification: 'Comunicazione inviata correttamente.',
             method: 'POST',
             headers: {
                 Accept: 'application/json',
