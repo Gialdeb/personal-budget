@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Wrench } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useMaintenanceState } from '@/composables/useMaintenanceState';
 
 const { t } = useI18n();
 const { isMaintenanceActive } = useMaintenanceState();
+const isReloadingForMaintenance = ref(false);
 
 const title = computed(() => t('app.maintenance.title'));
 
@@ -36,6 +37,11 @@ watch(
     isMaintenanceActive,
     (active) => {
         setAppContentBlocked(active);
+
+        if (active && !isReloadingForMaintenance.value) {
+            isReloadingForMaintenance.value = true;
+            window.location.reload();
+        }
     },
     { immediate: true },
 );
@@ -48,7 +54,7 @@ onBeforeUnmount(() => {
 <template>
     <Teleport to="body">
         <div
-            v-if="isMaintenanceActive"
+            v-if="isMaintenanceActive && !isReloadingForMaintenance"
             data-test="maintenance-state-overlay"
             class="pointer-events-auto fixed inset-0 z-[250] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-stone-950 px-5 py-8 text-stone-50"
             role="alertdialog"

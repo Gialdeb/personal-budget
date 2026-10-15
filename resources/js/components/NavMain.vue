@@ -40,9 +40,9 @@ function routeUrl(href: NavItem['href']): string {
                         class="app-touch-interactive"
                         data-app-touch-target
                         :aria-busy="isPending(routeUrl(item.href)) || undefined"
-                        :class="{
-                            'opacity-70': isPending(routeUrl(item.href)),
-                        }"
+                        :data-navigation-pending="
+                            isPending(routeUrl(item.href)) || undefined
+                        "
                         @click="router.visit(routeUrl(item.href))"
                     >
                         <component :is="item.icon" />

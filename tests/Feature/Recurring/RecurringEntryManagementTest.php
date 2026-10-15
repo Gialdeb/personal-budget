@@ -816,7 +816,7 @@ test('show reports paid installments against the plan total', function () {
 
     $this->actingAs($context['user'])
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $firstOccurrence->uuid]))
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($firstOccurrence));
 
     $this->actingAs($context['user'])
         ->get(route('recurring-entries.show', $entry->uuid))
@@ -864,7 +864,7 @@ test('destroy removes the plan generated transactions and refunds but preserves 
 
     $this->actingAs($context['user'])
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]))
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $generatedTransaction = $occurrence->fresh()->convertedTransaction;
 
@@ -1755,7 +1755,7 @@ test('converted occurrence transaction link points to the matching transactions 
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [
             'transaction_date' => '2026-01-15',
         ])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $this->actingAs($context['user'])
         ->get(route('recurring-entries.show', $entry->uuid))
@@ -1896,7 +1896,7 @@ test('conversion uses the occurrence date and account overrides and locks them a
 
     $this->actingAs($context['user'])
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $transaction = $occurrence->fresh()->convertedTransaction;
 
@@ -1933,7 +1933,7 @@ test('variable recurring plan synchronizes a converted transaction amount snapsh
 
     $this->actingAs($context['user'])
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $transaction = $occurrence->fresh()->convertedTransaction;
 
@@ -2078,7 +2078,7 @@ test('index recurring payload exposes linked transaction path with highlight que
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [
             'confirm_future_date' => true,
         ])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $transactionUuid = $occurrence->fresh()->convertedTransaction?->uuid;
 
@@ -2108,7 +2108,7 @@ test('update blocks structural changes when the plan has converted occurrences b
 
     $this->actingAs($context['user'])
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $this->actingAs($context['user'])
         ->from(route('recurring-entries.show', $entry->uuid))
@@ -2324,11 +2324,11 @@ test('convert occurrence creates a scheduled transaction and does not duplicate 
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [
             'transaction_date' => '2026-01-17',
         ])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $this->actingAs($context['user'])
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     expect(Transaction::query()->where('recurring_entry_occurrence_id', $occurrence->id)->count())->toBe(1)
         ->and($occurrence->fresh()->convertedTransaction?->kind)->toBe(TransactionKindEnum::SCHEDULED);
@@ -2349,7 +2349,7 @@ test('future occurrence conversion requires explicit confirmation', function () 
     $this->actingAs($context['user'])
         ->from(route('recurring-entries.show', $entry->uuid))
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid))
+        ->assertRedirect(recurringConversionDestination($occurrence))
         ->assertSessionHasErrors('occurrence');
 
     expect($occurrence->fresh()->converted_transaction_id)->toBeNull();
@@ -2367,7 +2367,7 @@ test('undo conversion permanently removes the scheduled transaction and resets t
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [
             'confirm_future_date' => true,
         ])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $transaction = $occurrence->fresh()->convertedTransaction;
 
@@ -2393,7 +2393,7 @@ test('undo conversion is blocked when the scheduled transaction has already been
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [
             'confirm_future_date' => true,
         ])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $scheduledTransaction = $occurrence->fresh()->convertedTransaction;
 
@@ -2424,7 +2424,7 @@ test('refund from recurring is available only for the latest converted occurrenc
             ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [
                 'confirm_future_date' => true,
             ])
-            ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+            ->assertRedirect(recurringConversionDestination($occurrence));
     }
 
     $firstTransaction = $occurrences[0]->fresh()->convertedTransaction;
@@ -2493,7 +2493,7 @@ test('refund endpoint refunds eligible transactions and blocks forbidden cases',
 
     $this->actingAs($context['user'])
         ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [])
-        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+        ->assertRedirect(recurringConversionDestination($occurrence));
 
     $scheduledTransaction = $occurrence->fresh()->convertedTransaction;
 
@@ -3163,3 +3163,12 @@ test('unrelated updates preserve custom sharing ratios on a plan with settled hi
     app(RecurringEntryManagementService::class)->update($c['user'], $entry, ['expected_amount' => 60]);
     expect($entry->fresh()->shared_expense_my_share_cents)->toBe(1200)->and($entry->fresh()->shared_expense_counterparty_share_cents)->toBe(4800);
 });
+
+function recurringConversionDestination(RecurringEntryOccurrence $occurrence): string
+{
+    $transaction = $occurrence->fresh()->convertedTransaction;
+
+    return $transaction === null
+        ? route('recurring-entries.show', $occurrence->recurringEntry->uuid)
+        : route('transactions.show', ['year' => $transaction->transaction_date->year, 'month' => $transaction->transaction_date->month, 'highlight' => $transaction->uuid]);
+}

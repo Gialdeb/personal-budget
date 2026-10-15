@@ -16,16 +16,28 @@ if [[ -n "${SOAMCO_COMPOSE_ENV_FILE:-}" ]]; then
 fi
 compose() { docker compose "${env_args[@]}" -f docker-compose.yml -f docker-compose.production.yml "$@"; }
 maintenance=false
+proxy_maintenance=false
+scratch="$(mktemp -d)"
+restore_proxy() {
+    compose exec -T proxy caddy reload --config /config/soamco-deploy-normal.json
+    proxy_maintenance=false
+    compose exec -T proxy rm -f /config/soamco-deploy-normal.json
+}
 cleanup() {
     status=$?
     trap - EXIT
     if $maintenance; then
-        compose exec -T app php artisan up || true
-        compose run --rm --no-deps app php artisan up || true
-        compose start horizon scheduler reverb || true
+        # Never reopen the proxy onto unavailable app/web after a failed recreate.
+        if compose exec -T app application-healthcheck && compose exec -T web wget -q -O /dev/null http://127.0.0.1/up && compose exec -T app php artisan up; then
+            if $proxy_maintenance; then restore_proxy || true; fi
+            compose start horizon scheduler reverb || true
+        fi
+    elif $proxy_maintenance; then
+        restore_proxy || true
     fi
+    rm -rf "$scratch"
     if (( status != 0 )); then
-        echo 'Deploy failed. Attempted artisan up; inspect service health before resuming. Previous images and all volumes were preserved.' >&2
+        echo 'Deploy failed. Healthy services may be reopened; otherwise the Soamco maintenance route is preserved. Inspect service health. Previous images and all volumes were preserved.' >&2
     fi
     exit "$status"
 }
@@ -45,6 +57,22 @@ compose build app web
 compose run --rm --no-deps --entrypoint sh app -c 'test -f artisan && test -f vendor/autoload.php && test -s public/build/manifest.json'
 # Initialize permissions only after every image (including frontend) has built successfully.
 compose run --rm --no-deps logs-init
+# Prepare the unchanged Soamco view and the proxy switch before entering maintenance.
+if compose exec -T proxy test -s /config/soamco-deploy-normal.json; then
+    # A failed deploy may still be serving this container: do not recreate it.
+    compose start maintenance
+    compose exec -T maintenance php -r "exit(@file_get_contents('http://127.0.0.1:8000/__maintenance_health') === 'ready' ? 0 : 1);"
+    compose cp proxy:/config/soamco-deploy-normal.json "$scratch/normal.json"
+else
+    compose up -d --no-deps --no-build --wait --wait-timeout 60 maintenance
+    compose exec -T proxy wget -q -O - http://127.0.0.1:2019/config/ > "$scratch/normal.json"
+fi
+compose run -T --rm --no-deps --entrypoint php app docker/caddy/maintenance-config.php < "$scratch/normal.json" > "$scratch/maintenance.json"
+compose cp "$scratch/normal.json" proxy:/config/soamco-deploy-normal.json
+compose cp "$scratch/maintenance.json" proxy:/config/soamco-deploy-maintenance.json
+# Reload is atomic: no proxy restart and no app/web downtime has started yet.
+compose exec -T proxy caddy reload --config /config/soamco-deploy-maintenance.json
+proxy_maintenance=true
 maintenance=true
 if [[ -n "$(compose ps --status running -q app)" ]]; then
     compose exec -T app php artisan down --retry=60
@@ -57,5 +85,7 @@ compose up -d --no-deps --no-build --force-recreate --wait --wait-timeout 180 ap
 compose up -d --no-deps --no-build --force-recreate --wait --wait-timeout 180 horizon scheduler reverb
 compose exec -T app php artisan up
 maintenance=false
+restore_proxy
+compose stop maintenance
 compose ps
 printf 'Deployed PHP=%s WEB=%s\n' "$SOAMCO_PHP_IMAGE" "$SOAMCO_WEB_IMAGE"

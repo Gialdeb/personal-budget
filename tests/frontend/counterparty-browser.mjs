@@ -303,6 +303,45 @@ try {
     assert.equal(failedRequests, 1);
     await context.unroute(/\/dashboard(?:\?|$)/);
 
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const maintenanceUrl = page.url();
+    await context.route(maintenanceUrl, async (route) => {
+        await route.fulfill({
+            status: 503,
+            contentType: 'text/html; charset=UTF-8',
+            body: process.env.SOAMCO_MAINTENANCE_HTML,
+        });
+    });
+    const maintenanceNavigation = page.waitForEvent(
+        'response',
+        (response) =>
+            response.request().isNavigationRequest() &&
+            response.url() === maintenanceUrl,
+    );
+    await page.evaluate(() => {
+        const channel = new BroadcastChannel('soamco-budget-maintenance-state');
+        channel.postMessage({ active: true, status: 'active' });
+        channel.close();
+    });
+    assert.equal((await maintenanceNavigation).status(), 503);
+    await page
+        .getByRole('heading', {
+            name: /^(Stiamo aggiornando Soamco|We are updating Soamco)$/,
+        })
+        .waitFor();
+    assert.equal(await page.locator('.activity span').count(), 3);
+    assert.equal(
+        await page.locator('[data-test="maintenance-state-overlay"]').count(),
+        0,
+    );
+    assert.equal(
+        await page
+            .locator('.activity span')
+            .first()
+            .evaluate((dot) => getComputedStyle(dot).animationName),
+        'breathe',
+    );
+
     assert.equal(errors.length, 0, errors.join('\n'));
     console.log(
         `${width}px: 250→150 receipt, custom allocation changes residuals only, cancellation→250 and preserved history, 200/-50 compensation→150 and residuals150/0; immediate navigation feedback, duplicate tap suppressed, back works with reduced motion.`,

@@ -1737,6 +1737,8 @@ test('dashboard normalizes shared scope to owned when the user has no shared acc
 });
 
 test('analysis timeline separates actual forecast credits debts and prevents forecast double counting', function () {
+    config(['features.credits_debts.enabled' => true]);
+
     $this->travelTo(CarbonImmutable::create(2025, 3, 15, 12));
 
     $user = User::factory()->create(['base_currency_code' => 'EUR']);

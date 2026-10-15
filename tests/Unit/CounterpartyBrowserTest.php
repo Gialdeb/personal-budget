@@ -43,10 +43,10 @@ test('real desktop and mobile users register revise allocate and cancel a common
         $port = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
         fclose($socket);
         $url = 'http://127.0.0.1:'.$port;
-        $environment = ['APP_ENV' => 'testing', 'APP_URL' => $url, 'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $database, 'DB_URL' => '', 'CACHE_STORE' => 'array', 'SESSION_DRIVER' => 'database', 'SESSION_DOMAIN' => '', 'SESSION_SECURE_COOKIE' => 'false', 'BROADCAST_CONNECTION' => 'log', 'QUEUE_CONNECTION' => 'sync', 'NIGHTWATCH_ENABLED' => 'false', 'COUNTERPARTY_LEDGER_PUBLIC_ENABLED' => 'true', 'FEATURE_CREDITS_DEBTS_ENABLED' => 'true', 'RECAPTCHA_V3_ENABLED' => 'false'];
+        $environment = ['APP_MAINTENANCE_DRIVER' => 'cache', 'APP_MAINTENANCE_STORE' => 'array', 'APP_ENV' => 'testing', 'APP_URL' => $url, 'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $database, 'DB_URL' => '', 'CACHE_STORE' => 'array', 'SESSION_DRIVER' => 'database', 'SESSION_DOMAIN' => '', 'SESSION_SECURE_COOKIE' => 'false', 'BROADCAST_CONNECTION' => 'log', 'QUEUE_CONNECTION' => 'sync', 'NIGHTWATCH_ENABLED' => 'false', 'COUNTERPARTY_LEDGER_PUBLIC_ENABLED' => 'true', 'FEATURE_CREDITS_DEBTS_ENABLED' => 'true', 'RECAPTCHA_V3_ENABLED' => 'false'];
         $server = new Process([PHP_BINARY, 'artisan', 'serve', '--host=127.0.0.1', '--port='.$port, '--no-reload'], base_path(), $environment, timeout: 120);
         $server->start();
-        $browser = new Process(['node', base_path('tests/frontend/counterparty-browser.mjs')], base_path(), ['COUNTERPARTY_BROWSER_URL' => $url, 'COUNTERPARTY_BROWSER_RELATION' => $relation->uuid, 'COUNTERPARTY_BROWSER_COMPENSATION' => $compRelation->uuid, 'COUNTERPARTY_BROWSER_WIDTH' => (string) $width], timeout: 100);
+        $browser = new Process(['node', base_path('tests/frontend/counterparty-browser.mjs')], base_path(), ['COUNTERPARTY_BROWSER_URL' => $url, 'COUNTERPARTY_BROWSER_RELATION' => $relation->uuid, 'COUNTERPARTY_BROWSER_COMPENSATION' => $compRelation->uuid, 'COUNTERPARTY_BROWSER_WIDTH' => (string) $width, 'SOAMCO_MAINTENANCE_HTML' => view('errors.503')->render()], timeout: 100);
         $browser->run();
         expect($browser->isSuccessful())->toBeTrue($browser->getErrorOutput().$browser->getOutput().$server->getErrorOutput());
         expect($item->fresh()->remainingAmount())->toBe('200.00')->and(Transaction::count())->toBe(0)->and(Transaction::withTrashed()->count())->toBe(1);

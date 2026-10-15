@@ -119,6 +119,28 @@ test('maintenance overlay is mounted globally and blocks the full viewport', () 
     );
 });
 
+test('open web and PWA sessions reload to the existing server maintenance view before the alternate overlay renders', () => {
+    assert.match(
+        overlaySource,
+        /if \(active && !isReloadingForMaintenance\.value\)/,
+    );
+    assert.match(
+        overlaySource,
+        /isReloadingForMaintenance\.value = true;\s*window\.location\.reload\(\)/,
+    );
+    assert.match(
+        overlaySource,
+        /v-if="isMaintenanceActive && !isReloadingForMaintenance"/,
+    );
+    const template = readFileSync(
+        new URL('../../resources/views/errors/503.blade.php', import.meta.url),
+        'utf8',
+    );
+    assert.match(template, /@keyframes breathe/);
+    assert.match(template, /class="activity"/);
+    assert.match(template, /animation:breathe/);
+});
+
 test('maintenance copy and shared types are available in both locales', () => {
     assert.match(
         globalTypesSource,

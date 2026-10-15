@@ -74,6 +74,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useTransactionFocus } from '@/composables/useTransactionFocus';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
@@ -236,7 +237,15 @@ const creatingEditTrackedItem = ref(false);
 const pendingMutation = ref<PendingMutation | null>(null);
 const rowFeedback = ref<RowFeedbackState | null>(null);
 const removingTransactionUuid = ref<string | null>(null);
-const highlightedTransactionUuid = ref<string | null>(null);
+const { focusMissing } = useTransactionFocus({
+    transactions: () => props.monthlySheet.transactions,
+    reveal: () => {
+        resetFilters();
+        transactionSearch.value = '';
+        visibilityFilter.value = 'active';
+    },
+    highlight: (uuid) => triggerRowFeedback(uuid, 'highlight'),
+});
 let rowFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const inlineForm = useForm({
@@ -957,7 +966,6 @@ onMounted(() => {
     showPlannedRecurring.value = readPlannedRecurringVisibility();
     isHeroCollapsed.value =
         window.localStorage.getItem(heroStorageKey) === 'true';
-    focusHighlightedTransaction();
 
     if (
         mobilePeriodAccountSelectorElement.value &&
@@ -999,10 +1007,6 @@ watch(showPlannedRecurring, (value) => {
 
 watch(isHeroCollapsed, (value) => {
     window.localStorage.setItem(heroStorageKey, value ? 'true' : 'false');
-});
-
-watch(displayedTransactions, () => {
-    focusHighlightedTransaction();
 });
 
 const filteredSummary = computed(() => {
@@ -2511,7 +2515,7 @@ function transactionFeedbackClass(transactionUuid: string): string {
     }
 
     if (rowFeedback.value.type === 'highlight') {
-        return 'bg-amber-50/85 ring-1 ring-amber-200 transition-all duration-700 dark:bg-amber-500/10 dark:ring-amber-500/25';
+        return 'bg-amber-50/85 ring-1 ring-amber-200 transition-colors duration-700 motion-reduce:transition-none dark:bg-amber-500/10 dark:ring-amber-500/25';
     }
 
     return rowFeedback.value.type === 'create'
@@ -2521,49 +2525,6 @@ function transactionFeedbackClass(transactionUuid: string): string {
 
 function visibilityFilterLabel(value: TransactionVisibilityFilter): string {
     return t(`transactions.sheet.filters.visibilityOptions.${value}`);
-}
-
-function readHighlightedTransactionUuid(): string | null {
-    if (typeof window === 'undefined') {
-        return null;
-    }
-
-    const value = new URLSearchParams(window.location.search).get('highlight');
-
-    return value && value.trim() !== '' ? value : null;
-}
-
-function focusHighlightedTransaction(): void {
-    const transactionUuid = readHighlightedTransactionUuid();
-
-    if (
-        !transactionUuid ||
-        highlightedTransactionUuid.value === transactionUuid ||
-        !sheet.value.transactions.some(
-            (transaction) => transaction.uuid === transactionUuid,
-        )
-    ) {
-        return;
-    }
-
-    highlightedTransactionUuid.value = transactionUuid;
-
-    nextTick(() => {
-        const target = document.querySelector<HTMLElement>(
-            `[data-transaction-row="${transactionUuid}"]`,
-        );
-
-        if (!target) {
-            return;
-        }
-
-        target.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-        });
-
-        triggerRowFeedback(transactionUuid, 'highlight');
-    });
 }
 
 function compareTransactionsForDisplay(
@@ -4064,6 +4025,17 @@ resetInlineEntry();
             </Alert>
 
             <Alert
+                v-if="focusMissing"
+                data-transaction-focus-missing
+                role="alert"
+            >
+                <TriangleAlert class="size-4" />
+                <AlertDescription>{{
+                    t('transactions.sheet.alerts.focusMissing')
+                }}</AlertDescription>
+            </Alert>
+
+            <Alert
                 v-if="flashSuccess"
                 class="border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
             >
@@ -5211,6 +5183,7 @@ resetInlineEntry();
 
                                         <tr
                                             v-else
+                                            tabindex="-1"
                                             :data-transaction-row="
                                                 transaction.uuid
                                             "
@@ -6910,6 +6883,7 @@ resetInlineEntry();
                             <Card
                                 v-for="transaction in displayedTransactions"
                                 :key="transaction.uuid"
+                                tabindex="-1"
                                 :data-transaction-row="transaction.uuid"
                                 :class="
                                     cn(

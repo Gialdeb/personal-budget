@@ -51,6 +51,8 @@ for (const failure of ['build', 'migrate', 'health', 'success']) {
                 docker,
                 `#!/usr/bin/env bash
 echo "$*" >> "$MOCK_LOG"
+if [[ "$*" == *"exec -T proxy test -s"* ]]; then exit 1; fi
+if [[ "$*" == *"exec -T app application-healthcheck"* && "$MOCK_FAIL" == health ]]; then exit 1; fi
 if [[ "$*" == *"build app web"* && "$MOCK_FAIL" == build ]]; then exit 7; fi
 if [[ "$*" == *"migrate --force"* && "$MOCK_FAIL" == migrate ]]; then exit 8; fi
 if [[ "$*" == *"force-recreate"* && "$MOCK_FAIL" == health ]]; then exit 9; fi
@@ -102,7 +104,21 @@ if [[ "$*" == *"ps --status running -q app"* ]]; then echo mock-app; fi
                     calls.indexOf('build app web') <
                         calls.indexOf('artisan down'),
                 );
-                assert.match(calls, /artisan up/);
+
+                if (failure === 'health') {
+                    assert.doesNotMatch(
+                        calls,
+                        /artisan up|caddy reload --config \/config\/soamco-deploy-normal.json/,
+                    );
+                } else {
+                    assert.match(calls, /artisan up/);
+                    assert.ok(
+                        calls.indexOf('artisan up') <
+                            calls.indexOf(
+                                'caddy reload --config /config/soamco-deploy-normal.json',
+                            ),
+                    );
+                }
 
                 if (failure === 'migrate') {
                     assert.doesNotMatch(calls, /force-recreate/);
@@ -118,3 +134,36 @@ if [[ "$*" == *"ps --status running -q app"* ]]; then echo mock-app; fi
         }
     });
 }
+
+test('production maintenance stays outside app/web recreation and preserves the live proxy configuration', () => {
+    const script = read('bin/deploy-production');
+    assert.ok(
+        script.indexOf('compose build app web') <
+            script.indexOf('wait-timeout 60 maintenance'),
+    );
+    assert.ok(
+        script.indexOf(
+            'caddy reload --config /config/soamco-deploy-maintenance.json',
+        ) < script.indexOf('artisan down'),
+    );
+    assert.ok(
+        script.lastIndexOf('artisan up') < script.lastIndexOf('restore_proxy'),
+    );
+    assert.match(script, /application-healthcheck && compose exec -T web wget/);
+    assert.doesNotMatch(
+        script,
+        /force-recreate[^\n]*proxy|force-recreate[^\n]*maintenance/,
+    );
+    assert.match(
+        read('docker-compose.production.yml'),
+        /command: \['php', '-S', '0.0.0.0:8000', 'docker\/php\/maintenance-router.php'\]/,
+    );
+    assert.match(
+        read('docker-compose.production.yml'),
+        /proxy:[\s\S]*restart: false/,
+    );
+    assert.match(
+        read('docker/php/maintenance-router.php'),
+        /view\('errors.503'\)->render\(\)/,
+    );
+});

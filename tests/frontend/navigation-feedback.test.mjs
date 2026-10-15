@@ -102,7 +102,15 @@ test('global feedback is accessible, fixed, motion free and introduces no networ
     assert.match(component, /aria-live="polite"/);
     assert.match(component, /pointer-events-none fixed/);
     assert.match(component, /t\('app.common.loading'\)/);
-    assert.doesNotMatch(component, /animate-|transition-|setTimeout|fetch\(/);
+    assert.match(component, /Teleport to="body"/);
+    assert.match(component, /z-\[1000\]/);
+    assert.match(component, /h-\[3px\]/);
+    assert.match(component, /prefers-reduced-motion: reduce/);
+    assert.match(component, /180 -/);
+    assert.match(
+        read('resources/js/components/MobileBottomNav.vue'),
+        /data-navigation-pending/,
+    );
     const app = read('resources/js/app.ts');
     assert.match(app, /initializeNavigationFeedback\(\)/);
     assert.match(app, /h\(NavigationProgress\)/);

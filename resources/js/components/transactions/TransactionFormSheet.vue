@@ -1790,6 +1790,10 @@ function mobileTypeButtonClass(value: string, isSelected: boolean): string {
 }
 
 function submit(): void {
+    if (form.processing) {
+        return;
+    }
+
     const paymentDateParts = props.paymentOccurrence
         ? parseIsoDateParts(form.transaction_date)
         : null;

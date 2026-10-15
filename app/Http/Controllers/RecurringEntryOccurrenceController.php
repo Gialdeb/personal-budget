@@ -58,7 +58,11 @@ class RecurringEntryOccurrenceController extends Controller
 
         $transaction = $this->postingService->post($ownedOccurrence, $request->user(), $request->validated());
 
-        return to_route('recurring-entries.show', $recurringEntry->uuid)
+        return to_route('transactions.show', [
+            'year' => $transaction->transaction_date->year,
+            'month' => $transaction->transaction_date->month,
+            'highlight' => $transaction->uuid,
+        ])
             ->with('success', __('transactions.flash.recurring_occurrence_converted', [
                 'uuid' => $transaction->uuid,
             ]));

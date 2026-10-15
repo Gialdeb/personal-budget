@@ -24,6 +24,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import { useNavigationFeedback } from '@/composables/useNavigationFeedback';
 import { useUiCopy } from '@/i18n/ui-copy';
 import { budgetPlanning, dashboard, reports } from '@/routes';
 import { edit as accountsEdit } from '@/routes/accounts';
@@ -40,6 +41,7 @@ import { show as transactionsShow } from '@/routes/transactions';
 import type { Auth, TransactionsNavigation } from '@/types';
 
 const ui = useUiCopy();
+const { isPending } = useNavigationFeedback();
 
 type RouteSection =
     | 'dashboard'
@@ -352,6 +354,10 @@ function handlePrimaryAction(): void {
                     type="button"
                     class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                     data-app-touch-target
+                    :aria-busy="isPending(dashboard().url) || undefined"
+                    :data-navigation-pending="
+                        isPending(dashboard().url) || undefined
+                    "
                     @click="visitShellTarget(dashboard().url)"
                     :class="
                         isSectionActive('dashboard')
@@ -401,6 +407,12 @@ function handlePrimaryAction(): void {
                                 type="button"
                                 class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                                 data-app-touch-target
+                                :aria-busy="
+                                    isPending(transactionsHref.url) || undefined
+                                "
+                                :data-navigation-pending="
+                                    isPending(transactionsHref.url) || undefined
+                                "
                                 @click="
                                     isDestinationsOpen = false;
                                     visitShellTarget(transactionsHref.url);
@@ -434,6 +446,14 @@ function handlePrimaryAction(): void {
                                 type="button"
                                 class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                                 data-app-touch-target
+                                :aria-busy="
+                                    isPending(sharedExpensesHref.url) ||
+                                    undefined
+                                "
+                                :data-navigation-pending="
+                                    isPending(sharedExpensesHref.url) ||
+                                    undefined
+                                "
                                 @click="
                                     isDestinationsOpen = false;
                                     visitShellTarget(sharedExpensesHref.url);
@@ -470,6 +490,12 @@ function handlePrimaryAction(): void {
                                 type="button"
                                 class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                                 data-app-touch-target
+                                :aria-busy="
+                                    isPending(creditsDebtsHref.url) || undefined
+                                "
+                                :data-navigation-pending="
+                                    isPending(creditsDebtsHref.url) || undefined
+                                "
                                 @click="
                                     isDestinationsOpen = false;
                                     visitShellTarget(creditsDebtsHref.url);
@@ -503,6 +529,12 @@ function handlePrimaryAction(): void {
                                 type="button"
                                 class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                                 data-app-touch-target
+                                :aria-busy="
+                                    isPending(recurringHref.url) || undefined
+                                "
+                                :data-navigation-pending="
+                                    isPending(recurringHref.url) || undefined
+                                "
                                 @click="
                                     isDestinationsOpen = false;
                                     visitShellTarget(recurringHref.url);
@@ -536,6 +568,12 @@ function handlePrimaryAction(): void {
                                 type="button"
                                 class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                                 data-app-touch-target
+                                :aria-busy="
+                                    isPending(budgetPlanning().url) || undefined
+                                "
+                                :data-navigation-pending="
+                                    isPending(budgetPlanning().url) || undefined
+                                "
                                 @click="
                                     isDestinationsOpen = false;
                                     visitShellTarget(budgetPlanning().url);
@@ -596,6 +634,14 @@ function handlePrimaryAction(): void {
                                 type="button"
                                 class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                                 data-app-touch-target
+                                :aria-busy="
+                                    isPending(transactionsCreateHref.url) ||
+                                    undefined
+                                "
+                                :data-navigation-pending="
+                                    isPending(transactionsCreateHref.url) ||
+                                    undefined
+                                "
                                 @click="
                                     isPrimaryActionsOpen = false;
                                     visitShellTarget(
@@ -635,6 +681,14 @@ function handlePrimaryAction(): void {
                                 type="button"
                                 class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                                 data-app-touch-target
+                                :aria-busy="
+                                    isPending(recurringCreateHref.url) ||
+                                    undefined
+                                "
+                                :data-navigation-pending="
+                                    isPending(recurringCreateHref.url) ||
+                                    undefined
+                                "
                                 @click="
                                     isPrimaryActionsOpen = false;
                                     visitShellTarget(recurringCreateHref.url);
@@ -676,6 +730,10 @@ function handlePrimaryAction(): void {
                     type="button"
                     class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                     data-app-touch-target
+                    :aria-busy="isPending(reports().url) || undefined"
+                    :data-navigation-pending="
+                        isPending(reports().url) || undefined
+                    "
                     @click="visitShellTarget(reports().url)"
                     :class="
                         isSectionActive('reports')
@@ -692,6 +750,10 @@ function handlePrimaryAction(): void {
                     type="button"
                     class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                     data-app-touch-target
+                    :aria-busy="isPending(budgetPlanning().url) || undefined"
+                    :data-navigation-pending="
+                        isPending(budgetPlanning().url) || undefined
+                    "
                     @click="visitShellTarget(budgetPlanning().url)"
                     :class="
                         isSectionActive('planning')
@@ -737,6 +799,12 @@ function handlePrimaryAction(): void {
                                 type="button"
                                 class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                                 data-app-touch-target
+                                :aria-busy="
+                                    isPending(settingsHref.url) || undefined
+                                "
+                                :data-navigation-pending="
+                                    isPending(settingsHref.url) || undefined
+                                "
                                 @click="
                                     isSettingsHubOpen = false;
                                     visitShellTarget(settingsHref.url);
@@ -770,6 +838,14 @@ function handlePrimaryAction(): void {
                                 type="button"
                                 class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                                 data-app-touch-target
+                                :aria-busy="
+                                    isPending(adminLauncherHref.url) ||
+                                    undefined
+                                "
+                                :data-navigation-pending="
+                                    isPending(adminLauncherHref.url) ||
+                                    undefined
+                                "
                                 @click="
                                     isSettingsHubOpen = false;
                                     visitShellTarget(adminLauncherHref.url);
@@ -807,6 +883,10 @@ function handlePrimaryAction(): void {
                     type="button"
                     class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                     data-app-touch-target
+                    :aria-busy="isPending(settingsHref.url) || undefined"
+                    :data-navigation-pending="
+                        isPending(settingsHref.url) || undefined
+                    "
                     @click="visitShellTarget(settingsHref.url)"
                     :class="
                         isSectionActive('settings')

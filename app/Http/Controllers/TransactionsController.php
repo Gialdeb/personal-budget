@@ -10,7 +10,6 @@ use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Account;
 use App\Models\Category;
-use App\Models\RecurringEntryOccurrence;
 use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
@@ -74,9 +73,20 @@ class TransactionsController extends Controller
     {
         $user = $request->user();
         ['year' => $year, 'month' => $month] = $this->managementContextResolver->resolveTransactions($request, $user);
+        $highlight = $request->query('highlight');
+        $focusedTransaction = is_string($highlight)
+            ? Transaction::query()->where('uuid', $highlight)
+                ->whereIn('account_id', $this->accessibleAccountsQuery->ids($user))->first()
+            : null;
+
+        if ($focusedTransaction?->transaction_date !== null) {
+            $year = $focusedTransaction->transaction_date->year;
+            $month = $focusedTransaction->transaction_date->month;
+        }
 
         if ((int) $request->route('year') !== $year || (int) $request->route('month') !== $month) {
             return redirect()->route('transactions.show', [
+                ...$request->query(),
                 'year' => $year,
                 'month' => $month,
             ]);
@@ -107,7 +117,7 @@ class TransactionsController extends Controller
 
     public function store(StoreTransactionRequest $request, int $year, int $month): RedirectResponse
     {
-        DB::transaction(function () use ($request): void {
+        $created = DB::transaction(function () use ($request): Transaction|SharedExpenseLedgerEntry {
             $template = $request->filled('transaction_template_uuid')
                 ? TransactionTemplate::where('user_id', $request->user()->id)->where('is_active', true)->where('uuid', $request->validated('transaction_template_uuid'))->lockForUpdate()->firstOrFail()
                 : null;
@@ -122,16 +132,20 @@ class TransactionsController extends Controller
                     }
                 }
             }
-            $this->transactionMutationService->store($request->user(), $request->validated());
+            $created = $this->transactionMutationService->store($request->user(), $request->validated());
             if ($template) {
                 $template->forceFill(['usage_count' => $template->usage_count + 1, 'last_used_at' => now()])->save();
             }
+
+            return $created;
         });
 
-        if ($request->filled('payment_occurrence_uuid')) {
-            $occurrence = RecurringEntryOccurrence::query()->with('recurringEntry')->where('uuid', $request->validated('payment_occurrence_uuid'))->firstOrFail();
-
-            return to_route('recurring-entries.show', $occurrence->recurringEntry->uuid)->with('success', __('transactions.flash.created'));
+        if ($request->filled('payment_occurrence_uuid') && $created instanceof Transaction) {
+            return to_route('transactions.show', [
+                'year' => $created->transaction_date->year,
+                'month' => $created->transaction_date->month,
+                'highlight' => $created->uuid,
+            ])->with('success', __('transactions.flash.created'));
         }
 
         return to_route('transactions.show', [

@@ -817,7 +817,13 @@ function recurrenceState(occurrence: RecurringMonthlyOccurrence): {
     };
 }
 
+const convertingOccurrenceUuid = ref<string | null>(null);
+
 function convertRow(occurrence: RecurringMonthlyOccurrence): void {
+    if (convertingOccurrenceUuid.value !== null) {
+        return;
+    }
+
     if (!occurrence.recurring_entry || !occurrence.can_convert) {
         return;
     }
@@ -836,6 +842,7 @@ function convertRow(occurrence: RecurringMonthlyOccurrence): void {
         return;
     }
 
+    convertingOccurrenceUuid.value = occurrence.uuid;
     router.post(
         convertOccurrence.url([
             occurrence.recurring_entry.uuid,
@@ -844,6 +851,9 @@ function convertRow(occurrence: RecurringMonthlyOccurrence): void {
         {},
         {
             preserveScroll: true,
+            onFinish: () => {
+                convertingOccurrenceUuid.value = null;
+            },
         },
     );
 }

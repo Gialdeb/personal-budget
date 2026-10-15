@@ -153,7 +153,7 @@ const sharedPaymentForm = useForm({
     confirm_future_date: true,
 });
 function submitSharedPayment(): void {
-    if (!sharedPaymentOccurrence.value) {
+    if (!sharedPaymentOccurrence.value || sharedPaymentForm.processing) {
         return;
     }
 
@@ -502,7 +502,14 @@ function saveInstallmentDistribution(): void {
     );
 }
 
+const convertingOccurrenceUuid = ref<string | null>(null);
+
 function handleConvert(occurrenceUuid: string): void {
+    if (convertingOccurrenceUuid.value !== null) {
+        return;
+    }
+
+    convertingOccurrenceUuid.value = occurrenceUuid;
     router.post(
         convertOccurrence.url([entry.value.uuid, occurrenceUuid]),
         {
@@ -511,6 +518,7 @@ function handleConvert(occurrenceUuid: string): void {
         {
             preserveScroll: true,
             onFinish: () => {
+                convertingOccurrenceUuid.value = null;
                 convertDialogOccurrenceUuid.value = null;
             },
         },

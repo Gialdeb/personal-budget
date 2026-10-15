@@ -555,6 +555,8 @@ export const transactionsMessages = {
             },
             alerts: {
                 periodNotCurrent: 'Periodo non corrente',
+                focusMissing:
+                    'Il movimento richiesto non è disponibile in questo registro. Controlla se è stato eliminato o se il conto è ancora accessibile.',
                 operationCompleted: 'Operazione completata',
                 closedYear: 'Anno chiuso',
             },
@@ -1381,6 +1383,8 @@ export const transactionsMessages = {
             },
             alerts: {
                 periodNotCurrent: 'Period not current',
+                focusMissing:
+                    'The requested transaction is not available in this register. Check whether it was deleted or whether the account is still accessible.',
                 operationCompleted: 'Operation completed',
                 closedYear: 'Closed year',
             },

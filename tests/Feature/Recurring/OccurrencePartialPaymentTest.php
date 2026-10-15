@@ -291,7 +291,8 @@ test('manual occurrence payments use the normal transaction store and preserve a
     $payload = ['payment_occurrence_uuid' => $occurrence->uuid, 'transaction_day' => 10, 'type_key' => $direction,
         'account_uuid' => $entry->account->uuid, 'category_uuid' => $category->uuid, 'amount' => '450.00', 'description' => 'Pagamento affitto'];
     $url = route('transactions.store', ['year' => 2026, 'month' => 10]);
-    $this->post($url, $payload)->assertSessionHasNoErrors()->assertRedirect(route('recurring-entries.show', $entry->uuid));
+    $response = $this->post($url, $payload)->assertSessionHasNoErrors();
+    $response->assertRedirect(route('transactions.show', ['year' => 2026, 'month' => 10, 'highlight' => Transaction::latest('id')->firstOrFail()->uuid]));
     expect(Transaction::count())->toBe(1)->and($occurrence->remainingPaymentCents())->toBe(5000)
         ->and($occurrence->fresh()->expected_amount)->toBe('500.00');
     $balanceAfterAdvance = $entry->account->fresh()->current_balance;
