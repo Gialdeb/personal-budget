@@ -251,6 +251,7 @@ class ProfileController extends Controller
             $this->storePushPreference(
                 $user,
                 (bool) data_get($request->validated(), 'push.enabled', true),
+                $request->validated('push.daily_expense_reminder_enabled'),
             );
         }
 
@@ -274,7 +275,7 @@ class ProfileController extends Controller
 
         $request->session()->put('push_device_token_uuid', $deviceRegistration['device_token']->uuid);
 
-        $this->storePushPreference($user, true);
+        $this->storePushPreference($user, true, timezone: $request->validated('timezone'));
 
         return response()->json([
             'message' => __('settings.profile.push_web.flash.enabled'),
@@ -490,6 +491,7 @@ class ProfileController extends Controller
                 'visible' => (bool) config('features.push_notifications.enabled')
                     && (bool) config('features.push_notifications.profile_enabled'),
                 'enabled' => (bool) data_get($user->settings?->settings, 'notifications.push.enabled', true),
+                'daily_expense_reminder_enabled' => $user->dailyExpenseReminderEnabled(),
                 'active_tokens_count' => app(DeviceTokenService::class)->activeBroadcastTokenCountForUser($user),
             ],
             'categories' => $categories
@@ -536,7 +538,7 @@ class ProfileController extends Controller
         ];
     }
 
-    protected function storePushPreference(User $user, bool $enabled): void
+    protected function storePushPreference(User $user, bool $enabled, ?bool $dailyExpenseReminderEnabled = null, ?string $timezone = null): void
     {
         /** @var UserSetting $settings */
         $settings = UserSetting::query()->firstOrNew([
@@ -549,6 +551,14 @@ class ProfileController extends Controller
 
         $currentSettings = $settings->settings ?? [];
         data_set($currentSettings, 'notifications.push.enabled', $enabled);
+
+        if ($dailyExpenseReminderEnabled !== null) {
+            data_set($currentSettings, 'notifications.push.daily_expense_reminder_enabled', $dailyExpenseReminderEnabled);
+        }
+
+        if ($timezone !== null) {
+            data_set($currentSettings, 'timezone', $timezone);
+        }
 
         $settings->forceFill([
             'settings' => $currentSettings,

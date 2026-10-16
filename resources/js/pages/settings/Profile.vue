@@ -96,6 +96,7 @@ type Props = {
         push: {
             visible: boolean;
             enabled: boolean;
+            daily_expense_reminder_enabled: boolean;
             active_tokens_count: number;
         };
         categories: Array<{
@@ -230,6 +231,8 @@ const baseCurrencyForm = useForm({
 const notificationPreferencesForm = useForm({
     push: {
         enabled: props.notification_preferences.push.enabled,
+        daily_expense_reminder_enabled:
+            props.notification_preferences.push.daily_expense_reminder_enabled,
     },
     categories: props.notification_preferences.categories.map((category) => ({
         uuid: category.uuid,
@@ -537,9 +540,13 @@ watch(
 
         notificationPreferencesForm.defaults('push', {
             enabled: notificationPreferences.push.enabled,
+            daily_expense_reminder_enabled:
+                notificationPreferences.push.daily_expense_reminder_enabled,
         });
         notificationPreferencesForm.push = {
             enabled: notificationPreferences.push.enabled,
+            daily_expense_reminder_enabled:
+                notificationPreferences.push.daily_expense_reminder_enabled,
         };
         pushWebActiveTokensCount.value =
             notificationPreferences.push.active_tokens_count;
@@ -859,10 +866,13 @@ function applyPushPreferenceState(
     activeTokensCount: number,
 ): void {
     notificationPreferencesForm.push = {
+        ...notificationPreferencesForm.push,
         enabled,
     };
     notificationPreferencesForm.defaults('push', {
         enabled,
+        daily_expense_reminder_enabled:
+            props.notification_preferences.push.daily_expense_reminder_enabled,
     });
     pushWebActiveTokensCount.value = activeTokensCount;
 }
@@ -1143,6 +1153,7 @@ async function togglePushWebPreference(): Promise<void> {
                     token,
                     platform: 'web',
                     locale: props.preferences.locale,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                     device_identifier: getOrCreatePushDeviceIdentifier(),
                 },
             );
@@ -2419,7 +2430,10 @@ function formatSupportAmount(amount: string, currency: string): string {
 
                 <div class="space-y-6 px-8 py-8">
                     <div
-                        v-if="notificationCategories.length === 0"
+                        v-if="
+                            notificationCategories.length === 0 &&
+                            !props.notification_preferences.push.visible
+                        "
                         class="rounded-[1.75rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60"
                     >
                         <h2
@@ -2560,6 +2574,71 @@ function formatSupportAmount(amount: string, currency: string): string {
                                         : ui('Invia notifica di prova')
                                 }}
                             </Button>
+                        </article>
+
+                        <article
+                            v-if="props.notification_preferences.push.visible"
+                            class="flex flex-col gap-5 rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 lg:flex-row lg:items-center lg:justify-between dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <div class="max-w-2xl space-y-2">
+                                <h3
+                                    class="text-base font-semibold text-slate-950 dark:text-slate-50"
+                                >
+                                    {{
+                                        t(
+                                            'settings.profile.notifications.daily_expense.title',
+                                        )
+                                    }}
+                                </h3>
+                                <p
+                                    class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'settings.profile.notifications.daily_expense.description',
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                role="switch"
+                                :aria-checked="
+                                    notificationPreferencesForm.push
+                                        .daily_expense_reminder_enabled
+                                "
+                                :aria-label="
+                                    t(
+                                        'settings.profile.notifications.daily_expense.title',
+                                    )
+                                "
+                                :disabled="
+                                    notificationPreferencesForm.processing
+                                "
+                                data-test="daily-expense-reminder-toggle"
+                                class="inline-flex h-7 w-12 shrink-0 items-center rounded-full px-1 transition-colors disabled:opacity-50"
+                                :class="
+                                    notificationPreferencesForm.push
+                                        .daily_expense_reminder_enabled
+                                        ? 'bg-violet-600'
+                                        : 'bg-slate-300 dark:bg-slate-700'
+                                "
+                                @click="
+                                    notificationPreferencesForm.push.daily_expense_reminder_enabled =
+                                        !notificationPreferencesForm.push
+                                            .daily_expense_reminder_enabled
+                                "
+                            >
+                                <span
+                                    class="h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
+                                    :class="
+                                        notificationPreferencesForm.push
+                                            .daily_expense_reminder_enabled
+                                            ? 'translate-x-5'
+                                            : 'translate-x-0'
+                                    "
+                                />
+                            </button>
                         </article>
 
                         <article

@@ -135,6 +135,9 @@ return [
         ],
     ],
     'reminders' => [
+        'daily_expense' => [
+            'body' => "A little reminder 💜 Don't forget to log today's expenses!",
+        ],
         'cta' => [
             'open' => 'Open details',
         ],

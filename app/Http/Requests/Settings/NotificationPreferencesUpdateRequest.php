@@ -39,6 +39,7 @@ class NotificationPreferencesUpdateRequest extends FormRequest
             'categories.*.in_app_enabled' => ['nullable', 'boolean'],
             'push' => [$pushNotificationsEnabled ? 'nullable' : 'prohibited', 'array'],
             'push.enabled' => [$pushNotificationsEnabled ? 'nullable' : 'prohibited', 'boolean'],
+            'push.daily_expense_reminder_enabled' => [$pushNotificationsEnabled ? 'sometimes' : 'prohibited', 'boolean'],
         ];
     }
 
@@ -57,6 +58,7 @@ class NotificationPreferencesUpdateRequest extends FormRequest
             'categories.*.in_app_enabled.boolean' => __('settings.profile.notifications.validation.invalid_value'),
             'push.array' => __('settings.profile.notifications.validation.invalid_value'),
             'push.enabled.boolean' => __('settings.profile.notifications.validation.invalid_value'),
+            'push.daily_expense_reminder_enabled.boolean' => __('settings.profile.notifications.validation.invalid_value'),
             'push.prohibited' => __('settings.profile.notifications.validation.invalid_value'),
             'push.enabled.prohibited' => __('settings.profile.notifications.validation.invalid_value'),
         ];

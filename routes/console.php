@@ -58,6 +58,12 @@ Schedule::command('reminders:daily')
     ->onOneServer()
     ->name('daily-reminders');
 
+Schedule::command('reminders:daily-expenses')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->name('daily-expense-reminders');
+
 Schedule::job(new RunFullBackupJob)
     ->dailyAt('02:00')
     ->withoutOverlapping()

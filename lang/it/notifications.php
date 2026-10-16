@@ -135,6 +135,9 @@ return [
         ],
     ],
     'reminders' => [
+        'daily_expense' => [
+            'body' => 'Un piccolo promemoria 💜 Ricordati di registrare le spese di oggi!',
+        ],
         'cta' => [
             'open' => 'Apri dettaglio',
         ],

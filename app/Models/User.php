@@ -311,6 +311,11 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
         return (bool) data_get($this->settings?->settings, 'notifications.push.enabled', true);
     }
 
+    public function dailyExpenseReminderEnabled(): bool
+    {
+        return (bool) data_get($this->settings?->settings, 'notifications.push.daily_expense_reminder_enabled', true);
+    }
+
     public function ownedHouseholds(): HasMany
     {
         return $this->hasMany(Household::class, 'owner_user_id');

@@ -220,6 +220,11 @@ export const settingsMessages = {
             },
             notifications: {
                 title: 'Preferenze notifiche',
+                daily_expense: {
+                    title: 'Promemoria spese giornaliero',
+                    description:
+                        'Un promemoria push alle 21:00 nel tuo fuso orario per registrare le spese di oggi. Richiede le notifiche push attive.',
+                },
                 description:
                     'Scegli quali aggiornamenti opzionali vuoi ricevere via email o vedere nella dashboard.',
                 save: 'Salva preferenze notifiche',
@@ -843,6 +848,11 @@ export const settingsMessages = {
             },
             notifications: {
                 title: 'Notification preferences',
+                daily_expense: {
+                    title: 'Daily expense reminder',
+                    description:
+                        'A push reminder at 21:00 in your local time to log today’s expenses. Requires push notifications to be enabled.',
+                },
                 description:
                     'Choose which optional updates you want to receive by email or see in your dashboard.',
                 save: 'Save notification preferences',

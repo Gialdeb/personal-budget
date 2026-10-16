@@ -967,6 +967,7 @@ export async function synchronizeCurrentBrowserPushRegistration({
             token,
             platform: 'web',
             locale: locale ?? undefined,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             device_identifier: getOrCreatePushDeviceIdentifier(),
             service_worker_version: readCurrentServiceWorkerVersion(),
         });

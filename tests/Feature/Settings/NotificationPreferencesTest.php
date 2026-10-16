@@ -251,3 +251,71 @@ test('profile page can render an empty configurable notifications state', functi
             ->where('notification_preferences.categories', [])
         );
 });
+
+test('daily expense reminder defaults to enabled and can be disabled independently', function () {
+    config()->set('features.push_notifications.enabled', true);
+    config()->set('features.push_notifications.profile_enabled', true);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get(route('profile.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('notification_preferences.push.daily_expense_reminder_enabled', true));
+
+    $this->patch(route('settings.profile.notification-preferences.update'), [
+        'categories' => [],
+        'push' => ['enabled' => true, 'daily_expense_reminder_enabled' => false],
+    ])->assertSessionHasNoErrors();
+
+    expect($user->fresh()->dailyExpenseReminderEnabled())->toBeFalse()
+        ->and($user->fresh()->pushNotificationsEnabled())->toBeTrue();
+
+    $this->patch(route('settings.profile.notification-preferences.update'), [
+        'categories' => [], 'push' => ['enabled' => false],
+    ])->assertSessionHasNoErrors();
+    expect($user->fresh()->dailyExpenseReminderEnabled())->toBeFalse();
+
+    $this->patch(route('settings.profile.notification-preferences.update'), [
+        'categories' => [], 'push' => ['enabled' => false, 'daily_expense_reminder_enabled' => true],
+    ])->assertSessionHasNoErrors();
+    expect($user->fresh()->dailyExpenseReminderEnabled())->toBeTrue()
+        ->and($user->fresh()->pushNotificationsEnabled())->toBeFalse();
+});
+
+test('daily expense reminder rejects invalid boolean preferences', function () {
+    config()->set('features.push_notifications.enabled', true);
+    config()->set('features.push_notifications.profile_enabled', true);
+    $this->actingAs(User::factory()->create())
+        ->patch(route('settings.profile.notification-preferences.update'), [
+            'categories' => [], 'push' => ['daily_expense_reminder_enabled' => 'invalid'],
+        ])->assertSessionHasErrors('push.daily_expense_reminder_enabled');
+});
+
+test('push registration stores the validated local timezone without resetting the reminder', function () {
+    config()->set('features.push_notifications.enabled', true);
+    $user = User::factory()->create();
+    $user->settings()->create(['settings' => [
+        'timezone' => 'Europe/Rome',
+        'notifications' => ['push' => ['daily_expense_reminder_enabled' => false]],
+        'dashboard' => ['savings_mode' => 'net_remaining'],
+    ]]);
+
+    $this->actingAs($user)->postJson(route('settings.profile.push-tokens.store'), [
+        'token' => 'daily-reminder-browser-token', 'platform' => 'web', 'timezone' => 'America/New_York',
+    ])->assertSuccessful();
+
+    expect(data_get($user->fresh()->settings->settings, 'timezone'))->toBe('America/New_York')
+        ->and($user->fresh()->dailyExpenseReminderEnabled())->toBeFalse()
+        ->and(data_get($user->fresh()->settings->settings, 'dashboard.savings_mode'))->toBe('net_remaining');
+
+    $this->postJson(route('settings.profile.push-tokens.store'), [
+        'token' => 'daily-reminder-browser-token', 'platform' => 'web',
+    ])->assertSuccessful();
+    expect(data_get($user->fresh()->settings->settings, 'timezone'))->toBe('America/New_York');
+});
+
+test('push registration rejects invalid timezones', function () {
+    config()->set('features.push_notifications.enabled', true);
+    $this->actingAs(User::factory()->create())->postJson(route('settings.profile.push-tokens.store'), [
+        'token' => 'daily-reminder-browser-token', 'platform' => 'web', 'timezone' => 'invalid',
+    ])->assertJsonValidationErrors('timezone');
+});

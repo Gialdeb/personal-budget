@@ -21,6 +21,7 @@ class StorePushDeviceTokenRequest extends FormRequest
             'token' => ['required', 'string', 'max:4096'],
             'platform' => ['required', 'string', 'in:web'],
             'locale' => ['nullable', 'string', 'max:12'],
+            'timezone' => ['nullable', 'string', 'timezone:all'],
             'device_identifier' => ['nullable', 'string', 'max:120'],
             'service_worker_version' => ['nullable', 'string', 'max:64'],
         ];

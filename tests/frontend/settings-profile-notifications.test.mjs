@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import ts from 'typescript';
 
 const profileSource = readFileSync(
     new URL('../../resources/js/pages/settings/Profile.vue', import.meta.url),
@@ -13,7 +14,10 @@ test('settings profile renders notification preferences section and save action'
         profileSource,
         /settings\.profile\.notifications\.description/,
     );
-    assert.match(profileSource, /settings\.profile\.notifications\.push\.title/);
+    assert.match(
+        profileSource,
+        /settings\.profile\.notifications\.push\.title/,
+    );
     assert.match(profileSource, /settings\.profile\.notifications\.save/);
     assert.match(profileSource, /updateNotificationPreferencesAction/);
     assert.doesNotMatch(profileSource, /Token attivi disponibili/);
@@ -104,4 +108,52 @@ test('settings profile keeps administrative support consent readable on mobile',
         profileSource,
         /inline-flex rounded-full px-3 py-1 text-xs font-medium/,
     );
+});
+
+test('daily expense reminder toggle uses the existing notification preferences form', () => {
+    assert.match(profileSource, /data-test="daily-expense-reminder-toggle"/);
+    assert.match(profileSource, /role="switch"/);
+    assert.match(
+        profileSource,
+        /:aria-checked="\s*notificationPreferencesForm\.push\s*\.daily_expense_reminder_enabled\s*"/,
+    );
+    assert.match(
+        profileSource,
+        /settings\.profile\.notifications\.daily_expense\.description/,
+    );
+    assert.match(
+        profileSource,
+        /timezone: Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/,
+    );
+});
+
+test('daily expense reminder copy is available in both profile locales', async () => {
+    const source = readFileSync(
+        new URL(
+            '../../resources/js/i18n/messages/settings.ts',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const compiled = ts.transpile(source, { module: ts.ModuleKind.ESNext });
+    const { settingsMessages } = await import(
+        `data:text/javascript,${encodeURIComponent(compiled)}`
+    );
+
+    assert.equal(
+        settingsMessages.it.profile.notifications.daily_expense.title,
+        'Promemoria spese giornaliero',
+    );
+    assert.equal(
+        settingsMessages.en.profile.notifications.daily_expense.title,
+        'Daily expense reminder',
+    );
+
+    for (const locale of ['it', 'en']) {
+        assert.match(
+            settingsMessages[locale].profile.notifications.daily_expense
+                .description,
+            /21:00/,
+        );
+    }
 });
