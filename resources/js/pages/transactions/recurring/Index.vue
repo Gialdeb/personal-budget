@@ -1590,21 +1590,21 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
             </section>
 
             <section
-                class="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 shadow-sm dark:border-white/10 dark:bg-slate-950/85"
+                class="overflow-hidden rounded-[28px] border border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
             >
                 <div
-                    class="flex flex-col gap-5 border-b border-slate-200/70 p-5 lg:p-6 dark:border-white/10"
+                    class="flex flex-col gap-4 border-b border-slate-200/70 bg-slate-50/70 p-4 sm:p-5 dark:border-white/10 dark:bg-slate-900/60"
                 >
                     <div
-                        class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
+                        class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
                     >
-                        <div class="space-y-2">
+                        <div class="space-y-1">
                             <div class="flex items-center gap-2">
                                 <Filter
                                     class="size-4 text-slate-500 dark:text-slate-400"
                                 />
                                 <h2
-                                    class="text-xl font-semibold text-slate-950 dark:text-white"
+                                    class="text-lg font-semibold text-slate-950 dark:text-white"
                                 >
                                     {{
                                         t('transactions.recurring.table.title')
@@ -1626,34 +1626,61 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                             </p>
                         </div>
 
-                        <Button
-                            variant="outline"
-                            class="h-11 rounded-2xl px-4 md:hidden"
-                            :aria-expanded="!isFiltersCollapsed"
-                            @click="isFiltersCollapsed = !isFiltersCollapsed"
-                        >
-                            <ChevronUp
-                                v-if="!isFiltersCollapsed"
-                                class="mr-2 size-4"
-                            />
-                            <ChevronDown v-else class="mr-2 size-4" />
-                            {{
-                                isFiltersCollapsed
-                                    ? t(
-                                          'transactions.recurring.actions.expandFilters',
-                                      )
-                                    : t(
-                                          'transactions.recurring.actions.collapseFilters',
-                                      )
-                            }}
-                        </Button>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <Button
+                                variant="ghost"
+                                class="h-11 shrink-0 rounded-2xl px-3 text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                                :class="
+                                    isFiltersCollapsed
+                                        ? 'hidden md:inline-flex'
+                                        : 'inline-flex'
+                                "
+                                @click="resetFilters"
+                            >
+                                <RotateCcw class="mr-2 size-4" />
+                                {{
+                                    t(
+                                        'transactions.recurring.actions.resetFilters',
+                                    )
+                                }}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                class="h-11 rounded-2xl px-4 md:hidden"
+                                :aria-expanded="!isFiltersCollapsed"
+                                @click="
+                                    isFiltersCollapsed = !isFiltersCollapsed
+                                "
+                            >
+                                <ChevronUp
+                                    v-if="!isFiltersCollapsed"
+                                    class="mr-2 size-4"
+                                />
+                                <ChevronDown v-else class="mr-2 size-4" />
+                                {{
+                                    isFiltersCollapsed
+                                        ? t(
+                                              'transactions.recurring.actions.expandFilters',
+                                          )
+                                        : t(
+                                              'transactions.recurring.actions.collapseFilters',
+                                          )
+                                }}
+                            </Button>
+                        </div>
                     </div>
 
-                    <div class="grid gap-3">
-                        <div class="grid gap-2 md:max-w-xl">
-                            <Label for="recurring-search">{{
-                                ui('Cerca')
-                            }}</Label>
+                    <div
+                        class="grid min-w-0 gap-4 md:grid-cols-3 xl:grid-cols-6"
+                    >
+                        <div
+                            class="col-span-full grid min-w-0 gap-2 md:col-span-2 xl:col-span-4"
+                        >
+                            <Label
+                                for="recurring-search"
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                >{{ ui('Cerca') }}</Label
+                            >
                             <div class="relative">
                                 <Search
                                     class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
@@ -1661,7 +1688,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 <Input
                                     id="recurring-search"
                                     v-model="searchQuery"
-                                    class="h-11 w-full rounded-2xl pr-10 pl-9"
+                                    class="h-11 w-full rounded-2xl border-slate-300 bg-white pr-10 pl-9 shadow-sm dark:border-white/15 dark:bg-slate-950/70"
                                     :placeholder="
                                         ui('Cerca movimenti programmati...')
                                     "
@@ -1679,17 +1706,24 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         </div>
 
                         <div
-                            class="gap-3 md:grid md:grid-cols-3 xl:grid-cols-6"
+                            class="col-span-full min-w-0 gap-3 md:contents"
                             :class="
                                 isFiltersCollapsed
-                                    ? 'hidden md:grid'
+                                    ? 'hidden md:contents'
                                     : 'grid grid-cols-1 sm:grid-cols-2'
                             "
                         >
-                            <div class="hidden gap-2 md:grid">
-                                <Label>{{
-                                    t('transactions.recurring.filters.account')
-                                }}</Label>
+                            <div
+                                class="hidden min-w-0 gap-2 md:grid xl:col-span-2"
+                            >
+                                <Label
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >{{
+                                        t(
+                                            'transactions.recurring.filters.account',
+                                        )
+                                    }}</Label
+                                >
                                 <Select
                                     :model-value="accountFilter"
                                     @update:model-value="
@@ -1699,7 +1733,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                     "
                                 >
                                     <SelectTrigger
-                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 bg-white text-sm data-[size=default]:h-11 dark:border-white/10 dark:bg-slate-950/70"
                                     >
                                         <div
                                             class="flex min-w-0 items-center gap-2 text-sm"
@@ -1772,14 +1806,17 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 </Select>
                             </div>
 
-                            <div class="grid gap-2">
-                                <Label>{{ ui('Spese condivise') }}</Label>
+                            <div class="grid min-w-0 gap-2">
+                                <Label
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >{{ ui('Spese condivise') }}</Label
+                                >
                                 <Select
                                     v-model="sharedExpenseFilter"
                                     @update:model-value="applySearch"
                                 >
                                     <SelectTrigger
-                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 bg-white text-sm data-[size=default]:h-11 dark:border-white/10 dark:bg-slate-950/70"
                                     >
                                         <SelectValue />
                                     </SelectTrigger>
@@ -1797,15 +1834,18 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 </Select>
                             </div>
 
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t(
-                                        'transactions.recurring.filters.entryType',
-                                    )
-                                }}</Label>
+                            <div class="grid min-w-0 gap-2">
+                                <Label
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >{{
+                                        t(
+                                            'transactions.recurring.filters.entryType',
+                                        )
+                                    }}</Label
+                                >
                                 <Select v-model="entryTypeFilter">
                                     <SelectTrigger
-                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 bg-white text-sm data-[size=default]:h-11 dark:border-white/10 dark:bg-slate-950/70"
                                     >
                                         <SelectValue
                                             :placeholder="
@@ -1835,13 +1875,18 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 </Select>
                             </div>
 
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t('transactions.recurring.filters.status')
-                                }}</Label>
+                            <div class="grid min-w-0 gap-2">
+                                <Label
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >{{
+                                        t(
+                                            'transactions.recurring.filters.status',
+                                        )
+                                    }}</Label
+                                >
                                 <Select v-model="statusFilter">
                                     <SelectTrigger
-                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 bg-white text-sm data-[size=default]:h-11 dark:border-white/10 dark:bg-slate-950/70"
                                     >
                                         <SelectValue
                                             :placeholder="
@@ -1871,15 +1916,18 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 </Select>
                             </div>
 
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t(
-                                        'transactions.recurring.filters.direction',
-                                    )
-                                }}</Label>
+                            <div class="grid min-w-0 gap-2">
+                                <Label
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >{{
+                                        t(
+                                            'transactions.recurring.filters.direction',
+                                        )
+                                    }}</Label
+                                >
                                 <Select v-model="directionFilter">
                                     <SelectTrigger
-                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 bg-white text-sm data-[size=default]:h-11 dark:border-white/10 dark:bg-slate-950/70"
                                     >
                                         <SelectValue
                                             :placeholder="
@@ -1909,15 +1957,18 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 </Select>
                             </div>
 
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t(
-                                        'transactions.recurring.filters.conversion',
-                                    )
-                                }}</Label>
+                            <div class="grid min-w-0 gap-2">
+                                <Label
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >{{
+                                        t(
+                                            'transactions.recurring.filters.conversion',
+                                        )
+                                    }}</Label
+                                >
                                 <Select v-model="conversionFilter">
                                     <SelectTrigger
-                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 bg-white text-sm data-[size=default]:h-11 dark:border-white/10 dark:bg-slate-950/70"
                                     >
                                         <SelectValue
                                             :placeholder="
@@ -1947,13 +1998,18 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 </Select>
                             </div>
 
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t('transactions.recurring.filters.refund')
-                                }}</Label>
+                            <div class="grid min-w-0 gap-2">
+                                <Label
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >{{
+                                        t(
+                                            'transactions.recurring.filters.refund',
+                                        )
+                                    }}</Label
+                                >
                                 <Select v-model="refundFilter">
                                     <SelectTrigger
-                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 bg-white text-sm data-[size=default]:h-11 dark:border-white/10 dark:bg-slate-950/70"
                                     >
                                         <SelectValue
                                             :placeholder="
@@ -1981,26 +2037,6 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         }}</SelectItem>
                                     </SelectContent>
                                 </Select>
-                            </div>
-
-                            <div class="grid gap-2">
-                                <Label class="opacity-0 md:opacity-0">{{
-                                    t(
-                                        'transactions.recurring.actions.resetFilters',
-                                    )
-                                }}</Label>
-                                <Button
-                                    variant="outline"
-                                    class="h-10 rounded-2xl px-4 md:h-11"
-                                    @click="resetFilters"
-                                >
-                                    <RotateCcw class="mr-2 size-4" />
-                                    {{
-                                        t(
-                                            'transactions.recurring.actions.resetFilters',
-                                        )
-                                    }}
-                                </Button>
                             </div>
                         </div>
                     </div>

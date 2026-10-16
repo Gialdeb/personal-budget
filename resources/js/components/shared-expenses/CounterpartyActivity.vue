@@ -36,6 +36,7 @@ export type Payment = {
     is_return: boolean;
     is_legacy: boolean;
     scope: string;
+    revision_of_uuid?: string | null;
     allocations: { obligation_uuid: string; amount: string }[];
 };
 export type Activity = { date: string; state: string } & (
@@ -50,6 +51,7 @@ export type Activity = { date: string; state: string } & (
 );
 const props = defineProps<{
     rows: Activity[];
+    obligations: (Claim & { title: string })[];
     relation: {
         name: string;
         precision: number;
@@ -65,6 +67,9 @@ const emit = defineEmits<{
 }>();
 const ui = useUiCopy();
 const { locale } = useI18n();
+const obligationsByUuid = computed(
+    () => new Map(props.obligations.map((claim) => [claim.uuid, claim])),
+);
 const money = (minor: string | bigint) =>
     props.relation.amounts_available === false
         ? '—'
@@ -132,6 +137,76 @@ function tone(row: Activity): string {
         ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
         : 'bg-rose-500/10 text-rose-700 dark:text-rose-300';
 }
+function title(row: Activity): string {
+    if (row.kind === 'compensation') {
+        return ui('Compensazione');
+    }
+
+    if (row.kind !== 'payment') {
+        return row.title;
+    }
+
+    if (row.is_return) {
+        return ui(
+            row.direction === 'received'
+                ? 'Rimborso ricevuto'
+                : 'Rimborso effettuato',
+        );
+    }
+
+    return ui(
+        row.direction === 'received'
+            ? 'Pagamento ricevuto'
+            : 'Pagamento effettuato',
+    );
+}
+function payer(row: Activity): string {
+    if (row.kind === 'shared') {
+        if (
+            row.expense_total_minor === null ||
+            BigInt(row.original_minor) === 0n
+        ) {
+            return ui('Quota riconosciuta · sorgente parziale');
+        }
+
+        return row.direction === 'received'
+            ? ui('Hai pagato {amount}', {
+                  amount: money(row.expense_total_minor),
+              })
+            : ui('{name} ha pagato {amount}', {
+                  name: props.relation.name,
+                  amount: money(row.expense_total_minor),
+              });
+    }
+
+    if (row.kind === 'manual') {
+        return ui(
+            row.direction === 'received'
+                ? 'Credito verso {name}'
+                : 'Debito verso {name}',
+            { name: props.relation.name },
+        );
+    }
+
+    if (row.kind === 'compensation') {
+        return ui('Senza movimento bancario');
+    }
+
+    if (row.kind !== 'payment') {
+        return ui('Spesa condivisa');
+    }
+
+    return ui(
+        row.is_return
+            ? row.direction === 'received'
+                ? '{name} ti ha restituito denaro'
+                : 'Hai restituito denaro a {name}'
+            : row.direction === 'received'
+              ? '{name} ti ha pagato'
+              : 'Hai pagato a {name}',
+        { name: props.relation.name },
+    );
+}
 </script>
 <template>
     <div class="space-y-6">
@@ -157,16 +232,33 @@ function tone(row: Activity): string {
                 <span>{{ group.label }}</span
                 ><span class="h-px flex-1 bg-border" />
             </h3>
-            <div class="space-y-3 border-l-2 border-muted pl-3 sm:pl-5">
-                <article
-                    v-for="row in group.rows"
-                    :key="`${row.kind}-${row.uuid}`"
-                    class="min-w-0 space-y-4 rounded-2xl border bg-card p-4 shadow-sm sm:p-5"
-                >
-                    <div class="flex items-start gap-3">
+            <ol class="divide-y rounded-2xl border bg-card">
+                <li v-for="row in group.rows" :key="`${row.kind}-${row.uuid}`">
+                    <article
+                        class="grid min-w-0 grid-cols-[1.75rem_2rem_minmax(0,1fr)] gap-x-2 gap-y-1 px-3 py-3 sm:grid-cols-[2rem_2.5rem_minmax(0,1fr)_auto] sm:gap-x-3 sm:px-5"
+                        :data-activity-kind="row.kind"
+                        :data-activity-uuid="row.uuid"
+                    >
+                        <time
+                            :datetime="row.date"
+                            :aria-label="dateLabel(row.date)"
+                            class="pt-1 text-center text-xs leading-5 text-muted-foreground"
+                        >
+                            <span class="block">{{
+                                new Intl.DateTimeFormat(locale, {
+                                    month: 'short',
+                                }).format(new Date(`${row.date}T12:00:00`))
+                            }}</span>
+                            <span
+                                class="block text-base font-medium tabular-nums"
+                                >{{
+                                    new Date(`${row.date}T12:00:00`).getDate()
+                                }}</span
+                            >
+                        </time>
                         <span
                             :class="sourceTone(row)"
-                            class="flex size-9 shrink-0 items-center justify-center rounded-xl"
+                            class="flex size-8 items-center justify-center rounded-xl sm:size-10"
                         >
                             <component
                                 :is="
@@ -180,280 +272,584 @@ function tone(row: Activity): string {
                                             ? Receipt
                                             : HandCoins
                                 "
-                                class="size-4"
+                                class="size-4 sm:size-5"
                                 aria-hidden="true"
                             />
                         </span>
-                        <div class="min-w-0 flex-1">
-                            <div
-                                class="flex flex-wrap items-center justify-between gap-2"
+                        <div class="min-w-0 space-y-1">
+                            <h4
+                                class="text-sm font-semibold wrap-anywhere sm:text-base"
                             >
-                                <h4 class="font-semibold break-words">
+                                {{ title(row) }}
+                            </h4>
+                            <p
+                                class="text-sm wrap-anywhere text-muted-foreground"
+                            >
+                                {{ payer(row) }}
+                            </p>
+                            <p
+                                v-if="
+                                    row.kind === 'shared' &&
+                                    row.my_share_minor !== null
+                                "
+                                class="text-xs text-muted-foreground"
+                            >
+                                {{ ui('La tua quota') }}:
+                                {{ money(row.my_share_minor) }}
+                            </p>
+                            <p
+                                v-if="row.kind === 'manual'"
+                                class="text-xs text-muted-foreground"
+                            >
+                                {{ ui('Importo credito/debito') }}:
+                                {{ money(row.original_minor) }}
+                            </p>
+                            <span
+                                v-if="
+                                    row.kind === 'payment' &&
+                                    row.revision_of_uuid
+                                "
+                                class="inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+                                >{{ ui('Revisione pagamento') }}</span
+                            >
+                        </div>
+                        <div
+                            class="col-start-3 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1 sm:col-start-4 sm:row-start-1 sm:block sm:max-w-56 sm:text-right"
+                        >
+                            <template
+                                v-if="
+                                    row.kind === 'shared' ||
+                                    row.kind === 'manual'
+                                "
+                            >
+                                <p
+                                    class="text-xs font-medium"
+                                    :class="
+                                        row.state === 'settled'
+                                            ? 'text-muted-foreground'
+                                            : row.direction === 'received'
+                                              ? 'text-emerald-700 dark:text-emerald-300'
+                                              : 'text-orange-700 dark:text-orange-300'
+                                    "
+                                >
                                     {{
-                                        row.kind === 'payment'
-                                            ? row.is_return
-                                                ? ui('Restituzione reale')
-                                                : row.direction === 'received'
-                                                  ? ui('Pagamento ricevuto')
-                                                  : ui('Pagamento effettuato')
-                                            : row.kind === 'compensation'
-                                              ? ui('Compensazione')
-                                              : row.title
+                                        ui(
+                                            row.direction === 'received'
+                                                ? 'Devi ricevere'
+                                                : 'Devi restituire',
+                                        )
                                     }}
-                                </h4>
+                                </p>
+                                <p
+                                    class="text-lg font-semibold whitespace-nowrap tabular-nums"
+                                    :class="
+                                        row.state === 'settled'
+                                            ? 'text-muted-foreground'
+                                            : row.direction === 'received'
+                                              ? 'text-emerald-700 dark:text-emerald-300'
+                                              : 'text-orange-700 dark:text-orange-300'
+                                    "
+                                >
+                                    {{ money(row.remaining_minor) }}
+                                </p>
+                            </template>
+                            <template v-else-if="row.kind === 'payment'">
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        ui(
+                                            row.is_return
+                                                ? 'Rimborso'
+                                                : 'Pagamento',
+                                        )
+                                    }}
+                                </p>
+                                <p
+                                    class="text-lg font-semibold whitespace-nowrap tabular-nums"
+                                    :class="
+                                        row.state === 'cancelled'
+                                            ? 'text-muted-foreground line-through'
+                                            : ''
+                                    "
+                                >
+                                    {{
+                                        money(
+                                            parseMinor(
+                                                row.amount,
+                                                relation.precision,
+                                            ) ?? 0n,
+                                        )
+                                    }}
+                                </p>
+                                <p
+                                    class="basis-full text-xs text-muted-foreground"
+                                >
+                                    <template
+                                        v-if="row.state === 'cancelled'"
+                                        >{{
+                                            ui('Non incide sul saldo')
+                                        }}</template
+                                    >
+                                    <template v-else
+                                        >{{ ui('Effetto sul saldo') }}:
+                                        {{
+                                            row.direction === 'received'
+                                                ? '−'
+                                                : '+'
+                                        }}{{
+                                            money(row.effective_minor)
+                                        }}</template
+                                    >
+                                </p>
+                            </template>
+                            <template v-else-if="row.kind === 'compensation'">
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        ui(
+                                            row.active
+                                                ? 'Saldo invariato'
+                                                : 'Non incide sul saldo',
+                                        )
+                                    }}
+                                </p>
+                                <p
+                                    class="text-lg font-semibold whitespace-nowrap tabular-nums"
+                                    :class="
+                                        !row.active
+                                            ? 'text-muted-foreground line-through'
+                                            : ''
+                                    "
+                                >
+                                    {{ money(row.amount_minor) }}
+                                </p>
+                            </template>
+                        </div>
+                        <details
+                            class="col-start-3 min-w-0 text-sm sm:col-span-2 sm:col-start-3"
+                        >
+                            <summary
+                                class="flex min-h-11 cursor-pointer flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                            >
+                                {{ ui('Dettagli')
+                                }}<span aria-hidden="true" class="ml-2">⌄</span>
+
                                 <span
-                                    class="rounded-full px-2.5 py-1 text-xs font-medium"
+                                    v-if="row.state !== 'recorded'"
+                                    class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium"
                                     :class="tone(row)"
                                     >{{ stateLabel(row.state) }}</span
                                 >
-                            </div>
-                            <p class="mt-1 text-xs text-muted-foreground">
-                                <time :datetime="row.date">{{
-                                    dateLabel(row.date)
-                                }}</time>
-                                ·
-                                {{
-                                    row.kind === 'shared'
-                                        ? ui('Spesa condivisa')
-                                        : row.kind === 'manual'
-                                          ? ui('Credito/debito manuale')
-                                          : row.kind === 'compensation'
-                                            ? ui('Senza movimento bancario')
-                                            : row.kind === 'payment'
-                                              ? row.account_name
-                                              : ''
-                                }}
+                            </summary>
+                            <div class="space-y-3 rounded-xl bg-muted/40 p-3">
+                                <p
+                                    v-if="row.kind === 'compensation'"
+                                    class="col-start-3 text-xs text-muted-foreground sm:col-span-2 sm:col-start-3"
+                                >
+                                    {{
+                                        ui(
+                                            row.active
+                                                ? 'Riduce credito e debito dello stesso importo, senza cambiare il saldo complessivo.'
+                                                : 'Compensazione stornata: i residui sono stati riaperti.',
+                                        )
+                                    }}
+                                </p>
+                                <p
+                                    v-if="
+                                        row.kind === 'payment' &&
+                                        BigInt(row.returned_minor) > 0n
+                                    "
+                                    class="col-start-3 text-xs text-muted-foreground sm:col-span-2 sm:col-start-3"
+                                >
+                                    {{
+                                        ui(
+                                            'La restituzione è mostrata separatamente nello storico.',
+                                        )
+                                    }}
+                                </p>
+
                                 <template
                                     v-if="
                                         row.kind === 'shared' ||
                                         row.kind === 'manual'
                                     "
                                 >
-                                    ·
-                                    {{
-                                        row.direction === 'received'
-                                            ? ui('A tuo favore')
-                                            : ui('Da pagare')
-                                    }}</template
+                                    <dl
+                                        class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3"
+                                    >
+                                        <div
+                                            v-if="
+                                                row.kind === 'shared' &&
+                                                row.expense_total_minor !== null
+                                            "
+                                        >
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{ ui('Importo totale') }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 font-semibold whitespace-nowrap tabular-nums"
+                                            >
+                                                {{
+                                                    money(
+                                                        row.expense_total_minor,
+                                                    )
+                                                }}
+                                            </dd>
+                                        </div>
+                                        <div
+                                            v-if="
+                                                row.kind === 'shared' &&
+                                                row.my_share_minor !== null
+                                            "
+                                        >
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{ ui('La tua quota') }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 whitespace-nowrap tabular-nums"
+                                            >
+                                                {{ money(row.my_share_minor) }}
+                                            </dd>
+                                        </div>
+                                        <div
+                                            v-if="
+                                                row.kind === 'shared' &&
+                                                row.counterparty_share_minor !==
+                                                    null
+                                            "
+                                        >
+                                            <dt
+                                                class="text-xs break-words text-muted-foreground"
+                                            >
+                                                {{
+                                                    ui('Quota {name}', {
+                                                        name: relation.name,
+                                                    })
+                                                }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 whitespace-nowrap tabular-nums"
+                                            >
+                                                {{
+                                                    money(
+                                                        row.counterparty_share_minor,
+                                                    )
+                                                }}
+                                            </dd>
+                                        </div>
+                                        <div
+                                            v-if="
+                                                row.kind === 'manual' ||
+                                                row.expense_total_minor === null
+                                            "
+                                        >
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{
+                                                    row.kind === 'manual'
+                                                        ? ui(
+                                                              'Importo credito/debito',
+                                                          )
+                                                        : ui(
+                                                              'Quota riconosciuta · sorgente parziale',
+                                                          )
+                                                }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 whitespace-nowrap tabular-nums"
+                                            >
+                                                {{ money(row.original_minor) }}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{ ui('Rimborsato') }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 whitespace-nowrap tabular-nums"
+                                            >
+                                                {{ money(row.paid_minor) }}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{
+                                                    ui(
+                                                        'Compensazioni registrate',
+                                                    )
+                                                }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 whitespace-nowrap tabular-nums"
+                                            >
+                                                {{
+                                                    money(row.compensated_minor)
+                                                }}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{ ui('Residuo') }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 font-semibold whitespace-nowrap tabular-nums"
+                                            >
+                                                {{ money(row.remaining_minor) }}
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                    <p
+                                        v-if="row.due_date"
+                                        class="text-xs text-muted-foreground"
+                                    >
+                                        {{ ui('Scadenza:') }} {{ row.due_date }}
+                                    </p>
+                                </template>
+                                <template v-else-if="row.kind === 'payment'">
+                                    <div
+                                        v-if="row.allocations.length"
+                                        class="space-y-2"
+                                    >
+                                        <h5
+                                            class="text-xs font-semibold text-muted-foreground"
+                                        >
+                                            {{
+                                                ui(
+                                                    'Spese e posizioni collegate',
+                                                )
+                                            }}
+                                        </h5>
+                                        <ul class="space-y-2">
+                                            <li
+                                                v-for="(
+                                                    allocation, index
+                                                ) in row.allocations"
+                                                :key="`${allocation.obligation_uuid}-${index}`"
+                                                class="rounded-lg border bg-card px-3 py-2 text-sm"
+                                            >
+                                                <p
+                                                    class="font-medium wrap-anywhere"
+                                                >
+                                                    {{
+                                                        obligationsByUuid.get(
+                                                            allocation.obligation_uuid,
+                                                        )?.title ??
+                                                        ui(
+                                                            'Posizione collegata',
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"
+                                                >
+                                                    <span
+                                                        v-if="
+                                                            obligationsByUuid.has(
+                                                                allocation.obligation_uuid,
+                                                            )
+                                                        "
+                                                        >{{
+                                                            dateLabel(
+                                                                obligationsByUuid.get(
+                                                                    allocation.obligation_uuid,
+                                                                )!
+                                                                    .economic_date,
+                                                            )
+                                                        }}</span
+                                                    >
+                                                    <span
+                                                        >{{
+                                                            ui(
+                                                                'Importo allocato',
+                                                            )
+                                                        }}:
+                                                        <strong
+                                                            class="font-semibold text-foreground tabular-nums"
+                                                            >{{
+                                                                money(
+                                                                    parseMinor(
+                                                                        allocation.amount,
+                                                                        relation.precision,
+                                                                    ) ?? 0n,
+                                                                )
+                                                            }}</strong
+                                                        ></span
+                                                    >
+                                                    <span
+                                                        v-if="
+                                                            obligationsByUuid.has(
+                                                                allocation.obligation_uuid,
+                                                            )
+                                                        "
+                                                        >{{
+                                                            ui(
+                                                                'Residuo attuale',
+                                                            )
+                                                        }}:
+                                                        {{
+                                                            money(
+                                                                obligationsByUuid.get(
+                                                                    allocation.obligation_uuid,
+                                                                )!
+                                                                    .remaining_minor,
+                                                            )
+                                                        }}</span
+                                                    >
+                                                </p>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <dl class="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{ ui('Collegato:') }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 whitespace-nowrap tabular-nums"
+                                            >
+                                                {{
+                                                    money(
+                                                        BigInt(
+                                                            row.effective_minor,
+                                                        ) -
+                                                            BigInt(
+                                                                row.returned_minor,
+                                                            ) -
+                                                            BigInt(
+                                                                row.unallocated_minor,
+                                                            ),
+                                                    )
+                                                }}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{ ui('Da collegare:') }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 whitespace-nowrap tabular-nums"
+                                            >
+                                                {{
+                                                    money(row.unallocated_minor)
+                                                }}
+                                            </dd>
+                                        </div>
+                                        <div
+                                            v-if="
+                                                BigInt(row.returned_minor) > 0n
+                                            "
+                                        >
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{ ui('Restituito:') }}
+                                            </dt>
+                                            <dd
+                                                class="mt-1 whitespace-nowrap tabular-nums"
+                                            >
+                                                {{ money(row.returned_minor) }}
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                    <p
+                                        v-if="row.note"
+                                        class="text-sm break-words"
+                                    >
+                                        {{ row.note }}
+                                    </p>
+                                    <div
+                                        v-if="
+                                            relation.can_manage &&
+                                            BigInt(row.effective_minor) > 0n
+                                        "
+                                        class="flex flex-wrap gap-2 border-t pt-3"
+                                    >
+                                        <template v-if="!row.is_return">
+                                            <Button
+                                                v-if="
+                                                    BigInt(
+                                                        row.returned_minor,
+                                                    ) === 0n
+                                                "
+                                                variant="outline"
+                                                size="sm"
+                                                @click="
+                                                    emit('edit', row, 'revise')
+                                                "
+                                                >{{ ui('Revisiona') }}</Button
+                                            >
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                @click="
+                                                    emit(
+                                                        'edit',
+                                                        row,
+                                                        'allocations',
+                                                    )
+                                                "
+                                                >{{
+                                                    ui('Ripartisci pagamento')
+                                                }}</Button
+                                            >
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                @click="
+                                                    emit('edit', row, 'return')
+                                                "
+                                                >{{
+                                                    ui('Restituzione reale')
+                                                }}</Button
+                                            >
+                                        </template>
+                                        <Button
+                                            v-if="
+                                                BigInt(row.returned_minor) ===
+                                                0n
+                                            "
+                                            variant="outline"
+                                            size="sm"
+                                            @click="emit('cancel', row.uuid)"
+                                            >{{
+                                                ui(
+                                                    'Annullamento amministrativo',
+                                                )
+                                            }}</Button
+                                        >
+                                    </div>
+                                </template>
+                                <template
+                                    v-else-if="row.kind === 'compensation'"
                                 >
-                            </p>
-                        </div>
-                    </div>
-                    <template
-                        v-if="row.kind === 'shared' || row.kind === 'manual'"
-                    >
-                        <dl
-                            class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3"
-                        >
-                            <div
-                                v-if="
-                                    row.kind === 'shared' &&
-                                    row.expense_total_minor !== null
-                                "
-                            >
-                                <dt class="text-xs text-muted-foreground">
-                                    {{ ui('Importo spesa') }}
-                                </dt>
-                                <dd
-                                    class="mt-1 font-semibold whitespace-nowrap tabular-nums"
-                                >
-                                    {{ money(row.expense_total_minor) }}
-                                </dd>
+                                    <Button
+                                        v-if="row.active && relation.can_manage"
+                                        variant="outline"
+                                        size="sm"
+                                        @click="emit('reverse', row.uuid)"
+                                        >{{
+                                            ui('Storna compensazione')
+                                        }}</Button
+                                    >
+                                </template>
                             </div>
-                            <div
-                                v-if="
-                                    row.kind === 'shared' &&
-                                    row.my_share_minor !== null
-                                "
-                            >
-                                <dt class="text-xs text-muted-foreground">
-                                    {{ ui('La tua quota') }}
-                                </dt>
-                                <dd class="mt-1 whitespace-nowrap tabular-nums">
-                                    {{ money(row.my_share_minor) }}
-                                </dd>
-                            </div>
-                            <div
-                                v-if="
-                                    row.kind === 'shared' &&
-                                    row.counterparty_share_minor !== null
-                                "
-                            >
-                                <dt
-                                    class="text-xs break-words text-muted-foreground"
-                                >
-                                    {{
-                                        ui('Quota {name}', {
-                                            name: relation.name,
-                                        })
-                                    }}
-                                </dt>
-                                <dd class="mt-1 whitespace-nowrap tabular-nums">
-                                    {{ money(row.counterparty_share_minor) }}
-                                </dd>
-                            </div>
-                            <div
-                                v-if="
-                                    row.kind === 'manual' ||
-                                    row.expense_total_minor === null
-                                "
-                            >
-                                <dt class="text-xs text-muted-foreground">
-                                    {{
-                                        row.kind === 'manual'
-                                            ? ui('Importo credito/debito')
-                                            : ui(
-                                                  'Quota riconosciuta · sorgente parziale',
-                                              )
-                                    }}
-                                </dt>
-                                <dd class="mt-1 whitespace-nowrap tabular-nums">
-                                    {{ money(row.original_minor) }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-muted-foreground">
-                                    {{ ui('Rimborsato') }}
-                                </dt>
-                                <dd class="mt-1 whitespace-nowrap tabular-nums">
-                                    {{ money(row.paid_minor) }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-muted-foreground">
-                                    {{ ui('Compensato') }}
-                                </dt>
-                                <dd class="mt-1 whitespace-nowrap tabular-nums">
-                                    {{ money(row.compensated_minor) }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-muted-foreground">
-                                    {{ ui('Residuo') }}
-                                </dt>
-                                <dd
-                                    class="mt-1 font-semibold whitespace-nowrap tabular-nums"
-                                >
-                                    {{ money(row.remaining_minor) }}
-                                </dd>
-                            </div>
-                        </dl>
-                        <p
-                            v-if="row.due_date"
-                            class="text-xs text-muted-foreground"
-                        >
-                            {{ ui('Scadenza:') }} {{ row.due_date }}
-                        </p>
-                    </template>
-                    <template v-else-if="row.kind === 'payment'">
-                        <p
-                            class="text-xl font-semibold whitespace-nowrap tabular-nums"
-                            :class="
-                                row.state === 'cancelled'
-                                    ? 'text-muted-foreground line-through'
-                                    : row.direction === 'received'
-                                      ? 'text-emerald-700 dark:text-emerald-300'
-                                      : 'text-rose-700 dark:text-rose-300'
-                            "
-                        >
-                            {{ row.direction === 'received' ? '↙' : '↗' }}
-                            {{
-                                money(
-                                    parseMinor(
-                                        row.amount,
-                                        relation.precision,
-                                    ) ?? 0n,
-                                )
-                            }}
-                        </p>
-                        <dl class="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                                <dt class="text-xs text-muted-foreground">
-                                    {{ ui('Collegato:') }}
-                                </dt>
-                                <dd class="mt-1 whitespace-nowrap tabular-nums">
-                                    {{
-                                        money(
-                                            BigInt(row.effective_minor) -
-                                                BigInt(row.returned_minor) -
-                                                BigInt(row.unallocated_minor),
-                                        )
-                                    }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-muted-foreground">
-                                    {{ ui('Da collegare:') }}
-                                </dt>
-                                <dd class="mt-1 whitespace-nowrap tabular-nums">
-                                    {{ money(row.unallocated_minor) }}
-                                </dd>
-                            </div>
-                            <div v-if="BigInt(row.returned_minor) > 0n">
-                                <dt class="text-xs text-muted-foreground">
-                                    {{ ui('Restituito:') }}
-                                </dt>
-                                <dd class="mt-1 whitespace-nowrap tabular-nums">
-                                    {{ money(row.returned_minor) }}
-                                </dd>
-                            </div>
-                        </dl>
-                        <p v-if="row.note" class="text-sm break-words">
-                            {{ row.note }}
-                        </p>
-                        <div
-                            v-if="
-                                relation.can_manage &&
-                                BigInt(row.effective_minor) > 0n
-                            "
-                            class="flex flex-wrap gap-2 border-t pt-3"
-                        >
-                            <template v-if="!row.is_return">
-                                <Button
-                                    v-if="BigInt(row.returned_minor) === 0n"
-                                    variant="outline"
-                                    size="sm"
-                                    @click="emit('edit', row, 'revise')"
-                                    >{{ ui('Revisiona') }}</Button
-                                >
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="emit('edit', row, 'allocations')"
-                                    >{{ ui('Ripartisci pagamento') }}</Button
-                                >
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="emit('edit', row, 'return')"
-                                    >{{ ui('Restituzione reale') }}</Button
-                                >
-                            </template>
-                            <Button
-                                v-if="BigInt(row.returned_minor) === 0n"
-                                variant="outline"
-                                size="sm"
-                                @click="emit('cancel', row.uuid)"
-                                >{{ ui('Annullamento amministrativo') }}</Button
-                            >
-                        </div>
-                    </template>
-                    <template v-else-if="row.kind === 'compensation'">
-                        <p
-                            class="text-xl font-semibold whitespace-nowrap tabular-nums"
-                        >
-                            {{ money(row.amount_minor) }}
-                        </p>
-                        <Button
-                            v-if="row.active && relation.can_manage"
-                            variant="outline"
-                            size="sm"
-                            @click="emit('reverse', row.uuid)"
-                            >{{ ui('Storna compensazione') }}</Button
-                        >
-                    </template>
-                </article>
-            </div>
+                        </details>
+                    </article>
+                </li>
+            </ol>
         </section>
     </div>
 </template>

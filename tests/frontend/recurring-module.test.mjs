@@ -108,7 +108,7 @@ test('recurring index exposes the plan type filter and visible labels for filter
     assert.match(indexSource, /transactions\.recurring\.filters\.refund/);
     assert.match(indexSource, /handleAccountSelection/);
     assert.match(indexSource, /filter_accounts/);
-    assert.match(indexSource, /<Label>/);
+    assert.match(indexSource, /<Label(?:\s|>)/);
     assert.match(indexSource, /transactions\.recurring\.actions\.resetFilters/);
 });
 

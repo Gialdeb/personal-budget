@@ -2,6 +2,42 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'Saldo netto · tutti i periodi': 'Net balance · all periods',
+    'Posizioni aperte': 'Open positions',
+    'Le posizioni aperte non rappresentano da sole il saldo netto: consulta anche i movimenti non collegati e lo storico.':
+        'Open positions alone do not explain the net balance: also review unmatched movements and history.',
+    'Il saldo netto è una differenza matematica: non chiude le singole posizioni e non registra compensazioni.':
+        'The net balance is a mathematical difference: it does not close individual positions or record offsets.',
+    'Compensazioni registrate': 'Recorded offsets',
+    'Spese e posizioni collegate': 'Linked expenses and positions',
+    'Posizione collegata': 'Linked position',
+    'Importo allocato': 'Allocated amount',
+    'Residuo attuale': 'Current outstanding amount',
+    Dettagli: 'Details',
+    'I residui sono attuali e includono già pagamenti e compensazioni; non sono il saldo alla data del movimento.':
+        'Outstanding amounts are current and already include payments and offsets; they are not the balance on the movement date.',
+    'Importo totale': 'Total amount',
+    'Hai pagato {amount}': 'You paid {amount}',
+    '{name} ha pagato {amount}': '{name} paid {amount}',
+    'Credito verso {name}': 'Receivable from {name}',
+    'Debito verso {name}': 'Payable to {name}',
+    '{name} ti ha restituito denaro': '{name} returned money to you',
+    'Hai restituito denaro a {name}': 'You returned money to {name}',
+    '{name} ti ha pagato': '{name} paid you',
+    'Hai pagato a {name}': 'You paid {name}',
+    'Devi ricevere': 'You are owed',
+    'Devi restituire': 'You owe',
+    'Effetto sul saldo': 'Balance effect',
+    'Non incide sul saldo': 'No effect on the balance',
+    'Saldo invariato': 'Balance unchanged',
+    'Riduce credito e debito dello stesso importo, senza cambiare il saldo complessivo.':
+        'Reduces the receivable and payable by the same amount, without changing the overall balance.',
+    'Compensazione stornata: i residui sono stati riaperti.':
+        'Offset reversed: the outstanding amounts were reopened.',
+    'La restituzione è mostrata separatamente nello storico.':
+        'The return is shown separately in history.',
+    'Registra il movimento reale e verifica la ripartizione prima di confermare.':
+        'Record the actual money movement and review its allocation before confirming.',
     'Rata mensile': 'Monthly installment',
     'Importo per rata': 'Amount per installment',
     'Il tuo piano rateale': 'Your installment plan',

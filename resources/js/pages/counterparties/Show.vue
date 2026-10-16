@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
+import { useMediaQuery } from '@vueuse/core';
 import {
     ArrowDownLeft,
     ArrowUpRight,
@@ -36,6 +37,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+} from '@/components/ui/sheet';
 import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -232,6 +240,7 @@ function resetPayment() {
     form.operation_key = key();
 }
 async function edit(payment: Payment, nextMode: typeof mode.value) {
+    rememberPaymentTrigger();
     paymentOpen.value = true;
     selected.value = payment;
     mode.value = nextMode;
@@ -277,9 +286,7 @@ async function edit(payment: Payment, nextMode: typeof mode.value) {
     }
 
     await nextTick();
-    document
-        .getElementById('common-payment-form')
-        ?.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('common-amount')?.focus({ preventScroll: true });
 }
 function submit() {
     form.transform((data) => {
@@ -305,7 +312,13 @@ function submit() {
 
         return payload;
     });
-    const options = { preserveScroll: true, onSuccess: resetPayment };
+    const options = {
+        preserveScroll: true,
+        onSuccess: () => {
+            resetPayment();
+            paymentOpen.value = false;
+        },
+    };
     const args = {
         relation: props.relation.uuid,
         payment: selected.value?.uuid ?? '',
@@ -382,15 +395,30 @@ function compensate() {
 const { locale } = useI18n();
 const filters = ref({ ...props.historyFilters });
 const paymentOpen = ref(false);
+const paymentTrigger = ref<HTMLElement | null>(null);
+const isMobile = useMediaQuery('(max-width: 767px)');
+function rememberPaymentTrigger(): void {
+    paymentTrigger.value =
+        document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+}
 async function openPayment(): Promise<void> {
+    rememberPaymentTrigger();
     resetPayment();
     paymentOpen.value = true;
     await nextTick();
-    document
-        .getElementById('common-payment-form')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('common-amount')?.focus({ preventScroll: true });
 }
 const balance = computed(() => BigInt(props.relation.balance_minor));
+const openPositions = computed(() => ({
+    receivable: props.obligations
+        .filter((claim) => claim.direction === 'received')
+        .reduce((sum, claim) => sum + BigInt(claim.remaining_minor), 0n),
+    payable: props.obligations
+        .filter((claim) => claim.direction === 'sent')
+        .reduce((sum, claim) => sum + BigInt(claim.remaining_minor), 0n),
+}));
 const balanceTone = computed(() =>
     props.relation.amounts_available === false || balance.value === 0n
         ? 'bg-muted/50'
@@ -470,7 +498,7 @@ function visitHistory(url: string | null): void {
                             {{ relation.name }}
                         </h1>
                         <p class="mt-3 text-sm text-muted-foreground">
-                            {{ ui('Saldo complessivo · tutti i periodi') }}
+                            {{ ui('Saldo netto · tutti i periodi') }}
                         </p>
                     </div>
                     <div
@@ -518,6 +546,64 @@ function visitHistory(url: string | null): void {
                     }}
                 </p>
             </header>
+            <section
+                v-if="relation.active"
+                class="space-y-4 rounded-2xl border bg-card p-4 sm:p-5"
+                aria-labelledby="open-positions-title"
+            >
+                <h2 id="open-positions-title" class="text-base font-semibold">
+                    {{ ui('Posizioni aperte') }}
+                </h2>
+                <dl class="grid grid-cols-2 gap-4">
+                    <div>
+                        <dt class="text-sm text-muted-foreground">
+                            {{ ui('Devi ricevere') }}
+                        </dt>
+                        <dd
+                            class="mt-1 text-xl font-semibold text-emerald-700 tabular-nums dark:text-emerald-300"
+                        >
+                            {{ money(openPositions.receivable) }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm text-muted-foreground">
+                            {{ ui('Devi restituire') }}
+                        </dt>
+                        <dd
+                            class="mt-1 text-xl font-semibold text-orange-700 tabular-nums dark:text-orange-300"
+                        >
+                            {{ money(openPositions.payable) }}
+                        </dd>
+                    </div>
+                </dl>
+                <p
+                    v-if="
+                        openPositions.receivable - openPositions.payable ===
+                        balance
+                    "
+                    class="rounded-xl bg-muted/50 px-3 py-2 text-sm tabular-nums"
+                    data-balance-explanation
+                >
+                    {{ ui('Saldo netto') }}:
+                    {{ money(openPositions.receivable) }} −
+                    {{ money(openPositions.payable) }} =
+                    {{ money(relation.balance_minor) }}
+                </p>
+                <p v-else class="text-sm text-muted-foreground">
+                    {{
+                        ui(
+                            'Le posizioni aperte non rappresentano da sole il saldo netto: consulta anche i movimenti non collegati e lo storico.',
+                        )
+                    }}
+                </p>
+                <p class="text-xs leading-5 text-muted-foreground">
+                    {{
+                        ui(
+                            'Il saldo netto è una differenza matematica: non chiude le singole posizioni e non registra compensazioni.',
+                        )
+                    }}
+                </p>
+            </section>
             <section
                 class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
             >
@@ -596,6 +682,13 @@ function visitHistory(url: string | null): void {
                         {{
                             ui(
                                 'Spese, crediti, rimborsi e compensazioni in un unico storico.',
+                            )
+                        }}
+                    </p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        {{
+                            ui(
+                                'I residui sono attuali e includono già pagamenti e compensazioni; non sono il saldo alla data del movimento.',
                             )
                         }}
                     </p>
@@ -702,6 +795,7 @@ function visitHistory(url: string | null): void {
                 <CounterpartyActivity
                     :rows="activity.data"
                     :relation="relation"
+                    :obligations="obligations"
                     @edit="edit"
                     @cancel="confirmation = { type: 'cancel', uuid: $event }"
                     @reverse="confirmation = { type: 'reverse', uuid: $event }"
@@ -751,26 +845,22 @@ function visitHistory(url: string | null): void {
                     {{ ui('Attiva gestione comune') }}
                 </Button>
             </div>
-            <details
-                v-if="relation.can_manage"
-                :open="paymentOpen"
-                class="rounded-2xl border bg-card"
-                @toggle="
-                    paymentOpen = ($event.target as HTMLDetailsElement).open
-                "
-            >
-                <summary
-                    class="min-h-11 cursor-pointer px-5 py-4 font-semibold"
+            <Sheet v-if="relation.can_manage" v-model:open="paymentOpen">
+                <SheetContent
+                    :side="isMobile ? 'bottom' : 'right'"
+                    class="min-h-0 overflow-hidden p-0"
+                    :class="
+                        isMobile
+                            ? 'h-[100dvh] max-h-[100dvh] w-full rounded-t-3xl'
+                            : 'w-full sm:max-w-2xl'
+                    "
+                    @open-auto-focus.prevent
+                    @close-auto-focus.prevent="
+                        paymentTrigger?.focus({ preventScroll: true })
+                    "
                 >
-                    {{ ui('Registra pagamento') }}
-                </summary>
-                <form
-                    id="common-payment-form"
-                    class="space-y-4 rounded-xl border bg-card p-4 md:p-6"
-                    @submit.prevent="submit"
-                >
-                    <h2 class="text-xl font-semibold">
-                        {{
+                    <SheetHeader class="shrink-0 border-b px-5 py-5 pr-12">
+                        <SheetTitle>{{
                             mode === 'return'
                                 ? ui('Restituzione reale di denaro')
                                 : mode === 'revise'
@@ -778,246 +868,283 @@ function visitHistory(url: string | null): void {
                                   : mode === 'allocations'
                                     ? ui('Ripartisci pagamento')
                                     : ui('Registra pagamento')
-                        }}
-                    </h2>
-                    <p
-                        v-if="mode === 'revise'"
-                        class="text-sm text-muted-foreground"
-                    >
-                        {{
+                        }}</SheetTitle>
+                        <SheetDescription>{{
                             ui(
-                                'Il pagamento precedente sarà stornato e sostituito. Lo storico resta consultabile.',
+                                'Registra il movimento reale e verifica la ripartizione prima di confermare.',
                             )
-                        }}
-                    </p>
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <Label for="common-direction">
-                                {{ ui('Direzione') }} </Label
-                            ><select
-                                id="common-direction"
-                                v-model="form.direction"
-                                :disabled="mode !== 'create'"
-                                class="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                                @change="advanced = false"
-                            >
-                                <option value="received">
-                                    {{
-                                        ui('Ricevuto da {name}', {
-                                            name: relation.name,
-                                        })
-                                    }}
-                                </option>
-                                <option value="sent">
-                                    {{
-                                        ui('Pagato a {name}', {
-                                            name: relation.name,
-                                        })
-                                    }}
-                                </option>
-                            </select>
-                        </div>
-                        <div>
-                            <Label for="common-amount">
-                                {{ ui('Importo (') }}
-                                {{ relation.currency }})</Label
-                            ><MobileAmountInput
-                                id="common-amount"
-                                v-model="form.amount"
-                                :currency-code="relation.currency"
-                                :precision="relation.precision"
-                                :readonly="mode === 'allocations'"
-                                required
-                            />
-                        </div>
-                        <div v-if="mode !== 'allocations'">
-                            <Label for="common-date"> {{ ui('Data') }} </Label
-                            ><AppDatePicker
-                                id="common-date"
-                                v-model="form.date"
-                                required
-                            />
-                        </div>
-                        <div v-if="mode !== 'allocations'">
-                            <Label for="common-account">
-                                {{ ui('Conto') }} </Label
-                            ><select
-                                id="common-account"
-                                v-model="form.account_uuid"
-                                required
-                                class="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                            >
-                                <option value="" disabled>
-                                    {{ ui('Seleziona conto') }}
-                                </option>
-                                <option
-                                    v-for="account in accounts"
-                                    :key="account.uuid"
-                                    :value="account.uuid"
-                                >
-                                    {{ account.name }}
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-                    <div v-if="mode !== 'return'">
-                        <Label for="common-scope">
-                            {{ ui('Cosa stai regolando') }} </Label
-                        ><select
-                            id="common-scope"
-                            v-model="form.scope"
-                            class="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                            @change="advanced = false"
+                        }}</SheetDescription>
+                    </SheetHeader>
+                    <div
+                        class="min-h-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-y-contain px-5 pb-6"
+                    >
+                        <form
+                            id="common-payment-form"
+                            class="space-y-4 [&_button]:min-h-11 [&_input]:text-base [&_input:not([type=checkbox])]:min-h-11 [&_select]:min-h-11"
+                            @submit.prevent="submit"
                         >
-                            <option value="all">
-                                {{ ui('Tutte le obbligazioni compatibili') }}
-                            </option>
-                            <option value="shared">
-                                {{ ui('Solo spese condivise') }}
-                            </option>
-                        </select>
-                    </div>
-                    <details v-if="mode !== 'allocations'">
-                        <summary class="cursor-pointer text-sm">
-                            {{ ui('Note opzionali') }}
-                        </summary>
-                        <Label for="common-note" class="sr-only">
-                            {{ ui('Note') }} </Label
-                        ><Input
-                            id="common-note"
-                            v-model="form.note"
-                            class="mt-2"
-                        />
-                    </details>
-                    <div class="rounded-lg bg-muted p-4">
-                        <div
-                            class="flex flex-wrap justify-between gap-3 text-sm"
-                        >
-                            <span>
-                                {{ ui('Saldo prima:') }}
-                                {{ money(before) }}</span
-                            ><span>{{
-                                mode === 'allocations'
-                                    ? ui('Nessun movimento bancario')
-                                    : ui('Pagamento:') + ' ' + money(amount)
-                            }}</span
-                            ><strong>
-                                {{ ui('Saldo dopo:') }}
-                                {{ money(after) }}</strong
+                            <p
+                                v-if="mode === 'revise'"
+                                class="text-sm text-muted-foreground"
                             >
-                        </div>
-                        <template v-if="mode !== 'return'"
-                            ><p class="mt-3 font-medium">
-                                {{ money(allocated) }}
-                                {{ ui('saranno applicati a:') }}
-                            </p>
-                            <ul class="mt-1 space-y-1 text-sm">
-                                <li
-                                    v-for="allocation in proposed"
-                                    :key="allocation.obligation_uuid"
-                                >
-                                    {{
-                                        obligations.find(
-                                            (o) =>
-                                                o.uuid ===
-                                                allocation.obligation_uuid,
-                                        )?.title
-                                    }}: {{ money(allocation.minor) }}
-                                </li>
-                            </ul>
-                            <p v-if="amount > allocated" class="mt-2 text-sm">
-                                {{ ui('Quota non allocata:') }}
-                                {{ money(amount - allocated) }}
                                 {{
                                     ui(
-                                        '. È necessaria un’autorizzazione esplicita.',
+                                        'Il pagamento precedente sarà stornato e sostituito. Lo storico resta consultabile.',
                                     )
                                 }}
-                            </p></template
-                        >
+                            </p>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <Label for="common-direction">
+                                        {{ ui('Direzione') }} </Label
+                                    ><select
+                                        id="common-direction"
+                                        v-model="form.direction"
+                                        :disabled="mode !== 'create'"
+                                        class="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                                        @change="advanced = false"
+                                    >
+                                        <option value="received">
+                                            {{
+                                                ui('Ricevuto da {name}', {
+                                                    name: relation.name,
+                                                })
+                                            }}
+                                        </option>
+                                        <option value="sent">
+                                            {{
+                                                ui('Pagato a {name}', {
+                                                    name: relation.name,
+                                                })
+                                            }}
+                                        </option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label for="common-amount">
+                                        {{ ui('Importo (') }}
+                                        {{ relation.currency }})</Label
+                                    ><MobileAmountInput
+                                        id="common-amount"
+                                        v-model="form.amount"
+                                        :currency-code="relation.currency"
+                                        :precision="relation.precision"
+                                        :readonly="mode === 'allocations'"
+                                        required
+                                    />
+                                </div>
+                                <div v-if="mode !== 'allocations'">
+                                    <Label for="common-date">
+                                        {{ ui('Data') }} </Label
+                                    ><AppDatePicker
+                                        id="common-date"
+                                        v-model="form.date"
+                                        required
+                                    />
+                                </div>
+                                <div v-if="mode !== 'allocations'">
+                                    <Label for="common-account">
+                                        {{ ui('Conto') }} </Label
+                                    ><select
+                                        id="common-account"
+                                        v-model="form.account_uuid"
+                                        required
+                                        class="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                                    >
+                                        <option value="" disabled>
+                                            {{ ui('Seleziona conto') }}
+                                        </option>
+                                        <option
+                                            v-for="account in accounts"
+                                            :key="account.uuid"
+                                            :value="account.uuid"
+                                        >
+                                            {{ account.name }}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div v-if="mode !== 'return'">
+                                <Label for="common-scope">
+                                    {{ ui('Cosa stai regolando') }} </Label
+                                ><select
+                                    id="common-scope"
+                                    v-model="form.scope"
+                                    class="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                                    @change="advanced = false"
+                                >
+                                    <option value="all">
+                                        {{
+                                            ui(
+                                                'Tutte le obbligazioni compatibili',
+                                            )
+                                        }}
+                                    </option>
+                                    <option value="shared">
+                                        {{ ui('Solo spese condivise') }}
+                                    </option>
+                                </select>
+                            </div>
+                            <details v-if="mode !== 'allocations'">
+                                <summary class="cursor-pointer text-sm">
+                                    {{ ui('Note opzionali') }}
+                                </summary>
+                                <Label for="common-note" class="sr-only">
+                                    {{ ui('Note') }} </Label
+                                ><Input
+                                    id="common-note"
+                                    v-model="form.note"
+                                    class="mt-2"
+                                />
+                            </details>
+                            <div class="rounded-lg bg-muted p-4">
+                                <div
+                                    class="flex flex-wrap justify-between gap-3 text-sm"
+                                >
+                                    <span>
+                                        {{ ui('Saldo prima:') }}
+                                        {{ money(before) }}</span
+                                    ><span>{{
+                                        mode === 'allocations'
+                                            ? ui('Nessun movimento bancario')
+                                            : ui('Pagamento:') +
+                                              ' ' +
+                                              money(amount)
+                                    }}</span
+                                    ><strong>
+                                        {{ ui('Saldo dopo:') }}
+                                        {{ money(after) }}</strong
+                                    >
+                                </div>
+                                <template v-if="mode !== 'return'"
+                                    ><p class="mt-3 font-medium">
+                                        {{ money(allocated) }}
+                                        {{ ui('saranno applicati a:') }}
+                                    </p>
+                                    <ul class="mt-1 space-y-1 text-sm">
+                                        <li
+                                            v-for="allocation in proposed"
+                                            :key="allocation.obligation_uuid"
+                                        >
+                                            {{
+                                                obligations.find(
+                                                    (o) =>
+                                                        o.uuid ===
+                                                        allocation.obligation_uuid,
+                                                )?.title
+                                            }}: {{ money(allocation.minor) }}
+                                        </li>
+                                    </ul>
+                                    <p
+                                        v-if="amount > allocated"
+                                        class="mt-2 text-sm"
+                                    >
+                                        {{ ui('Quota non allocata:') }}
+                                        {{ money(amount - allocated) }}
+                                        {{
+                                            ui(
+                                                '. È necessaria un’autorizzazione esplicita.',
+                                            )
+                                        }}
+                                    </p></template
+                                >
+                            </div>
+                            <Button
+                                v-if="mode !== 'return' && !advanced"
+                                type="button"
+                                variant="outline"
+                                @click="manageAllocation"
+                            >
+                                {{ ui('Ripartisci pagamento') }}
+                            </Button>
+                            <div
+                                v-if="advanced && mode !== 'return'"
+                                class="space-y-3"
+                            >
+                                <div
+                                    v-for="allocation in form.allocations"
+                                    :key="allocation.obligation_uuid"
+                                    class="grid items-center gap-2 sm:grid-cols-2"
+                                >
+                                    <Label
+                                        :for="
+                                            'allocation-' +
+                                            allocation.obligation_uuid
+                                        "
+                                        >{{
+                                            obligations.find(
+                                                (o) =>
+                                                    o.uuid ===
+                                                    allocation.obligation_uuid,
+                                            )?.title
+                                        }}</Label
+                                    ><MobileAmountInput
+                                        :id="
+                                            'allocation-' +
+                                            allocation.obligation_uuid
+                                        "
+                                        v-model="allocation.amount"
+                                        :currency-code="relation.currency"
+                                        :precision="relation.precision"
+                                    />
+                                </div>
+                                <label class="flex items-center gap-2 text-sm"
+                                    ><input
+                                        v-model="form.allow_unallocated"
+                                        type="checkbox"
+                                    />
+                                    {{
+                                        ui(
+                                            'Consento esplicitamente una quota non allocata',
+                                        )
+                                    }}
+                                </label>
+                                <p class="text-sm text-muted-foreground">
+                                    {{
+                                        ui(
+                                            'Le eccedenze rispetto al saldo ammesso sono bloccate; questa opzione non crea anticipi.',
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                            <div
+                                v-if="form.hasErrors"
+                                role="alert"
+                                class="space-y-1 text-sm text-destructive"
+                            >
+                                <p
+                                    v-for="(error, index) in form.errors"
+                                    :key="index"
+                                >
+                                    {{ error }}
+                                </p>
+                            </div>
+                            <div class="flex flex-wrap gap-3">
+                                <Button
+                                    type="submit"
+                                    :disabled="
+                                        form.processing || !accounts.length
+                                    "
+                                    >{{
+                                        mode === 'return'
+                                            ? ui('Conferma restituzione')
+                                            : mode === 'allocations'
+                                              ? ui('Conferma ripartizione')
+                                              : ui('Conferma pagamento')
+                                    }}</Button
+                                ><Button
+                                    v-if="mode !== 'create'"
+                                    type="button"
+                                    variant="outline"
+                                    @click="resetPayment"
+                                >
+                                    {{ ui('Annulla modifica') }}
+                                </Button>
+                            </div>
+                        </form>
                     </div>
-                    <Button
-                        v-if="mode !== 'return' && !advanced"
-                        type="button"
-                        variant="outline"
-                        @click="manageAllocation"
-                    >
-                        {{ ui('Ripartisci pagamento') }}
-                    </Button>
-                    <div v-if="advanced && mode !== 'return'" class="space-y-3">
-                        <div
-                            v-for="allocation in form.allocations"
-                            :key="allocation.obligation_uuid"
-                            class="grid items-center gap-2 sm:grid-cols-2"
-                        >
-                            <Label
-                                :for="
-                                    'allocation-' + allocation.obligation_uuid
-                                "
-                                >{{
-                                    obligations.find(
-                                        (o) =>
-                                            o.uuid ===
-                                            allocation.obligation_uuid,
-                                    )?.title
-                                }}</Label
-                            ><MobileAmountInput
-                                :id="'allocation-' + allocation.obligation_uuid"
-                                v-model="allocation.amount"
-                                :currency-code="relation.currency"
-                                :precision="relation.precision"
-                            />
-                        </div>
-                        <label class="flex items-center gap-2 text-sm"
-                            ><input
-                                v-model="form.allow_unallocated"
-                                type="checkbox"
-                            />
-                            {{
-                                ui(
-                                    'Consento esplicitamente una quota non allocata',
-                                )
-                            }}
-                        </label>
-                        <p class="text-sm text-muted-foreground">
-                            {{
-                                ui(
-                                    'Le eccedenze rispetto al saldo ammesso sono bloccate; questa opzione non crea anticipi.',
-                                )
-                            }}
-                        </p>
-                    </div>
-                    <div
-                        v-if="form.hasErrors"
-                        role="alert"
-                        class="space-y-1 text-sm text-destructive"
-                    >
-                        <p v-for="(error, index) in form.errors" :key="index">
-                            {{ error }}
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap gap-3">
-                        <Button
-                            type="submit"
-                            :disabled="form.processing || !accounts.length"
-                            >{{
-                                mode === 'return'
-                                    ? ui('Conferma restituzione')
-                                    : mode === 'allocations'
-                                      ? ui('Conferma ripartizione')
-                                      : ui('Conferma pagamento')
-                            }}</Button
-                        ><Button
-                            v-if="mode !== 'create'"
-                            type="button"
-                            variant="outline"
-                            @click="resetPayment"
-                        >
-                            {{ ui('Annulla modifica') }}
-                        </Button>
-                    </div>
-                </form>
-            </details>
+                </SheetContent>
+            </Sheet>
             <details v-if="relation.can_manage" class="rounded-xl border p-4">
                 <summary class="cursor-pointer font-semibold">
                     {{ ui('Compensazione senza movimento bancario') }}

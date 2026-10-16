@@ -171,7 +171,10 @@ test(
             const url = `http://127.0.0.1:${server.httpServer.address().port}`;
             browser = await chromium.launch({
                 headless: true,
-                channel: process.env.COUNTERPARTY_BROWSER_CHANNEL ?? 'chrome',
+                channel: process.env.BROWSER_EXECUTABLE_PATH
+                    ? undefined
+                    : (process.env.COUNTERPARTY_BROWSER_CHANNEL ?? 'chrome'),
+                executablePath: process.env.BROWSER_EXECUTABLE_PATH,
             });
             const errors = [];
 
@@ -179,6 +182,8 @@ test(
                 const context = await browser.newContext({
                     viewport: { width, height: 1000 },
                     reducedMotion: 'reduce',
+                    isMobile: width < 600,
+                    hasTouch: width < 600,
                 });
                 await context.addInitScript(() => {
                     localStorage.setItem(
@@ -196,6 +201,7 @@ test(
                     );
                 });
                 const page = await context.newPage();
+                page.setDefaultTimeout(10000);
 
                 page.on('pageerror', (error) => {
                     errors.push(error.message);
@@ -218,6 +224,26 @@ test(
                         exact: true,
                     })
                     .waitFor();
+                await page
+                    .getByRole('heading', {
+                        name: 'Posizioni aperte',
+                        exact: true,
+                    })
+                    .waitFor();
+                assert.match(
+                    await page
+                        .locator('[data-balance-explanation]')
+                        .innerText(),
+                    /Saldo netto:/,
+                );
+                assert.ok(
+                    await page
+                        .getByText(
+                            'Il saldo netto è una differenza matematica: non chiude le singole posizioni e non registra compensazioni.',
+                            { exact: true },
+                        )
+                        .isVisible(),
+                );
                 assert.equal(
                     await page.evaluate(
                         () =>
@@ -240,6 +266,160 @@ test(
                 await page.screenshot({
                     path: `${output}/timeline-${width}.png`,
                 });
+                assert.ok(await page.getByText(/^Hai pagato \d/).count());
+                assert.ok(
+                    await page.getByText(/^Mario Rossi ha pagato \d/).count(),
+                );
+                assert.ok(
+                    await page
+                        .getByText('Devi ricevere', { exact: true })
+                        .count(),
+                );
+                assert.ok(
+                    await page
+                        .getByText('Devi restituire', { exact: true })
+                        .count(),
+                );
+                const partial = payload('detail').props.activity.data.find(
+                    (row) => row.kind === 'shared' && row.state === 'partial',
+                );
+                assert.ok(partial);
+                const partialRow = page.locator(
+                    `article[data-activity-uuid="${partial.uuid}"]`,
+                );
+                assert.ok(
+                    (await partialRow.innerText()).includes(
+                        partial.remaining_minor === '400'
+                            ? '4,00 EUR'
+                            : '6,00 EUR',
+                    ),
+                );
+                await partialRow.locator('summary').click();
+                assert.match(await partialRow.innerText(), /Importo totale/);
+                assert.match(await partialRow.innerText(), /16,00 EUR/);
+                assert.match(await partialRow.innerText(), /La tua quota/);
+                await partialRow.locator('summary').click();
+                await page
+                    .getByRole('button', {
+                        name: 'Registra pagamento',
+                        exact: true,
+                    })
+                    .click();
+                const drawer = page
+                    .locator('[data-slot="sheet-content"]')
+                    .first();
+                await drawer.waitFor();
+                assert.equal(
+                    await page.locator('#common-payment-form').count(),
+                    1,
+                );
+
+                if (width < 768) {
+                    await page.locator('#common-amount').click();
+                    const keypad = page.getByRole('dialog', {
+                        name: "Inserire l'importo",
+                        exact: true,
+                    });
+                    await keypad
+                        .getByRole('button', { name: '4', exact: true })
+                        .click();
+                    await keypad
+                        .getByRole('button', { name: 'Salva', exact: true })
+                        .click();
+                    await keypad.waitFor({ state: 'hidden' });
+                } else {
+                    await page.locator('#common-amount').fill('4.00');
+                }
+
+                assert.match(await drawer.innerText(), /Saldo prima:/);
+                assert.match(await drawer.innerText(), /Saldo dopo:/);
+                assert.ok(
+                    await drawer
+                        .getByRole('button', {
+                            name: 'Conferma pagamento',
+                            exact: true,
+                        })
+                        .isVisible(),
+                );
+                assert.ok(
+                    await drawer.evaluate(
+                        (el) => el.scrollWidth <= el.clientWidth,
+                    ),
+                );
+                await page.screenshot({
+                    path: `${output}/payment-drawer-${width}.png`,
+                });
+                await page.keyboard.press('Escape');
+                await drawer.waitFor({ state: 'hidden' });
+                const payment = page
+                    .locator('article[data-activity-kind="payment"]')
+                    .first();
+                await payment.locator('summary').click();
+                assert.ok(
+                    await payment
+                        .getByRole('heading', {
+                            name: 'Spese e posizioni collegate',
+                            exact: true,
+                        })
+                        .isVisible(),
+                );
+                const visiblePayment = payload(
+                    'detail',
+                ).props.activity.data.find((row) => row.kind === 'payment');
+                const linkedObligation = payload(
+                    'detail',
+                ).props.obligations.find(
+                    (claim) =>
+                        claim.uuid ===
+                        visiblePayment.allocations[0].obligation_uuid,
+                );
+                assert.ok(linkedObligation);
+                assert.ok(
+                    await payment
+                        .getByText(linkedObligation.title, { exact: true })
+                        .isVisible(),
+                );
+                assert.match(await payment.innerText(), /Importo allocato:/);
+                assert.match(await payment.innerText(), /Residuo attuale:/);
+
+                for (const [action, heading] of [
+                    ['Revisiona', 'Revisione pagamento'],
+                    ['Ripartisci pagamento', 'Ripartisci pagamento'],
+                    ['Restituzione reale', 'Restituzione reale di denaro'],
+                ]) {
+                    await payment
+                        .getByRole('button', { name: action, exact: true })
+                        .click();
+                    await drawer
+                        .getByRole('heading', { name: heading, exact: true })
+                        .waitFor();
+                    assert.equal(
+                        await page.locator('#common-payment-form').count(),
+                        1,
+                    );
+                    await page.keyboard.press('Escape');
+                    await drawer.waitFor({ state: 'hidden' });
+                }
+
+                const offset = page
+                    .locator('article[data-activity-kind="compensation"]')
+                    .first();
+                await offset.locator('summary').click();
+                assert.ok(
+                    await offset
+                        .getByRole('button', {
+                            name: 'Storna compensazione',
+                            exact: true,
+                        })
+                        .isVisible(),
+                );
+                assert.ok(
+                    await page
+                        .getByText('Compensazione senza movimento bancario', {
+                            exact: true,
+                        })
+                        .isVisible(),
+                );
                 await page
                     .getByRole('button', { name: 'Successiva', exact: true })
                     .click();
