@@ -6084,6 +6084,7 @@ resetInlineEntry();
                                                             :logo-url="
                                                                 transaction.tracked_item_logo_url
                                                             "
+                                                            :show-name="false"
                                                             compact
                                                         />
                                                     </template>
