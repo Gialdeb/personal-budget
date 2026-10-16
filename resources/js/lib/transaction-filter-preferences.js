@@ -13,6 +13,7 @@ export const transactionFilterDefaults = {
     category: 'all',
     account: 'all',
     search: '',
+    advancedBy: 'all',
 };
 const booleanKeys = [
     'transfer',
@@ -38,6 +39,7 @@ const queryKeys = {
     category: 'category_uuid',
     account: 'account_uuid',
     search: 'search',
+    advancedBy: 'tx_advanced_by',
 };
 
 export function normalizeTransactionFilters(value) {
@@ -53,7 +55,13 @@ export function normalizeTransactionFilters(value) {
         }
     }
 
-    for (const key of ['macrogroup', 'category', 'account', 'search']) {
+    for (const key of [
+        'macrogroup',
+        'category',
+        'account',
+        'search',
+        'advancedBy',
+    ]) {
         if (typeof value[key] === 'string' && value[key].length <= 1000) {
             filters[key] = value[key];
         }
@@ -145,7 +153,21 @@ export function transactionFiltersFromUrl(url) {
 }
 
 export function resolveTransactionFilters(url, saved) {
-    return transactionFiltersFromUrl(url) ?? normalizeTransactionFilters(saved);
+    const filters =
+        transactionFiltersFromUrl(url) ?? normalizeTransactionFilters(saved);
+    const period = new URL(url, 'https://transactions.local').pathname.match(
+        /^\/transactions\/(\d{4})\/(\d{1,2})(?:\/|$)/,
+    );
+
+    if (
+        period &&
+        filters.day &&
+        !filters.day.startsWith(`${period[1]}-${period[2].padStart(2, '0')}-`)
+    ) {
+        filters.day = '';
+    }
+
+    return filters;
 }
 
 export function transactionFilterUrl(url, filters) {

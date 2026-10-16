@@ -169,6 +169,10 @@ export type MonthlyTransactionSheetTransaction = {
     requires_payment_confirmation?: boolean;
     can_report_payment_problem?: boolean;
     can_undo_refund?: boolean;
+    can_confirm_payment?: boolean;
+    management_url?: string | null;
+    management_label?: string | null;
+    undo_refund_unavailable_reason?: string | null;
     refund_transaction?: {
         uuid: string;
         transaction_date: string | null;
@@ -704,6 +708,11 @@ export type RecurringEntryShowPayload = {
         paid_count: number;
         paid_amount: number;
         paid_year: number | null;
+        nearest_occurrence: { uuid: string; date: string } | null;
+        next_date: string | null;
+        next_amount: number | null;
+        generated_until: string | null;
+        overdue_count: number;
     };
     actions: {
         can_pause: boolean;

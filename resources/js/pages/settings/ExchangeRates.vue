@@ -3,10 +3,10 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { CalendarClock, ExternalLink } from 'lucide-vue-next';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import Heading from '@/components/Heading.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -179,10 +179,9 @@ const localizedPaginationLabel = (label: string): string => {
                                     )
                                 }}
                             </Label>
-                            <Input
+                            <AppDatePicker
                                 id="rate-date-filter"
                                 v-model="filters.rate_date"
-                                type="date"
                             />
                         </div>
 

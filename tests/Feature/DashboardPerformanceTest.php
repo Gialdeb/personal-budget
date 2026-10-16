@@ -187,7 +187,7 @@ test('heavy authenticated pages preserve payloads and expose their measured cost
                 $counterpartyQueries = collect($queries)->filter(fn ($query): bool => preg_match('/counterparty_(relations|ledger_entries|obligations|payments|allocation_entries|source_links)/', $query['sql']));
                 expect($counterpartyQueries)->toHaveCount(1, $name);
                 expect($counterpartyQueries->first()['sql'])
-                    ->toStartWith('select "id", "transaction_id", "return_of_id" from "counterparty_payments" where "transaction_id" in (');
+                    ->toContain('"counterparty_payments"', '"counterparty_source_links"', '"counterparty_allocation_entries"');
             }
             $duplicates = collect($queries)->groupBy(fn ($q) => $q['sql'].json_encode($q['bindings']))->sum(fn ($group) => max(0, $group->count() - 1));
             if ($iteration > 1 && ! getenv('PAGE_PERFORMANCE_BASELINE')) {

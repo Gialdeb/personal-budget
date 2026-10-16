@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n';
 import AutomationFilters from '@/components/admin/automation/AutomationFilters.vue';
 import AutomationPipelineOverview from '@/components/admin/automation/AutomationPipelineOverview.vue';
 import AutomationRunsTable from '@/components/admin/automation/AutomationRunsTable.vue';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import Heading from '@/components/Heading.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { useAdminAutomationRealtime } from '@/composables/useAdminAutomationRealtime';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -498,10 +498,9 @@ function submitRetry(): void {
                                 t('admin.automation.dialogs.referenceDateLabel')
                             }}
                         </label>
-                        <Input
+                        <AppDatePicker
                             id="automation-reference-date"
                             v-model="manualRunReferenceDate"
-                            type="date"
                             class="rounded-xl"
                         />
                         <p class="text-sm text-slate-500 dark:text-slate-400">

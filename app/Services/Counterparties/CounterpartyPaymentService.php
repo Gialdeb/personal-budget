@@ -63,8 +63,11 @@ class CounterpartyPaymentService
         return $this->operation($user, $relation, 'revise', [...$data, 'payment_uuid' => $payment->uuid], function (CounterpartyRelation $relation) use ($user, $payment, $data): array {
             $payment = $this->payment($relation, $payment);
             $this->require($payment->return_of_id === null, 'payment', 'Per una restituzione usa annullamento e una nuova operazione.');
+            $sameDirectionAndScope = $data['direction'] === $payment->direction->value
+                && ($data['scope'] ?? 'all') === ($payment->metadata['scope'] ?? 'all');
+            $replacedAmountMinor = $sameDirectionAndScope ? $this->projections->effectivePayment($payment) : 0;
             $this->cancelLocked($user, $payment, $data);
-            $replacement = $this->createLocked($user, $relation, $data, $payment);
+            $replacement = $this->createLocked($user, $relation, $data, $payment, $replacedAmountMinor);
 
             return ['payment_uuid' => $replacement->uuid, 'previous_payment_uuid' => $payment->uuid];
         });
@@ -144,7 +147,7 @@ class CounterpartyPaymentService
     }
 
     /** @return array<string, int> */
-    public function allocationPlan(CounterpartyRelation $relation, Direction $direction, int $minor, ?array $custom = null, bool $allowUnallocated = false, string $scope = 'all', bool $checkCapacity = true): array
+    public function allocationPlan(CounterpartyRelation $relation, Direction $direction, int $minor, ?array $custom = null, bool $allowUnallocated = false, string $scope = 'all', bool $checkCapacity = true, int $replacedAmountMinor = 0): array
     {
         $this->require(in_array($scope, ['all', 'shared'], true), 'scope', 'Ambito non valido.');
         $eligible = $this->projections->openObligations($relation)->filter(fn (array $row): bool => ($row['direction_sign'] > 0) === ($direction === Direction::RECEIVED) && ($scope !== 'shared' || $row['source_type'] !== 'credit_debt_item'))->keyBy('uuid');
@@ -152,9 +155,9 @@ class CounterpartyPaymentService
         if ($checkCapacity) {
             $balance = $scope === 'shared' ? $this->authority->summary($relation)['shared_minor'] : $this->projections->balance($relation);
             if (($balance > 0 && $direction === Direction::RECEIVED) || ($balance < 0 && $direction === Direction::SENT)) {
-                $capacity = min($capacity, abs($balance));
+                $capacity = min($capacity, max(abs($balance), $replacedAmountMinor));
             }
-            $this->require($minor > 0 && $minor <= $capacity, 'amount', 'L’importo supera il saldo compatibile. Gli anticipi non sono disponibili.');
+            $this->require($minor > 0 && $minor <= $capacity, 'amount', 'L’importo supera il saldo disponibile per questo pagamento. Importo massimo: '.CurrencyMinorUnits::toDecimal($capacity, $relation->currency_code).' '.$relation->currency_code.'. Riduci l’importo o controlla le spese da saldare.');
         }
         $plan = [];
         $remaining = $minor;
@@ -183,13 +186,13 @@ class CounterpartyPaymentService
         return $plan;
     }
 
-    private function createLocked(User $user, CounterpartyRelation $relation, array $data, ?CounterpartyPayment $previous = null): CounterpartyPayment
+    private function createLocked(User $user, CounterpartyRelation $relation, array $data, ?CounterpartyPayment $previous = null, int $replacedAmountMinor = 0): CounterpartyPayment
     {
         $direction = Direction::from($data['direction']);
         $minor = $this->minor($data['amount'], $relation);
         $scope = $data['scope'] ?? 'all';
         $allow = (bool) ($data['allow_unallocated'] ?? false);
-        $plan = $this->allocationPlan($relation, $direction, $minor, $data['allocations'] ?? null, $allow, $scope);
+        $plan = $this->allocationPlan($relation, $direction, $minor, $data['allocations'] ?? null, $allow, $scope, replacedAmountMinor: $replacedAmountMinor);
         $transaction = $this->bankTransaction($user, $relation, $direction, $minor, $data);
         $payment = $this->ledger->recordPayment($relation, $direction, $minor, $data['date'], $transaction->account, $this->key($data, 'payment'), $transaction, revisionOf: $previous,
             metadata: ['public_lifecycle' => true, 'note' => $data['note'] ?? null, 'scope' => $scope, 'allocation_status' => $allow ? 'explicit_native' : 'known_native'], actor: $user);

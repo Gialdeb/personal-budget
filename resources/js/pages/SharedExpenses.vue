@@ -10,6 +10,7 @@ import {
     resolveReference,
 } from '@/actions/App/Http/Controllers/SharedExpenseController';
 import { destroyLedger } from '@/actions/App/Http/Controllers/SharedExpenseController';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
@@ -1635,10 +1636,9 @@ function deleteSettlement(entry: Entry): void {
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="settlement-date">{{ ui('Data') }}</Label
-                        ><Input
+                        ><AppDatePicker
                             id="settlement-date"
                             v-model="settlementForm.settled_at"
-                            type="date"
                         /><InputError
                             :message="settlementForm.errors.settled_at"
                         />

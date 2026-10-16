@@ -12,6 +12,8 @@ import {
 import { computed, ref, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import * as actions from '@/actions/App/Http/Controllers/CounterpartyPaymentController';
+import AppDatePicker from '@/components/AppDatePicker.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import CounterpartyActivity from '@/components/shared-expenses/CounterpartyActivity.vue';
 import type {
     Activity,
@@ -819,20 +821,20 @@ function visitHistory(url: string | null): void {
                             <Label for="common-amount">
                                 {{ ui('Importo (') }}
                                 {{ relation.currency }})</Label
-                            ><Input
+                            ><MobileAmountInput
                                 id="common-amount"
                                 v-model="form.amount"
+                                :currency-code="relation.currency"
+                                :precision="relation.precision"
                                 :readonly="mode === 'allocations'"
-                                inputmode="decimal"
                                 required
                             />
                         </div>
                         <div v-if="mode !== 'allocations'">
                             <Label for="common-date"> {{ ui('Data') }} </Label
-                            ><Input
+                            ><AppDatePicker
                                 id="common-date"
                                 v-model="form.date"
-                                type="date"
                                 required
                             />
                         </div>
@@ -959,10 +961,11 @@ function visitHistory(url: string | null): void {
                                             allocation.obligation_uuid,
                                     )?.title
                                 }}</Label
-                            ><Input
+                            ><MobileAmountInput
                                 :id="'allocation-' + allocation.obligation_uuid"
                                 v-model="allocation.amount"
-                                inputmode="decimal"
+                                :currency-code="relation.currency"
+                                :precision="relation.precision"
                             />
                         </div>
                         <label class="flex items-center gap-2 text-sm"
@@ -1083,10 +1086,11 @@ function visitHistory(url: string | null): void {
                     </div>
                     <Label for="comp-amount">
                         {{ ui('Importo da compensare') }} </Label
-                    ><Input
+                    ><MobileAmountInput
                         id="comp-amount"
                         v-model="compensation.amount"
-                        inputmode="decimal"
+                        :currency-code="relation.currency"
+                        :precision="relation.precision"
                         required
                     />
                     <p

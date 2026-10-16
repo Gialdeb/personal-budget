@@ -214,6 +214,19 @@ class TransactionMutationService
                     return $ledgerEntry;
                 });
             }
+            if ($transaction->kind === TransactionKindEnum::SCHEDULED
+                && $transaction->shared_expense_counterparty_id !== null
+                && round((float) $validated['amount'], 2) !== (float) $transaction->amount
+                && ($entry = $transaction->recurringOccurrence?->recurringEntry) !== null) {
+                $allocation = $this->sharedExpenseAllocation->rescale(
+                    number_format((float) $validated['amount'], 2, '.', ''),
+                    $entry->shared_expense_my_share_cents,
+                    $entry->shared_expense_counterparty_share_cents,
+                );
+                $validated['shared_expense_my_share'] = number_format($allocation['my_share_cents'] / 100, 2, '.', '');
+                $validated['shared_expense_counterparty_share'] = number_format($allocation['counterparty_share_cents'] / 100, 2, '.', '');
+            }
+
             $categoryId = $this->resolvedCategoryIdForAccount($account, (int) $validated['category_id']);
             $amount = round((float) $validated['amount'], 2);
             $direction = $this->directionFromTypeKey((string) $validated['type_key']);

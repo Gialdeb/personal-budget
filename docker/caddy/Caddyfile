@@ -2,6 +2,9 @@ soamco.lo {
     # Use the mkcert leaf for the local domain so browsers trust https://soamco.lo.
     tls /etc/caddy/certs/soamco.lo+4.pem /etc/caddy/certs/soamco.lo+4-key.pem
 
+    @vite path /vite/*
+    reverse_proxy @vite node:5173
+
     @reverb path /app* /apps*
     reverse_proxy @reverb reverb:8080
 

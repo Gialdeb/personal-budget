@@ -708,12 +708,17 @@ test('visiting the official dashboard with only a year query selects a concrete 
 });
 
 test('dashboard resolves available years from user years even without transactions for that year', function () {
-    $this->travelTo(CarbonImmutable::parse('2026-08-31'));
+    $this->travelTo(CarbonImmutable::parse('2026-11-01'));
 
     $user = User::factory()->create();
 
     seedDashboardFixture($user);
 
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
     UserYear::query()->create([
         'user_id' => $user->id,
         'year' => 2027,

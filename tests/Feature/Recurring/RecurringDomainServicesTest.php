@@ -557,3 +557,38 @@ beforeEach(function () {
 afterEach(function () {
     $this->travelBack();
 });
+
+test('open ended schedules keep generating beyond one thousand occurrences without duplicating history', function (string $frequency, int $days) {
+    $context = recurringDomainContext();
+    app(UserYearService::class)->ensureYearExists($context['user'], 2020);
+    $entry = makeRecurringEntry($context, [
+        'start_date' => '2020-01-01',
+        'recurrence_type' => $frequency,
+        'recurrence_interval' => 1,
+        'recurrence_rule' => null,
+        'end_mode' => RecurringEndModeEnum::NEVER->value,
+        'occurrences_limit' => null,
+    ]);
+    $generator = app(RecurringEntryOccurrenceGeneratorService::class);
+    $through = CarbonImmutable::parse('2020-01-01')->addDays($days);
+    $generator->generate($entry, $through);
+    expect($entry->occurrences()->max('sequence_number'))->toBeGreaterThan(1000);
+    $count = $entry->occurrences()->count();
+    expect($generator->generate($entry, $through))->toHaveCount(0)
+        ->and($entry->occurrences()->count())->toBe($count);
+    $generator->generate($entry, $through->addDays(7));
+    expect($entry->occurrences()->count())->toBeGreaterThan($count);
+})->with(['daily' => ['daily', 1002], 'weekly' => ['weekly', 7014]]);
+
+test('weekly generation preserves partial first weeks and multiweek intervals', function () {
+    $entry = makeRecurringEntry(recurringDomainContext(), [
+        'start_date' => '2026-01-07',
+        'recurrence_type' => 'weekly', 'recurrence_interval' => 2,
+        'recurrence_rule' => ['weekdays' => ['mon', 'wed', 'fri']],
+        'end_mode' => 'after_occurrences', 'occurrences_limit' => 7,
+    ]);
+    $rows = app(RecurringEntryOccurrenceGeneratorService::class)->generate($entry);
+    expect($rows->pluck('expected_date')->map->toDateString()->all())->toBe([
+        '2026-01-07', '2026-01-09', '2026-01-19', '2026-01-21', '2026-01-23', '2026-02-02', '2026-02-04',
+    ]);
+});

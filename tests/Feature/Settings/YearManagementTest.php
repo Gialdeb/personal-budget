@@ -237,7 +237,7 @@ test('distant recurring management years remain registered but are not selectabl
     expect(app(UserYearService::class)->registeredYears($user))
         ->toBe([2025, 2026, 2027, 2046])
         ->and(app(UserYearService::class)->availableYears($user))
-        ->toBe([2025, 2026, 2027]);
+        ->toBe([2025, 2026]);
 
     $this->actingAs($user)
         ->get(route('years.edit'))
@@ -246,7 +246,7 @@ test('distant recurring management years remain registered but are not selectabl
             ->where('years.data', fn ($years) => collect($years)
                 ->pluck('year')
                 ->values()
-                ->all() === [2027, 2026, 2025]));
+                ->all() === [2026, 2025]));
 
     $this->actingAs($user)
         ->from(route('years.edit'))

@@ -1,27 +1,27 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { useElementSize } from '@vueuse/core';
 import {
     TriangleAlert,
     Bookmark,
-    ArrowUpRight,
     ArrowDown,
     ArrowUp,
     Calendar,
+    HandCoins,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    UsersRound,
+    Check,
     ChevronUp,
     Filter,
     Lock,
-    Pencil,
     Plus,
     Receipt,
-    RefreshCcw,
     RotateCcw,
-    Trash2,
     TrendingDown,
     TrendingUp,
     Scale,
-    Search,
-    User,
     Wallet,
     X,
 } from 'lucide-vue-next';
@@ -38,18 +38,24 @@ import {
     confirm as confirmAutomaticPayment,
     problem as paymentProblem,
 } from '@/actions/App/Http/Controllers/AutomaticPaymentVerificationController';
-import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
+import {
+    undoRefund as undoTransactionRefund,
+    previewExchangeSnapshot,
+} from '@/actions/App/Http/Controllers/TransactionsController';
+import AppDatePicker from '@/components/AppDatePicker.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
-import MoneyInput from '@/components/MoneyInput.vue';
 import RecurringCalendarGrid from '@/components/recurring/RecurringCalendarGrid.vue';
 import type { RecurringCalendarCell } from '@/components/recurring/RecurringCalendarGrid.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
 import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
+import SharedLedgerMovements from '@/components/transactions/SharedLedgerMovements.vue';
 import TransactionCategoryQuickCreate from '@/components/transactions/TransactionCategoryQuickCreate.vue';
 import TransactionClassificationBadges from '@/components/transactions/TransactionClassificationBadges.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
+import TransactionRowActions from '@/components/transactions/TransactionRowActions.vue';
 import TransactionVisibilityToggle from '@/components/transactions/TransactionVisibilityToggle.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -92,6 +98,7 @@ import {
 } from '@/lib/transaction-calendar.js';
 import {
     matchesTransactionDisplay,
+    matchesSharedLedgerDisplay,
     rowCategory,
     transactionTones,
 } from '@/lib/transaction-presentation.js';
@@ -222,6 +229,98 @@ const showDeleted = ref(false);
 const showOpeningBalances = ref(true);
 const showTransfers = ref(true);
 const selectedDay = ref('');
+const selectedAdvancedBy = ref('all');
+watch([selectedDay, () => props.year, () => props.month], () => {
+    const period = `${props.year}-${String(props.month).padStart(2, '0')}-`;
+
+    if (selectedDay.value && !selectedDay.value.startsWith(period)) {
+        selectedDay.value = '';
+    }
+});
+const monthlySummaryOpen = ref(true);
+const monthlySummaryElement = ref<HTMLElement | null>(null);
+const { height: monthlySummaryHeight } = useElementSize(monthlySummaryElement);
+const monthlySummaryStorageKey = 'soamco:transactions:monthly-summary-open:v1';
+const ledgerResults = ref<HTMLElement | null>(null);
+const sharedResults = ref<HTMLElement | null>(null);
+let calendarSelectionVersion = 0;
+let ledgerVisitPending = false;
+const stopLedgerStart = router.on('start', () => {
+    ledgerVisitPending = true;
+    calendarSelectionVersion++;
+});
+const stopLedgerFinish = router.on('finish', () => {
+    ledgerVisitPending = false;
+});
+onBeforeUnmount(() => {
+    calendarSelectionVersion++;
+    stopLedgerStart();
+    stopLedgerFinish();
+});
+onMounted(() => {
+    try {
+        monthlySummaryOpen.value =
+            window.localStorage.getItem(monthlySummaryStorageKey) !== 'false';
+    } catch {
+        /* Storage is optional. */
+    }
+});
+function toggleMonthlySummary(): void {
+    monthlySummaryOpen.value = !monthlySummaryOpen.value;
+
+    try {
+        window.localStorage.setItem(
+            monthlySummaryStorageKey,
+            String(monthlySummaryOpen.value),
+        );
+    } catch {
+        /* Storage is optional. */
+    }
+}
+async function selectCalendarDay(day: string): Promise<void> {
+    const version = ++calendarSelectionVersion;
+    selectedDay.value = selectedDay.value === day ? '' : day;
+    await nextTick();
+    await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+    );
+
+    if (
+        version !== calendarSelectionVersion ||
+        ledgerVisitPending ||
+        selectedDay.value !== day
+    ) {
+        return;
+    }
+
+    const target =
+        displayedTransactions.value.length > 0
+            ? ledgerResults.value
+            : showShared.value && filteredSharedLedgerMovements.value.length > 0
+              ? sharedResults.value
+              : null;
+    target?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
+        block: 'start',
+    });
+}
+
+const auditTransaction = ref<MonthlyTransactionSheetTransaction | null>(null);
+const sharedManagement = ref(false);
+const inlineSharedOpen = ref(false);
+const editSharedOpen = ref(false);
+function openSharedManagement(
+    transaction: MonthlyTransactionSheetTransaction,
+): void {
+    if (!canEdit.value || !transaction.can_edit) {
+        return;
+    }
+
+    openEdit(transaction);
+    sharedManagement.value = true;
+}
 const transactionCalendarOpen = ref(false);
 const transactionCalendarStorageKey = 'soamco:transactions:calendar-open:v1';
 onMounted(() => {
@@ -259,6 +358,7 @@ const {
 } = useTransactionFilters({
     transfer: showTransfers,
     day: selectedDay,
+    advancedBy: selectedAdvancedBy,
     income: showIncome,
     expense: showExpenses,
     opening: showOpeningBalances,
@@ -1000,6 +1100,53 @@ const filteredDeletedTransactions = computed(() =>
     ),
 );
 
+const sharedLedgerCounterparties = computed(() => {
+    const options = new Map(
+        sheet.value.editor.shared_expense_counterparties.map((option) => [
+            option.value,
+            option,
+        ]),
+    );
+
+    for (const movement of sheet.value.shared_ledger_movements ?? []) {
+        if (
+            movement.shared_expense_counterparty_uuid &&
+            movement.shared_expense_counterparty_label
+        ) {
+            options.set(movement.shared_expense_counterparty_uuid, {
+                value: movement.shared_expense_counterparty_uuid,
+                label: movement.shared_expense_counterparty_label,
+            });
+        }
+    }
+
+    return [...options.values()].sort((a, b) =>
+        a.label.localeCompare(b.label, locale.value),
+    );
+});
+function matchesSharedLedgerFilters(
+    movement: MonthlyTransactionSheetTransaction,
+    ignoreDay = false,
+): boolean {
+    return (
+        matchesSharedLedgerDisplay(movement, {
+            shared: showShared.value,
+            refunded: showRefunded.value,
+            day: ignoreDay ? '' : selectedDay.value,
+            period: `${props.year}-${String(props.month).padStart(2, '0')}`,
+            advancedBy: selectedAdvancedBy.value,
+            category: selectedCategory.value,
+            macrogroup: selectedMacrogroup.value,
+            account: selectedAccount.value,
+        }) && matchesTransactionSearch(movement)
+    );
+}
+const filteredSharedLedgerMovements = computed(() =>
+    (sheet.value.shared_ledger_movements ?? [])
+        .filter((movement) => matchesSharedLedgerFilters(movement))
+        .sort(compareTransactionsForDisplay),
+);
+
 const calendarCounts = computed(() =>
     transactionDayCounts(
         [
@@ -1010,12 +1157,16 @@ const calendarCounts = computed(() =>
                 matchesFilters(transaction, true) &&
                 matchesTransactionSearch(transaction),
         ),
+        (sheet.value.shared_ledger_movements ?? []).filter((movement) =>
+            matchesSharedLedgerFilters(movement, true),
+        ),
     ),
 );
 const calendarLabels = computed(() => ({
     income: t('transactions.sheet.filters.showIncome'),
     expense: t('transactions.sheet.filters.showExpenses'),
     shared: t('transactions.sheet.filters.showShared'),
+    advanced: t('transactions.sharedLedger.badge'),
     recurring: t('transactions.sheet.filters.recurring'),
     refunded: t('transactions.sheet.filters.showRefunded'),
     transfer: ui('Trasferimenti'),
@@ -2762,6 +2913,8 @@ function handleMonthSelection(value: unknown): void {
 }
 
 function resetFilters(): void {
+    selectedDay.value = '';
+    selectedAdvancedBy.value = 'all';
     showShared.value = true;
     showDeleted.value = false;
     showIncome.value = true;
@@ -2778,10 +2931,6 @@ function resetFilters(): void {
 function toggleDateSort(): void {
     dateSortDirection.value =
         dateSortDirection.value === 'asc' ? 'desc' : 'asc';
-}
-
-function clearTransactionSearch(): void {
-    transactionSearch.value = '';
 }
 
 function openCreate(): void {
@@ -2802,6 +2951,7 @@ function openCreate(): void {
         return;
     }
 
+    sharedManagement.value = false;
     editingTransaction.value = null;
     formOpen.value = true;
 }
@@ -2842,6 +2992,7 @@ function openEdit(transaction: MonthlyTransactionSheetTransaction): void {
         return;
     }
 
+    sharedManagement.value = false;
     editingTransaction.value = transaction;
     formOpen.value = true;
 }
@@ -2941,14 +3092,106 @@ function closePaymentProblem(): void {
     paymentProblemTransaction.value = null;
     paymentProblemForm.clearErrors();
 }
+const paymentConfirmationForm = useForm<Record<string, string>>({});
+const paymentConfirmationTransaction =
+    ref<MonthlyTransactionSheetTransaction | null>(null);
+const undoRefundForm = useForm<Record<string, string>>({});
+const undoRefundTransaction = ref<MonthlyTransactionSheetTransaction | null>(
+    null,
+);
+
 function verifyAutomaticPayment(
     transaction: MonthlyTransactionSheetTransaction,
 ): void {
-    router.post(
-        confirmAutomaticPayment.url(transaction.uuid),
-        {},
-        { preserveScroll: true },
+    if (
+        !canEdit.value ||
+        !transaction.can_confirm_payment ||
+        paymentConfirmationForm.processing
+    ) {
+        return;
+    }
+
+    paymentConfirmationForm.clearErrors();
+    paymentConfirmationTransaction.value = transaction;
+}
+function closePaymentConfirmation(): void {
+    if (!paymentConfirmationForm.processing) {
+        paymentConfirmationTransaction.value = null;
+    }
+}
+function confirmPaymentRegistration(): void {
+    if (
+        !paymentConfirmationTransaction.value ||
+        paymentConfirmationForm.processing
+    ) {
+        return;
+    }
+
+    paymentConfirmationForm.post(
+        confirmAutomaticPayment.url(paymentConfirmationTransaction.value.uuid),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                paymentConfirmationTransaction.value = null;
+            },
+        },
     );
+}
+function confirmUndoRefund(): void {
+    if (!undoRefundTransaction.value || undoRefundForm.processing) {
+        return;
+    }
+
+    undoRefundForm.delete(
+        undoTransactionRefund.url({
+            year: props.year,
+            month: props.month,
+            transaction: undoRefundTransaction.value.uuid,
+        }),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                undoRefundTransaction.value = null;
+            },
+        },
+    );
+}
+function handleRowAction(
+    action: string,
+    transaction: MonthlyTransactionSheetTransaction,
+): void {
+    switch (action) {
+        case 'edit':
+            openEdit(transaction);
+            break;
+        case 'restore':
+            restoreTransaction(transaction.uuid);
+            break;
+        case 'forceDelete':
+            requestForceDelete(transaction);
+            break;
+        case 'undoRefund':
+            undoRefund(transaction);
+            break;
+        case 'confirmPayment':
+            verifyAutomaticPayment(transaction);
+            break;
+        case 'paymentProblem':
+            reportPaymentProblem(transaction);
+            break;
+        case 'refund':
+            requestRefund(transaction);
+            break;
+        case 'delete':
+            requestDelete(transaction);
+            break;
+        case 'audit':
+            auditTransaction.value = transaction;
+            break;
+        case 'shared':
+            openSharedManagement(transaction);
+            break;
+    }
 }
 
 function confirmPaymentProblem(): void {
@@ -2981,16 +3224,16 @@ function requestRefund(transaction: MonthlyTransactionSheetTransaction): void {
 }
 
 function undoRefund(transaction: MonthlyTransactionSheetTransaction): void {
-    if (!canEdit.value || !transaction.can_undo_refund) {
+    if (
+        !canEdit.value ||
+        !transaction.can_undo_refund ||
+        undoRefundForm.processing
+    ) {
         return;
     }
 
-    router.delete(
-        `/transactions/${props.year}/${props.month}/${transaction.uuid}/refund`,
-        {
-            preserveScroll: true,
-        },
-    );
+    undoRefundForm.clearErrors();
+    undoRefundTransaction.value = transaction;
 }
 
 function handleInlineEditTypeChange(
@@ -3286,6 +3529,7 @@ function matchesTransactionSearch(
         transaction.type,
         transaction.kind_label,
         transaction.direction_label,
+        transaction.shared_expense_counterparty_label,
     ].some((value) =>
         String(value ?? '')
             .toLocaleLowerCase(locale.value)
@@ -3634,7 +3878,7 @@ resetInlineEntry();
     />
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+        <div class="min-w-0 space-y-6 px-4 py-5 sm:px-6 lg:px-8">
             <Alert
                 v-if="paymentProblemForm.errors.payment"
                 variant="destructive"
@@ -4244,10 +4488,11 @@ resetInlineEntry();
             </Card>
 
             <div
-                class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_340px]"
+                class="transaction-workspace grid min-w-0 gap-6"
+                :class="monthlySummaryOpen ? 'summary-open' : 'summary-closed'"
             >
                 <Card
-                    class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+                    class="min-w-0 overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                 >
                     <CardHeader
                         class="border-b border-slate-200/70 bg-slate-50/70 px-4 py-4 sm:px-5 dark:border-white/10 dark:bg-slate-900/60"
@@ -4470,10 +4715,7 @@ resetInlineEntry();
                                 :filtered-occurrences-count="
                                     (day) => day.occurrences_count
                                 "
-                                @select="
-                                    selectedDay =
-                                        selectedDay === $event ? '' : $event
-                                "
+                                @select="selectCalendarDay"
                             >
                                 <template #day-content="{ cell, mobile }">
                                     <div
@@ -4501,6 +4743,14 @@ resetInlineEntry();
                                             "
                                             :aria-label="`${calendarLabels[badge.category]}: ${badge.count}`"
                                         >
+                                            <HandCoins
+                                                v-if="
+                                                    badge.category ===
+                                                    'advanced'
+                                                "
+                                                class="size-3 shrink-0"
+                                                aria-hidden="true"
+                                            />
                                             <span
                                                 v-if="!mobile"
                                                 class="truncate"
@@ -4510,7 +4760,10 @@ resetInlineEntry();
                                                     ]
                                                 }}</span
                                             ><span
-                                                v-else
+                                                v-else-if="
+                                                    badge.category !==
+                                                    'advanced'
+                                                "
                                                 aria-hidden="true"
                                                 class="size-1 rounded-full bg-current"
                                             ></span
@@ -4544,9 +4797,6 @@ resetInlineEntry();
                                 ><X class="size-4" aria-hidden="true"
                             /></Button>
                             <div class="relative min-w-0 flex-1">
-                                <Search
-                                    class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
-                                />
                                 <Input
                                     v-model="transactionSearch"
                                     type="search"
@@ -4560,19 +4810,6 @@ resetInlineEntry();
                                     "
                                     class="h-10 w-full rounded-xl pr-10 pl-9"
                                 />
-                                <button
-                                    v-if="transactionSearch.trim() !== ''"
-                                    type="button"
-                                    :aria-label="
-                                        t(
-                                            'transactions.sheet.filters.clearSearch',
-                                        )
-                                    "
-                                    class="absolute top-1/2 right-2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
-                                    @click="clearTransactionSearch"
-                                >
-                                    <X class="size-4" />
-                                </button>
                             </div>
                             <Button
                                 type="button"
@@ -4600,159 +4837,1331 @@ resetInlineEntry();
                                 {{ t('transactions.sheet.grid.columns.date') }}
                             </Button>
                         </div>
-                        <div class="hidden overflow-x-auto xl:block">
-                            <table
-                                class="w-full min-w-[1140px] border-collapse text-sm"
-                            >
-                                <thead
-                                    class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur dark:bg-slate-900/95"
+                        <div
+                            ref="ledgerResults"
+                            class="ledger-results scroll-mt-24"
+                        >
+                            <div class="ledger-table hidden xl:block">
+                                <table
+                                    class="w-full table-fixed border-collapse text-xs"
                                 >
-                                    <tr
-                                        class="border-b border-slate-200 dark:border-white/10"
+                                    <colgroup>
+                                        <col style="width: 8%" />
+                                        <col style="width: 14%" />
+                                        <col style="width: 14%" />
+                                        <col style="width: 13%" />
+                                        <col style="width: 15%" />
+                                        <col style="width: 16%" />
+                                        <col style="width: 10%" />
+                                        <col style="width: 10%" />
+                                    </colgroup>
+                                    <thead
+                                        class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur dark:bg-slate-900/95"
                                     >
-                                        <th class="px-4 py-2 text-left">
-                                            <button
-                                                type="button"
-                                                class="inline-flex min-h-10 items-center gap-1 rounded-lg text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:text-slate-400 dark:hover:text-white"
-                                                :aria-label="
-                                                    t(
-                                                        'transactions.sheet.grid.sortByDate',
-                                                        {
-                                                            direction:
-                                                                dateSortDirection ===
-                                                                'asc'
-                                                                    ? t(
-                                                                          'transactions.sheet.grid.sortAscending',
-                                                                      )
-                                                                    : t(
-                                                                          'transactions.sheet.grid.sortDescending',
-                                                                      ),
-                                                        },
-                                                    )
-                                                "
-                                                @click="toggleDateSort"
+                                        <tr
+                                            class="border-b border-slate-200 dark:border-white/10"
+                                        >
+                                            <th class="px-2 py-2 text-left">
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex min-h-10 items-center gap-1 rounded-lg text-xs font-semibold tracking-wide text-slate-500 uppercase hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:text-slate-400 dark:hover:text-white"
+                                                    :aria-label="
+                                                        t(
+                                                            'transactions.sheet.grid.sortByDate',
+                                                            {
+                                                                direction:
+                                                                    dateSortDirection ===
+                                                                    'asc'
+                                                                        ? t(
+                                                                              'transactions.sheet.grid.sortAscending',
+                                                                          )
+                                                                        : t(
+                                                                              'transactions.sheet.grid.sortDescending',
+                                                                          ),
+                                                            },
+                                                        )
+                                                    "
+                                                    @click="toggleDateSort"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.grid.columns.date',
+                                                        )
+                                                    }}
+                                                    <ArrowUp
+                                                        v-if="
+                                                            dateSortDirection ===
+                                                            'asc'
+                                                        "
+                                                        class="size-3.5"
+                                                    />
+                                                    <ArrowDown
+                                                        v-else
+                                                        class="size-3.5"
+                                                    />
+                                                </button>
+                                            </th>
+                                            <th
+                                                class="px-2 py-2 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
                                             >
                                                 {{
                                                     t(
-                                                        'transactions.sheet.grid.columns.date',
+                                                        'transactions.sheet.grid.columns.typeMacrogroup',
                                                     )
                                                 }}
-                                                <ArrowUp
-                                                    v-if="
-                                                        dateSortDirection ===
-                                                        'asc'
-                                                    "
-                                                    class="size-3.5"
-                                                />
-                                                <ArrowDown
-                                                    v-else
-                                                    class="size-3.5"
-                                                />
-                                            </button>
-                                        </th>
-                                        <th
-                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                            </th>
+                                            <th
+                                                class="px-2 py-2 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.columns.accountResource',
+                                                    )
+                                                }}
+                                            </th>
+                                            <th
+                                                class="px-2 py-2 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.columns.category',
+                                                    )
+                                                }}
+                                            </th>
+                                            <th
+                                                class="px-2 py-2 text-right text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.columns.amount',
+                                                    )
+                                                }}
+                                            </th>
+                                            <th
+                                                class="px-2 py-2 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.columns.detail',
+                                                    )
+                                                }}
+                                            </th>
+                                            <th
+                                                class="px-2 py-2 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.columns.trackedItem',
+                                                    )
+                                                }}
+                                            </th>
+                                            <th
+                                                class="px-2 py-2 text-right text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.columns.actions',
+                                                    )
+                                                }}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template
+                                            v-for="transaction in displayedTransactions"
+                                            :key="transaction.uuid"
                                         >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.columns.typeMacrogroup',
-                                                )
-                                            }}
-                                        </th>
-                                        <th
-                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.columns.accountResource',
-                                                )
-                                            }}
-                                        </th>
-                                        <th
-                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.columns.category',
-                                                )
-                                            }}
-                                        </th>
-                                        <th
-                                            class="w-[11.5rem] min-w-[11.5rem] px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.columns.amount',
-                                                )
-                                            }}
-                                        </th>
-                                        <th
-                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.columns.detail',
-                                                )
-                                            }}
-                                        </th>
-                                        <th
-                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.columns.trackedItem',
-                                                )
-                                            }}
-                                        </th>
-                                        <th
-                                            class="px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.columns.actions',
-                                                )
-                                            }}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template
-                                        v-for="transaction in displayedTransactions"
-                                        :key="transaction.uuid"
-                                    >
-                                        <tr
-                                            v-if="
-                                                editingInlineUuid ===
-                                                transaction.uuid
-                                            "
-                                            class="border-b border-sky-200/80 bg-sky-50/70 align-top dark:border-sky-500/20 dark:bg-sky-500/5"
-                                        >
-                                            <td class="px-3 py-3">
-                                                <div class="space-y-1.5">
-                                                    <Input
-                                                        v-if="isEditMove"
-                                                        ref="inlineDateInput"
-                                                        v-model="
-                                                            editForm.transaction_date
+                                            <tr
+                                                v-if="
+                                                    editingInlineUuid ===
+                                                    transaction.uuid
+                                                "
+                                                class="border-b border-sky-200/80 bg-sky-50/70 align-top dark:border-sky-500/20 dark:bg-sky-500/5"
+                                            >
+                                                <td class="px-3 py-3">
+                                                    <div class="space-y-1.5">
+                                                        <AppDatePicker
+                                                            v-if="isEditMove"
+                                                            ref="inlineDateInput"
+                                                            v-model="
+                                                                editForm.transaction_date
+                                                            "
+                                                            :min="moveDateMin"
+                                                            :max="moveDateMax"
+                                                            :class="
+                                                                editFieldClass(
+                                                                    'transaction_date',
+                                                                )
+                                                            "
+                                                            @keydown.enter.prevent="
+                                                                submitInlineEdit(
+                                                                    transaction.uuid,
+                                                                )
+                                                            "
+                                                        />
+                                                        <Input
+                                                            v-else
+                                                            v-model="
+                                                                editForm.transaction_day
+                                                            "
+                                                            type="number"
+                                                            inputmode="numeric"
+                                                            :placeholder="
+                                                                t(
+                                                                    'transactions.form.placeholders.day',
+                                                                )
+                                                            "
+                                                            :min="
+                                                                editDayRange.min
+                                                            "
+                                                            :max="
+                                                                editDayRange.max
+                                                            "
+                                                            :class="
+                                                                cn(
+                                                                    editFieldClass(
+                                                                        'transaction_day',
+                                                                    ),
+                                                                    'text-center',
+                                                                )
+                                                            "
+                                                            @keydown.enter.prevent="
+                                                                submitInlineEdit(
+                                                                    transaction.uuid,
+                                                                )
+                                                            "
+                                                        />
+                                                        <p
+                                                            class="text-center text-[10px] font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                isEditMove
+                                                                    ? t(
+                                                                          'transactions.form.labels.moveDate',
+                                                                      )
+                                                                    : t(
+                                                                          'transactions.sheet.grid.day',
+                                                                      )
+                                                            }}
+                                                        </p>
+                                                        <p
+                                                            v-if="
+                                                                visibleEditDayError
+                                                            "
+                                                            class="text-center text-[11px] text-rose-600 dark:text-rose-400"
+                                                        >
+                                                            {{
+                                                                visibleEditDayError
+                                                            }}
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-3">
+                                                    <Select
+                                                        :model-value="
+                                                            editForm.type_key
                                                         "
-                                                        type="date"
-                                                        :min="moveDateMin"
-                                                        :max="moveDateMax"
-                                                        :class="
-                                                            editFieldClass(
-                                                                'transaction_date',
+                                                        @update:model-value="
+                                                            handleInlineEditTypeChange(
+                                                                transaction,
+                                                                String($event),
                                                             )
                                                         "
+                                                    >
+                                                        <SelectTrigger
+                                                            :class="
+                                                                editFieldClass(
+                                                                    'type_key',
+                                                                )
+                                                            "
+                                                        >
+                                                            <SelectValue
+                                                                :placeholder="
+                                                                    t(
+                                                                        'transactions.sheet.filters.type',
+                                                                    )
+                                                                "
+                                                            />
+                                                        </SelectTrigger>
+                                                        <SelectContent
+                                                            class="z-[170]"
+                                                        >
+                                                            <SelectItem
+                                                                v-for="option in inlineEditTypeOptions"
+                                                                :key="
+                                                                    option.value
+                                                                "
+                                                                :value="
+                                                                    option.value
+                                                                "
+                                                            >
+                                                                {{
+                                                                    option.label
+                                                                }}
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </td>
+                                                <td class="px-3 py-3">
+                                                    <SearchableSelect
+                                                        v-model="
+                                                            editForm.account_uuid
+                                                        "
+                                                        :options="
+                                                            editAccountOptions
+                                                        "
+                                                        :placeholder="
+                                                            isEditTransfer
+                                                                ? t(
+                                                                      'transactions.sheet.filters.sourceAccount',
+                                                                  )
+                                                                : t(
+                                                                      'transactions.sheet.filters.account',
+                                                                  )
+                                                        "
+                                                        :search-placeholder="
+                                                            isEditTransfer
+                                                                ? t(
+                                                                      'transactions.form.placeholders.searchSourceAccount',
+                                                                  )
+                                                                : t(
+                                                                      'transactions.form.placeholders.searchAccount',
+                                                                  )
+                                                        "
+                                                        clearable
+                                                        :disabled="isEditMove"
+                                                        :trigger-class="
+                                                            editFieldClass(
+                                                                'account_uuid',
+                                                            )
+                                                        "
+                                                    />
+                                                    <p
+                                                        v-if="
+                                                            editForm.account_uuid !==
+                                                            ''
+                                                        "
+                                                        class="mt-2 text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.form.helper.accountCurrency',
+                                                                {
+                                                                    currency:
+                                                                        resolveFormCurrencyLabel(
+                                                                            editForm.account_uuid,
+                                                                        ),
+                                                                },
+                                                            )
+                                                        }}
+                                                    </p>
+                                                </td>
+                                                <td class="px-3 py-3">
+                                                    <div
+                                                        v-if="isEditMove"
+                                                        class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
+                                                    >
+                                                        {{
+                                                            lockedMoveValue(
+                                                                transactionCategoryLabel(
+                                                                    transaction,
+                                                                ),
+                                                            )
+                                                        }}
+                                                    </div>
+                                                    <TransactionCategoryQuickCreate
+                                                        v-else-if="
+                                                            !isEditTransfer
+                                                        "
+                                                        v-model="
+                                                            editForm.category_uuid
+                                                        "
+                                                        :account-uuid="
+                                                            editForm.account_uuid
+                                                        "
+                                                        :type-key="
+                                                            editForm.type_key
+                                                        "
+                                                        :categories="
+                                                            sheet.editor
+                                                                .categories
+                                                        "
+                                                        :accounts="
+                                                            sheet.editor
+                                                                .accounts
+                                                        "
+                                                        :type-options="
+                                                            sheet.editor
+                                                                .type_options
+                                                        "
+                                                        v-slot="{
+                                                            openQuickCreate,
+                                                        }"
+                                                    >
+                                                        <div
+                                                            class="flex items-center gap-1"
+                                                        >
+                                                            <SearchableSelect
+                                                                v-model="
+                                                                    editForm.category_uuid
+                                                                "
+                                                                class="min-w-0 flex-1"
+                                                                :options="
+                                                                    editCategories
+                                                                "
+                                                                :placeholder="
+                                                                    t(
+                                                                        'transactions.sheet.filters.category',
+                                                                    )
+                                                                "
+                                                                :search-placeholder="
+                                                                    t(
+                                                                        'transactions.sheet.filters.searchCategory',
+                                                                    )
+                                                                "
+                                                                :disabled="
+                                                                    editForm.type_key ===
+                                                                    ''
+                                                                "
+                                                                clearable
+                                                                hierarchical
+                                                                :trigger-class="
+                                                                    editFieldClass(
+                                                                        'category_uuid',
+                                                                    )
+                                                                "
+                                                            />
+                                                            <TooltipProvider
+                                                                :delay-duration="
+                                                                    0
+                                                                "
+                                                            >
+                                                                <Tooltip>
+                                                                    <TooltipTrigger
+                                                                        as-child
+                                                                    >
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="icon"
+                                                                            class="size-10 shrink-0 rounded-xl"
+                                                                            :aria-label="
+                                                                                t(
+                                                                                    'transactions.form.quickCategory.trigger',
+                                                                                )
+                                                                            "
+                                                                            :disabled="
+                                                                                editForm.account_uuid ===
+                                                                                    '' ||
+                                                                                editForm.type_key ===
+                                                                                    ''
+                                                                            "
+                                                                            @click="
+                                                                                openQuickCreate
+                                                                            "
+                                                                        >
+                                                                            <Plus
+                                                                                class="size-4"
+                                                                            />
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent
+                                                                        side="top"
+                                                                        align="center"
+                                                                        :collision-boundary="[]"
+                                                                        :update-position-strategy="'always'"
+                                                                        :avoid-collisions="
+                                                                            true
+                                                                        "
+                                                                        :hide-when-detached="
+                                                                            true
+                                                                        "
+                                                                        :position-strategy="'fixed'"
+                                                                        :arrow-padding="
+                                                                            8
+                                                                        "
+                                                                        :sticky="'partial'"
+                                                                        :collision-padding="
+                                                                            8
+                                                                        "
+                                                                        :align-offset="
+                                                                            4
+                                                                        "
+                                                                    >
+                                                                        {{
+                                                                            t(
+                                                                                'transactions.form.quickCategory.trigger',
+                                                                            )
+                                                                        }}
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        </div>
+                                                    </TransactionCategoryQuickCreate>
+                                                    <SearchableSelect
+                                                        v-else
+                                                        v-model="
+                                                            editForm.destination_account_uuid
+                                                        "
+                                                        :options="
+                                                            editDestinationAccountOptions
+                                                        "
+                                                        :placeholder="
+                                                            t(
+                                                                'transactions.sheet.filters.destinationAccount',
+                                                            )
+                                                        "
+                                                        :search-placeholder="
+                                                            t(
+                                                                'transactions.sheet.filters.searchDestinationAccount',
+                                                            )
+                                                        "
+                                                        clearable
+                                                        :trigger-class="
+                                                            editFieldClass(
+                                                                'destination_account_uuid',
+                                                            )
+                                                        "
+                                                    />
+                                                </td>
+                                                <td class="px-3 py-3">
+                                                    <div class="space-y-2">
+                                                        <MobileAmountInput
+                                                            v-model="
+                                                                editForm.amount
+                                                            "
+                                                            :disabled="
+                                                                isEditMove
+                                                            "
+                                                            :format-locale="
+                                                                moneyFormatLocale
+                                                            "
+                                                            :currency-code="
+                                                                resolveFormCurrency(
+                                                                    editForm.account_uuid,
+                                                                )
+                                                            "
+                                                            placeholder="0,00"
+                                                            :class="
+                                                                cn(
+                                                                    editFieldClass(
+                                                                        'amount',
+                                                                    ),
+                                                                    'min-w-0 px-2 text-right font-mono text-sm font-semibold tracking-tight',
+                                                                )
+                                                            "
+                                                            @blur="
+                                                                normalizeEditAmount
+                                                            "
+                                                            @keydown.enter.prevent="
+                                                                submitInlineEdit(
+                                                                    transaction.uuid,
+                                                                )
+                                                            "
+                                                        />
+                                                        <div
+                                                            v-if="
+                                                                !isEditTransfer &&
+                                                                !isEditMove &&
+                                                                (editExchangePreviewLoading ||
+                                                                    editExchangePreview?.should_preview ||
+                                                                    editExchangePreviewError)
+                                                            "
+                                                            class="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900/80"
+                                                        >
+                                                            <p
+                                                                class="text-[10px] font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.form.helper.fxPreviewTitle',
+                                                                    )
+                                                                }}
+                                                            </p>
+                                                            <p
+                                                                v-if="
+                                                                    editExchangePreviewLoading
+                                                                "
+                                                                class="mt-1 text-xs text-slate-600 dark:text-slate-300"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.form.placeholders.balanceAdjustmentLoading',
+                                                                    )
+                                                                }}
+                                                            </p>
+                                                            <template
+                                                                v-else-if="
+                                                                    editExchangePreview &&
+                                                                    editExchangePreview.should_preview
+                                                                "
+                                                            >
+                                                                <p
+                                                                    class="mt-1 text-xs font-semibold text-slate-900 dark:text-slate-100"
+                                                                >
+                                                                    {{
+                                                                        t(
+                                                                            'transactions.form.helper.fxPreviewAmount',
+                                                                            {
+                                                                                source: formatCurrency(
+                                                                                    editExchangePreview.amount_raw,
+                                                                                    editExchangePreview.currency_code,
+                                                                                    moneyFormatLocale,
+                                                                                ),
+                                                                                target: formatCurrency(
+                                                                                    editExchangePreview.converted_base_amount_raw,
+                                                                                    editExchangePreview.base_currency_code,
+                                                                                    moneyFormatLocale,
+                                                                                ),
+                                                                            },
+                                                                        )
+                                                                    }}
+                                                                </p>
+                                                                <p
+                                                                    class="mt-1 text-[11px] text-slate-500 dark:text-slate-400"
+                                                                >
+                                                                    {{
+                                                                        t(
+                                                                            'transactions.form.helper.fxPreviewRateDate',
+                                                                            {
+                                                                                date: formatDateLong(
+                                                                                    editExchangePreview.exchange_rate_date,
+                                                                                ),
+                                                                            },
+                                                                        )
+                                                                    }}
+                                                                </p>
+                                                            </template>
+                                                            <p
+                                                                v-else-if="
+                                                                    editExchangePreviewError
+                                                                "
+                                                                class="mt-1 text-xs text-rose-600 dark:text-rose-400"
+                                                            >
+                                                                {{
+                                                                    editExchangePreviewError
+                                                                }}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-3">
+                                                    <Input
+                                                        v-model="
+                                                            editForm.description
+                                                        "
+                                                        :disabled="isEditMove"
+                                                        :placeholder="
+                                                            t(
+                                                                'transactions.form.labels.detail',
+                                                            )
+                                                        "
+                                                        class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
                                                         @keydown.enter.prevent="
                                                             submitInlineEdit(
                                                                 transaction.uuid,
                                                             )
                                                         "
                                                     />
-                                                    <Input
-                                                        v-else
+                                                </td>
+                                                <td class="px-3 py-3">
+                                                    <div
+                                                        v-if="isEditMove"
+                                                        class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
+                                                    >
+                                                        {{
+                                                            lockedMoveValue(
+                                                                transaction.tracked_item_label ??
+                                                                    transaction.scope_label,
+                                                            )
+                                                        }}
+                                                    </div>
+                                                    <SearchableSelect
+                                                        v-else-if="
+                                                            !isEditTransfer
+                                                        "
                                                         v-model="
-                                                            editForm.transaction_day
+                                                            editReferenceValue
+                                                        "
+                                                        :options="[
+                                                            {
+                                                                value: '',
+                                                                label: t(
+                                                                    'transactions.sheet.grid.noSelection',
+                                                                ),
+                                                            },
+                                                            ...editReferenceOptions,
+                                                        ]"
+                                                        :placeholder="
+                                                            t(
+                                                                'transactions.sheet.grid.columns.trackedItem',
+                                                            )
+                                                        "
+                                                        :search-placeholder="
+                                                            t(
+                                                                'transactions.form.placeholders.searchTrackedItem',
+                                                            )
+                                                        "
+                                                        :disabled="
+                                                            editForm.type_key ===
+                                                            ''
+                                                        "
+                                                        clearable
+                                                        creatable
+                                                        :creating="
+                                                            creatingEditTrackedItem
+                                                        "
+                                                        :create-label="
+                                                            t(
+                                                                'transactions.form.placeholders.createTrackedItem',
+                                                            )
+                                                        "
+                                                        :trigger-class="
+                                                            editFieldClass(
+                                                                'tracked_item_uuid',
+                                                            )
+                                                        "
+                                                        @create-option="
+                                                            handleCreateEditTrackedItem
+                                                        "
+                                                    />
+                                                    <div
+                                                        v-else
+                                                        class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.grid.transferBetweenAccounts',
+                                                            )
+                                                        }}
+                                                    </div>
+                                                    <Dialog
+                                                        v-if="
+                                                            !isEditMove &&
+                                                            !isEditTransfer
+                                                        "
+                                                        v-model:open="
+                                                            editSharedOpen
+                                                        "
+                                                        ><Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            class="mt-2 max-w-full text-violet-600 dark:text-violet-300"
+                                                            :title="
+                                                                t(
+                                                                    'transactions.sheet.actions.manageShared',
+                                                                )
+                                                            "
+                                                            @click="
+                                                                editSharedOpen = true
+                                                            "
+                                                            ><UsersRound
+                                                                class="size-4 shrink-0" /><span
+                                                                class="truncate"
+                                                                >{{
+                                                                    t(
+                                                                        'transactions.sheet.classification.shared',
+                                                                    )
+                                                                }}</span
+                                                            ><Check
+                                                                v-if="
+                                                                    editForm.is_shared_expense
+                                                                "
+                                                                class="size-3 shrink-0" /></Button
+                                                        ><DialogContent
+                                                            class="max-h-[85dvh] overflow-y-auto sm:max-w-xl"
+                                                            ><DialogHeader
+                                                                ><DialogTitle>{{
+                                                                    t(
+                                                                        'transactions.sheet.actions.manageShared',
+                                                                    )
+                                                                }}</DialogTitle
+                                                                ><DialogDescription
+                                                                    >{{
+                                                                        t(
+                                                                            'transactions.sharedLedger.helper',
+                                                                        )
+                                                                    }}</DialogDescription
+                                                                ></DialogHeader
+                                                            ><SharedExpenseFields
+                                                                :dropdown-teleport="
+                                                                    false
+                                                                "
+                                                                v-model:enabled="
+                                                                    editForm.is_shared_expense
+                                                                "
+                                                                v-model:counterparty="
+                                                                    editForm.shared_expense_counterparty_uuid
+                                                                "
+                                                                v-model:paid-by="
+                                                                    editForm.shared_expense_paid_by
+                                                                "
+                                                                v-model:my-share="
+                                                                    editForm.shared_expense_my_share
+                                                                "
+                                                                v-model:counterparty-share="
+                                                                    editForm.shared_expense_counterparty_share
+                                                                "
+                                                                v-model:custom="
+                                                                    editForm.shared_expense_custom_split
+                                                                "
+                                                                class="mt-2"
+                                                                :counterparties="
+                                                                    sheet.editor
+                                                                        .shared_expense_counterparties
+                                                                "
+                                                                dropdown-side="top"
+                                                                :amount="
+                                                                    editForm.amount
+                                                                "
+                                                                :errors="
+                                                                    editForm.errors
+                                                                "
+                                                            /><DialogFooter
+                                                                ><Button
+                                                                    type="button"
+                                                                    @click="
+                                                                        editSharedOpen = false
+                                                                    "
+                                                                    >{{
+                                                                        ui(
+                                                                            'Close',
+                                                                        )
+                                                                    }}</Button
+                                                                ></DialogFooter
+                                                            ></DialogContent
+                                                        ></Dialog
+                                                    >
+                                                </td>
+                                                <td class="px-3 py-3">
+                                                    <div
+                                                        class="flex justify-end gap-2"
+                                                    >
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            class="rounded-xl"
+                                                            :disabled="
+                                                                editForm.processing
+                                                            "
+                                                            @click="
+                                                                submitInlineEdit(
+                                                                    transaction.uuid,
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'transactions.sheet.actions.save',
+                                                                )
+                                                            }}
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="outline"
+                                                            class="rounded-xl"
+                                                            :disabled="
+                                                                editForm.processing
+                                                            "
+                                                            @click="
+                                                                cancelInlineEdit
+                                                            "
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'transactions.sheet.actions.cancel',
+                                                                )
+                                                            }}
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            <tr
+                                                v-else
+                                                tabindex="-1"
+                                                :data-transaction-row="
+                                                    transaction.uuid
+                                                "
+                                                :class="
+                                                    cn(
+                                                        'border-b border-slate-200/70 transition-colors hover:bg-slate-50/80 dark:border-white/8 dark:hover:bg-slate-900/60',
+                                                        transactionRowToneClass(
+                                                            transaction,
+                                                        ),
+                                                        transactionAccentClass(
+                                                            transaction,
+                                                        ),
+                                                        canEdit &&
+                                                            transaction.can_edit
+                                                            ? 'cursor-pointer'
+                                                            : '',
+                                                        transactionFeedbackClass(
+                                                            transaction.uuid,
+                                                        ),
+                                                    )
+                                                "
+                                                @dblclick="
+                                                    startInlineEdit(transaction)
+                                                "
+                                            >
+                                                <td class="px-2 py-2 align-top">
+                                                    <div class="space-y-0.5">
+                                                        <p
+                                                            class="font-medium text-slate-900 dark:text-slate-100"
+                                                            :title="
+                                                                formatDateNumeric(
+                                                                    transaction.date,
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                formatDateShort(
+                                                                    transaction.date,
+                                                                )
+                                                            }}
+                                                        </p>
+
+                                                        <p
+                                                            v-if="
+                                                                creditCardCycleHelper(
+                                                                    transaction,
+                                                                )
+                                                            "
+                                                            class="text-xs text-sky-700 dark:text-sky-300"
+                                                        >
+                                                            {{
+                                                                creditCardCycleHelper(
+                                                                    transaction,
+                                                                )
+                                                            }}
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                                <td class="px-2 py-2 align-top">
+                                                    <div
+                                                        class="flex flex-wrap gap-2"
+                                                    >
+                                                        <TransactionClassificationBadges
+                                                            compact
+                                                            :transaction="
+                                                                transaction
+                                                            "
+                                                        />
+
+                                                        <TooltipProvider
+                                                            v-if="
+                                                                isBalanceAdjustmentTransaction(
+                                                                    transaction,
+                                                                )
+                                                            "
+                                                            :delay-duration="0"
+                                                        >
+                                                            <Tooltip>
+                                                                <TooltipTrigger
+                                                                    as-child
+                                                                >
+                                                                    <Badge
+                                                                        :class="
+                                                                            cn(
+                                                                                'cursor-help rounded-full px-2.5 py-1 text-[11px]',
+                                                                                balanceAdjustmentBadgeTone(
+                                                                                    transaction,
+                                                                                ),
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <Scale
+                                                                            class="mr-1 h-3.5 w-3.5"
+                                                                        />
+                                                                        {{
+                                                                            t(
+                                                                                'transactions.sheet.grid.balanceAdjustmentBadge',
+                                                                            )
+                                                                        }}
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent
+                                                                    side="top"
+                                                                    align="start"
+                                                                    :collision-boundary="[]"
+                                                                    :update-position-strategy="'always'"
+                                                                    :avoid-collisions="
+                                                                        true
+                                                                    "
+                                                                    :hide-when-detached="
+                                                                        true
+                                                                    "
+                                                                    :position-strategy="'fixed'"
+                                                                    :arrow-padding="
+                                                                        8
+                                                                    "
+                                                                    :sticky="'partial'"
+                                                                    :collision-padding="
+                                                                        8
+                                                                    "
+                                                                    :align-offset="
+                                                                        4
+                                                                    "
+                                                                    class="max-w-xs space-y-1"
+                                                                >
+                                                                    <p
+                                                                        class="font-medium"
+                                                                    >
+                                                                        {{
+                                                                            t(
+                                                                                'transactions.sheet.grid.balanceAdjustmentTooltipTitle',
+                                                                            )
+                                                                        }}
+                                                                    </p>
+                                                                    <p>
+                                                                        {{
+                                                                            t(
+                                                                                'transactions.sheet.grid.balanceAdjustmentTooltipBody',
+                                                                            )
+                                                                        }}
+                                                                    </p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                        <Badge
+                                                            v-if="
+                                                                isBalanceAdjustmentTransaction(
+                                                                    transaction,
+                                                                )
+                                                            "
+                                                            :class="
+                                                                cn(
+                                                                    'rounded-full px-2.5 py-1 text-[11px]',
+                                                                    balanceAdjustmentEffectTone(
+                                                                        transaction,
+                                                                    ),
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                balanceAdjustmentEffectLabel(
+                                                                    transaction,
+                                                                )
+                                                            }}
+                                                        </Badge>
+                                                    </div>
+                                                </td>
+                                                <td class="px-2 py-2 align-top">
+                                                    <div
+                                                        class="min-w-0 space-y-0.5"
+                                                    >
+                                                        <p
+                                                            class="truncate font-medium text-slate-900 dark:text-slate-100"
+                                                        >
+                                                            {{
+                                                                transaction.account_label
+                                                            }}
+                                                        </p>
+                                                        <p
+                                                            v-if="
+                                                                transaction.is_transfer
+                                                            "
+                                                            class="text-xs break-words text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                transaction.is_transfer
+                                                                    ? transaction.direction ===
+                                                                      'income'
+                                                                        ? t(
+                                                                              'transactions.sheet.grid.transferPath',
+                                                                              {
+                                                                                  from:
+                                                                                      transaction.related_account_label ??
+                                                                                      t(
+                                                                                          'transactions.sheet.filters.sourceAccount',
+                                                                                      ),
+                                                                                  to: transaction.account_label,
+                                                                              },
+                                                                          )
+                                                                        : t(
+                                                                              'transactions.sheet.grid.transferPath',
+                                                                              {
+                                                                                  from: transaction.account_label,
+                                                                                  to:
+                                                                                      transaction.related_account_label ??
+                                                                                      t(
+                                                                                          'transactions.sheet.filters.destinationAccount',
+                                                                                      ),
+                                                                              },
+                                                                          )
+                                                                    : '—'
+                                                            }}
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                                <td class="px-2 py-2 align-top">
+                                                    <div class="space-y-0.5">
+                                                        <p
+                                                            class="font-medium text-slate-900 dark:text-slate-100"
+                                                        >
+                                                            {{
+                                                                transaction.category_label
+                                                            }}
+                                                        </p>
+                                                        <p
+                                                            class="truncate text-xs text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                transactionCategoryPath(
+                                                                    transaction,
+                                                                )
+                                                            }}
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                                <td
+                                                    class="px-2 py-2 text-right align-top"
+                                                >
+                                                    <span
+                                                        class="font-mono font-semibold"
+                                                        :class="
+                                                            getAmountTone(
+                                                                transaction.amount_raw,
+                                                            )
+                                                        "
+                                                    >
+                                                        <SensitiveValue
+                                                            :value="
+                                                                formatCurrency(
+                                                                    transaction.amount_raw,
+                                                                    transactionAmountCurrency(
+                                                                        transaction,
+                                                                    ),
+                                                                    moneyFormatLocale,
+                                                                )
+                                                            "
+                                                        />
+                                                    </span>
+                                                    <p
+                                                        v-if="
+                                                            transactionConvertedAmountLabel(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        <SensitiveValue
+                                                            :value="
+                                                                transactionConvertedAmountLabel(
+                                                                    transaction,
+                                                                )
+                                                            "
+                                                        />
+                                                    </p>
+                                                    <p
+                                                        v-if="
+                                                            transactionExchangeRateContextLabel(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                        class="mt-1 text-[11px] text-slate-400 dark:text-slate-500"
+                                                    >
+                                                        {{
+                                                            transactionExchangeRateContextLabel(
+                                                                transaction,
+                                                            )
+                                                        }}
+                                                    </p>
+                                                    <p
+                                                        v-if="
+                                                            isBalanceAdjustmentTransaction(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                        class="mt-1 text-xs font-medium"
+                                                        :class="
+                                                            balanceAdjustmentEffectTone(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            balanceAdjustmentEffectLabel(
+                                                                transaction,
+                                                            )
+                                                        }}
+                                                    </p>
+                                                </td>
+                                                <td class="px-2 py-2 align-top">
+                                                    <div class="space-y-0.5">
+                                                        <p
+                                                            class="line-clamp-2 text-sm font-medium text-slate-800 dark:text-slate-200"
+                                                            :title="
+                                                                transaction.detail ??
+                                                                transaction.description ??
+                                                                t(
+                                                                    'transactions.sheet.grid.noDetail',
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                transaction.detail ??
+                                                                transaction.description ??
+                                                                t(
+                                                                    'transactions.sheet.grid.noDetail',
+                                                                )
+                                                            }}
+                                                        </p>
+                                                        <p
+                                                            v-if="
+                                                                transaction.notes &&
+                                                                transaction.notes !==
+                                                                    (transaction.detail ??
+                                                                        transaction.description)
+                                                            "
+                                                            class="truncate text-xs text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                transaction.notes
+                                                            }}
+                                                        </p>
+                                                        <div
+                                                            v-if="
+                                                                recurringTransactionHelper(
+                                                                    transaction,
+                                                                ) ||
+                                                                transaction.recurring_entry_show_url ||
+                                                                transaction.credit_debt_item_show_url
+                                                            "
+                                                            class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            <span
+                                                                v-if="
+                                                                    recurringTransactionHelper(
+                                                                        transaction,
+                                                                    ) &&
+                                                                    !transaction.recurring_entry_show_url &&
+                                                                    !transaction.credit_debt_item_show_url
+                                                                "
+                                                            >
+                                                                {{
+                                                                    recurringTransactionHelper(
+                                                                        transaction,
+                                                                    )
+                                                                }}
+                                                            </span>
+                                                            <Link
+                                                                v-if="
+                                                                    transaction.recurring_entry_show_url ||
+                                                                    transaction.credit_debt_item_show_url
+                                                                "
+                                                                :href="
+                                                                    transaction.recurring_entry_show_url ??
+                                                                    transaction.credit_debt_item_show_url
+                                                                "
+                                                                class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                                                            >
+                                                                {{
+                                                                    sourceTransactionLinkLabel(
+                                                                        transaction,
+                                                                    )
+                                                                }}
+                                                            </Link>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td
+                                                    class="px-2 py-2 align-top text-sm text-slate-700 dark:text-slate-300"
+                                                >
+                                                    <template
+                                                        v-if="
+                                                            !transaction.is_transfer &&
+                                                            transaction.tracked_item_label
+                                                        "
+                                                    >
+                                                        <TrackedItemIdentity
+                                                            :name="
+                                                                transaction.tracked_item_label
+                                                            "
+                                                            :logo-url="
+                                                                transaction.tracked_item_logo_url
+                                                            "
+                                                            compact
+                                                        />
+                                                    </template>
+                                                    <template v-else>
+                                                        {{
+                                                            transaction.is_transfer
+                                                                ? (transaction.related_account_label ??
+                                                                  '—')
+                                                                : (transaction.scope_label ??
+                                                                  '—')
+                                                        }}
+                                                    </template>
+                                                </td>
+                                                <td
+                                                    class="px-0 py-2 text-center align-top"
+                                                >
+                                                    <TransactionRowActions
+                                                        :transaction="
+                                                            transaction
+                                                        "
+                                                        :can-edit="canEdit"
+                                                        :processing="
+                                                            paymentConfirmationForm.processing ||
+                                                            paymentProblemForm.processing ||
+                                                            undoRefundForm.processing
+                                                        "
+                                                        :show-audit="
+                                                            shouldShowTransactionAuditIcon(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                        @action="
+                                                            handleRowAction(
+                                                                $event,
+                                                                transaction,
+                                                            )
+                                                        "
+                                                    />
+                                                </td>
+                                            </tr>
+
+                                            <tr
+                                                v-if="
+                                                    editingInlineUuid ===
+                                                        transaction.uuid &&
+                                                    editErrorsList.length > 0
+                                                "
+                                                class="border-b border-slate-200/70 bg-rose-50/80 dark:border-white/10 dark:bg-rose-500/8"
+                                            >
+                                                <td
+                                                    colspan="8"
+                                                    class="px-2 py-2"
+                                                >
+                                                    <div
+                                                        class="flex flex-wrap gap-2 text-xs text-rose-700 dark:text-rose-300"
+                                                    >
+                                                        <span
+                                                            v-for="message in editErrorsList"
+                                                            :key="message"
+                                                            class="rounded-full bg-rose-100 px-2.5 py-1 dark:bg-rose-500/10"
+                                                        >
+                                                            {{ message }}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </template>
+
+                                        <tr
+                                            v-if="canEdit"
+                                            class="border-t-2 border-sky-200 bg-sky-50/70 align-top dark:border-sky-500/20 dark:bg-sky-500/5"
+                                        >
+                                            <td class="px-3 py-3">
+                                                <div class="space-y-1.5">
+                                                    <Input
+                                                        ref="inlineDateInput"
+                                                        v-model="
+                                                            inlineForm.transaction_day
                                                         "
                                                         type="number"
                                                         inputmode="numeric"
@@ -4761,43 +6170,41 @@ resetInlineEntry();
                                                                 'transactions.form.placeholders.day',
                                                             )
                                                         "
-                                                        :min="editDayRange.min"
-                                                        :max="editDayRange.max"
+                                                        :min="
+                                                            inlineDayRange.min
+                                                        "
+                                                        :max="
+                                                            inlineDayRange.max
+                                                        "
                                                         :class="
                                                             cn(
-                                                                editFieldClass(
+                                                                inlineFieldClass(
                                                                     'transaction_day',
                                                                 ),
                                                                 'text-center',
                                                             )
                                                         "
                                                         @keydown.enter.prevent="
-                                                            submitInlineEdit(
-                                                                transaction.uuid,
-                                                            )
+                                                            submitInlineTransaction
                                                         "
                                                     />
                                                     <p
-                                                        class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                        class="text-center text-[10px] font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400"
                                                     >
                                                         {{
-                                                            isEditMove
-                                                                ? t(
-                                                                      'transactions.form.labels.moveDate',
-                                                                  )
-                                                                : t(
-                                                                      'transactions.sheet.grid.day',
-                                                                  )
+                                                            t(
+                                                                'transactions.sheet.grid.day',
+                                                            )
                                                         }}
                                                     </p>
                                                     <p
                                                         v-if="
-                                                            visibleEditDayError
+                                                            visibleInlineDayError
                                                         "
                                                         class="text-center text-[11px] text-rose-600 dark:text-rose-400"
                                                     >
                                                         {{
-                                                            visibleEditDayError
+                                                            visibleInlineDayError
                                                         }}
                                                     </p>
                                                 </div>
@@ -4805,18 +6212,16 @@ resetInlineEntry();
                                             <td class="px-3 py-3">
                                                 <Select
                                                     :model-value="
-                                                        editForm.type_key
+                                                        inlineForm.type_key
                                                     "
                                                     @update:model-value="
-                                                        handleInlineEditTypeChange(
-                                                            transaction,
-                                                            String($event),
-                                                        )
+                                                        inlineForm.type_key =
+                                                            String($event)
                                                     "
                                                 >
                                                     <SelectTrigger
                                                         :class="
-                                                            editFieldClass(
+                                                            inlineFieldClass(
                                                                 'type_key',
                                                             )
                                                         "
@@ -4833,7 +6238,7 @@ resetInlineEntry();
                                                         class="z-[170]"
                                                     >
                                                         <SelectItem
-                                                            v-for="option in inlineEditTypeOptions"
+                                                            v-for="option in inlineCreateTypeOptions"
                                                             :key="option.value"
                                                             :value="
                                                                 option.value
@@ -4845,82 +6250,122 @@ resetInlineEntry();
                                                 </Select>
                                             </td>
                                             <td class="px-3 py-3">
-                                                <SearchableSelect
-                                                    v-model="
-                                                        editForm.account_uuid
-                                                    "
-                                                    :options="
-                                                        editAccountOptions
-                                                    "
-                                                    :placeholder="
-                                                        isEditTransfer
-                                                            ? t(
-                                                                  'transactions.sheet.filters.sourceAccount',
-                                                              )
-                                                            : t(
-                                                                  'transactions.sheet.filters.account',
-                                                              )
-                                                    "
-                                                    :search-placeholder="
-                                                        isEditTransfer
-                                                            ? t(
-                                                                  'transactions.form.placeholders.searchSourceAccount',
-                                                              )
-                                                            : t(
-                                                                  'transactions.form.placeholders.searchAccount',
-                                                              )
-                                                    "
-                                                    clearable
-                                                    :disabled="isEditMove"
-                                                    :trigger-class="
-                                                        editFieldClass(
-                                                            'account_uuid',
-                                                        )
-                                                    "
-                                                />
-                                                <p
-                                                    v-if="
-                                                        editForm.account_uuid !==
-                                                        ''
-                                                    "
-                                                    class="mt-2 text-xs text-slate-500 dark:text-slate-400"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.form.helper.accountCurrency',
-                                                            {
-                                                                currency:
-                                                                    resolveFormCurrencyLabel(
-                                                                        editForm.account_uuid,
-                                                                    ),
-                                                            },
-                                                        )
-                                                    }}
-                                                </p>
+                                                <div class="space-y-2">
+                                                    <SearchableSelect
+                                                        v-model="
+                                                            inlineForm.account_uuid
+                                                        "
+                                                        :options="
+                                                            inlineAccountOptions
+                                                        "
+                                                        :placeholder="
+                                                            isInlineTransfer
+                                                                ? t(
+                                                                      'transactions.sheet.filters.sourceAccount',
+                                                                  )
+                                                                : t(
+                                                                      'transactions.sheet.filters.account',
+                                                                  )
+                                                        "
+                                                        :search-placeholder="
+                                                            isInlineTransfer
+                                                                ? t(
+                                                                      'transactions.form.placeholders.searchSourceAccount',
+                                                                  )
+                                                                : t(
+                                                                      'transactions.form.placeholders.searchAccount',
+                                                                  )
+                                                        "
+                                                        clearable
+                                                        :trigger-class="
+                                                            inlineFieldClass(
+                                                                'account_uuid',
+                                                            )
+                                                        "
+                                                    />
+                                                    <p
+                                                        v-if="
+                                                            inlineForm.account_uuid !==
+                                                            ''
+                                                        "
+                                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.form.helper.accountCurrency',
+                                                                {
+                                                                    currency:
+                                                                        resolveFormCurrencyLabel(
+                                                                            inlineForm.account_uuid,
+                                                                        ),
+                                                                },
+                                                            )
+                                                        }}
+                                                    </p>
+                                                    <div
+                                                        v-if="
+                                                            isInlineBalanceAdjustment
+                                                        "
+                                                        class="space-y-1"
+                                                    >
+                                                        <div
+                                                            class="flex h-10 items-center justify-end rounded-xl border border-dashed border-sky-200 px-3 text-sm font-semibold text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
+                                                        >
+                                                            {{
+                                                                inlineBalanceAdjustmentCurrentBalanceLoading
+                                                                    ? t(
+                                                                          'transactions.form.placeholders.balanceAdjustmentLoading',
+                                                                      )
+                                                                    : inlineBalanceAdjustmentCurrentBalanceRaw !==
+                                                                        null
+                                                                      ? formatCurrency(
+                                                                            inlineBalanceAdjustmentCurrentBalanceRaw,
+                                                                            resolveFormCurrency(
+                                                                                inlineForm.account_uuid,
+                                                                            ),
+                                                                        )
+                                                                      : t(
+                                                                            'transactions.form.placeholders.balanceAdjustmentPending',
+                                                                        )
+                                                            }}
+                                                        </div>
+                                                        <p
+                                                            class="text-center text-[10px] font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'transactions.sheet.grid.balanceAdjustmentCurrentBalanceLabel',
+                                                                )
+                                                            }}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td class="px-3 py-3">
                                                 <div
-                                                    v-if="isEditMove"
+                                                    v-if="
+                                                        isInlineBalanceAdjustment
+                                                    "
                                                     class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
                                                 >
                                                     {{
-                                                        lockedMoveValue(
-                                                            transactionCategoryLabel(
-                                                                transaction,
-                                                            ),
+                                                        t(
+                                                            'transactions.sheet.grid.balanceAdjustmentBadge',
                                                         )
                                                     }}
                                                 </div>
                                                 <TransactionCategoryQuickCreate
-                                                    v-else-if="!isEditTransfer"
+                                                    v-else-if="
+                                                        !isInlineTransfer
+                                                    "
                                                     v-model="
-                                                        editForm.category_uuid
+                                                        inlineForm.category_uuid
                                                     "
                                                     :account-uuid="
-                                                        editForm.account_uuid
+                                                        inlineForm.account_uuid
                                                     "
                                                     :type-key="
-                                                        editForm.type_key
+                                                        inlineForm.type_key
                                                     "
                                                     :categories="
                                                         sheet.editor.categories
@@ -4939,11 +6384,11 @@ resetInlineEntry();
                                                     >
                                                         <SearchableSelect
                                                             v-model="
-                                                                editForm.category_uuid
+                                                                inlineForm.category_uuid
                                                             "
                                                             class="min-w-0 flex-1"
                                                             :options="
-                                                                editCategories
+                                                                inlineCategories
                                                             "
                                                             :placeholder="
                                                                 t(
@@ -4956,13 +6401,13 @@ resetInlineEntry();
                                                                 )
                                                             "
                                                             :disabled="
-                                                                editForm.type_key ===
+                                                                inlineForm.type_key ===
                                                                 ''
                                                             "
                                                             clearable
                                                             hierarchical
                                                             :trigger-class="
-                                                                editFieldClass(
+                                                                inlineFieldClass(
                                                                     'category_uuid',
                                                                 )
                                                             "
@@ -4985,9 +6430,9 @@ resetInlineEntry();
                                                                             )
                                                                         "
                                                                         :disabled="
-                                                                            editForm.account_uuid ===
+                                                                            inlineForm.account_uuid ===
                                                                                 '' ||
-                                                                            editForm.type_key ===
+                                                                            inlineForm.type_key ===
                                                                                 ''
                                                                         "
                                                                         @click="
@@ -5035,10 +6480,10 @@ resetInlineEntry();
                                                 <SearchableSelect
                                                     v-else
                                                     v-model="
-                                                        editForm.destination_account_uuid
+                                                        inlineForm.destination_account_uuid
                                                     "
                                                     :options="
-                                                        editDestinationAccountOptions
+                                                        inlineDestinationAccountOptions
                                                     "
                                                     :placeholder="
                                                         t(
@@ -5052,59 +6497,96 @@ resetInlineEntry();
                                                     "
                                                     clearable
                                                     :trigger-class="
-                                                        editFieldClass(
+                                                        inlineFieldClass(
                                                             'destination_account_uuid',
                                                         )
                                                     "
                                                 />
                                             </td>
-                                            <td
-                                                class="w-[11.5rem] min-w-[11.5rem] px-3 py-3"
-                                            >
+                                            <td class="px-3 py-3">
                                                 <div class="space-y-2">
-                                                    <MoneyInput
-                                                        v-model="
-                                                            editForm.amount
+                                                    <MobileAmountInput
+                                                        v-if="
+                                                            !isInlineBalanceAdjustment
                                                         "
-                                                        :disabled="isEditMove"
+                                                        v-model="
+                                                            inlineForm.amount
+                                                        "
                                                         :format-locale="
                                                             moneyFormatLocale
                                                         "
                                                         :currency-code="
                                                             resolveFormCurrency(
-                                                                editForm.account_uuid,
+                                                                inlineForm.account_uuid,
                                                             )
                                                         "
                                                         placeholder="0,00"
                                                         :class="
                                                             cn(
-                                                                editFieldClass(
+                                                                inlineFieldClass(
                                                                     'amount',
                                                                 ),
-                                                                'min-w-[10rem] px-4 text-right font-mono text-base font-semibold tracking-tight',
+                                                                'min-w-0 px-2 text-right font-mono text-sm font-semibold tracking-tight',
                                                             )
                                                         "
                                                         @blur="
-                                                            normalizeEditAmount
+                                                            normalizeInlineAmount
                                                         "
                                                         @keydown.enter.prevent="
-                                                            submitInlineEdit(
-                                                                transaction.uuid,
-                                                            )
+                                                            submitInlineTransaction
                                                         "
                                                     />
+                                                    <template v-else>
+                                                        <MobileAmountInput
+                                                            v-model="
+                                                                inlineForm.desired_balance
+                                                            "
+                                                            :format-locale="
+                                                                moneyFormatLocale
+                                                            "
+                                                            :currency-code="
+                                                                resolveFormCurrency(
+                                                                    inlineForm.account_uuid,
+                                                                )
+                                                            "
+                                                            placeholder="0,00"
+                                                            :class="
+                                                                cn(
+                                                                    inlineFieldClass(
+                                                                        'desired_balance',
+                                                                    ),
+                                                                    'min-w-0 px-2 text-right font-mono text-sm font-semibold tracking-tight',
+                                                                )
+                                                            "
+                                                            @blur="
+                                                                normalizeInlineDesiredBalance
+                                                            "
+                                                            @keydown.enter.prevent="
+                                                                submitInlineTransaction
+                                                            "
+                                                        />
+                                                        <p
+                                                            class="text-center text-[10px] font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'transactions.sheet.grid.balanceAdjustmentCurrentAmountLabel',
+                                                                )
+                                                            }}
+                                                        </p>
+                                                    </template>
                                                     <div
                                                         v-if="
-                                                            !isEditTransfer &&
-                                                            !isEditMove &&
-                                                            (editExchangePreviewLoading ||
-                                                                editExchangePreview?.should_preview ||
-                                                                editExchangePreviewError)
+                                                            !isInlineBalanceAdjustment &&
+                                                            !isInlineTransfer &&
+                                                            (inlineExchangePreviewLoading ||
+                                                                inlineExchangePreview?.should_preview ||
+                                                                inlineExchangePreviewError)
                                                         "
                                                         class="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900/80"
                                                     >
                                                         <p
-                                                            class="text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                            class="text-[10px] font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
                                                         >
                                                             {{
                                                                 t(
@@ -5114,7 +6596,7 @@ resetInlineEntry();
                                                         </p>
                                                         <p
                                                             v-if="
-                                                                editExchangePreviewLoading
+                                                                inlineExchangePreviewLoading
                                                             "
                                                             class="mt-1 text-xs text-slate-600 dark:text-slate-300"
                                                         >
@@ -5126,8 +6608,8 @@ resetInlineEntry();
                                                         </p>
                                                         <template
                                                             v-else-if="
-                                                                editExchangePreview &&
-                                                                editExchangePreview.should_preview
+                                                                inlineExchangePreview &&
+                                                                inlineExchangePreview.should_preview
                                                             "
                                                         >
                                                             <p
@@ -5138,13 +6620,13 @@ resetInlineEntry();
                                                                         'transactions.form.helper.fxPreviewAmount',
                                                                         {
                                                                             source: formatCurrency(
-                                                                                editExchangePreview.amount_raw,
-                                                                                editExchangePreview.currency_code,
+                                                                                inlineExchangePreview.amount_raw,
+                                                                                inlineExchangePreview.currency_code,
                                                                                 moneyFormatLocale,
                                                                             ),
                                                                             target: formatCurrency(
-                                                                                editExchangePreview.converted_base_amount_raw,
-                                                                                editExchangePreview.base_currency_code,
+                                                                                inlineExchangePreview.converted_base_amount_raw,
+                                                                                inlineExchangePreview.base_currency_code,
                                                                                 moneyFormatLocale,
                                                                             ),
                                                                         },
@@ -5159,7 +6641,7 @@ resetInlineEntry();
                                                                         'transactions.form.helper.fxPreviewRateDate',
                                                                         {
                                                                             date: formatDateLong(
-                                                                                editExchangePreview.exchange_rate_date,
+                                                                                inlineExchangePreview.exchange_rate_date,
                                                                             ),
                                                                         },
                                                                     )
@@ -5168,12 +6650,12 @@ resetInlineEntry();
                                                         </template>
                                                         <p
                                                             v-else-if="
-                                                                editExchangePreviewError
+                                                                inlineExchangePreviewError
                                                             "
                                                             class="mt-1 text-xs text-rose-600 dark:text-rose-400"
                                                         >
                                                             {{
-                                                                editExchangePreviewError
+                                                                inlineExchangePreviewError
                                                             }}
                                                         </p>
                                                     </div>
@@ -5182,9 +6664,8 @@ resetInlineEntry();
                                             <td class="px-3 py-3">
                                                 <Input
                                                     v-model="
-                                                        editForm.description
+                                                        inlineForm.description
                                                     "
-                                                    :disabled="isEditMove"
                                                     :placeholder="
                                                         t(
                                                             'transactions.form.labels.detail',
@@ -5192,27 +6673,30 @@ resetInlineEntry();
                                                     "
                                                     class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
                                                     @keydown.enter.prevent="
-                                                        submitInlineEdit(
-                                                            transaction.uuid,
-                                                        )
+                                                        submitInlineTransaction
                                                     "
                                                 />
                                             </td>
                                             <td class="px-3 py-3">
                                                 <div
-                                                    v-if="isEditMove"
+                                                    v-if="
+                                                        isInlineBalanceAdjustment
+                                                    "
                                                     class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
                                                 >
                                                     {{
-                                                        lockedMoveValue(
-                                                            transaction.tracked_item_label ??
-                                                                transaction.scope_label,
+                                                        t(
+                                                            'transactions.sheet.grid.balanceAdjustmentBadge',
                                                         )
                                                     }}
                                                 </div>
                                                 <SearchableSelect
-                                                    v-else-if="!isEditTransfer"
-                                                    v-model="editReferenceValue"
+                                                    v-else-if="
+                                                        !isInlineTransfer
+                                                    "
+                                                    v-model="
+                                                        inlineReferenceValue
+                                                    "
                                                     :options="[
                                                         {
                                                             value: '',
@@ -5220,7 +6704,7 @@ resetInlineEntry();
                                                                 'transactions.sheet.grid.noSelection',
                                                             ),
                                                         },
-                                                        ...editReferenceOptions,
+                                                        ...inlineReferenceOptions,
                                                     ]"
                                                     :placeholder="
                                                         t(
@@ -5233,12 +6717,13 @@ resetInlineEntry();
                                                         )
                                                     "
                                                     :disabled="
-                                                        editForm.type_key === ''
+                                                        inlineForm.type_key ===
+                                                        ''
                                                     "
                                                     clearable
                                                     creatable
                                                     :creating="
-                                                        creatingEditTrackedItem
+                                                        creatingInlineTrackedItem
                                                     "
                                                     :create-label="
                                                         t(
@@ -5246,12 +6731,12 @@ resetInlineEntry();
                                                         )
                                                     "
                                                     :trigger-class="
-                                                        editFieldClass(
+                                                        inlineFieldClass(
                                                             'tracked_item_uuid',
                                                         )
                                                     "
                                                     @create-option="
-                                                        handleCreateEditTrackedItem
+                                                        handleCreateInlineTrackedItem
                                                     "
                                                 />
                                                 <div
@@ -5264,38 +6749,102 @@ resetInlineEntry();
                                                         )
                                                     }}
                                                 </div>
-                                                <SharedExpenseFields
+                                                <Dialog
                                                     v-if="
-                                                        !isEditMove &&
-                                                        !isEditTransfer
+                                                        !isInlineBalanceAdjustment &&
+                                                        !isInlineTransfer
                                                     "
-                                                    v-model:enabled="
-                                                        editForm.is_shared_expense
+                                                    v-model:open="
+                                                        inlineSharedOpen
                                                     "
-                                                    v-model:counterparty="
-                                                        editForm.shared_expense_counterparty_uuid
-                                                    "
-                                                    v-model:paid-by="
-                                                        editForm.shared_expense_paid_by
-                                                    "
-                                                    v-model:my-share="
-                                                        editForm.shared_expense_my_share
-                                                    "
-                                                    v-model:counterparty-share="
-                                                        editForm.shared_expense_counterparty_share
-                                                    "
-                                                    v-model:custom="
-                                                        editForm.shared_expense_custom_split
-                                                    "
-                                                    class="mt-2"
-                                                    :counterparties="
-                                                        sheet.editor
-                                                            .shared_expense_counterparties
-                                                    "
-                                                    dropdown-side="top"
-                                                    :amount="editForm.amount"
-                                                    :errors="editForm.errors"
-                                                />
+                                                    ><Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="mt-2 max-w-full text-violet-600 dark:text-violet-300"
+                                                        :title="
+                                                            t(
+                                                                'transactions.sheet.actions.manageShared',
+                                                            )
+                                                        "
+                                                        @click="
+                                                            inlineSharedOpen = true
+                                                        "
+                                                        ><UsersRound
+                                                            class="size-4 shrink-0" /><span
+                                                            class="truncate"
+                                                            >{{
+                                                                t(
+                                                                    'transactions.sheet.classification.shared',
+                                                                )
+                                                            }}</span
+                                                        ><Check
+                                                            v-if="
+                                                                inlineForm.is_shared_expense
+                                                            "
+                                                            class="size-3 shrink-0" /></Button
+                                                    ><DialogContent
+                                                        class="max-h-[85dvh] overflow-y-auto sm:max-w-xl"
+                                                        ><DialogHeader
+                                                            ><DialogTitle>{{
+                                                                t(
+                                                                    'transactions.sheet.actions.manageShared',
+                                                                )
+                                                            }}</DialogTitle
+                                                            ><DialogDescription
+                                                                >{{
+                                                                    t(
+                                                                        'transactions.sharedLedger.helper',
+                                                                    )
+                                                                }}</DialogDescription
+                                                            ></DialogHeader
+                                                        ><SharedExpenseFields
+                                                            :dropdown-teleport="
+                                                                false
+                                                            "
+                                                            v-model:enabled="
+                                                                inlineForm.is_shared_expense
+                                                            "
+                                                            v-model:counterparty="
+                                                                inlineForm.shared_expense_counterparty_uuid
+                                                            "
+                                                            v-model:paid-by="
+                                                                inlineForm.shared_expense_paid_by
+                                                            "
+                                                            v-model:my-share="
+                                                                inlineForm.shared_expense_my_share
+                                                            "
+                                                            v-model:counterparty-share="
+                                                                inlineForm.shared_expense_counterparty_share
+                                                            "
+                                                            v-model:custom="
+                                                                inlineForm.shared_expense_custom_split
+                                                            "
+                                                            class="mt-2"
+                                                            :counterparties="
+                                                                sheet.editor
+                                                                    .shared_expense_counterparties
+                                                            "
+                                                            dropdown-side="top"
+                                                            :amount="
+                                                                inlineForm.amount
+                                                            "
+                                                            :errors="
+                                                                inlineForm.errors
+                                                            "
+                                                        /><DialogFooter
+                                                            ><Button
+                                                                type="button"
+                                                                @click="
+                                                                    inlineSharedOpen = false
+                                                                "
+                                                                >{{
+                                                                    ui('Close')
+                                                                }}</Button
+                                                            ></DialogFooter
+                                                        ></DialogContent
+                                                    ></Dialog
+                                                >
                                             </td>
                                             <td class="px-3 py-3">
                                                 <div
@@ -5306,114 +6855,206 @@ resetInlineEntry();
                                                         size="sm"
                                                         class="rounded-xl"
                                                         :disabled="
-                                                            editForm.processing
+                                                            inlineForm.processing
                                                         "
                                                         @click="
-                                                            submitInlineEdit(
-                                                                transaction.uuid,
-                                                            )
+                                                            submitInlineTransaction
                                                         "
                                                     >
+                                                        <Plus
+                                                            class="mr-2 size-4"
+                                                        />
                                                         {{
                                                             t(
                                                                 'transactions.sheet.actions.save',
                                                             )
                                                         }}
                                                     </Button>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="outline"
-                                                        class="rounded-xl"
-                                                        :disabled="
-                                                            editForm.processing
-                                                        "
-                                                        @click="
-                                                            cancelInlineEdit
-                                                        "
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.sheet.actions.cancel',
-                                                            )
-                                                        }}
-                                                    </Button>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger
+                                                                as-child
+                                                            >
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    class="rounded-xl"
+                                                                    :aria-label="
+                                                                        t(
+                                                                            'transactions.sheet.actions.reset',
+                                                                        )
+                                                                    "
+                                                                    :disabled="
+                                                                        inlineForm.processing
+                                                                    "
+                                                                    @click="
+                                                                        resetInlineEntry
+                                                                    "
+                                                                >
+                                                                    <RotateCcw
+                                                                        class="size-4"
+                                                                    />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="top"
+                                                                align="center"
+                                                                position-strategy="fixed"
+                                                                update-position-strategy="optimized"
+                                                                sticky="partial"
+                                                                :avoid-collisions="
+                                                                    true
+                                                                "
+                                                                :hide-when-detached="
+                                                                    false
+                                                                "
+                                                                :collision-boundary="[]"
+                                                                :collision-padding="
+                                                                    8
+                                                                "
+                                                                :arrow-padding="
+                                                                    0
+                                                                "
+                                                                :align-offset="
+                                                                    0
+                                                                "
+                                                                class="max-w-64 text-sm"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.sheet.actionTooltips.resetInline',
+                                                                    )
+                                                                }}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                 </div>
                                             </td>
                                         </tr>
 
                                         <tr
-                                            v-else
-                                            tabindex="-1"
-                                            :data-transaction-row="
-                                                transaction.uuid
+                                            v-if="
+                                                canEdit &&
+                                                inlineErrorsList.length > 0
                                             "
-                                            :class="
-                                                cn(
-                                                    'border-b border-slate-200/70 transition-colors hover:bg-slate-50/80 dark:border-white/8 dark:hover:bg-slate-900/60',
-                                                    transactionRowToneClass(
-                                                        transaction,
-                                                    ),
-                                                    transactionAccentClass(
-                                                        transaction,
-                                                    ),
-                                                    canEdit &&
-                                                        transaction.can_edit
-                                                        ? 'cursor-pointer'
-                                                        : '',
-                                                    transactionFeedbackClass(
-                                                        transaction.uuid,
-                                                    ),
-                                                )
-                                            "
-                                            @dblclick="
-                                                startInlineEdit(transaction)
-                                            "
+                                            class="border-b border-slate-200/70 bg-rose-50/80 dark:border-white/10 dark:bg-rose-500/8"
                                         >
-                                            <td class="px-4 py-3 align-top">
-                                                <div class="space-y-0.5">
-                                                    <p
-                                                        class="font-medium text-slate-900 dark:text-slate-100"
+                                            <td colspan="8" class="px-2 py-2">
+                                                <div
+                                                    class="flex flex-wrap gap-2 text-xs text-rose-700 dark:text-rose-300"
+                                                >
+                                                    <span
+                                                        v-for="message in inlineErrorsList"
+                                                        :key="message"
+                                                        class="rounded-full bg-rose-100 px-2.5 py-1 dark:bg-rose-500/10"
                                                     >
-                                                        {{
-                                                            formatDateShort(
-                                                                transaction.date,
-                                                            )
-                                                        }}
-                                                    </p>
-                                                    <p
-                                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                                    >
-                                                        {{
-                                                            formatDateNumeric(
-                                                                transaction.date,
-                                                            ) ??
-                                                            t(
-                                                                'transactions.sheet.grid.noDate',
-                                                            )
-                                                        }}
-                                                    </p>
-                                                    <p
-                                                        v-if="
-                                                            creditCardCycleHelper(
-                                                                transaction,
-                                                            )
-                                                        "
-                                                        class="text-xs text-sky-700 dark:text-sky-300"
-                                                    >
-                                                        {{
-                                                            creditCardCycleHelper(
-                                                                transaction,
-                                                            )
-                                                        }}
-                                                    </p>
+                                                        {{ message }}
+                                                    </span>
                                                 </div>
                                             </td>
-                                            <td class="px-4 py-3 align-top">
+                                        </tr>
+
+                                        <tr
+                                            v-if="!canEdit"
+                                            class="border-t border-slate-200/70 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/60"
+                                        >
+                                            <td
+                                                colspan="8"
+                                                class="px-4 py-4 text-sm text-slate-600 dark:text-slate-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.readOnlyClosedYear',
+                                                    )
+                                                }}
+                                            </td>
+                                        </tr>
+
+                                        <tr
+                                            v-if="
+                                                displayedTransactions.length ===
+                                                0
+                                            "
+                                        >
+                                            <td
+                                                colspan="8"
+                                                class="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    transactionSearch.trim() !==
+                                                    ''
+                                                        ? t(
+                                                              'transactions.sheet.grid.searchEmptyState',
+                                                          )
+                                                        : t(
+                                                              'transactions.sheet.grid.emptyState',
+                                                          )
+                                                }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="space-y-2 p-3 xl:hidden">
+                                <Card
+                                    v-if="canEdit"
+                                    class="hidden border-sky-200/80 bg-sky-50/70 shadow-none md:block dark:border-sky-500/20 dark:bg-sky-500/5"
+                                >
+                                    <CardContent class="space-y-2 p-3">
+                                        <p
+                                            class="text-sm font-medium text-slate-950 dark:text-white"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.mobileCreateTitle',
+                                                )
+                                            }}
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            class="w-full rounded-2xl"
+                                            @click="openCreate"
+                                        >
+                                            <Plus class="mr-2 size-4" />
+                                            {{
+                                                t(
+                                                    'transactions.sheet.actions.openCreate',
+                                                )
+                                            }}
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+
+                                <Card
+                                    v-for="transaction in displayedTransactions"
+                                    :key="transaction.uuid"
+                                    tabindex="-1"
+                                    :data-transaction-row="transaction.uuid"
+                                    :class="
+                                        cn(
+                                            'gap-0 border-slate-200/80 bg-white/95 py-0 shadow-none transition-colors motion-reduce:transition-none dark:border-white/10 dark:bg-slate-950/80',
+                                            transactionRowToneClass(
+                                                transaction,
+                                            ),
+                                            transactionAccentClass(transaction),
+                                            transactionFeedbackClass(
+                                                transaction.uuid,
+                                            ),
+                                        )
+                                    "
+                                >
+                                    <CardContent class="space-y-2 p-3">
+                                        <div
+                                            class="flex items-start justify-between gap-3"
+                                        >
+                                            <div class="space-y-1">
                                                 <div
                                                     class="flex flex-wrap gap-2"
                                                 >
                                                     <TransactionClassificationBadges
+                                                        compact
                                                         :transaction="
                                                             transaction
                                                         "
@@ -5516,76 +7157,77 @@ resetInlineEntry();
                                                         }}
                                                     </Badge>
                                                 </div>
-                                            </td>
-                                            <td class="px-4 py-3 align-top">
-                                                <div
-                                                    class="min-w-0 space-y-0.5"
+                                                <p
+                                                    class="font-medium text-slate-950 dark:text-slate-100"
                                                 >
-                                                    <p
-                                                        class="truncate font-medium text-slate-900 dark:text-slate-100"
+                                                    {{
+                                                        transactionCategoryLabel(
+                                                            transaction,
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    class="truncate text-sm text-slate-600 dark:text-slate-300"
+                                                    :title="
+                                                        transaction.detail ??
+                                                        transaction.description ??
+                                                        t(
+                                                            'transactions.sheet.grid.noDetail',
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        transaction.detail ??
+                                                        transaction.description ??
+                                                        t(
+                                                            'transactions.sheet.grid.noDetail',
+                                                        )
+                                                    }}
+                                                </p>
+                                                <div
+                                                    v-if="
+                                                        recurringTransactionHelper(
+                                                            transaction,
+                                                        ) ||
+                                                        transaction.recurring_entry_show_url ||
+                                                        transaction.credit_debt_item_show_url
+                                                    "
+                                                    class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    <span
+                                                        v-if="
+                                                            recurringTransactionHelper(
+                                                                transaction,
+                                                            )
+                                                        "
                                                     >
                                                         {{
-                                                            transaction.account_label
-                                                        }}
-                                                    </p>
-                                                    <p
-                                                        class="text-xs break-words text-slate-500 dark:text-slate-400"
-                                                    >
-                                                        {{
-                                                            transaction.is_transfer
-                                                                ? transaction.direction ===
-                                                                  'income'
-                                                                    ? t(
-                                                                          'transactions.sheet.grid.transferPath',
-                                                                          {
-                                                                              from:
-                                                                                  transaction.related_account_label ??
-                                                                                  t(
-                                                                                      'transactions.sheet.filters.sourceAccount',
-                                                                                  ),
-                                                                              to: transaction.account_label,
-                                                                          },
-                                                                      )
-                                                                    : t(
-                                                                          'transactions.sheet.grid.transferPath',
-                                                                          {
-                                                                              from: transaction.account_label,
-                                                                              to:
-                                                                                  transaction.related_account_label ??
-                                                                                  t(
-                                                                                      'transactions.sheet.filters.destinationAccount',
-                                                                                  ),
-                                                                          },
-                                                                      )
-                                                                : '—'
-                                                        }}
-                                                    </p>
-                                                </div>
-                                            </td>
-                                            <td class="px-4 py-3 align-top">
-                                                <div class="space-y-0.5">
-                                                    <p
-                                                        class="font-medium text-slate-900 dark:text-slate-100"
-                                                    >
-                                                        {{
-                                                            transaction.category_label
-                                                        }}
-                                                    </p>
-                                                    <p
-                                                        class="truncate text-xs text-slate-500 dark:text-slate-400"
-                                                    >
-                                                        {{
-                                                            transactionCategoryPath(
+                                                            recurringTransactionHelper(
                                                                 transaction,
                                                             )
                                                         }}
-                                                    </p>
+                                                    </span>
+                                                    <Link
+                                                        v-if="
+                                                            transaction.recurring_entry_show_url ||
+                                                            transaction.credit_debt_item_show_url
+                                                        "
+                                                        :href="
+                                                            transaction.recurring_entry_show_url ??
+                                                            transaction.credit_debt_item_show_url
+                                                        "
+                                                        class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                                                    >
+                                                        {{
+                                                            sourceTransactionLinkLabel(
+                                                                transaction,
+                                                            )
+                                                        }}
+                                                    </Link>
                                                 </div>
-                                            </td>
-                                            <td
-                                                class="px-4 py-3 text-right align-top"
-                                            >
-                                                <span
+                                            </div>
+                                            <div class="text-right">
+                                                <p
                                                     class="font-mono font-semibold"
                                                     :class="
                                                         getAmountTone(
@@ -5604,14 +7246,14 @@ resetInlineEntry();
                                                             )
                                                         "
                                                     />
-                                                </span>
+                                                </p>
                                                 <p
                                                     v-if="
                                                         transactionConvertedAmountLabel(
                                                             transaction,
                                                         )
                                                     "
-                                                    class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
                                                 >
                                                     <SensitiveValue
                                                         :value="
@@ -5627,7 +7269,7 @@ resetInlineEntry();
                                                             transaction,
                                                         )
                                                     "
-                                                    class="mt-1 text-[11px] text-slate-400 dark:text-slate-500"
+                                                    class="text-[11px] text-slate-400 dark:text-slate-500"
                                                 >
                                                     {{
                                                         transactionExchangeRateContextLabel(
@@ -5641,7 +7283,7 @@ resetInlineEntry();
                                                             transaction,
                                                         )
                                                     "
-                                                    class="mt-1 text-xs font-medium"
+                                                    class="text-xs font-medium"
                                                     :class="
                                                         balanceAdjustmentEffectTone(
                                                             transaction,
@@ -5654,88 +7296,71 @@ resetInlineEntry();
                                                         )
                                                     }}
                                                 </p>
-                                            </td>
-                                            <td class="px-4 py-3 align-top">
-                                                <div
-                                                    class="max-w-[220px] space-y-0.5"
+                                                <p
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
                                                 >
-                                                    <p
-                                                        class="truncate text-sm text-slate-800 dark:text-slate-200"
-                                                        :title="
-                                                            transaction.detail ??
-                                                            transaction.description ??
-                                                            t(
-                                                                'transactions.sheet.grid.noDetail',
-                                                            )
-                                                        "
-                                                    >
-                                                        {{
-                                                            transaction.detail ??
-                                                            transaction.description ??
-                                                            t(
-                                                                'transactions.sheet.grid.noDetail',
-                                                            )
-                                                        }}
-                                                    </p>
-                                                    <p
-                                                        v-if="transaction.notes"
-                                                        class="truncate text-xs text-slate-500 dark:text-slate-400"
-                                                    >
-                                                        {{ transaction.notes }}
-                                                    </p>
-                                                    <div
-                                                        v-if="
-                                                            recurringTransactionHelper(
-                                                                transaction,
-                                                            ) ||
-                                                            transaction.recurring_entry_show_url ||
-                                                            transaction.credit_debt_item_show_url
-                                                        "
-                                                        class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
-                                                    >
-                                                        <span
-                                                            v-if="
-                                                                recurringTransactionHelper(
-                                                                    transaction,
-                                                                )
-                                                            "
-                                                        >
-                                                            {{
-                                                                recurringTransactionHelper(
-                                                                    transaction,
-                                                                )
-                                                            }}
-                                                        </span>
-                                                        <Link
-                                                            v-if="
-                                                                transaction.recurring_entry_show_url ||
-                                                                transaction.credit_debt_item_show_url
-                                                            "
-                                                            :href="
-                                                                transaction.recurring_entry_show_url ??
-                                                                transaction.credit_debt_item_show_url
-                                                            "
-                                                            class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
-                                                        >
-                                                            {{
-                                                                sourceTransactionLinkLabel(
-                                                                    transaction,
-                                                                )
-                                                            }}
-                                                        </Link>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td
-                                                class="px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-300"
-                                            >
-                                                <template
+                                                    {{
+                                                        formatDateLong(
+                                                            transaction.date,
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
                                                     v-if="
-                                                        !transaction.is_transfer &&
-                                                        transaction.tracked_item_label
+                                                        creditCardCycleHelper(
+                                                            transaction,
+                                                        )
                                                     "
+                                                    class="text-xs text-sky-700 dark:text-sky-300"
+                                                >
+                                                    {{
+                                                        creditCardCycleHelper(
+                                                            transaction,
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            class="grid gap-2 text-xs text-slate-500 sm:grid-cols-2 dark:text-slate-400"
+                                        >
+                                            <div>
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.accountLabel',
+                                                    )
+                                                }}
+                                                <span
+                                                    class="break-words text-slate-700 dark:text-slate-200"
+                                                    >{{
+                                                        transaction.account_label
+                                                    }}</span
+                                                >
+                                            </div>
+                                            <div>
+                                                {{
+                                                    transaction.is_transfer
+                                                        ? t(
+                                                              'transactions.sheet.grid.linkedAccountLabel',
+                                                          )
+                                                        : transaction.is_opening_balance
+                                                          ? t(
+                                                                'transactions.sheet.grid.openingReadOnly',
+                                                            )
+                                                          : t(
+                                                                'transactions.sheet.grid.trackedItemLabel',
+                                                            )
+                                                }}
+                                                <span
+                                                    class="break-words text-slate-700 dark:text-slate-200"
                                                 >
                                                     <TrackedItemIdentity
+                                                        v-if="
+                                                            !transaction.is_transfer &&
+                                                            !transaction.is_opening_balance &&
+                                                            transaction.tracked_item_label
+                                                        "
                                                         :name="
                                                             transaction.tracked_item_label
                                                         "
@@ -5744,2314 +7369,585 @@ resetInlineEntry();
                                                         "
                                                         compact
                                                     />
-                                                </template>
-                                                <template v-else>
-                                                    {{
-                                                        transaction.is_transfer
-                                                            ? (transaction.related_account_label ??
-                                                              '—')
-                                                            : (transaction.scope_label ??
-                                                              '—')
-                                                    }}
-                                                </template>
-                                            </td>
-                                            <td class="px-4 py-3 align-top">
-                                                <div
-                                                    class="flex justify-end gap-2"
-                                                >
-                                                    <TooltipProvider
-                                                        v-if="
-                                                            shouldShowTransactionAuditIcon(
-                                                                transaction,
-                                                            )
-                                                        "
-                                                        :delay-duration="0"
-                                                    >
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                as-child
-                                                            >
-                                                                <button
-                                                                    type="button"
-                                                                    :aria-label="
-                                                                        t(
-                                                                            'transactions.sheet.actions.auditInfo',
-                                                                        )
-                                                                    "
-                                                                    class="inline-flex size-8 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
-                                                                >
-                                                                    <User
-                                                                        class="size-4"
-                                                                    />
-                                                                </button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent
-                                                                side="top"
-                                                                align="center"
-                                                                :collision-boundary="[]"
-                                                                :update-position-strategy="'always'"
-                                                                :avoid-collisions="
-                                                                    true
-                                                                "
-                                                                :hide-when-detached="
-                                                                    true
-                                                                "
-                                                                :position-strategy="'fixed'"
-                                                                :arrow-padding="
-                                                                    8
-                                                                "
-                                                                :sticky="'partial'"
-                                                                :collision-padding="
-                                                                    8
-                                                                "
-                                                                :align-offset="
-                                                                    4
-                                                                "
-                                                                class="max-w-xs space-y-1"
-                                                            >
-                                                                <p
-                                                                    v-if="
-                                                                        transactionAuditCreatedLabel(
-                                                                            transaction,
-                                                                        )
-                                                                    "
-                                                                >
-                                                                    {{
-                                                                        transactionAuditCreatedLabel(
-                                                                            transaction,
-                                                                        )
-                                                                    }}
-                                                                </p>
-                                                                <p
-                                                                    v-if="
-                                                                        transactionAuditUpdatedLabel(
-                                                                            transaction,
-                                                                        )
-                                                                    "
-                                                                >
-                                                                    {{
-                                                                        transactionAuditUpdatedLabel(
-                                                                            transaction,
-                                                                        )
-                                                                    }}
-                                                                </p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                    <TooltipProvider
-                                                        v-if="
-                                                            transaction.kind ===
-                                                                'scheduled' &&
-                                                            transaction.recurring_entry_show_url
-                                                        "
-                                                        :delay-duration="0"
-                                                    >
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                as-child
-                                                            >
-                                                                <Link
-                                                                    :href="
-                                                                        transaction.recurring_entry_show_url
-                                                                    "
-                                                                    :aria-label="
-                                                                        t(
-                                                                            'transactions.sheet.actions.openRecurring',
-                                                                        )
-                                                                    "
-                                                                    class="inline-flex size-8 items-center justify-center rounded-xl text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-500/10"
-                                                                >
-                                                                    <ArrowUpRight
-                                                                        class="size-4"
-                                                                    />
-                                                                </Link>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent
-                                                                side="top"
-                                                                align="center"
-                                                                :collision-boundary="[]"
-                                                                :update-position-strategy="'always'"
-                                                                :avoid-collisions="
-                                                                    true
-                                                                "
-                                                                :hide-when-detached="
-                                                                    true
-                                                                "
-                                                                :position-strategy="'fixed'"
-                                                                :arrow-padding="
-                                                                    8
-                                                                "
-                                                                :sticky="'partial'"
-                                                                :collision-padding="
-                                                                    8
-                                                                "
-                                                                :align-offset="
-                                                                    4
-                                                                "
-                                                            >
-                                                                <p>
-                                                                    {{
-                                                                        t(
-                                                                            'transactions.sheet.actions.openRecurring',
-                                                                        )
-                                                                    }}
-                                                                </p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                    <Button
-                                                        v-if="
-                                                            transaction.can_restore &&
-                                                            canEdit
-                                                        "
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        class="h-8 rounded-xl px-3 text-emerald-600 hover:text-emerald-700"
-                                                        @click="
-                                                            restoreTransaction(
-                                                                transaction.uuid,
-                                                            )
-                                                        "
-                                                    >
-                                                        <RotateCcw
-                                                            class="mr-2 size-4"
-                                                        />
+                                                    <template v-else>
                                                         {{
-                                                            t(
-                                                                'transactions.sheet.actions.restore',
-                                                            )
+                                                            transaction.is_transfer
+                                                                ? (transaction.related_account_label ??
+                                                                  '—')
+                                                                : '—'
                                                         }}
-                                                    </Button>
-                                                    <Button
-                                                        v-if="
-                                                            transaction.can_force_delete &&
-                                                            canEdit
-                                                        "
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        class="h-8 rounded-xl px-3 text-rose-600 hover:text-rose-700"
-                                                        @click="
-                                                            requestForceDelete(
-                                                                transaction,
-                                                            )
-                                                        "
-                                                    >
-                                                        <Trash2
-                                                            class="mr-2 size-4"
-                                                        />
-                                                        {{
-                                                            t(
-                                                                'transactions.sheet.actions.forceDelete',
-                                                            )
-                                                        }}
-                                                    </Button>
-                                                    <TooltipProvider
-                                                        v-if="
-                                                            transaction.can_undo_refund &&
-                                                            canEdit
-                                                        "
-                                                    >
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                as-child
-                                                            >
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    class="h-8 w-8 rounded-xl p-0 text-amber-600 hover:text-amber-700"
-                                                                    :aria-label="
-                                                                        t(
-                                                                            'transactions.sheet.actions.undoRefund',
-                                                                        )
-                                                                    "
-                                                                    @click="
-                                                                        undoRefund(
-                                                                            transaction,
-                                                                        )
-                                                                    "
-                                                                >
-                                                                    <RotateCcw
-                                                                        class="size-4"
-                                                                    />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent
-                                                                side="top"
-                                                                align="center"
-                                                                position-strategy="fixed"
-                                                                update-position-strategy="optimized"
-                                                                sticky="partial"
-                                                                :avoid-collisions="
-                                                                    true
-                                                                "
-                                                                :hide-when-detached="
-                                                                    false
-                                                                "
-                                                                :collision-boundary="[]"
-                                                                :collision-padding="
-                                                                    8
-                                                                "
-                                                                :arrow-padding="
-                                                                    0
-                                                                "
-                                                                :align-offset="
-                                                                    0
-                                                                "
-                                                                class="max-w-64 text-sm"
-                                                            >
-                                                                {{
-                                                                    t(
-                                                                        'transactions.sheet.actionTooltips.undoRefund',
-                                                                    )
-                                                                }}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                    <Button
-                                                        v-if="
-                                                            transaction.requires_payment_confirmation &&
-                                                            transaction.can_report_payment_problem
-                                                        "
-                                                        variant="outline"
-                                                        size="sm"
-                                                        @click="
-                                                            verifyAutomaticPayment(
-                                                                transaction,
-                                                            )
-                                                        "
-                                                        >{{
-                                                            t(
-                                                                'transactions.sheet.confirmRegistration',
-                                                            )
-                                                        }}</Button
-                                                    >
-                                                    <Button
-                                                        v-if="
-                                                            transaction.can_report_payment_problem
-                                                        "
-                                                        variant="outline"
-                                                        size="sm"
-                                                        :disabled="
-                                                            paymentProblemForm.processing
-                                                        "
-                                                        @click="
-                                                            reportPaymentProblem(
-                                                                transaction,
-                                                            )
-                                                        "
-                                                    >
-                                                        <TriangleAlert
-                                                            class="mr-2 size-4 shrink-0 text-amber-600 dark:text-amber-400"
-                                                        />
-                                                        {{
-                                                            t(
-                                                                'transactions.sheet.paymentProblem.trigger',
-                                                            )
-                                                        }}
-                                                    </Button>
-                                                    <TooltipProvider
-                                                        v-if="
-                                                            transaction.can_refund &&
-                                                            canEdit
-                                                        "
-                                                    >
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                as-child
-                                                            >
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    class="h-8 w-8 rounded-xl p-0"
-                                                                    :aria-label="
-                                                                        t(
-                                                                            'transactions.sheet.actions.refund',
-                                                                        )
-                                                                    "
-                                                                    @click="
-                                                                        requestRefund(
-                                                                            transaction,
-                                                                        )
-                                                                    "
-                                                                >
-                                                                    <RefreshCcw
-                                                                        class="size-4"
-                                                                    />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent
-                                                                side="top"
-                                                                align="center"
-                                                                position-strategy="fixed"
-                                                                update-position-strategy="optimized"
-                                                                sticky="partial"
-                                                                :avoid-collisions="
-                                                                    true
-                                                                "
-                                                                :hide-when-detached="
-                                                                    false
-                                                                "
-                                                                :collision-boundary="[]"
-                                                                :collision-padding="
-                                                                    8
-                                                                "
-                                                                :arrow-padding="
-                                                                    0
-                                                                "
-                                                                :align-offset="
-                                                                    0
-                                                                "
-                                                                class="max-w-64 text-sm"
-                                                            >
-                                                                {{
-                                                                    t(
-                                                                        'transactions.sheet.actionTooltips.refund',
-                                                                    )
-                                                                }}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                    <TooltipProvider
-                                                        v-if="
-                                                            transaction.can_delete &&
-                                                            canEdit
-                                                        "
-                                                    >
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                as-child
-                                                            >
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    class="h-8 w-8 rounded-xl p-0 text-rose-600 hover:text-rose-700"
-                                                                    :aria-label="
-                                                                        t(
-                                                                            'transactions.sheet.actions.delete',
-                                                                        )
-                                                                    "
-                                                                    @click="
-                                                                        requestDelete(
-                                                                            transaction,
-                                                                        )
-                                                                    "
-                                                                >
-                                                                    <Trash2
-                                                                        class="size-4"
-                                                                    />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent
-                                                                side="top"
-                                                                align="center"
-                                                                position-strategy="fixed"
-                                                                update-position-strategy="optimized"
-                                                                sticky="partial"
-                                                                :avoid-collisions="
-                                                                    true
-                                                                "
-                                                                :hide-when-detached="
-                                                                    false
-                                                                "
-                                                                :collision-boundary="[]"
-                                                                :collision-padding="
-                                                                    8
-                                                                "
-                                                                :arrow-padding="
-                                                                    0
-                                                                "
-                                                                :align-offset="
-                                                                    0
-                                                                "
-                                                                class="max-w-64 text-sm"
-                                                            >
-                                                                {{
-                                                                    t(
-                                                                        'transactions.sheet.actionTooltips.delete',
-                                                                    )
-                                                                }}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                </div>
-                                            </td>
-                                        </tr>
-
-                                        <tr
-                                            v-if="
-                                                editingInlineUuid ===
-                                                    transaction.uuid &&
-                                                editErrorsList.length > 0
-                                            "
-                                            class="border-b border-slate-200/70 bg-rose-50/80 dark:border-white/10 dark:bg-rose-500/8"
-                                        >
-                                            <td colspan="8" class="px-4 py-3">
-                                                <div
-                                                    class="flex flex-wrap gap-2 text-xs text-rose-700 dark:text-rose-300"
-                                                >
-                                                    <span
-                                                        v-for="message in editErrorsList"
-                                                        :key="message"
-                                                        class="rounded-full bg-rose-100 px-2.5 py-1 dark:bg-rose-500/10"
-                                                    >
-                                                        {{ message }}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </template>
-
-                                    <tr
-                                        v-if="canEdit"
-                                        class="border-t-2 border-sky-200 bg-sky-50/70 align-top dark:border-sky-500/20 dark:bg-sky-500/5"
-                                    >
-                                        <td class="px-3 py-3">
-                                            <div class="space-y-1.5">
-                                                <Input
-                                                    ref="inlineDateInput"
-                                                    v-model="
-                                                        inlineForm.transaction_day
-                                                    "
-                                                    type="number"
-                                                    inputmode="numeric"
-                                                    :placeholder="
-                                                        t(
-                                                            'transactions.form.placeholders.day',
-                                                        )
-                                                    "
-                                                    :min="inlineDayRange.min"
-                                                    :max="inlineDayRange.max"
-                                                    :class="
-                                                        cn(
-                                                            inlineFieldClass(
-                                                                'transaction_day',
-                                                            ),
-                                                            'text-center',
-                                                        )
-                                                    "
-                                                    @keydown.enter.prevent="
-                                                        submitInlineTransaction
-                                                    "
-                                                />
-                                                <p
-                                                    class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.sheet.grid.day',
-                                                        )
-                                                    }}
-                                                </p>
-                                                <p
-                                                    v-if="visibleInlineDayError"
-                                                    class="text-center text-[11px] text-rose-600 dark:text-rose-400"
-                                                >
-                                                    {{ visibleInlineDayError }}
-                                                </p>
-                                            </div>
-                                        </td>
-                                        <td class="px-3 py-3">
-                                            <Select
-                                                :model-value="
-                                                    inlineForm.type_key
-                                                "
-                                                @update:model-value="
-                                                    inlineForm.type_key =
-                                                        String($event)
-                                                "
-                                            >
-                                                <SelectTrigger
-                                                    :class="
-                                                        inlineFieldClass(
-                                                            'type_key',
-                                                        )
-                                                    "
-                                                >
-                                                    <SelectValue
-                                                        :placeholder="
-                                                            t(
-                                                                'transactions.sheet.filters.type',
-                                                            )
-                                                        "
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent class="z-[170]">
-                                                    <SelectItem
-                                                        v-for="option in inlineCreateTypeOptions"
-                                                        :key="option.value"
-                                                        :value="option.value"
-                                                    >
-                                                        {{ option.label }}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </td>
-                                        <td class="px-3 py-3">
-                                            <div class="space-y-2">
-                                                <SearchableSelect
-                                                    v-model="
-                                                        inlineForm.account_uuid
-                                                    "
-                                                    :options="
-                                                        inlineAccountOptions
-                                                    "
-                                                    :placeholder="
-                                                        isInlineTransfer
-                                                            ? t(
-                                                                  'transactions.sheet.filters.sourceAccount',
-                                                              )
-                                                            : t(
-                                                                  'transactions.sheet.filters.account',
-                                                              )
-                                                    "
-                                                    :search-placeholder="
-                                                        isInlineTransfer
-                                                            ? t(
-                                                                  'transactions.form.placeholders.searchSourceAccount',
-                                                              )
-                                                            : t(
-                                                                  'transactions.form.placeholders.searchAccount',
-                                                              )
-                                                    "
-                                                    clearable
-                                                    :trigger-class="
-                                                        inlineFieldClass(
-                                                            'account_uuid',
-                                                        )
-                                                    "
-                                                />
-                                                <p
-                                                    v-if="
-                                                        inlineForm.account_uuid !==
-                                                        ''
-                                                    "
-                                                    class="text-xs text-slate-500 dark:text-slate-400"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.form.helper.accountCurrency',
-                                                            {
-                                                                currency:
-                                                                    resolveFormCurrencyLabel(
-                                                                        inlineForm.account_uuid,
-                                                                    ),
-                                                            },
-                                                        )
-                                                    }}
-                                                </p>
-                                                <div
-                                                    v-if="
-                                                        isInlineBalanceAdjustment
-                                                    "
-                                                    class="space-y-1"
-                                                >
-                                                    <div
-                                                        class="flex h-10 items-center justify-end rounded-xl border border-dashed border-sky-200 px-3 text-sm font-semibold text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
-                                                    >
-                                                        {{
-                                                            inlineBalanceAdjustmentCurrentBalanceLoading
-                                                                ? t(
-                                                                      'transactions.form.placeholders.balanceAdjustmentLoading',
-                                                                  )
-                                                                : inlineBalanceAdjustmentCurrentBalanceRaw !==
-                                                                    null
-                                                                  ? formatCurrency(
-                                                                        inlineBalanceAdjustmentCurrentBalanceRaw,
-                                                                        resolveFormCurrency(
-                                                                            inlineForm.account_uuid,
-                                                                        ),
-                                                                    )
-                                                                  : t(
-                                                                        'transactions.form.placeholders.balanceAdjustmentPending',
-                                                                    )
-                                                        }}
-                                                    </div>
-                                                    <p
-                                                        class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.sheet.grid.balanceAdjustmentCurrentBalanceLabel',
-                                                            )
-                                                        }}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-3 py-3">
-                                            <div
-                                                v-if="isInlineBalanceAdjustment"
-                                                class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
-                                            >
-                                                {{
-                                                    t(
-                                                        'transactions.sheet.grid.balanceAdjustmentBadge',
-                                                    )
-                                                }}
-                                            </div>
-                                            <TransactionCategoryQuickCreate
-                                                v-else-if="!isInlineTransfer"
-                                                v-model="
-                                                    inlineForm.category_uuid
-                                                "
-                                                :account-uuid="
-                                                    inlineForm.account_uuid
-                                                "
-                                                :type-key="inlineForm.type_key"
-                                                :categories="
-                                                    sheet.editor.categories
-                                                "
-                                                :accounts="
-                                                    sheet.editor.accounts
-                                                "
-                                                :type-options="
-                                                    sheet.editor.type_options
-                                                "
-                                                v-slot="{ openQuickCreate }"
-                                            >
-                                                <div
-                                                    class="flex items-center gap-1"
-                                                >
-                                                    <SearchableSelect
-                                                        v-model="
-                                                            inlineForm.category_uuid
-                                                        "
-                                                        class="min-w-0 flex-1"
-                                                        :options="
-                                                            inlineCategories
-                                                        "
-                                                        :placeholder="
-                                                            t(
-                                                                'transactions.sheet.filters.category',
-                                                            )
-                                                        "
-                                                        :search-placeholder="
-                                                            t(
-                                                                'transactions.sheet.filters.searchCategory',
-                                                            )
-                                                        "
-                                                        :disabled="
-                                                            inlineForm.type_key ===
-                                                            ''
-                                                        "
-                                                        clearable
-                                                        hierarchical
-                                                        :trigger-class="
-                                                            inlineFieldClass(
-                                                                'category_uuid',
-                                                            )
-                                                        "
-                                                    />
-                                                    <TooltipProvider
-                                                        :delay-duration="0"
-                                                    >
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                as-child
-                                                            >
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    size="icon"
-                                                                    class="size-10 shrink-0 rounded-xl"
-                                                                    :aria-label="
-                                                                        t(
-                                                                            'transactions.form.quickCategory.trigger',
-                                                                        )
-                                                                    "
-                                                                    :disabled="
-                                                                        inlineForm.account_uuid ===
-                                                                            '' ||
-                                                                        inlineForm.type_key ===
-                                                                            ''
-                                                                    "
-                                                                    @click="
-                                                                        openQuickCreate
-                                                                    "
-                                                                >
-                                                                    <Plus
-                                                                        class="size-4"
-                                                                    />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent
-                                                                side="top"
-                                                                align="center"
-                                                                :collision-boundary="[]"
-                                                                :update-position-strategy="'always'"
-                                                                :avoid-collisions="
-                                                                    true
-                                                                "
-                                                                :hide-when-detached="
-                                                                    true
-                                                                "
-                                                                :position-strategy="'fixed'"
-                                                                :arrow-padding="
-                                                                    8
-                                                                "
-                                                                :sticky="'partial'"
-                                                                :collision-padding="
-                                                                    8
-                                                                "
-                                                                :align-offset="
-                                                                    4
-                                                                "
-                                                            >
-                                                                {{
-                                                                    t(
-                                                                        'transactions.form.quickCategory.trigger',
-                                                                    )
-                                                                }}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                </div>
-                                            </TransactionCategoryQuickCreate>
-                                            <SearchableSelect
-                                                v-else
-                                                v-model="
-                                                    inlineForm.destination_account_uuid
-                                                "
-                                                :options="
-                                                    inlineDestinationAccountOptions
-                                                "
-                                                :placeholder="
-                                                    t(
-                                                        'transactions.sheet.filters.destinationAccount',
-                                                    )
-                                                "
-                                                :search-placeholder="
-                                                    t(
-                                                        'transactions.sheet.filters.searchDestinationAccount',
-                                                    )
-                                                "
-                                                clearable
-                                                :trigger-class="
-                                                    inlineFieldClass(
-                                                        'destination_account_uuid',
-                                                    )
-                                                "
-                                            />
-                                        </td>
-                                        <td
-                                            class="w-[11.5rem] min-w-[11.5rem] px-3 py-3"
-                                        >
-                                            <div class="space-y-2">
-                                                <MoneyInput
-                                                    v-if="
-                                                        !isInlineBalanceAdjustment
-                                                    "
-                                                    v-model="inlineForm.amount"
-                                                    :format-locale="
-                                                        moneyFormatLocale
-                                                    "
-                                                    :currency-code="
-                                                        resolveFormCurrency(
-                                                            inlineForm.account_uuid,
-                                                        )
-                                                    "
-                                                    placeholder="0,00"
-                                                    :class="
-                                                        cn(
-                                                            inlineFieldClass(
-                                                                'amount',
-                                                            ),
-                                                            'min-w-[10rem] px-4 text-right font-mono text-base font-semibold tracking-tight',
-                                                        )
-                                                    "
-                                                    @blur="
-                                                        normalizeInlineAmount
-                                                    "
-                                                    @keydown.enter.prevent="
-                                                        submitInlineTransaction
-                                                    "
-                                                />
-                                                <template v-else>
-                                                    <MoneyInput
-                                                        v-model="
-                                                            inlineForm.desired_balance
-                                                        "
-                                                        :format-locale="
-                                                            moneyFormatLocale
-                                                        "
-                                                        :currency-code="
-                                                            resolveFormCurrency(
-                                                                inlineForm.account_uuid,
-                                                            )
-                                                        "
-                                                        placeholder="0,00"
-                                                        :class="
-                                                            cn(
-                                                                inlineFieldClass(
-                                                                    'desired_balance',
-                                                                ),
-                                                                'min-w-[10rem] px-4 text-right font-mono text-base font-semibold tracking-tight',
-                                                            )
-                                                        "
-                                                        @blur="
-                                                            normalizeInlineDesiredBalance
-                                                        "
-                                                        @keydown.enter.prevent="
-                                                            submitInlineTransaction
-                                                        "
-                                                    />
-                                                    <p
-                                                        class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.sheet.grid.balanceAdjustmentCurrentAmountLabel',
-                                                            )
-                                                        }}
-                                                    </p>
-                                                </template>
-                                                <div
-                                                    v-if="
-                                                        !isInlineBalanceAdjustment &&
-                                                        !isInlineTransfer &&
-                                                        (inlineExchangePreviewLoading ||
-                                                            inlineExchangePreview?.should_preview ||
-                                                            inlineExchangePreviewError)
-                                                    "
-                                                    class="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900/80"
-                                                >
-                                                    <p
-                                                        class="text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.form.helper.fxPreviewTitle',
-                                                            )
-                                                        }}
-                                                    </p>
-                                                    <p
-                                                        v-if="
-                                                            inlineExchangePreviewLoading
-                                                        "
-                                                        class="mt-1 text-xs text-slate-600 dark:text-slate-300"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.form.placeholders.balanceAdjustmentLoading',
-                                                            )
-                                                        }}
-                                                    </p>
-                                                    <template
-                                                        v-else-if="
-                                                            inlineExchangePreview &&
-                                                            inlineExchangePreview.should_preview
-                                                        "
-                                                    >
-                                                        <p
-                                                            class="mt-1 text-xs font-semibold text-slate-900 dark:text-slate-100"
-                                                        >
-                                                            {{
-                                                                t(
-                                                                    'transactions.form.helper.fxPreviewAmount',
-                                                                    {
-                                                                        source: formatCurrency(
-                                                                            inlineExchangePreview.amount_raw,
-                                                                            inlineExchangePreview.currency_code,
-                                                                            moneyFormatLocale,
-                                                                        ),
-                                                                        target: formatCurrency(
-                                                                            inlineExchangePreview.converted_base_amount_raw,
-                                                                            inlineExchangePreview.base_currency_code,
-                                                                            moneyFormatLocale,
-                                                                        ),
-                                                                    },
-                                                                )
-                                                            }}
-                                                        </p>
-                                                        <p
-                                                            class="mt-1 text-[11px] text-slate-500 dark:text-slate-400"
-                                                        >
-                                                            {{
-                                                                t(
-                                                                    'transactions.form.helper.fxPreviewRateDate',
-                                                                    {
-                                                                        date: formatDateLong(
-                                                                            inlineExchangePreview.exchange_rate_date,
-                                                                        ),
-                                                                    },
-                                                                )
-                                                            }}
-                                                        </p>
                                                     </template>
-                                                    <p
-                                                        v-else-if="
-                                                            inlineExchangePreviewError
-                                                        "
-                                                        class="mt-1 text-xs text-rose-600 dark:text-rose-400"
-                                                    >
-                                                        {{
-                                                            inlineExchangePreviewError
-                                                        }}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-3 py-3">
-                                            <Input
-                                                v-model="inlineForm.description"
-                                                :placeholder="
-                                                    t(
-                                                        'transactions.form.labels.detail',
-                                                    )
-                                                "
-                                                class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
-                                                @keydown.enter.prevent="
-                                                    submitInlineTransaction
-                                                "
-                                            />
-                                        </td>
-                                        <td class="px-3 py-3">
-                                            <div
-                                                v-if="isInlineBalanceAdjustment"
-                                                class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
-                                            >
-                                                {{
-                                                    t(
-                                                        'transactions.sheet.grid.balanceAdjustmentBadge',
-                                                    )
-                                                }}
-                                            </div>
-                                            <SearchableSelect
-                                                v-else-if="!isInlineTransfer"
-                                                v-model="inlineReferenceValue"
-                                                :options="[
-                                                    {
-                                                        value: '',
-                                                        label: t(
-                                                            'transactions.sheet.grid.noSelection',
-                                                        ),
-                                                    },
-                                                    ...inlineReferenceOptions,
-                                                ]"
-                                                :placeholder="
-                                                    t(
-                                                        'transactions.sheet.grid.columns.trackedItem',
-                                                    )
-                                                "
-                                                :search-placeholder="
-                                                    t(
-                                                        'transactions.form.placeholders.searchTrackedItem',
-                                                    )
-                                                "
-                                                :disabled="
-                                                    inlineForm.type_key === ''
-                                                "
-                                                clearable
-                                                creatable
-                                                :creating="
-                                                    creatingInlineTrackedItem
-                                                "
-                                                :create-label="
-                                                    t(
-                                                        'transactions.form.placeholders.createTrackedItem',
-                                                    )
-                                                "
-                                                :trigger-class="
-                                                    inlineFieldClass(
-                                                        'tracked_item_uuid',
-                                                    )
-                                                "
-                                                @create-option="
-                                                    handleCreateInlineTrackedItem
-                                                "
-                                            />
-                                            <div
-                                                v-else
-                                                class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
-                                            >
-                                                {{
-                                                    t(
-                                                        'transactions.sheet.grid.transferBetweenAccounts',
-                                                    )
-                                                }}
-                                            </div>
-                                            <SharedExpenseFields
-                                                v-if="
-                                                    !isInlineBalanceAdjustment &&
-                                                    !isInlineTransfer
-                                                "
-                                                v-model:enabled="
-                                                    inlineForm.is_shared_expense
-                                                "
-                                                v-model:counterparty="
-                                                    inlineForm.shared_expense_counterparty_uuid
-                                                "
-                                                v-model:paid-by="
-                                                    inlineForm.shared_expense_paid_by
-                                                "
-                                                v-model:my-share="
-                                                    inlineForm.shared_expense_my_share
-                                                "
-                                                v-model:counterparty-share="
-                                                    inlineForm.shared_expense_counterparty_share
-                                                "
-                                                v-model:custom="
-                                                    inlineForm.shared_expense_custom_split
-                                                "
-                                                class="mt-2"
-                                                :counterparties="
-                                                    sheet.editor
-                                                        .shared_expense_counterparties
-                                                "
-                                                dropdown-side="top"
-                                                :amount="inlineForm.amount"
-                                                :errors="inlineForm.errors"
-                                            />
-                                        </td>
-                                        <td class="px-3 py-3">
-                                            <div class="flex justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    class="rounded-xl"
-                                                    :disabled="
-                                                        inlineForm.processing
-                                                    "
-                                                    @click="
-                                                        submitInlineTransaction
-                                                    "
-                                                >
-                                                    <Plus class="mr-2 size-4" />
-                                                    {{
-                                                        t(
-                                                            'transactions.sheet.actions.save',
-                                                        )
-                                                    }}
-                                                </Button>
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger
-                                                            as-child
-                                                        >
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                variant="outline"
-                                                                class="rounded-xl"
-                                                                :aria-label="
-                                                                    t(
-                                                                        'transactions.sheet.actions.reset',
-                                                                    )
-                                                                "
-                                                                :disabled="
-                                                                    inlineForm.processing
-                                                                "
-                                                                @click="
-                                                                    resetInlineEntry
-                                                                "
-                                                            >
-                                                                <RotateCcw
-                                                                    class="size-4"
-                                                                />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent
-                                                            side="top"
-                                                            align="center"
-                                                            position-strategy="fixed"
-                                                            update-position-strategy="optimized"
-                                                            sticky="partial"
-                                                            :avoid-collisions="
-                                                                true
-                                                            "
-                                                            :hide-when-detached="
-                                                                false
-                                                            "
-                                                            :collision-boundary="[]"
-                                                            :collision-padding="
-                                                                8
-                                                            "
-                                                            :arrow-padding="0"
-                                                            :align-offset="0"
-                                                            class="max-w-64 text-sm"
-                                                        >
-                                                            {{
-                                                                t(
-                                                                    'transactions.sheet.actionTooltips.resetInline',
-                                                                )
-                                                            }}
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                    <tr
-                                        v-if="
-                                            canEdit &&
-                                            inlineErrorsList.length > 0
-                                        "
-                                        class="border-b border-slate-200/70 bg-rose-50/80 dark:border-white/10 dark:bg-rose-500/8"
-                                    >
-                                        <td colspan="8" class="px-4 py-3">
-                                            <div
-                                                class="flex flex-wrap gap-2 text-xs text-rose-700 dark:text-rose-300"
-                                            >
-                                                <span
-                                                    v-for="message in inlineErrorsList"
-                                                    :key="message"
-                                                    class="rounded-full bg-rose-100 px-2.5 py-1 dark:bg-rose-500/10"
-                                                >
-                                                    {{ message }}
                                                 </span>
                                             </div>
-                                        </td>
-                                    </tr>
-
-                                    <tr
-                                        v-if="!canEdit"
-                                        class="border-t border-slate-200/70 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/60"
-                                    >
-                                        <td
-                                            colspan="8"
-                                            class="px-4 py-4 text-sm text-slate-600 dark:text-slate-300"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.readOnlyClosedYear',
-                                                )
-                                            }}
-                                        </td>
-                                    </tr>
-
-                                    <tr
-                                        v-if="
-                                            displayedTransactions.length === 0
-                                        "
-                                    >
-                                        <td
-                                            colspan="8"
-                                            class="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                transactionSearch.trim() !== ''
-                                                    ? t(
-                                                          'transactions.sheet.grid.searchEmptyState',
-                                                      )
-                                                    : t(
-                                                          'transactions.sheet.grid.emptyState',
-                                                      )
-                                            }}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="space-y-3 p-4 xl:hidden">
-                            <Card
-                                v-if="canEdit"
-                                class="hidden border-sky-200/80 bg-sky-50/70 shadow-none md:block dark:border-sky-500/20 dark:bg-sky-500/5"
-                            >
-                                <CardContent class="space-y-3 p-4">
-                                    <p
-                                        class="text-sm font-medium text-slate-950 dark:text-white"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.sheet.grid.mobileCreateTitle',
-                                            )
-                                        }}
-                                    </p>
-                                    <Button
-                                        type="button"
-                                        class="w-full rounded-2xl"
-                                        @click="openCreate"
-                                    >
-                                        <Plus class="mr-2 size-4" />
-                                        {{
-                                            t(
-                                                'transactions.sheet.actions.openCreate',
-                                            )
-                                        }}
-                                    </Button>
-                                </CardContent>
-                            </Card>
-
-                            <Card
-                                v-for="transaction in displayedTransactions"
-                                :key="transaction.uuid"
-                                tabindex="-1"
-                                :data-transaction-row="transaction.uuid"
-                                :class="
-                                    cn(
-                                        'border-slate-200/80 bg-white/95 shadow-none transition-all duration-500 dark:border-white/10 dark:bg-slate-950/80',
-                                        transactionRowToneClass(transaction),
-                                        transactionAccentClass(transaction),
-                                        transactionFeedbackClass(
-                                            transaction.uuid,
-                                        ),
-                                    )
-                                "
-                            >
-                                <CardContent class="space-y-3 p-4">
-                                    <div
-                                        class="flex items-start justify-between gap-3"
-                                    >
-                                        <div class="space-y-1">
-                                            <div class="flex flex-wrap gap-2">
-                                                <TransactionClassificationBadges
-                                                    :transaction="transaction"
-                                                />
-
-                                                <TooltipProvider
-                                                    v-if="
-                                                        isBalanceAdjustmentTransaction(
-                                                            transaction,
-                                                        )
-                                                    "
-                                                    :delay-duration="0"
-                                                >
-                                                    <Tooltip>
-                                                        <TooltipTrigger
-                                                            as-child
-                                                        >
-                                                            <Badge
-                                                                :class="
-                                                                    cn(
-                                                                        'cursor-help rounded-full px-2.5 py-1 text-[11px]',
-                                                                        balanceAdjustmentBadgeTone(
-                                                                            transaction,
-                                                                        ),
-                                                                    )
-                                                                "
-                                                            >
-                                                                <Scale
-                                                                    class="mr-1 h-3.5 w-3.5"
-                                                                />
-                                                                {{
-                                                                    t(
-                                                                        'transactions.sheet.grid.balanceAdjustmentBadge',
-                                                                    )
-                                                                }}
-                                                            </Badge>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent
-                                                            side="top"
-                                                            align="start"
-                                                            :collision-boundary="[]"
-                                                            :update-position-strategy="'always'"
-                                                            :avoid-collisions="
-                                                                true
-                                                            "
-                                                            :hide-when-detached="
-                                                                true
-                                                            "
-                                                            :position-strategy="'fixed'"
-                                                            :arrow-padding="8"
-                                                            :sticky="'partial'"
-                                                            :collision-padding="
-                                                                8
-                                                            "
-                                                            :align-offset="4"
-                                                            class="max-w-xs space-y-1"
-                                                        >
-                                                            <p
-                                                                class="font-medium"
-                                                            >
-                                                                {{
-                                                                    t(
-                                                                        'transactions.sheet.grid.balanceAdjustmentTooltipTitle',
-                                                                    )
-                                                                }}
-                                                            </p>
-                                                            <p>
-                                                                {{
-                                                                    t(
-                                                                        'transactions.sheet.grid.balanceAdjustmentTooltipBody',
-                                                                    )
-                                                                }}
-                                                            </p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                                <Badge
-                                                    v-if="
-                                                        isBalanceAdjustmentTransaction(
-                                                            transaction,
-                                                        )
-                                                    "
-                                                    :class="
-                                                        cn(
-                                                            'rounded-full px-2.5 py-1 text-[11px]',
-                                                            balanceAdjustmentEffectTone(
-                                                                transaction,
-                                                            ),
-                                                        )
-                                                    "
-                                                >
-                                                    {{
-                                                        balanceAdjustmentEffectLabel(
-                                                            transaction,
-                                                        )
-                                                    }}
-                                                </Badge>
-                                            </div>
-                                            <p
-                                                class="font-medium text-slate-950 dark:text-slate-100"
-                                            >
+                                            <div>
                                                 {{
-                                                    transactionCategoryLabel(
-                                                        transaction,
+                                                    t(
+                                                        'transactions.sheet.grid.balanceLabel',
                                                     )
                                                 }}
-                                            </p>
-                                            <p
-                                                class="truncate text-sm text-slate-600 dark:text-slate-300"
-                                                :title="
-                                                    transaction.detail ??
-                                                    transaction.description ??
-                                                    t(
-                                                        'transactions.sheet.grid.noDetail',
-                                                    )
-                                                "
-                                            >
-                                                {{
-                                                    transaction.detail ??
-                                                    transaction.description ??
-                                                    t(
-                                                        'transactions.sheet.grid.noDetail',
-                                                    )
-                                                }}
-                                            </p>
-                                            <div
-                                                v-if="
-                                                    recurringTransactionHelper(
-                                                        transaction,
-                                                    ) ||
-                                                    transaction.recurring_entry_show_url ||
-                                                    transaction.credit_debt_item_show_url
-                                                "
-                                                class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
-                                            >
                                                 <span
-                                                    v-if="
-                                                        recurringTransactionHelper(
-                                                            transaction,
-                                                        )
-                                                    "
+                                                    class="text-slate-700 dark:text-slate-200"
                                                 >
-                                                    {{
-                                                        recurringTransactionHelper(
-                                                            transaction,
-                                                        )
-                                                    }}
+                                                    <SensitiveValue
+                                                        :value="
+                                                            transaction.balance_after_raw ===
+                                                            null
+                                                                ? '—'
+                                                                : formatCurrency(
+                                                                      transaction.balance_after_raw,
+                                                                      currency,
+                                                                  )
+                                                        "
+                                                    />
                                                 </span>
-                                                <Link
-                                                    v-if="
-                                                        transaction.recurring_entry_show_url ||
-                                                        transaction.credit_debt_item_show_url
-                                                    "
-                                                    :href="
-                                                        transaction.recurring_entry_show_url ??
-                                                        transaction.credit_debt_item_show_url
-                                                    "
-                                                    class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
-                                                >
-                                                    {{
-                                                        sourceTransactionLinkLabel(
-                                                            transaction,
-                                                        )
-                                                    }}
-                                                </Link>
                                             </div>
                                         </div>
-                                        <div class="text-right">
-                                            <p
-                                                class="font-mono font-semibold"
-                                                :class="
-                                                    getAmountTone(
-                                                        transaction.amount_raw,
-                                                    )
-                                                "
-                                            >
-                                                <SensitiveValue
-                                                    :value="
-                                                        formatCurrency(
-                                                            transaction.amount_raw,
-                                                            transactionAmountCurrency(
-                                                                transaction,
-                                                            ),
-                                                            moneyFormatLocale,
-                                                        )
-                                                    "
-                                                />
-                                            </p>
-                                            <p
-                                                v-if="
-                                                    transactionConvertedAmountLabel(
-                                                        transaction,
-                                                    )
-                                                "
-                                                class="text-xs text-slate-500 dark:text-slate-400"
-                                            >
-                                                <SensitiveValue
-                                                    :value="
-                                                        transactionConvertedAmountLabel(
-                                                            transaction,
-                                                        )
-                                                    "
-                                                />
-                                            </p>
-                                            <p
-                                                v-if="
-                                                    transactionExchangeRateContextLabel(
-                                                        transaction,
-                                                    )
-                                                "
-                                                class="text-[11px] text-slate-400 dark:text-slate-500"
-                                            >
-                                                {{
-                                                    transactionExchangeRateContextLabel(
-                                                        transaction,
-                                                    )
-                                                }}
-                                            </p>
-                                            <p
-                                                v-if="
-                                                    isBalanceAdjustmentTransaction(
-                                                        transaction,
-                                                    )
-                                                "
-                                                class="text-xs font-medium"
-                                                :class="
-                                                    balanceAdjustmentEffectTone(
-                                                        transaction,
-                                                    )
-                                                "
-                                            >
-                                                {{
-                                                    balanceAdjustmentEffectLabel(
-                                                        transaction,
-                                                    )
-                                                }}
-                                            </p>
-                                            <p
-                                                class="text-xs text-slate-500 dark:text-slate-400"
-                                            >
-                                                {{
-                                                    formatDateLong(
-                                                        transaction.date,
-                                                    )
-                                                }}
-                                            </p>
-                                            <p
-                                                v-if="
-                                                    creditCardCycleHelper(
-                                                        transaction,
-                                                    )
-                                                "
-                                                class="text-xs text-sky-700 dark:text-sky-300"
-                                            >
-                                                {{
-                                                    creditCardCycleHelper(
-                                                        transaction,
-                                                    )
-                                                }}
-                                            </p>
-                                        </div>
-                                    </div>
 
-                                    <div
-                                        class="grid gap-2 text-xs text-slate-500 sm:grid-cols-2 dark:text-slate-400"
-                                    >
-                                        <div>
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.accountLabel',
-                                                )
-                                            }}
-                                            <span
-                                                class="break-words text-slate-700 dark:text-slate-200"
-                                                >{{
-                                                    transaction.account_label
-                                                }}</span
-                                            >
-                                        </div>
-                                        <div>
-                                            {{
-                                                transaction.is_transfer
-                                                    ? t(
-                                                          'transactions.sheet.grid.linkedAccountLabel',
-                                                      )
-                                                    : transaction.is_opening_balance
-                                                      ? t(
-                                                            'transactions.sheet.grid.openingReadOnly',
-                                                        )
-                                                      : t(
-                                                            'transactions.sheet.grid.trackedItemLabel',
-                                                        )
-                                            }}
-                                            <span
-                                                class="break-words text-slate-700 dark:text-slate-200"
-                                            >
-                                                <TrackedItemIdentity
-                                                    v-if="
-                                                        !transaction.is_transfer &&
-                                                        !transaction.is_opening_balance &&
-                                                        transaction.tracked_item_label
-                                                    "
-                                                    :name="
-                                                        transaction.tracked_item_label
-                                                    "
-                                                    :logo-url="
-                                                        transaction.tracked_item_logo_url
-                                                    "
-                                                    compact
-                                                />
-                                                <template v-else>
-                                                    {{
-                                                        transaction.is_transfer
-                                                            ? (transaction.related_account_label ??
-                                                              '—')
-                                                            : '—'
-                                                    }}
-                                                </template>
-                                            </span>
-                                        </div>
-                                        <div>
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.balanceLabel',
-                                                )
-                                            }}
-                                            <span
-                                                class="text-slate-700 dark:text-slate-200"
-                                            >
-                                                <SensitiveValue
-                                                    :value="
-                                                        transaction.balance_after_raw ===
-                                                        null
-                                                            ? '—'
-                                                            : formatCurrency(
-                                                                  transaction.balance_after_raw,
-                                                                  currency,
-                                                              )
-                                                    "
-                                                />
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        v-if="
-                                            transactionHasAuditDetails(
-                                                transaction,
-                                            ) ||
-                                            (transaction.kind === 'scheduled' &&
-                                                transaction.recurring_entry_show_url) ||
-                                            (canEdit &&
-                                                (transaction.can_edit ||
-                                                    transaction.can_refund ||
-                                                    transaction.can_undo_refund ||
-                                                    transaction.can_delete ||
-                                                    transaction.can_restore ||
-                                                    transaction.can_force_delete))
-                                        "
-                                        class="flex flex-wrap justify-end gap-2"
-                                    >
-                                        <TooltipProvider
-                                            v-if="
-                                                shouldShowTransactionAuditIcon(
-                                                    transaction,
-                                                )
-                                            "
-                                            :delay-duration="0"
-                                        >
-                                            <Tooltip>
-                                                <TooltipTrigger as-child>
-                                                    <button
-                                                        type="button"
-                                                        :aria-label="
-                                                            t(
-                                                                'transactions.sheet.actions.auditInfo',
-                                                            )
-                                                        "
-                                                        class="inline-flex size-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
-                                                    >
-                                                        <User class="size-4" />
-                                                    </button>
-                                                </TooltipTrigger>
-                                                <TooltipContent
-                                                    side="top"
-                                                    align="center"
-                                                    :collision-boundary="[]"
-                                                    :update-position-strategy="'always'"
-                                                    :avoid-collisions="true"
-                                                    :hide-when-detached="true"
-                                                    :position-strategy="'fixed'"
-                                                    :arrow-padding="8"
-                                                    :sticky="'partial'"
-                                                    :collision-padding="8"
-                                                    :align-offset="4"
-                                                    class="max-w-xs space-y-1"
-                                                >
-                                                    <p
-                                                        v-if="
-                                                            transactionAuditCreatedLabel(
-                                                                transaction,
-                                                            )
-                                                        "
-                                                    >
-                                                        {{
-                                                            transactionAuditCreatedLabel(
-                                                                transaction,
-                                                            )
-                                                        }}
-                                                    </p>
-                                                    <p
-                                                        v-if="
-                                                            transactionAuditUpdatedLabel(
-                                                                transaction,
-                                                            )
-                                                        "
-                                                    >
-                                                        {{
-                                                            transactionAuditUpdatedLabel(
-                                                                transaction,
-                                                            )
-                                                        }}
-                                                    </p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                        <TooltipProvider
-                                            v-if="
-                                                transaction.kind ===
-                                                    'scheduled' &&
-                                                transaction.recurring_entry_show_url
-                                            "
-                                            :delay-duration="0"
-                                        >
-                                            <Tooltip>
-                                                <TooltipTrigger as-child>
-                                                    <Link
-                                                        :href="
-                                                            transaction.recurring_entry_show_url
-                                                        "
-                                                        :aria-label="
-                                                            t(
-                                                                'transactions.sheet.actions.openRecurring',
-                                                            )
-                                                        "
-                                                        class="inline-flex size-9 items-center justify-center rounded-xl border border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/10"
-                                                    >
-                                                        <ArrowUpRight
-                                                            class="size-4"
-                                                        />
-                                                    </Link>
-                                                </TooltipTrigger>
-                                                <TooltipContent
-                                                    side="top"
-                                                    align="center"
-                                                    :collision-boundary="[]"
-                                                    :update-position-strategy="'always'"
-                                                    :avoid-collisions="true"
-                                                    :hide-when-detached="true"
-                                                    :position-strategy="'fixed'"
-                                                    :arrow-padding="8"
-                                                    :sticky="'partial'"
-                                                    :collision-padding="8"
-                                                    :align-offset="4"
-                                                >
-                                                    <p>
-                                                        {{
-                                                            t(
-                                                                'transactions.sheet.actions.openRecurring',
-                                                            )
-                                                        }}
-                                                    </p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                        <Button
-                                            v-if="
-                                                transaction.requires_payment_confirmation &&
-                                                transaction.can_report_payment_problem
-                                            "
-                                            variant="outline"
-                                            size="sm"
-                                            @click="
-                                                verifyAutomaticPayment(
-                                                    transaction,
-                                                )
-                                            "
-                                            >{{
-                                                t(
-                                                    'transactions.sheet.confirmRegistration',
-                                                )
-                                            }}</Button
-                                        >
-                                        <Button
-                                            v-if="
-                                                transaction.can_report_payment_problem
-                                            "
-                                            variant="outline"
-                                            size="sm"
-                                            :disabled="
-                                                paymentProblemForm.processing
-                                            "
-                                            @click="
-                                                reportPaymentProblem(
-                                                    transaction,
-                                                )
-                                            "
-                                        >
-                                            <TriangleAlert
-                                                class="mr-2 size-4 shrink-0 text-amber-600 dark:text-amber-400"
+                                        <div class="flex justify-end">
+                                            <TransactionRowActions
+                                                :transaction="transaction"
+                                                :can-edit="canEdit"
+                                                :processing="
+                                                    paymentConfirmationForm.processing ||
+                                                    paymentProblemForm.processing ||
+                                                    undoRefundForm.processing
+                                                "
+                                                :show-audit="
+                                                    shouldShowTransactionAuditIcon(
+                                                        transaction,
+                                                    )
+                                                "
+                                                @action="
+                                                    handleRowAction(
+                                                        $event,
+                                                        transaction,
+                                                    )
+                                                "
                                             />
-                                            {{
-                                                t(
-                                                    'transactions.sheet.paymentProblem.trigger',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="transaction.can_edit"
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            class="rounded-xl"
-                                            @click="openEdit(transaction)"
-                                        >
-                                            <Pencil class="mr-2 size-4" />
-                                            {{
-                                                t(
-                                                    'transactions.sheet.actions.edit',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="transaction.can_refund"
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            class="rounded-xl"
-                                            @click="requestRefund(transaction)"
-                                        >
-                                            <RefreshCcw class="mr-2 size-4" />
-                                            {{
-                                                t(
-                                                    'transactions.sheet.actions.refund',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="transaction.can_undo_refund"
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            class="rounded-xl text-amber-600 hover:text-amber-700"
-                                            @click="undoRefund(transaction)"
-                                        >
-                                            <RotateCcw class="mr-2 size-4" />
-                                            {{
-                                                t(
-                                                    'transactions.sheet.actions.undoRefund',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="transaction.can_restore"
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            class="rounded-xl text-emerald-600 hover:text-emerald-700"
-                                            @click="
-                                                restoreTransaction(
-                                                    transaction.uuid,
-                                                )
-                                            "
-                                        >
-                                            <RotateCcw class="mr-2 size-4" />
-                                            {{
-                                                t(
-                                                    'transactions.sheet.actions.restore',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="transaction.can_force_delete"
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            class="rounded-xl text-rose-600 hover:text-rose-700"
-                                            @click="
-                                                requestForceDelete(transaction)
-                                            "
-                                        >
-                                            <Trash2 class="mr-2 size-4" />
-                                            {{
-                                                t(
-                                                    'transactions.sheet.actions.forceDelete',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="transaction.can_delete"
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            class="rounded-xl text-rose-600 hover:text-rose-700"
-                                            @click="requestDelete(transaction)"
-                                        >
-                                            <Trash2 class="mr-2 size-4" />
-                                            {{
-                                                t(
-                                                    'transactions.sheet.actions.delete',
-                                                )
-                                            }}
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                        </div>
+                                    </CardContent>
+                                </Card>
 
-                            <div
-                                v-if="displayedTransactions.length === 0"
-                                class="py-12 text-center text-sm text-slate-500 dark:text-slate-400"
-                            >
-                                {{
-                                    transactionSearch.trim() !== ''
-                                        ? t(
-                                              'transactions.sheet.grid.searchEmptyState',
-                                          )
-                                        : t(
-                                              'transactions.sheet.grid.emptyState',
-                                          )
-                                }}
+                                <div
+                                    v-if="displayedTransactions.length === 0"
+                                    class="py-12 text-center text-sm text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        transactionSearch.trim() !== ''
+                                            ? t(
+                                                  'transactions.sheet.grid.searchEmptyState',
+                                              )
+                                            : t(
+                                                  'transactions.sheet.grid.emptyState',
+                                              )
+                                    }}
+                                </div>
                             </div>
+                        </div>
+                        <div ref="sharedResults" class="scroll-mt-24">
+                            <SharedLedgerMovements
+                                v-if="
+                                    showShared &&
+                                    filteredSharedLedgerMovements.length > 0
+                                "
+                                v-model:counterparty="selectedAdvancedBy"
+                                :movements="filteredSharedLedgerMovements"
+                                :counterparties="sharedLedgerCounterparties"
+                                :currency="currency"
+                                :can-edit="canEdit"
+                                @edit="openEdit"
+                            />
                         </div>
                     </CardContent>
                 </Card>
 
-                <div class="space-y-4">
-                    <Card
-                        class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
-                    >
-                        <CardHeader
-                            class="border-b border-slate-200/70 bg-slate-50/70 px-5 py-4 dark:border-white/10 dark:bg-slate-900/60"
+                <div
+                    class="summary-rail relative min-w-0"
+                    :style="{ '--summary-height': `${monthlySummaryHeight}px` }"
+                >
+                    <div class="summary-toggle-track hidden xl:block">
+                        <TooltipProvider :delay-duration="150"
+                            ><Tooltip
+                                ><TooltipTrigger as-child>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        class="summary-toggle"
+                                        :aria-label="
+                                            monthlySummaryOpen
+                                                ? t(
+                                                      'transactions.sheet.overview.collapse',
+                                                  )
+                                                : t(
+                                                      'transactions.sheet.overview.expand',
+                                                  )
+                                        "
+                                        :title="
+                                            monthlySummaryOpen
+                                                ? t(
+                                                      'transactions.sheet.overview.collapse',
+                                                  )
+                                                : t(
+                                                      'transactions.sheet.overview.expand',
+                                                  )
+                                        "
+                                        :aria-expanded="monthlySummaryOpen"
+                                        aria-controls="monthly-summary"
+                                        @click="toggleMonthlySummary"
+                                        ><ChevronRight
+                                            v-if="monthlySummaryOpen"
+                                            class="size-4" /><ChevronLeft
+                                            v-else
+                                            class="size-4"
+                                    /></Button> </TooltipTrigger
+                                ><TooltipContent
+                                    position-strategy="fixed"
+                                    side="left"
+                                    >{{
+                                        monthlySummaryOpen
+                                            ? t(
+                                                  'transactions.sheet.overview.collapse',
+                                              )
+                                            : t(
+                                                  'transactions.sheet.overview.expand',
+                                              )
+                                    }}</TooltipContent
+                                ></Tooltip
+                            ></TooltipProvider
                         >
-                            <div class="space-y-1">
-                                <CardTitle
-                                    class="text-base text-slate-950 dark:text-white"
-                                >
-                                    {{ t('transactions.sheet.overview.title') }}
-                                </CardTitle>
-                                <p
-                                    class="text-sm text-slate-600 dark:text-slate-300"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.sheet.overview.description',
-                                        )
-                                    }}
-                                </p>
-                            </div>
-                        </CardHeader>
-                        <CardContent class="space-y-4 p-5">
-                            <div
-                                v-if="categoryFocus"
-                                :class="
-                                    cn(
-                                        'relative overflow-hidden rounded-[24px] border p-4',
-                                        groupPanelTone(
-                                            categoryFocus.item.group_key,
-                                        ),
-                                    )
-                                "
+                    </div>
+                    <div
+                        id="monthly-summary"
+                        ref="monthlySummaryElement"
+                        class="summary-content space-y-4"
+                    >
+                        <Card
+                            class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+                        >
+                            <CardHeader
+                                class="border-b border-slate-200/70 bg-slate-50/70 px-5 py-4 dark:border-white/10 dark:bg-slate-900/60"
                             >
+                                <div class="space-y-1">
+                                    <CardTitle
+                                        class="text-base text-slate-950 dark:text-white"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.sheet.overview.title',
+                                            )
+                                        }}
+                                    </CardTitle>
+                                    <p
+                                        class="text-sm text-slate-600 dark:text-slate-300"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.sheet.overview.description',
+                                            )
+                                        }}
+                                    </p>
+                                </div>
+                            </CardHeader>
+                            <CardContent class="space-y-4 p-5">
                                 <div
+                                    v-if="categoryFocus"
                                     :class="
                                         cn(
-                                            'pointer-events-none absolute inset-0',
-                                            groupGlowTone(
+                                            'relative overflow-hidden rounded-[24px] border p-4',
+                                            groupPanelTone(
                                                 categoryFocus.item.group_key,
                                             ),
                                         )
                                     "
-                                />
-                                <div class="relative z-10">
-                                    <p
+                                >
+                                    <div
                                         :class="
                                             cn(
-                                                'inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold tracking-[0.16em] uppercase',
-                                                groupBadgeTone(
+                                                'pointer-events-none absolute inset-0',
+                                                groupGlowTone(
                                                     categoryFocus.item
                                                         .group_key,
                                                 ),
                                             )
                                         "
-                                    >
-                                        {{ categoryFocus.subtitle }}
-                                    </p>
-                                    <p
-                                        class="mt-2 text-lg font-semibold text-slate-950 dark:text-white"
-                                    >
-                                        {{ categoryFocus.title }}
-                                    </p>
-                                    <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                                        <div>
-                                            <p
-                                                class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
-                                            >
-                                                {{
-                                                    t(
-                                                        'transactions.sheet.overview.current',
-                                                    )
-                                                }}
-                                            </p>
-                                            <p
-                                                class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
-                                            >
-                                                <SensitiveValue
-                                                    variant="veil"
-                                                    :value="
-                                                        formatCurrency(
-                                                            categoryFocus.item
-                                                                .actual_raw,
-                                                            currency,
-                                                        )
-                                                    "
-                                                />
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p
-                                                class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
-                                            >
-                                                {{
-                                                    t(
-                                                        'transactions.sheet.overview.planned',
-                                                    )
-                                                }}
-                                            </p>
-                                            <p
-                                                class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
-                                            >
-                                                <SensitiveValue
-                                                    variant="veil"
-                                                    :value="
-                                                        formatCurrency(
-                                                            categoryFocus.item
-                                                                .budget_raw,
-                                                            currency,
-                                                        )
-                                                    "
-                                                />
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p
-                                                class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
-                                            >
-                                                {{
-                                                    t(
-                                                        'transactions.sheet.overview.remaining',
-                                                    )
-                                                }}
-                                            </p>
-                                            <p
-                                                class="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-300"
-                                            >
-                                                <SensitiveValue
-                                                    variant="veil"
-                                                    :value="
-                                                        formatCurrency(
-                                                            categoryFocus.item
-                                                                .remaining_raw,
-                                                            currency,
-                                                        )
-                                                    "
-                                                />
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p
-                                                class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
-                                            >
-                                                {{
-                                                    t(
-                                                        'transactions.sheet.overview.excess',
-                                                    )
-                                                }}
-                                            </p>
-                                            <p
-                                                class="mt-1 text-base font-semibold text-rose-700 dark:text-rose-300"
-                                            >
-                                                <SensitiveValue
-                                                    variant="veil"
-                                                    :value="
-                                                        formatCurrency(
-                                                            categoryFocus.item
-                                                                .excess_raw,
-                                                            currency,
-                                                        )
-                                                    "
-                                                />
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div
-                                v-else
-                                class="rounded-[24px] bg-slate-50/80 p-4 text-sm text-slate-600 dark:bg-slate-900/60 dark:text-slate-300"
-                            >
-                                <template v-if="selectedInlineGroupKey">
-                                    {{
-                                        t(
-                                            'transactions.sheet.overview.highlightedGroup',
-                                        )
-                                    }}
-                                </template>
-                                <template v-else>
-                                    {{
-                                        t(
-                                            'transactions.sheet.overview.defaultDescription',
-                                        )
-                                    }}
-                                </template>
-                            </div>
-
-                            <div class="space-y-3">
-                                <div
-                                    v-for="group in overviewGroups"
-                                    :key="group.key"
-                                    :class="
-                                        cn(
-                                            'relative overflow-hidden rounded-[22px] border p-4 transition-all',
-                                            group.isHighlighted
-                                                ? `${groupPanelTone(group.key)} shadow-sm`
-                                                : 'border-slate-200 bg-white/70 dark:border-white/10 dark:bg-slate-950/40',
-                                            group.isDimmed ? 'opacity-55' : '',
-                                        )
-                                    "
-                                >
-                                    <div
-                                        v-if="group.isHighlighted"
-                                        :class="
-                                            cn(
-                                                'pointer-events-none absolute inset-0',
-                                                groupGlowTone(group.key),
-                                            )
-                                        "
                                     />
                                     <div class="relative z-10">
+                                        <p
+                                            :class="
+                                                cn(
+                                                    'inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold tracking-[0.16em] uppercase',
+                                                    groupBadgeTone(
+                                                        categoryFocus.item
+                                                            .group_key,
+                                                    ),
+                                                )
+                                            "
+                                        >
+                                            {{ categoryFocus.subtitle }}
+                                        </p>
+                                        <p
+                                            class="mt-2 text-lg font-semibold text-slate-950 dark:text-white"
+                                        >
+                                            {{ categoryFocus.title }}
+                                        </p>
                                         <div
-                                            class="flex items-start justify-between gap-3"
+                                            class="mt-4 grid gap-3 sm:grid-cols-2"
                                         >
                                             <div>
-                                                <p
-                                                    class="text-sm font-semibold text-slate-950 dark:text-white"
-                                                >
-                                                    {{ group.label }}
-                                                </p>
-                                                <p
-                                                    class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.sheet.overview.records',
-                                                            {
-                                                                count: group.count,
-                                                            },
-                                                        )
-                                                    }}
-                                                </p>
-                                            </div>
-                                            <div class="text-right">
                                                 <p
                                                     class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                 >
                                                     {{
                                                         t(
-                                                            'transactions.sheet.overview.progress',
+                                                            'transactions.sheet.overview.current',
                                                         )
                                                     }}
                                                 </p>
                                                 <p
-                                                    class="mt-1 text-sm font-semibold text-slate-950 dark:text-white"
+                                                    class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
+                                                >
+                                                    <SensitiveValue
+                                                        variant="veil"
+                                                        :value="
+                                                            formatCurrency(
+                                                                categoryFocus
+                                                                    .item
+                                                                    .actual_raw,
+                                                                currency,
+                                                            )
+                                                        "
+                                                    />
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p
+                                                    class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                 >
                                                     {{
-                                                        formatPercent(
-                                                            group.progress_percentage,
+                                                        t(
+                                                            'transactions.sheet.overview.planned',
                                                         )
                                                     }}
                                                 </p>
+                                                <p
+                                                    class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
+                                                >
+                                                    <SensitiveValue
+                                                        variant="veil"
+                                                        :value="
+                                                            formatCurrency(
+                                                                categoryFocus
+                                                                    .item
+                                                                    .budget_raw,
+                                                                currency,
+                                                            )
+                                                        "
+                                                    />
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p
+                                                    class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.overview.remaining',
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    class="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-300"
+                                                >
+                                                    <SensitiveValue
+                                                        variant="veil"
+                                                        :value="
+                                                            formatCurrency(
+                                                                categoryFocus
+                                                                    .item
+                                                                    .remaining_raw,
+                                                                currency,
+                                                            )
+                                                        "
+                                                    />
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p
+                                                    class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.overview.excess',
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    class="mt-1 text-base font-semibold text-rose-700 dark:text-rose-300"
+                                                >
+                                                    <SensitiveValue
+                                                        variant="veil"
+                                                        :value="
+                                                            formatCurrency(
+                                                                categoryFocus
+                                                                    .item
+                                                                    .excess_raw,
+                                                                currency,
+                                                            )
+                                                        "
+                                                    />
+                                                </p>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
 
-                                        <div class="mt-4 space-y-3">
+                                <div
+                                    v-else
+                                    class="rounded-[24px] bg-slate-50/80 p-4 text-sm text-slate-600 dark:bg-slate-900/60 dark:text-slate-300"
+                                >
+                                    <template v-if="selectedInlineGroupKey">
+                                        {{
+                                            t(
+                                                'transactions.sheet.overview.highlightedGroup',
+                                            )
+                                        }}
+                                    </template>
+                                    <template v-else>
+                                        {{
+                                            t(
+                                                'transactions.sheet.overview.defaultDescription',
+                                            )
+                                        }}
+                                    </template>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <div
+                                        v-for="group in overviewGroups"
+                                        :key="group.key"
+                                        :class="
+                                            cn(
+                                                'relative overflow-hidden rounded-[22px] border p-4 transition-all',
+                                                group.isHighlighted
+                                                    ? `${groupPanelTone(group.key)} shadow-sm`
+                                                    : 'border-slate-200 bg-white/70 dark:border-white/10 dark:bg-slate-950/40',
+                                                group.isDimmed
+                                                    ? 'opacity-55'
+                                                    : '',
+                                            )
+                                        "
+                                    >
+                                        <div
+                                            v-if="group.isHighlighted"
+                                            :class="
+                                                cn(
+                                                    'pointer-events-none absolute inset-0',
+                                                    groupGlowTone(group.key),
+                                                )
+                                            "
+                                        />
+                                        <div class="relative z-10">
                                             <div
-                                                class="grid grid-cols-2 gap-3 text-sm"
+                                                class="flex items-start justify-between gap-3"
                                             >
                                                 <div>
                                                     <p
-                                                        class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                        class="text-sm font-semibold text-slate-950 dark:text-white"
+                                                    >
+                                                        {{ group.label }}
+                                                    </p>
+                                                    <p
+                                                        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
                                                     >
                                                         {{
                                                             t(
-                                                                'transactions.sheet.overview.current',
+                                                                'transactions.sheet.overview.records',
+                                                                {
+                                                                    count: group.count,
+                                                                },
                                                             )
                                                         }}
-                                                    </p>
-                                                    <p
-                                                        class="mt-1 font-semibold text-slate-950 dark:text-white"
-                                                    >
-                                                        <SensitiveValue
-                                                            :value="
-                                                                formatCurrency(
-                                                                    group.actual_raw,
-                                                                    currency,
-                                                                )
-                                                            "
-                                                        />
                                                     </p>
                                                 </div>
-                                                <div>
+                                                <div class="text-right">
                                                     <p
                                                         class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                     >
                                                         {{
                                                             t(
-                                                                'transactions.sheet.overview.planned',
+                                                                'transactions.sheet.overview.progress',
                                                             )
                                                         }}
                                                     </p>
                                                     <p
-                                                        class="mt-1 font-semibold text-slate-950 dark:text-white"
+                                                        class="mt-1 text-sm font-semibold text-slate-950 dark:text-white"
                                                     >
-                                                        <SensitiveValue
-                                                            :value="
-                                                                formatCurrency(
-                                                                    group.budget_raw,
-                                                                    currency,
-                                                                )
-                                                            "
-                                                        />
+                                                        {{
+                                                            formatPercent(
+                                                                group.progress_percentage,
+                                                            )
+                                                        }}
                                                     </p>
                                                 </div>
                                             </div>
 
-                                            <div class="space-y-2">
+                                            <div class="mt-4 space-y-3">
                                                 <div
-                                                    class="h-2 rounded-full bg-slate-200 dark:bg-slate-800"
-                                                >
-                                                    <div
-                                                        :class="
-                                                            cn(
-                                                                'h-2 rounded-full transition-all',
-                                                                groupProgressTone(
-                                                                    group.key,
-                                                                ),
-                                                            )
-                                                        "
-                                                        :style="{
-                                                            width: progressWidth(
-                                                                group.progress_percentage,
-                                                            ),
-                                                        }"
-                                                    />
-                                                </div>
-                                                <div
-                                                    class="grid grid-cols-2 gap-3 text-xs"
+                                                    class="grid grid-cols-2 gap-3 text-sm"
                                                 >
                                                     <div>
                                                         <p
-                                                            class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                            class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                         >
                                                             {{
                                                                 t(
-                                                                    'transactions.sheet.overview.remaining',
+                                                                    'transactions.sheet.overview.current',
                                                                 )
                                                             }}
                                                         </p>
                                                         <p
-                                                            class="mt-1 font-semibold text-emerald-700 dark:text-emerald-300"
+                                                            class="mt-1 font-semibold text-slate-950 dark:text-white"
                                                         >
                                                             <SensitiveValue
                                                                 :value="
                                                                     formatCurrency(
-                                                                        group.remaining_raw,
+                                                                        group.actual_raw,
                                                                         currency,
                                                                     )
                                                                 "
                                                             />
                                                         </p>
                                                     </div>
-                                                    <div class="text-right">
+                                                    <div>
                                                         <p
-                                                            class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                            class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                         >
                                                             {{
                                                                 t(
-                                                                    'transactions.sheet.overview.excess',
+                                                                    'transactions.sheet.overview.planned',
                                                                 )
                                                             }}
                                                         </p>
                                                         <p
-                                                            class="mt-1 font-semibold text-rose-700 dark:text-rose-300"
+                                                            class="mt-1 font-semibold text-slate-950 dark:text-white"
                                                         >
                                                             <SensitiveValue
                                                                 :value="
                                                                     formatCurrency(
-                                                                        group.excess_raw,
+                                                                        group.budget_raw,
                                                                         currency,
                                                                     )
                                                                 "
                                                             />
                                                         </p>
+                                                    </div>
+                                                </div>
+
+                                                <div class="space-y-2">
+                                                    <div
+                                                        class="h-2 rounded-full bg-slate-200 dark:bg-slate-800"
+                                                    >
+                                                        <div
+                                                            :class="
+                                                                cn(
+                                                                    'h-2 rounded-full transition-all',
+                                                                    groupProgressTone(
+                                                                        group.key,
+                                                                    ),
+                                                                )
+                                                            "
+                                                            :style="{
+                                                                width: progressWidth(
+                                                                    group.progress_percentage,
+                                                                ),
+                                                            }"
+                                                        />
+                                                    </div>
+                                                    <div
+                                                        class="grid grid-cols-2 gap-3 text-xs"
+                                                    >
+                                                        <div>
+                                                            <p
+                                                                class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.sheet.overview.remaining',
+                                                                    )
+                                                                }}
+                                                            </p>
+                                                            <p
+                                                                class="mt-1 font-semibold text-emerald-700 dark:text-emerald-300"
+                                                            >
+                                                                <SensitiveValue
+                                                                    :value="
+                                                                        formatCurrency(
+                                                                            group.remaining_raw,
+                                                                            currency,
+                                                                        )
+                                                                    "
+                                                                />
+                                                            </p>
+                                                        </div>
+                                                        <div class="text-right">
+                                                            <p
+                                                                class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.sheet.overview.excess',
+                                                                    )
+                                                                }}
+                                                            </p>
+                                                            <p
+                                                                class="mt-1 font-semibold text-rose-700 dark:text-rose-300"
+                                                            >
+                                                                <SensitiveValue
+                                                                    :value="
+                                                                        formatCurrency(
+                                                                            group.excess_raw,
+                                                                            currency,
+                                                                        )
+                                                                    "
+                                                                />
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </div>
 
-            <div
-                v-if="sheet.shared_ledger_movements?.length"
-                class="space-y-2 rounded-xl border p-4"
+            <Dialog
+                :open="auditTransaction !== null"
+                @update:open="
+                    (open) => {
+                        if (!open) auditTransaction = null;
+                    }
+                "
+                ><DialogContent
+                    ><DialogHeader
+                        ><DialogTitle>{{
+                            t('transactions.sheet.actions.auditInfo')
+                        }}</DialogTitle
+                        ><DialogDescription v-if="auditTransaction"
+                            >{{ transactionAuditCreatedLabel(auditTransaction)
+                            }}<br />{{
+                                transactionAuditUpdatedLabel(auditTransaction)
+                            }}</DialogDescription
+                        ></DialogHeader
+                    ></DialogContent
+                ></Dialog
             >
-                <p class="text-sm font-medium">
-                    {{ ui('Movimenti condivisi pagati dalla controparte') }}
-                </p>
-                <div
-                    v-for="movement in sheet.shared_ledger_movements"
-                    :key="movement.uuid"
-                    class="flex items-center justify-between gap-2"
-                >
-                    <span class="text-sm"
-                        >{{ movement.date_label }} ·
-                        {{ movement.description }} ·
-                        {{ movement.shared_expense_counterparty_label }}</span
-                    >
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        :disabled="!movement.can_edit"
-                        @click="openEdit(movement)"
-                        >{{ ui('Modifica') }}</Button
-                    >
-                </div>
-            </div>
             <TransactionFormSheet
+                :shared-management="sharedManagement"
                 :template="activeTemplate"
                 v-model:open="formOpen"
                 :year="props.year"
@@ -8063,6 +7959,221 @@ resetInlineEntry();
                 @saved="returnFromSharedReview"
             />
 
+            <Dialog
+                :open="paymentConfirmationTransaction !== null"
+                @update:open="
+                    (open) => {
+                        if (!open) closePaymentConfirmation();
+                    }
+                "
+            >
+                <DialogContent
+                    @escape-key-down="
+                        paymentConfirmationForm.processing &&
+                        $event.preventDefault()
+                    "
+                    @interact-outside="
+                        paymentConfirmationForm.processing &&
+                        $event.preventDefault()
+                    "
+                >
+                    <DialogHeader>
+                        <DialogTitle>{{
+                            t('transactions.sheet.confirmRegistration')
+                        }}</DialogTitle>
+                        <DialogDescription>{{
+                            t(
+                                'transactions.sheet.paymentConfirmation.description',
+                            )
+                        }}</DialogDescription>
+                    </DialogHeader>
+                    <dl
+                        v-if="paymentConfirmationTransaction"
+                        class="space-y-3 text-sm"
+                    >
+                        <div>
+                            <dt class="text-muted-foreground">
+                                {{
+                                    t('transactions.sheet.grid.columns.detail')
+                                }}
+                            </dt>
+                            <dd>
+                                {{
+                                    paymentConfirmationTransaction.description ||
+                                    paymentConfirmationTransaction.detail
+                                }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">
+                                {{
+                                    t('transactions.sheet.grid.columns.amount')
+                                }}
+                            </dt>
+                            <dd>
+                                <SensitiveValue
+                                    :value="
+                                        formatCurrency(
+                                            paymentConfirmationTransaction.amount_raw,
+                                            transactionAmountCurrency(
+                                                paymentConfirmationTransaction,
+                                            ),
+                                        )
+                                    "
+                                />
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">
+                                {{
+                                    t(
+                                        'transactions.sheet.grid.columns.accountResource',
+                                    )
+                                }}
+                            </dt>
+                            <dd>
+                                {{
+                                    paymentConfirmationTransaction.account_label
+                                }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">
+                                {{ t('transactions.sheet.grid.columns.date') }}
+                            </dt>
+                            <dd>
+                                {{
+                                    formatDateLong(
+                                        paymentConfirmationTransaction.date,
+                                    )
+                                }}
+                            </dd>
+                        </div>
+                        <div
+                            v-if="
+                                paymentConfirmationTransaction
+                                    .recurring_payment_links?.length
+                            "
+                        >
+                            <dt class="text-muted-foreground">
+                                {{
+                                    t(
+                                        'transactions.sheet.actions.openRecurring',
+                                    )
+                                }}
+                            </dt>
+                            <dd
+                                v-for="link in paymentConfirmationTransaction.recurring_payment_links"
+                                :key="link.occurrence_uuid"
+                            >
+                                {{ link.title }}
+                            </dd>
+                        </div>
+                    </dl>
+                    <p
+                        v-for="(error, key) in paymentConfirmationForm.errors"
+                        :key="key"
+                        role="alert"
+                        class="text-sm text-destructive"
+                    >
+                        {{ error }}
+                    </p>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            :disabled="paymentConfirmationForm.processing"
+                            @click="closePaymentConfirmation"
+                            >{{
+                                t('transactions.sheet.paymentProblem.cancel')
+                            }}</Button
+                        >
+                        <Button
+                            :disabled="paymentConfirmationForm.processing"
+                            :aria-busy="paymentConfirmationForm.processing"
+                            @click="confirmPaymentRegistration"
+                            ><span
+                                v-if="paymentConfirmationForm.processing"
+                                role="status"
+                                >{{
+                                    t(
+                                        'transactions.sheet.paymentConfirmation.processing',
+                                    )
+                                }}</span
+                            ><span v-else>{{
+                                t('transactions.sheet.confirmRegistration')
+                            }}</span></Button
+                        >
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog
+                :open="undoRefundTransaction !== null"
+                @update:open="
+                    (open) => {
+                        if (!open && !undoRefundForm.processing)
+                            undoRefundTransaction = null;
+                    }
+                "
+            >
+                <DialogContent
+                    @escape-key-down="
+                        undoRefundForm.processing && $event.preventDefault()
+                    "
+                    @interact-outside="
+                        undoRefundForm.processing && $event.preventDefault()
+                    "
+                >
+                    <DialogHeader
+                        ><DialogTitle>{{
+                            t('transactions.sheet.actions.undoRefund')
+                        }}</DialogTitle
+                        ><DialogDescription>{{
+                            t(
+                                'transactions.sheet.paymentConfirmation.undoDescription',
+                            )
+                        }}</DialogDescription></DialogHeader
+                    >
+                    <p v-if="undoRefundTransaction" class="text-sm">
+                        {{ undoRefundTransaction.description }} ·
+                        {{ formatDateLong(undoRefundTransaction.date) }} ·
+                        <SensitiveValue
+                            :value="
+                                formatCurrency(
+                                    undoRefundTransaction.amount_raw,
+                                    transactionAmountCurrency(
+                                        undoRefundTransaction,
+                                    ),
+                                )
+                            "
+                        />
+                    </p>
+                    <p
+                        v-for="(error, key) in undoRefundForm.errors"
+                        :key="key"
+                        role="alert"
+                        class="text-sm text-destructive"
+                    >
+                        {{ error }}
+                    </p>
+                    <DialogFooter
+                        ><Button
+                            variant="outline"
+                            :disabled="undoRefundForm.processing"
+                            @click="undoRefundTransaction = null"
+                            >{{
+                                t('transactions.sheet.paymentProblem.cancel')
+                            }}</Button
+                        ><Button
+                            :disabled="undoRefundForm.processing"
+                            :aria-busy="undoRefundForm.processing"
+                            @click="confirmUndoRefund"
+                            >{{
+                                t('transactions.sheet.actions.undoRefund')
+                            }}</Button
+                        ></DialogFooter
+                    >
+                </DialogContent>
+            </Dialog>
             <Dialog
                 :open="paymentProblemTransaction !== null"
                 @update:open="
@@ -8245,10 +8356,9 @@ resetInlineEntry();
                             >
                                 {{ t('transactions.sheet.dialog.refundDate') }}
                             </label>
-                            <Input
+                            <AppDatePicker
                                 id="refund-transaction-date"
                                 v-model="refundForm.transaction_date"
-                                type="date"
                                 :min="moveDateMin"
                                 :max="moveDateMax"
                             />
@@ -8445,3 +8555,134 @@ resetInlineEntry();
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+:global([data-slot='sidebar-inset']:has(.transaction-workspace)) {
+    overflow-x: clip;
+}
+
+.transaction-workspace {
+    grid-template-columns: minmax(0, 1fr);
+}
+.ledger-table :deep(td) {
+    overflow-wrap: anywhere;
+}
+.ledger-table :deep(td > div),
+.ledger-table :deep(td > p) {
+    min-width: 0;
+    max-width: 100%;
+}
+.ledger-table :deep(td:nth-child(7) span) {
+    max-width: 100%;
+}
+.ledger-table :deep(td:nth-child(7) img) {
+    max-width: 100%;
+}
+.ledger-table :deep(td button),
+.ledger-table :deep(td input) {
+    max-width: 100%;
+}
+.ledger-table :deep(td button) {
+    overflow: hidden;
+}
+.ledger-table :deep(td .pr-14) {
+    padding-right: 1.5rem;
+    padding-left: 0.25rem;
+}
+.ledger-table :deep(td > .flex),
+.ledger-table :deep(td label) {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+.ledger-table :deep(td .grid.rounded-2xl) {
+    padding: 0.25rem;
+}
+.ledger-table :deep(th) {
+    overflow-wrap: anywhere;
+}
+.ledger-table :deep(td .whitespace-nowrap) {
+    white-space: normal;
+}
+@media (min-width: 1280px) {
+    .transaction-workspace {
+        transition: grid-template-columns 450ms ease-in-out;
+    }
+    .transaction-workspace.summary-open {
+        grid-template-columns: minmax(0, 1fr) 300px;
+    }
+    .transaction-workspace.summary-closed {
+        grid-template-columns: minmax(0, 1fr) 36px;
+    }
+    .summary-rail {
+        position: sticky;
+        top: min(1rem, calc(100dvh - var(--summary-height, 0px) - 1rem));
+        align-self: start;
+    }
+    .summary-toggle-track {
+        position: absolute;
+        inset: 0 auto 0 -18px;
+        width: 36px;
+        pointer-events: none;
+    }
+    .summary-toggle {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        width: 36px;
+        height: 44px;
+        pointer-events: auto;
+        border-radius: 8px;
+        background: var(--background);
+        z-index: 1;
+    }
+    .summary-content {
+        transform: translateX(0);
+        opacity: 1;
+        transition:
+            transform 450ms ease-in-out,
+            opacity 450ms ease-in-out,
+            display 450ms allow-discrete;
+    }
+    .summary-closed .summary-content {
+        transform: translateX(24px);
+        opacity: 0;
+        display: none;
+        pointer-events: none;
+    }
+    @starting-style {
+        .summary-content {
+            transform: translateX(24px);
+            opacity: 0;
+        }
+    }
+    .summary-closed .summary-rail {
+        position: relative;
+        top: auto;
+        align-self: stretch;
+        min-height: 44px;
+    }
+    .summary-closed .summary-toggle-track {
+        position: sticky;
+        top: calc(50dvh - 22px);
+        height: 44px;
+    }
+    .summary-closed .summary-toggle {
+        background: var(--background);
+    }
+    .summary-content > :first-child {
+        padding-left: 18px;
+    }
+}
+@media (min-width: 1536px) {
+    .transaction-workspace.summary-open {
+        grid-template-columns: minmax(0, 1fr) 340px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .transaction-workspace,
+    .summary-content {
+        transition: none;
+    }
+}
+</style>

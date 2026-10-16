@@ -16,7 +16,9 @@ import {
     updateOccurrence,
     explain,
 } from '@/actions/App/Http/Controllers/SalaryEmploymentController';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import type { RecurringCalendarCell } from '@/components/recurring/RecurringCalendarGrid.vue';
 import RecurringCalendarGrid from '@/components/recurring/RecurringCalendarGrid.vue';
 import type { SalaryPaymentConfig } from '@/components/recurring/SalaryEmploymentEditDialog.vue';
@@ -934,25 +936,22 @@ function changePeriod(year: string, month: string): void {
                 <form class="space-y-4" @submit.prevent="save">
                     <label class="grid gap-1 text-sm"
                         >{{ t('salary.base')
-                        }}<Input
+                        }}<MobileAmountInput
                             v-model="form.base_expected_amount"
-                            type="number"
-                            step="0.01"
+                            :currency-code="selected?.currency"
                             min="0"
                             required
                     /></label>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <label class="grid gap-1 text-sm"
                             >{{ t('salary.periodStart')
-                            }}<Input
+                            }}<AppDatePicker
                                 v-model="form.pay_period_start"
-                                type="date"
                                 required /></label
                         ><label class="grid gap-1 text-sm"
                             >{{ t('salary.periodEnd')
-                            }}<Input
+                            }}<AppDatePicker
                                 v-model="form.pay_period_end"
-                                type="date"
                                 required
                         /></label>
                     </div>
@@ -971,10 +970,10 @@ function changePeriod(year: string, month: string): void {
                         <div class="grid grid-cols-2 gap-2">
                             <label class="grid gap-1 text-sm"
                                 >{{ t('salary.amount')
-                                }}<Input
+                                }}<MobileAmountInput
                                     v-model="component.amount"
-                                    type="number"
-                                    step="0.01"
+                                    allow-negative
+                                    :currency-code="selected?.currency"
                                     required /></label
                             ><label class="grid gap-1 text-sm"
                                 >{{ t('salary.type')
@@ -1044,9 +1043,8 @@ function changePeriod(year: string, month: string): void {
                 <form class="space-y-4" @submit.prevent="terminate">
                     <label class="grid gap-2 text-sm"
                         >{{ t('salary.endDate')
-                        }}<Input
+                        }}<AppDatePicker
                             v-model="endForm.end_date"
-                            type="date"
                             :min="today"
                             required /></label
                     ><InputError

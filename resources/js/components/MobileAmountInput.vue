@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
 import type { HTMLAttributes } from 'vue';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useAttrs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
@@ -31,7 +32,7 @@ defineOptions({
 const props = withDefaults(
     defineProps<{
         modelValue: string | number | null;
-        formatLocale: string;
+        formatLocale?: string;
         currencyCode?: string | null;
         name?: string;
         id?: string;
@@ -42,6 +43,7 @@ const props = withDefaults(
         required?: boolean;
         error?: string | null;
         precision?: number;
+        allowNegative?: boolean;
         class?: HTMLAttributes['class'];
         mobileTitle?: string;
         mobileDescription?: string;
@@ -51,6 +53,7 @@ const props = withDefaults(
         showTrigger?: boolean;
     }>(),
     {
+        formatLocale: undefined,
         currencyCode: null,
         name: undefined,
         id: undefined,
@@ -61,6 +64,7 @@ const props = withDefaults(
         required: false,
         error: null,
         precision: 2,
+        allowNegative: false,
         class: undefined,
         mobileTitle: undefined,
         mobileDescription: undefined,
@@ -79,6 +83,13 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const page = usePage();
+const attrs = useAttrs();
+const resolvedFormatLocale = computed(
+    () =>
+        props.formatLocale ??
+        String(page.props.auth?.user?.format_locale ?? 'it-IT'),
+);
 const isMobile = useMediaQuery('(max-width: 767px)');
 const uncontrolledEditorOpen = ref(false);
 const draftExpression = ref('');
@@ -100,13 +111,54 @@ const resolvedEditorOpen = computed({
     },
 });
 
-const normalizedValue = computed(() =>
-    normalizeMoneyValue(props.modelValue, props.formatLocale, props.precision),
+const absoluteValue = computed(() =>
+    normalizeMoneyValue(
+        props.modelValue,
+        resolvedFormatLocale.value,
+        props.precision,
+    ),
 );
+
+const isNegative = computed(
+    () => props.allowNegative && Number(props.modelValue) < 0,
+);
+const normalizedValue = computed(() =>
+    isNegative.value && absoluteValue.value !== ''
+        ? `-${absoluteValue.value}`
+        : absoluteValue.value,
+);
+
+function updateDesktopValue(value: string): void {
+    emit(
+        'update:modelValue',
+        isNegative.value && value !== '' ? `-${value}` : value,
+    );
+}
+
+function toggleSign(): void {
+    const value = isMobile.value
+        ? evaluateDraftExpression(draftExpression.value)
+        : Number(normalizedValue.value);
+
+    if (value === null || !Number.isFinite(value)) {
+        return;
+    }
+
+    if (isMobile.value) {
+        const editable = formatMoneyEditable(
+            Math.abs(value),
+            resolvedFormatLocale.value,
+            props.precision,
+        );
+        draftExpression.value = value > 0 ? `0-${editable}` : editable;
+    } else {
+        emit('update:modelValue', serializeAmount(-value));
+    }
+}
 
 const currencySymbol = computed(() =>
     props.currencyCode
-        ? resolveCurrencySymbol(props.currencyCode, props.formatLocale)
+        ? resolveCurrencySymbol(props.currencyCode, resolvedFormatLocale.value)
         : null,
 );
 
@@ -119,11 +171,11 @@ const buttonValue = computed(() => {
         return props.placeholder ?? '';
     }
 
-    return formatMoneyDisplay(
-        normalizedValue.value,
-        props.formatLocale,
+    return `${isNegative.value ? '-' : ''}${formatMoneyDisplay(
+        absoluteValue.value,
+        resolvedFormatLocale.value,
         props.precision,
-    );
+    )}`;
 });
 
 const previewValue = computed(() => {
@@ -131,7 +183,7 @@ const previewValue = computed(() => {
         return formatMoneyValue(
             0,
             props.currencyCode ?? 'EUR',
-            props.formatLocale,
+            resolvedFormatLocale.value,
             props.precision,
         );
     }
@@ -142,7 +194,7 @@ const previewValue = computed(() => {
         return formatMoneyValue(
             0,
             props.currencyCode ?? 'EUR',
-            props.formatLocale,
+            resolvedFormatLocale.value,
             props.precision,
         );
     }
@@ -150,13 +202,13 @@ const previewValue = computed(() => {
     return formatMoneyValue(
         evaluatedExpression,
         props.currencyCode ?? 'EUR',
-        props.formatLocale,
+        resolvedFormatLocale.value,
         props.precision,
     );
 });
 
 const keypadRows = computed(() => {
-    const decimal = getMoneySeparators(props.formatLocale).decimal;
+    const decimal = getMoneySeparators(resolvedFormatLocale.value).decimal;
 
     return [
         ['1', '2', '3', '÷'],
@@ -180,12 +232,12 @@ const canSave = computed(() => {
     }
 
     if (draftExpression.value.trim() === '') {
-        return true;
+        return !props.required;
     }
 
     const evaluatedExpression = evaluateDraftExpression(draftExpression.value);
 
-    return evaluatedExpression !== null && evaluatedExpression >= 0;
+    return isAmountAllowed(evaluatedExpression);
 });
 
 watch(
@@ -196,10 +248,14 @@ watch(
         }
 
         draftExpression.value = formatMoneyEditable(
-            normalizedValue.value,
-            props.formatLocale,
+            absoluteValue.value,
+            resolvedFormatLocale.value,
             props.precision,
         );
+
+        if (isNegative.value) {
+            draftExpression.value = `0-${draftExpression.value}`;
+        }
     },
     { immediate: true },
 );
@@ -218,7 +274,7 @@ function appendValue(fragment: string): void {
         return;
     }
 
-    const { decimal } = getMoneySeparators(props.formatLocale);
+    const { decimal } = getMoneySeparators(resolvedFormatLocale.value);
 
     if (fragment === decimal) {
         if (props.precision === 0) {
@@ -246,7 +302,7 @@ function appendOperator(operator: string): void {
         return;
     }
 
-    const decimal = getMoneySeparators(props.formatLocale).decimal;
+    const decimal = getMoneySeparators(resolvedFormatLocale.value).decimal;
     let nextExpression = draftExpression.value.trim();
 
     if (nextExpression === '') {
@@ -286,6 +342,23 @@ function clearValue(): void {
     draftExpression.value = '';
 }
 
+function isAmountAllowed(value: number | null): boolean {
+    if (value === null || (!props.allowNegative && value < 0)) {
+        return false;
+    }
+
+    const minimum =
+        attrs.min == null || attrs.min === ''
+            ? props.allowNegative
+                ? -Infinity
+                : 0
+            : Number(attrs.min);
+    const maximum =
+        attrs.max == null || attrs.max === '' ? Infinity : Number(attrs.max);
+
+    return value >= minimum && value <= maximum;
+}
+
 function saveValue(): void {
     if (props.disabled || props.readonly) {
         resolvedEditorOpen.value = false;
@@ -294,6 +367,10 @@ function saveValue(): void {
     }
 
     if (draftExpression.value.trim() === '') {
+        if (props.required) {
+            return;
+        }
+
         emit('update:modelValue', '');
         resolvedEditorOpen.value = false;
         emit('blur', new FocusEvent('blur'));
@@ -303,16 +380,19 @@ function saveValue(): void {
 
     const evaluatedExpression = evaluateDraftExpression(draftExpression.value);
 
-    if (evaluatedExpression === null || evaluatedExpression < 0) {
+    if (!isAmountAllowed(evaluatedExpression) || evaluatedExpression === null) {
         return;
     }
 
-    emit(
-        'update:modelValue',
-        toStandardMoneyString(evaluatedExpression, props.precision),
-    );
+    emit('update:modelValue', serializeAmount(evaluatedExpression));
     resolvedEditorOpen.value = false;
     emit('blur', new FocusEvent('blur'));
+}
+
+function serializeAmount(value: number): string {
+    const absolute = toStandardMoneyString(Math.abs(value), props.precision);
+
+    return value < 0 && Number(absolute) !== 0 ? `-${absolute}` : absolute;
 }
 
 function getCurrentOperand(expression: string): string {
@@ -320,7 +400,7 @@ function getCurrentOperand(expression: string): string {
 }
 
 function evaluateDraftExpression(expression: string): number | null {
-    const decimal = getMoneySeparators(props.formatLocale).decimal;
+    const decimal = getMoneySeparators(resolvedFormatLocale.value).decimal;
     let sanitizedExpression = expression.replace(/\s+/g, '');
 
     while (
@@ -345,7 +425,7 @@ function evaluateDraftExpression(expression: string): number | null {
         if (operatorTokens.has(character)) {
             const normalizedOperand = normalizeMoneyValue(
                 currentOperand,
-                props.formatLocale,
+                resolvedFormatLocale.value,
                 props.precision,
             );
 
@@ -364,7 +444,7 @@ function evaluateDraftExpression(expression: string): number | null {
 
     const normalizedOperand = normalizeMoneyValue(
         currentOperand,
-        props.formatLocale,
+        resolvedFormatLocale.value,
         props.precision,
     );
 
@@ -431,16 +511,27 @@ function evaluateDraftExpression(expression: string): number | null {
         return null;
     }
 
-    return Number(toStandardMoneyString(result, props.precision));
+    return Number(serializeAmount(result));
 }
 </script>
 
 <template>
-    <template v-if="!isMobile">
+    <div v-if="!isMobile" class="flex items-center gap-2">
+        <button
+            v-if="allowNegative"
+            type="button"
+            class="h-11 shrink-0 rounded-xl border px-3"
+            :disabled="disabled || readonly"
+            aria-label="±"
+            @click="toggleSign"
+        >
+            {{ isNegative ? '−' : '+' }}
+        </button>
         <MoneyInput
+            v-bind="attrs"
             :id="id"
-            :model-value="modelValue"
-            :format-locale="formatLocale"
+            :model-value="absoluteValue"
+            :format-locale="resolvedFormatLocale"
             :currency-code="currencyCode"
             :name="name"
             :label="label"
@@ -450,18 +541,19 @@ function evaluateDraftExpression(expression: string): number | null {
             :required="required"
             :error="error"
             :precision="precision"
-            :class="props.class"
-            @update:model-value="emit('update:modelValue', $event)"
+            :class="['min-w-0 flex-1', props.class]"
+            @update:model-value="updateDesktopValue"
             @blur="emit('blur', $event)"
             @focus="emit('focus', $event)"
         />
-    </template>
+    </div>
 
     <div v-else class="grid gap-2">
         <Label v-if="label" :for="id">{{ label }}</Label>
 
         <button
             v-if="showTrigger"
+            v-bind="attrs"
             :id="id"
             type="button"
             :disabled="disabled"
@@ -510,7 +602,7 @@ function evaluateDraftExpression(expression: string): number | null {
         >
             <SheetContent
                 side="bottom"
-                class="z-[180] rounded-t-[2rem] border-none bg-white px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-slate-950 dark:bg-[#161616] dark:text-white"
+                class="z-[340] rounded-t-[2rem] border-none bg-white px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-slate-950 dark:bg-[#161616] dark:text-white"
             >
                 <SheetHeader class="text-left">
                     <div class="flex items-start justify-between gap-4">
@@ -519,7 +611,9 @@ function evaluateDraftExpression(expression: string): number | null {
                                 class="text-xl font-semibold tracking-tight text-slate-950 dark:text-white"
                             >
                                 {{
-                                    mobileTitle ?? label ?? t('app.common.save')
+                                    mobileTitle ??
+                                    label ??
+                                    t('planning.mobileEditor.title')
                                 }}
                             </SheetTitle>
                             <SheetDescription
@@ -537,6 +631,15 @@ function evaluateDraftExpression(expression: string): number | null {
                         </div>
 
                         <div class="shrink-0 text-right">
+                            <button
+                                v-if="allowNegative"
+                                type="button"
+                                class="mr-2 rounded-lg border px-2 py-1 text-sm"
+                                aria-label="±"
+                                @click="toggleSign"
+                            >
+                                ±
+                            </button>
                             <p
                                 class="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white"
                             >

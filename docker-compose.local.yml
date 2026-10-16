@@ -20,14 +20,17 @@ services:
     pull_policy: build
     container_name: soamco-budget-node
     restart: unless-stopped
+    init: true
     working_dir: /var/www/html
+    environment:
+      SOAMCO_VITE_DOCKER: '1'
     volumes:
       - ./:/var/www/html
       - soamco_budget_node_modules:/var/www/html/node_modules
     depends_on:
       app:
         condition: service_healthy
-    command: sh -c "npm ci && exec env NODE_OPTIONS=--max-old-space-size=1536 npm run build -- --watch"
+    command: sh -c "rm -f public/hot && npm ci && exec node node_modules/vite/bin/vite.js"
     networks:
       - soamco-budget
 

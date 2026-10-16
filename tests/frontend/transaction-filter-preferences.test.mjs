@@ -178,3 +178,29 @@ test('day and transfer filters round trip through URL and saved preferences', ()
         '',
     );
 });
+
+test('advance payer participates in URL preferences and reset while stale period days are cleared', () => {
+    const selected = { ...defaults, advancedBy: 'payer-a', day: '2026-10-10' };
+    const url = transactionFilterUrl('/transactions/2026/10', selected);
+    assert.match(url, /tx_advanced_by=payer-a/);
+    assert.deepEqual(resolveTransactionFilters(url, null), selected);
+    assert.equal(
+        resolveTransactionFilters(url.replace('/2026/10', '/2026/11'), null)
+            .day,
+        '',
+    );
+    assert.equal(
+        resolveTransactionFilters(url.replace('/2026/10', '/2027/10'), null)
+            .day,
+        '',
+    );
+    assert.equal(
+        resolveTransactionFilters(url.replace('/2026/10', '/2026/11'), null)
+            .advancedBy,
+        'payer-a',
+    );
+    assert.equal(clearTransactionFilterUrl(url), '/transactions/2026/10');
+    const local = storage();
+    storeTransactionFilterPreference(local, selected, true);
+    assert.deepEqual(readTransactionFilterPreference(local), selected);
+});

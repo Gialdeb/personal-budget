@@ -2,7 +2,10 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import { createReusableTemplate, useMediaQuery } from '@vueuse/core';
 import {
+    Banknote,
     BellRing,
+    BriefcaseBusiness,
+    Check,
     Calendar,
     Gift,
     LoaderCircle,
@@ -18,6 +21,7 @@ import {
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import { storeTrackedItemOption as storeTransactionReference } from '@/actions/App/Http/Controllers/TransactionsController';
 import AlertError from '@/components/AlertError.vue';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
@@ -181,6 +185,17 @@ const form = useForm({
 });
 
 const isSalary = ref(false);
+const incomeTypeChoices = ref<HTMLElement | null>(null);
+
+function keepIncomeTypeVisible(): void {
+    incomeTypeChoices.value?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'auto'
+            : 'smooth',
+        block: 'nearest',
+    });
+}
+
 const salaryMode = computed(() => isSalary.value || !!props.entry?.salary_url);
 const [DefineReference, ReuseReference] = createReusableTemplate();
 const [DefineDescription, ReuseDescription] = createReusableTemplate();
@@ -413,8 +428,6 @@ const ordinalWeekday = ref<(typeof weekdayOptions)[number]>('mon');
 const yearlyMode = ref<'month_day' | 'ordinal_weekday'>('month_day');
 const yearlyMonth = ref('1');
 const yearlyDay = ref('1');
-const startDateInput = ref<HTMLInputElement | null>(null);
-const endDateInput = ref<HTMLInputElement | null>(null);
 const formScrollContainer = ref<HTMLElement | null>(null);
 
 const auth = computed(() => page.props.auth as Auth);
@@ -1653,23 +1666,6 @@ async function refreshExchangePreview(): Promise<void> {
 
 function setPlanType(entryType: PlanType): void {
     form.entry_type = entryType;
-}
-
-function openDatePicker(target: 'start' | 'end'): void {
-    const input =
-        target === 'start' ? startDateInput.value : endDateInput.value;
-
-    if (!input) {
-        return;
-    }
-
-    if (typeof input.showPicker === 'function') {
-        input.showPicker();
-
-        return;
-    }
-
-    input.focus();
 }
 
 function parseLocalDate(value: string): Date | null {
@@ -3309,150 +3305,180 @@ const firstTrialBillingDate = computed(() => {
                                 </p>
                             </div>
 
-                            <section v-if="!salaryMode" class="space-y-4">
-                                <div class="space-y-2">
-                                    <p
-                                        class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                            <Transition
+                                name="salary-fields"
+                                @after-enter="keepIncomeTypeVisible"
+                                @after-leave="keepIncomeTypeVisible"
+                            >
+                                <div v-if="!salaryMode" class="grid">
+                                    <section
+                                        class="min-h-0 space-y-4 overflow-hidden"
                                     >
-                                        {{
-                                            t(
-                                                'transactions.recurring.form.sections.planType',
-                                            )
-                                        }}
-                                    </p>
-                                    <div class="grid gap-3 md:grid-cols-2">
-                                        <button
-                                            type="button"
-                                            class="rounded-[24px] border px-4 py-4 text-left transition-all"
-                                            :class="
-                                                cn(
-                                                    selectedPlanType ===
-                                                        'recurring'
-                                                        ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                    structuralLocked
-                                                        ? 'cursor-not-allowed opacity-60'
-                                                        : '',
-                                                )
-                                            "
-                                            :disabled="structuralLocked"
-                                            @click="setPlanType('recurring')"
-                                        >
-                                            <p class="text-sm font-semibold">
-                                                {{
-                                                    t(
-                                                        'transactions.recurring.enums.entryType.recurring',
-                                                    )
-                                                }}
-                                            </p>
+                                        <div class="space-y-2">
                                             <p
-                                                class="mt-1 text-sm text-slate-600 dark:text-slate-300"
+                                                class="text-sm font-semibold text-slate-900 dark:text-slate-100"
                                             >
                                                 {{
                                                     t(
-                                                        'transactions.recurring.form.planTypes.recurring',
+                                                        'transactions.recurring.form.sections.planType',
                                                     )
                                                 }}
                                             </p>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="rounded-[24px] border px-4 py-4 text-left transition-all"
-                                            :class="
-                                                cn(
-                                                    selectedPlanType ===
-                                                        'installment'
-                                                        ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                    structuralLocked
-                                                        ? 'cursor-not-allowed opacity-60'
-                                                        : '',
-                                                )
-                                            "
-                                            :disabled="structuralLocked"
-                                            @click="setPlanType('installment')"
-                                        >
-                                            <p class="text-sm font-semibold">
-                                                {{
-                                                    t(
-                                                        'transactions.recurring.enums.entryType.installment',
-                                                    )
-                                                }}
-                                            </p>
-                                            <p
-                                                class="mt-1 text-sm text-slate-600 dark:text-slate-300"
+                                            <div
+                                                class="grid gap-3 md:grid-cols-2"
                                             >
-                                                {{
-                                                    t(
-                                                        'transactions.recurring.form.planTypes.installment',
-                                                    )
-                                                }}
-                                            </p>
-                                        </button>
-                                    </div>
-                                </div>
+                                                <button
+                                                    type="button"
+                                                    class="rounded-[24px] border px-4 py-4 text-left transition-all"
+                                                    :class="
+                                                        cn(
+                                                            selectedPlanType ===
+                                                                'recurring'
+                                                                ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
+                                                            structuralLocked
+                                                                ? 'cursor-not-allowed opacity-60'
+                                                                : '',
+                                                        )
+                                                    "
+                                                    :disabled="structuralLocked"
+                                                    @click="
+                                                        setPlanType('recurring')
+                                                    "
+                                                >
+                                                    <p
+                                                        class="text-sm font-semibold"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.enums.entryType.recurring',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                    <p
+                                                        class="mt-1 text-sm text-slate-600 dark:text-slate-300"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.form.planTypes.recurring',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="rounded-[24px] border px-4 py-4 text-left transition-all"
+                                                    :class="
+                                                        cn(
+                                                            selectedPlanType ===
+                                                                'installment'
+                                                                ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
+                                                            structuralLocked
+                                                                ? 'cursor-not-allowed opacity-60'
+                                                                : '',
+                                                        )
+                                                    "
+                                                    :disabled="structuralLocked"
+                                                    @click="
+                                                        setPlanType(
+                                                            'installment',
+                                                        )
+                                                    "
+                                                >
+                                                    <p
+                                                        class="text-sm font-semibold"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.enums.entryType.installment',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                    <p
+                                                        class="mt-1 text-sm text-slate-600 dark:text-slate-300"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.form.planTypes.installment',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                </button>
+                                            </div>
+                                        </div>
 
-                                <div class="space-y-2">
-                                    <p
-                                        class="text-sm font-semibold text-slate-900 dark:text-slate-100"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.form.labels.direction',
-                                            )
-                                        }}
-                                    </p>
-                                    <div class="grid gap-3 sm:grid-cols-2">
-                                        <button
-                                            type="button"
-                                            class="rounded-[22px] border px-4 py-3 text-left transition-all"
-                                            :class="
-                                                cn(
-                                                    form.direction === 'expense'
-                                                        ? 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100'
-                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                    structuralLocked
-                                                        ? 'cursor-not-allowed opacity-60'
-                                                        : '',
-                                                )
-                                            "
-                                            :disabled="structuralLocked"
-                                            @click="setDirection('expense')"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.enums.direction.expense',
-                                                )
-                                            }}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="rounded-[22px] border px-4 py-3 text-left transition-all"
-                                            :class="
-                                                cn(
-                                                    form.direction === 'income'
-                                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100'
-                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                    structuralLocked
-                                                        ? 'cursor-not-allowed opacity-60'
-                                                        : '',
-                                                )
-                                            "
-                                            :disabled="structuralLocked"
-                                            @click="setDirection('income')"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.recurring.enums.direction.income',
-                                                )
-                                            }}
-                                        </button>
-                                    </div>
-                                    <InputError
-                                        :message="form.errors.direction"
-                                    />
+                                        <div class="space-y-2">
+                                            <p
+                                                class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.labels.direction',
+                                                    )
+                                                }}
+                                            </p>
+                                            <div
+                                                class="grid gap-3 sm:grid-cols-2"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    class="rounded-[22px] border px-4 py-3 text-left transition-all"
+                                                    :class="
+                                                        cn(
+                                                            form.direction ===
+                                                                'expense'
+                                                                ? 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100'
+                                                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
+                                                            structuralLocked
+                                                                ? 'cursor-not-allowed opacity-60'
+                                                                : '',
+                                                        )
+                                                    "
+                                                    :disabled="structuralLocked"
+                                                    @click="
+                                                        setDirection('expense')
+                                                    "
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.enums.direction.expense',
+                                                        )
+                                                    }}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="rounded-[22px] border px-4 py-3 text-left transition-all"
+                                                    :class="
+                                                        cn(
+                                                            form.direction ===
+                                                                'income'
+                                                                ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100'
+                                                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
+                                                            structuralLocked
+                                                                ? 'cursor-not-allowed opacity-60'
+                                                                : '',
+                                                        )
+                                                    "
+                                                    :disabled="structuralLocked"
+                                                    @click="
+                                                        setDirection('income')
+                                                    "
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.enums.direction.income',
+                                                        )
+                                                    }}
+                                                </button>
+                                            </div>
+                                            <InputError
+                                                :message="form.errors.direction"
+                                            />
+                                        </div>
+                                    </section>
                                 </div>
-                            </section>
+                            </Transition>
 
                             <section
                                 v-if="
@@ -3463,22 +3489,70 @@ const firstTrialBillingDate = computed(() => {
                                 "
                                 class="space-y-4"
                             >
-                                <label
+                                <fieldset
                                     v-if="!isEditing"
-                                    class="grid gap-2 text-sm"
-                                    >{{ t('salary.incomeType') }}
-                                    <select
-                                        v-model="isSalary"
-                                        class="rounded-xl border bg-background p-3"
+                                    class="min-w-0 space-y-2"
+                                    ref="incomeTypeChoices"
+                                    data-income-type-choices
+                                >
+                                    <legend
+                                        class="text-sm font-semibold text-slate-900 dark:text-slate-100"
                                     >
-                                        <option :value="false">
-                                            {{ t('salary.normal') }}
-                                        </option>
-                                        <option :value="true">
-                                            {{ t('salary.salary') }}
-                                        </option>
-                                    </select>
-                                </label>
+                                        {{ t('salary.incomeType') }}
+                                    </legend>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <label
+                                            v-for="option in [
+                                                {
+                                                    value: false,
+                                                    label: 'salary.normal',
+                                                    icon: Banknote,
+                                                },
+                                                {
+                                                    value: true,
+                                                    label: 'salary.salary',
+                                                    icon: BriefcaseBusiness,
+                                                },
+                                            ]"
+                                            :key="String(option.value)"
+                                            class="relative min-w-0 cursor-pointer touch-manipulation"
+                                        >
+                                            <input
+                                                v-model="isSalary"
+                                                type="radio"
+                                                name="recurring-income-type"
+                                                :value="option.value"
+                                                class="peer sr-only"
+                                            />
+                                            <span
+                                                class="flex min-h-28 min-w-0 flex-col items-start justify-center gap-3 rounded-[24px] border border-slate-200 bg-white p-4 text-slate-700 transition-colors peer-checked:border-sky-300 peer-checked:bg-sky-50 peer-checked:text-sky-950 peer-checked:shadow-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200 dark:peer-checked:border-sky-500/40 dark:peer-checked:bg-sky-500/10 dark:peer-checked:text-sky-50"
+                                            >
+                                                <span
+                                                    class="flex size-9 shrink-0 items-center justify-center rounded-xl"
+                                                    :class="
+                                                        option.value
+                                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                                            : 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+                                                    "
+                                                >
+                                                    <component
+                                                        :is="option.icon"
+                                                        class="size-5"
+                                                        aria-hidden="true"
+                                                    />
+                                                </span>
+                                                <span
+                                                    class="text-sm font-semibold break-words"
+                                                    >{{ t(option.label) }}</span
+                                                >
+                                            </span>
+                                            <Check
+                                                class="pointer-events-none absolute top-4 right-4 size-4 text-sky-700 opacity-0 peer-checked:opacity-100 dark:text-sky-300"
+                                                aria-hidden="true"
+                                            />
+                                        </label>
+                                    </div>
+                                </fieldset>
                                 <p
                                     v-if="isEditing && salaryMode"
                                     class="text-sm font-medium"
@@ -3486,7 +3560,15 @@ const firstTrialBillingDate = computed(() => {
                                     {{ t('salary.incomeType') }}:
                                     {{ t('salary.salary') }}
                                 </p>
-                                <ReuseReference v-if="salaryMode" />
+                                <Transition name="salary-fields">
+                                    <div v-if="salaryMode" class="grid">
+                                        <div
+                                            class="salary-reference-content min-h-0"
+                                        >
+                                            <ReuseReference />
+                                        </div>
+                                    </div>
+                                </Transition>
                                 <div
                                     v-if="isEditing && salaryMode"
                                     class="grid gap-2"
@@ -4043,30 +4125,13 @@ const firstTrialBillingDate = computed(() => {
                                             )
                                         "
                                     >
-                                        <Input
+                                        <AppDatePicker
                                             id="recurring-start-date"
-                                            ref="startDateInput"
                                             v-model="form.start_date"
-                                            type="date"
                                             :min="recurringDateMin || undefined"
                                             :disabled="startDateLocked"
                                             class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
                                         />
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            class="size-9 rounded-full text-slate-500"
-                                            :disabled="startDateLocked"
-                                            :aria-label="
-                                                t(
-                                                    'transactions.recurring.form.actions.openDatePicker',
-                                                )
-                                            "
-                                            @click="openDatePicker('start')"
-                                        >
-                                            <Calendar class="size-4" />
-                                        </Button>
                                     </div>
                                     <InputError
                                         :message="form.errors.start_date"
@@ -5020,30 +5085,13 @@ const firstTrialBillingDate = computed(() => {
                                                 )
                                             "
                                         >
-                                            <Input
+                                            <AppDatePicker
                                                 id="recurring-end-date"
-                                                ref="endDateInput"
                                                 v-model="form.end_date"
-                                                type="date"
                                                 :min="recurringEndDateMin"
                                                 :disabled="structuralLocked"
                                                 class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
                                             />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                class="size-9 rounded-full text-slate-500"
-                                                :disabled="structuralLocked"
-                                                :aria-label="
-                                                    t(
-                                                        'transactions.recurring.form.actions.openDatePicker',
-                                                    )
-                                                "
-                                                @click="openDatePicker('end')"
-                                            >
-                                                <Calendar class="size-4" />
-                                            </Button>
                                         </div>
                                         <InputError
                                             :message="form.errors.end_date"
@@ -5197,3 +5245,37 @@ const firstTrialBillingDate = computed(() => {
         </Sheet>
     </div>
 </template>
+
+<style scoped>
+.salary-fields-enter-active,
+.salary-fields-leave-active {
+    grid-template-rows: 1fr;
+    transition:
+        grid-template-rows 450ms ease-in-out,
+        opacity 450ms ease-in-out,
+        margin 450ms ease-in-out;
+}
+
+.salary-fields-enter-from,
+.salary-fields-leave-to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    margin-block: 0;
+}
+
+.salary-fields-enter-active > .salary-reference-content,
+.salary-fields-leave-active > .salary-reference-content {
+    overflow: hidden;
+}
+
+.salary-fields-leave-active {
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .salary-fields-enter-active,
+    .salary-fields-leave-active {
+        transition: none;
+    }
+}
+</style>

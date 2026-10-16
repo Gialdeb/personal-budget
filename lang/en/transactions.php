@@ -1,6 +1,13 @@
 <?php
 
 return [
+    'row_actions' => [
+        'manage_counterparty' => 'Manage in counterparty history',
+        'manage_credit_debt' => 'Manage credit/debt',
+        'manage_shared' => 'Manage shared expense',
+        'manage_recurring' => 'Manage in recurring plan',
+        'undo_unavailable' => 'Undo unavailable: the refund has no valid original or the share is already settled.',
+    ],
     'title' => 'Transactions',
     'closed_year_message' => 'Year :year is closed. You can review transactions, but you cannot modify them until it is reopened.',
     'navigation' => [

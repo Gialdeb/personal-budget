@@ -46,7 +46,7 @@ class UserYearService
      */
     public function availableYears(User $user, ?CarbonImmutable $now = null): array
     {
-        $maximumSelectableYear = ($now ?? CarbonImmutable::now(config('app.timezone')))->year + 1;
+        $maximumSelectableYear = $this->creationPolicy->maximumCreatableYear($user, $now);
 
         return collect($this->registeredYears($user))
             ->filter(fn (int $year): bool => $year <= $maximumSelectableYear)
@@ -86,8 +86,18 @@ class UserYearService
         $user->load('settings');
     }
 
+    public function ensureYearIsOpenForSelection(User $user, int $year): void
+    {
+        if (! in_array($year, $this->availableYears($user), true)) {
+            throw ValidationException::withMessages(['year' => __('settings.years.not_available', ['year' => $year])]);
+        }
+    }
+
     public function ensureYearIsOpen(User $user, int $year, string $errorKey = 'year'): void
     {
+        if (! $this->creationPolicy->allows($user, $year)) {
+            throw ValidationException::withMessages([$errorKey => __('settings.years.not_available', ['year' => $year])]);
+        }
         $userYear = UserYear::query()
             ->where('user_id', $user->id)
             ->where('year', $year)

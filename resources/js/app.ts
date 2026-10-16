@@ -34,15 +34,31 @@ const pages = {
     ...import.meta.glob<DefineComponent>('./pages/**/*.vue'),
 };
 
+const initialPageElement = document.getElementById('app');
+const initialPageData = initialPageElement?.dataset.page;
+let sessionIsolationInitialized = false;
+
+if (initialPageData) {
+    const initialPage = JSON.parse(initialPageData);
+    initializeSessionIsolation(
+        initialPage.props.auth?.user?.uuid ?? null,
+        document.documentElement.hasAttribute('data-session-private'),
+    );
+    sessionIsolationInitialized = true;
+}
+
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) => resolvePageComponent(`./pages/${name}.vue`, pages),
     setup({ el, App, props, plugin }) {
         initializeNavigationFeedback();
-        initializeSessionIsolation(
-            props.initialPage.props.auth?.user?.uuid ?? null,
-            document.documentElement.hasAttribute('data-session-private'),
-        );
+
+        if (!sessionIsolationInitialized) {
+            initializeSessionIsolation(
+                props.initialPage.props.auth?.user?.uuid ?? null,
+                document.documentElement.hasAttribute('data-session-private'),
+            );
+        }
 
         const i18n = createAppI18n(props.initialPage.props);
         document.documentElement.lang = i18n.global.locale.value;

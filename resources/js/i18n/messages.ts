@@ -6,12 +6,14 @@ import { authMessages } from '@/i18n/messages/auth';
 import { categoriesMessages } from '@/i18n/messages/categories';
 import { creditsDebtsMessages } from '@/i18n/messages/credits-debts';
 import { dashboardMessages } from '@/i18n/messages/dashboard';
+import { datePickerMessages } from '@/i18n/messages/date-picker';
 import { entrySearchMessages } from '@/i18n/messages/entry-search';
 import { exportMessages } from '@/i18n/messages/export';
 import { importsMessages } from '@/i18n/messages/imports';
 import { legalMessages } from '@/i18n/messages/legal';
 import { navMessages } from '@/i18n/messages/nav';
 import { planningMessages } from '@/i18n/messages/planning';
+import { recurringDetailMessages } from '@/i18n/messages/recurring-detail';
 import { reportsMessages } from '@/i18n/messages/reports';
 import { salaryMessages } from '@/i18n/messages/salary';
 import { settingsMessages } from '@/i18n/messages/settings';
@@ -22,6 +24,8 @@ import { supportTicketsMessages } from './messages/support-tickets';
 
 export const messages = {
     it: {
+        recurringDetail: recurringDetailMessages.it,
+        datePicker: datePickerMessages.it,
         adminInvitation: adminInvitationMessages.it,
         supportTickets: supportTicketsMessages.it,
         salary: salaryMessages.it,
@@ -45,6 +49,8 @@ export const messages = {
         settings: settingsMessages.it,
     },
     en: {
+        recurringDetail: recurringDetailMessages.en,
+        datePicker: datePickerMessages.en,
         adminInvitation: adminInvitationMessages.en,
         supportTickets: supportTicketsMessages.en,
         salary: salaryMessages.en,

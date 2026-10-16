@@ -10,6 +10,7 @@ import {
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import AppToastStack from '@/components/ui/AppToastStack.vue';
@@ -760,12 +761,11 @@ function visitPage(url: string | null): void {
                                                 )
                                             }}
                                         </Label>
-                                        <Input
+                                        <AppDatePicker
                                             id="history-date"
                                             v-model="
                                                 historyFilters.history_date
                                             "
-                                            type="date"
                                         />
                                     </div>
 

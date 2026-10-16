@@ -100,7 +100,7 @@ class RecurringEntryController extends Controller
         $read = app(RecurringEntryDetailReadService::class);
         if ($request->filled('occurrence_year') && $request->expectsJson()) {
             $year = $request->integer('occurrence_year');
-            $chunk = $read->page($entry, $year, $request->integer('occurrence_offset'), $request->input('highlight'));
+            $chunk = $read->page($entry, $year, $request->filled('occurrence_offset') ? $request->integer('occurrence_offset') : null, $request->input('highlight'));
 
             return response()->json([
                 'year' => $year, 'offset' => $chunk['offset'], 'next_offset' => $chunk['next_offset'],
@@ -113,7 +113,7 @@ class RecurringEntryController extends Controller
             $target = $entry->occurrences()->where('uuid', $request->input('highlight'))->first();
             $year = $target ? ($target->due_date ?? $target->expected_date)->year : $year;
         }
-        $chunk = $read->page($entry, $year, 0, $request->input('highlight'));
+        $chunk = $read->page($entry, $year, null, $request->input('highlight'));
         $entry->setRelation('occurrences', $chunk['rows']);
         $summary = $read->summary($entry);
         $years = array_map(fn (array $group): array => [...$group, ...($summary['overdue_by_year'][$group['year']] ?? ['overdue_count' => 0, 'overdue_amount' => 0])], $years);

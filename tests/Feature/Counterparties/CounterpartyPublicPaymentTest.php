@@ -499,3 +499,54 @@ test('realistic person presentation covers three months payments partial claims 
         }
     }
 });
+
+test('an existing shared payment can be revised after a later opposite expense reduces the net balance', function (string $direction, string $scope, string $amount) {
+    $received = $direction === 'received';
+    [$user, $party, $account, $relation] = publicCounterpartyFixture($received ? 10000 : -10000, '1.00', $received ? 'debit' : 'credit');
+    $payment = commonCreatedPayment($user, $relation, [...commonPaymentInput($account, '80.00', direction: $direction), 'scope' => $scope]);
+    SharedExpenseLedgerEntry::query()->create([
+        'user_id' => $user->id, 'counterparty_id' => $party->id,
+        'entry_date' => '2026-10-15', 'title' => 'Later opposite expense', 'currency' => 'EUR',
+        'total_cents' => 12000, 'my_share_cents' => 6000, 'counterparty_share_cents' => 6000,
+        'paid_by' => $received ? 'counterparty' : 'self', 'status' => 'recorded',
+    ]);
+    $balanceBefore = app(CounterpartyProjectionService::class)->balance($relation);
+    $this->actingAs($user)->patchJson(route('counterparties.payments.update', [$relation, $payment]), [
+        ...commonPaymentInput($account, $amount, 'revise-after-opposite-expense', $direction),
+        'scope' => $scope, 'note' => 'Corrected payment note',
+    ])->assertSuccessful();
+    $replacement = CounterpartyPayment::query()->where('revision_of_id', $payment->id)->sole();
+    $difference = (8000 - (int) round((float) $amount * 100)) * ($received ? 1 : -1);
+    expect(app(CounterpartyProjectionService::class)->effectivePayment($payment))->toBe(0)
+        ->and($replacement->amount_minor)->toBe((int) round((float) $amount * 100))
+        ->and(app(CounterpartyProjectionService::class)->balance($relation))->toBe($balanceBefore + $difference)
+        ->and(app(CounterpartyReconciliationService::class)->inspect($relation)['readiness'])->toBe('reconciled')
+        ->and(Transaction::query()->count())->toBe(1);
+})->with(['received', 'sent'])->with(['shared', 'all'])->with(['80.00', '60.00']);
+
+test('revision allowance cannot increase an advance or move it to another scope or direction', function (string $amount, string $scope, string $direction) {
+    [$user, $party, $account, $relation] = publicCounterpartyFixture(10000, '1.00', 'debit');
+    $payment = commonCreatedPayment($user, $relation, commonPaymentInput($account, '80.00'));
+    SharedExpenseLedgerEntry::query()->create([
+        'user_id' => $user->id, 'counterparty_id' => $party->id,
+        'entry_date' => '2026-10-15', 'title' => 'Later opposite expense', 'currency' => 'EUR',
+        'total_cents' => 12000, 'my_share_cents' => 6000, 'counterparty_share_cents' => 6000,
+        'paid_by' => 'counterparty', 'status' => 'recorded',
+    ]);
+    $balanceBefore = app(CounterpartyProjectionService::class)->balance($relation);
+    $accountBefore = $account->fresh()->current_balance;
+    $entriesBefore = CounterpartyLedgerEntry::query()->count();
+    $this->actingAs($user)->patchJson(route('counterparties.payments.update', [$relation, $payment]), [
+        ...commonPaymentInput($account, $amount, 'invalid-revision', $direction), 'scope' => $scope,
+    ])->assertUnprocessable()->assertJsonValidationErrors('amount');
+    expect(app(CounterpartyProjectionService::class)->effectivePayment($payment))->toBe(8000)
+        ->and(app(CounterpartyProjectionService::class)->balance($relation))->toBe($balanceBefore)
+        ->and($account->fresh()->current_balance)->toBe($accountBefore)
+        ->and(CounterpartyLedgerEntry::query()->count())->toBe($entriesBefore)
+        ->and(Transaction::withTrashed()->count())->toBe(1)
+        ->and(app(CounterpartyReconciliationService::class)->inspect($relation)['readiness'])->toBe('reconciled');
+})->with([
+    'larger amount' => ['81.00', 'all', 'received'],
+    'different scope' => ['60.00', 'shared', 'received'],
+    'different direction' => ['80.00', 'all', 'sent'],
+]);

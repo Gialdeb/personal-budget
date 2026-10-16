@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppDatePicker from '@/components/AppDatePicker.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { salaryPresetSchedules } from '@/lib/salary-presets';
@@ -77,14 +79,12 @@ function addSchedule(): void {
             <div class="grid gap-3 sm:grid-cols-2">
                 <label class="grid gap-1 text-sm"
                     >{{ t('salary.date')
-                    }}<Input v-model="schedule.start_date" type="date" required
+                    }}<AppDatePicker v-model="schedule.start_date" required
                 /></label>
                 <label class="grid gap-1 text-sm"
                     >{{ t('salary.amount')
-                    }}<Input
+                    }}<MobileAmountInput
                         v-model="schedule.amount"
-                        type="number"
-                        step="0.01"
                         min="0.01"
                         required
                 /></label>
@@ -182,11 +182,10 @@ function addSchedule(): void {
             <template v-if="!model.employment_uuid">
                 <label class="grid gap-2 text-sm"
                     >{{ t('salary.gross')
-                    }}<Input
+                    }}<MobileAmountInput
                         v-model="model.annual_gross_salary"
-                        type="number"
+                        :currency-code="model.annual_gross_salary_currency"
                         min="0"
-                        step="0.01"
                 /></label>
                 <label
                     v-if="model.annual_gross_salary"

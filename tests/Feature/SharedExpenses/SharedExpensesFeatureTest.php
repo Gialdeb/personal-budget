@@ -3,11 +3,16 @@
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Models\Category;
+use App\Models\CounterpartyAllocationEntry;
+use App\Models\CounterpartyObligation;
+use App\Models\CounterpartyRelation;
 use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
+use App\Services\Counterparties\CounterpartyBackfillService;
+use App\Services\Counterparties\CounterpartyPaymentService;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\SharedExpenses\SharedExpenseSettlementService;
 use App\Services\Transactions\TransactionMutationService;
@@ -430,3 +435,82 @@ test('the transaction form receives only the authenticated users active counterp
         ['value' => $zeta->uuid, 'label' => 'Zeno'],
     ]);
 });
+
+test('monthly advances use canonical payers and shares without changing banking totals', function () {
+    [$user, $account, $counterparty, $payload] = counterpartyTransactionFixture();
+    $merchant = TrackedItem::query()->create(['user_id' => $user->id, 'name' => 'Supermercato', 'slug' => 'supermercato', 'is_active' => true]);
+    $other = TrackedItem::query()->create(['user_id' => $user->id, 'name' => 'Anna', 'slug' => 'anna', 'is_active' => true, 'is_shared_expense_counterpart' => true]);
+    $service = app(MonthlyTransactionSheetService::class);
+    $before = $service->build($user, 2026, 9);
+    $attributes = [
+        'user_id' => $user->id, 'counterparty_id' => $counterparty->id,
+        'entry_date' => '2026-09-10', 'title' => 'Spesa alimentare', 'currency' => 'EUR',
+        'total_cents' => 10000, 'my_share_cents' => 3000, 'counterparty_share_cents' => 7000,
+        'paid_by' => 'counterparty', 'status' => 'recorded',
+        'transaction_context' => ['account_id' => $account->id, 'tracked_item_id' => $merchant->id],
+    ];
+    $first = SharedExpenseLedgerEntry::query()->create($attributes);
+    $second = SharedExpenseLedgerEntry::query()->create(array_replace($attributes, ['counterparty_id' => $other->id, 'status' => 'posted']));
+    foreach ([['entry_date' => '2026-10-10'], ['entry_date' => '2025-09-10'], ['paid_by' => 'self'], ['status' => 'planned'], ['user_id' => User::factory()->create()->id]] as $excluded) {
+        SharedExpenseLedgerEntry::query()->create(array_replace($attributes, $excluded));
+    }
+    $sheet = $service->build($user, 2026, 9);
+    $movements = collect($sheet['shared_ledger_movements'])->keyBy('uuid');
+    expect($movements->keys()->sort()->values()->all())->toBe(collect([$first->uuid, $second->uuid])->sort()->values()->all())
+        ->and($movements[$first->uuid]['shared_expense_counterparty_label'])->toBe('Mario Rossi')
+        ->and($movements[$first->uuid]['shared_expense_counterparty_uuid'])->toBe($counterparty->uuid)
+        ->and($movements[$first->uuid]['tracked_item_label'])->toBe('Supermercato')
+        ->and($movements[$first->uuid]['amount_value_raw'])->toEqual(100)
+        ->and($movements[$first->uuid]['shared_expense_my_share'])->toBe('30.00')
+        ->and($sheet['totals'])->toBe($before['totals'])
+        ->and($sheet['meta']['transactions_count'])->toBe($before['meta']['transactions_count'])
+        ->and(Transaction::withTrashed()->count())->toBe(0)
+        ->and($account->fresh()->current_balance)->toEqual(1000);
+    expect($service->build($user, 2027, 1)['shared_ledger_movements'])->toBe([]);
+});
+
+test('monthly advances retain original shares after partial and complete canonical payments', function (string $paid) {
+    config(['counterparty_ledger.public_enabled' => true]);
+    [$user, $account, $counterparty] = counterpartyTransactionFixture();
+    $entry = SharedExpenseLedgerEntry::query()->create([
+        'user_id' => $user->id, 'counterparty_id' => $counterparty->id, 'entry_date' => '2026-09-10',
+        'title' => 'Cena anticipata', 'currency' => 'EUR', 'total_cents' => 10000,
+        'my_share_cents' => 5000, 'counterparty_share_cents' => 5000, 'paid_by' => 'counterparty', 'status' => 'recorded',
+    ]);
+    app(CounterpartyBackfillService::class)->run($user, $counterparty, 'EUR', true);
+    $relation = CounterpartyRelation::query()->where('user_id', $user->id)->sole();
+    $payments = app(CounterpartyPaymentService::class);
+    $payments->activate($user, $relation, 'activate-test');
+    $payments->create($user, $relation->fresh(), ['operation_key' => 'pay-test', 'amount' => $paid, 'date' => '2026-09-12', 'account_uuid' => $account->uuid, 'direction' => 'sent', 'scope' => 'shared', 'allow_unallocated' => false, 'note' => null]);
+    $balance = $account->fresh()->current_balance;
+    $allocations = CounterpartyAllocationEntry::count();
+    $obligations = CounterpartyObligation::count();
+    $movement = collect(app(MonthlyTransactionSheetService::class)->build($user, 2026, 9)['shared_ledger_movements'])->sole();
+    expect($movement['uuid'])->toBe($entry->uuid)
+        ->and($movement['amount_value_raw'])->toEqual(100)
+        ->and($movement['shared_expense_my_share'])->toBe('50.00')
+        ->and(Transaction::count())->toBe(1)
+        ->and($account->fresh()->current_balance)->toEqual($balance)
+        ->and(CounterpartyAllocationEntry::count())->toBe($allocations)
+        ->and(CounterpartyObligation::count())->toBe($obligations);
+})->with(['partial' => '20.00', 'complete' => '50.00']);
+
+test('monthly advances support empty single and long lists across different days', function (int $count) {
+    [$user, $account, $counterparty] = counterpartyTransactionFixture();
+    for ($index = 0; $index < $count; $index++) {
+        SharedExpenseLedgerEntry::query()->create([
+            'user_id' => $user->id, 'counterparty_id' => $counterparty->id,
+            'entry_date' => sprintf('2026-09-%02d', ($index % 3) + 1),
+            'title' => 'Spesa '.$index, 'currency' => 'EUR', 'total_cents' => 1000,
+            'my_share_cents' => 500, 'counterparty_share_cents' => 500, 'paid_by' => 'counterparty', 'status' => 'recorded',
+        ]);
+    }
+    $sheet = app(MonthlyTransactionSheetService::class)->build($user, 2026, 9);
+    $movements = collect($sheet['shared_ledger_movements']);
+    expect($movements)->toHaveCount($count)
+        ->and($movements->pluck('uuid')->unique())->toHaveCount($count)
+        ->and($movements->pluck('date')->all())->toBe($movements->pluck('date')->sortDesc()->values()->all())
+        ->and($sheet['totals']['actual_expense_raw'])->toEqual(0)
+        ->and(Transaction::count())->toBe(0)
+        ->and($account->fresh()->current_balance)->toEqual(1000);
+})->with([0, 1, 12]);

@@ -35,3 +35,19 @@ test('calendar counts economic types and actual attributes without duplicating d
     assert.equal(days['2026-10-17'], undefined);
     assert.equal(days['2026-10-15'].counts.transfer, undefined);
 });
+
+test('third-party advances mark otherwise empty days and coexist without expense counts', () => {
+    const advance = (date) => ({ date, is_shared_ledger: true });
+    const days = transactionDayCounts(
+        [{ date: '2026-10-10', direction: 'expense' }, advance('2026-10-11')],
+        [advance('2026-10-10'), advance('2026-10-11'), advance('2026-10-11')],
+    );
+    assert.deepEqual(days['2026-10-10'], {
+        total: 2,
+        counts: { expense: 1, advanced: 1 },
+    });
+    assert.deepEqual(days['2026-10-11'], { total: 2, counts: { advanced: 2 } });
+    assert.equal(days['2026-10-11'].counts.expense, undefined);
+    assert.equal(days['2026-10-11'].counts.shared, undefined);
+    assert.deepEqual(transactionDayCounts([], []), {});
+});

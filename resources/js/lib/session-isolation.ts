@@ -60,8 +60,8 @@ export function initializeSessionIsolation(
         const message = document.createElement('p');
         const italian = root.lang.startsWith('it');
         message.textContent = italian
-            ? 'Non possiamo verificare la sessione. Riprova tra poco.'
-            : 'We cannot verify your session. Please try again.';
+            ? 'Non riusciamo a caricare la pagina. Riprova tra poco.'
+            : 'We cannot load the page. Please try again.';
         const button = document.createElement('button');
         button.textContent = italian ? 'Riprova' : 'Retry';
         button.addEventListener('click', () => void validate());

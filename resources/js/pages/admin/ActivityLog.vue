@@ -3,10 +3,10 @@ import { Head, router } from '@inertiajs/vue3';
 import { Activity, RotateCcw, Shield } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import Heading from '@/components/Heading.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -335,10 +335,9 @@ function formatChange(change: AdminActivityChange): string {
                                 <Label for="activity-date-from">{{
                                     t('admin.activityLog.filters.dateFrom')
                                 }}</Label>
-                                <Input
+                                <AppDatePicker
                                     id="activity-date-from"
                                     v-model="dateFrom"
-                                    type="date"
                                     class="rounded-lg"
                                 />
                             </div>
@@ -347,10 +346,9 @@ function formatChange(change: AdminActivityChange): string {
                                 <Label for="activity-date-to">{{
                                     t('admin.activityLog.filters.dateTo')
                                 }}</Label>
-                                <Input
+                                <AppDatePicker
                                     id="activity-date-to"
                                     v-model="dateTo"
-                                    type="date"
                                     class="rounded-lg"
                                 />
                             </div>

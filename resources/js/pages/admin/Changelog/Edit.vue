@@ -2,6 +2,7 @@
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import RichContentEditor from '@/components/admin/editorial/RichContentEditor.vue';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -453,10 +454,10 @@ function submit(): void {
                                         <Label for="published_at">{{
                                             ui('Published at')
                                         }}</Label>
-                                        <Input
+                                        <AppDatePicker
                                             id="published_at"
                                             v-model="form.published_at"
-                                            type="datetime-local"
+                                            mode="dateTime"
                                         />
                                     </div>
 

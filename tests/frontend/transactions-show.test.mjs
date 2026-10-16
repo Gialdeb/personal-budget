@@ -6,6 +6,13 @@ const source = readFileSync(
     new URL('../../resources/js/pages/transactions/Show.vue', import.meta.url),
     'utf8',
 );
+const rowActionsSource = readFileSync(
+    new URL(
+        '../../resources/js/components/transactions/TransactionRowActions.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const messagesSource = readFileSync(
     new URL(
         '../../resources/js/i18n/messages/transactions.ts',
@@ -75,8 +82,8 @@ test('transactions page exposes visibility filter and restore action for deleted
     assert.match(source, /transactions\.sheet\.filters\.showDeleted/);
     assert.match(source, /v-model="showDeleted"/);
     assert.doesNotMatch(source, /visibilityFilter|showDeletedOnly/);
-    assert.match(source, /transactions\.sheet\.actions\.restore/);
-    assert.match(source, /transactions\.sheet\.actions\.forceDelete/);
+    assert.match(rowActionsSource, /transactions\.sheet\.actions\.restore/);
+    assert.match(rowActionsSource, /transactions\.sheet\.actions\.forceDelete/);
     assert.match(
         classificationSource,
         /transactions\.sheet\.grid\.deletedBadge/,
@@ -102,27 +109,24 @@ test('transactions page requires a dedicated confirmation dialog before permanen
 test('transactions page exposes a dedicated refund action with an autonomous refund date', () => {
     assert.match(source, /refundingTransaction = ref/);
     assert.match(source, /refundForm = useForm\(\{\s*transaction_date: ''/);
-    assert.match(source, /requestRefund\(transaction\)/);
+    assert.match(source, /requestRefund\(\s*transaction,?\s*\)/);
     assert.match(source, /confirmRefund/);
     assert.match(
         source,
         /\/transactions\/\$\{props\.year}\/\$\{props\.month}\/\$\{refundingTransaction\.value\.uuid}\/refund/,
     );
-    assert.match(source, /transactions\.sheet\.actions\.refund/);
-    assert.match(
-        source,
-        /transaction\.can_refund\s*&&\s*canEdit[\s\S]*@click="\s*requestRefund\(\s*transaction,\s*\)\s*"/,
-    );
+    assert.match(rowActionsSource, /transactions\.sheet\.actions\.refund/);
+    assert.match(rowActionsSource, /show: editable && row\.can_refund/);
     assert.match(source, /transactions\.sheet\.dialog\.refundTitle/);
     assert.match(source, /transactions\.sheet\.dialog\.refundDescription/);
     assert.match(source, /transactions\.sheet\.dialog\.refundDate/);
     assert.match(source, /transactions\.sheet\.dialog\.refundConfirm/);
-    assert.match(source, /type="date"/);
+    assert.match(source, /<AppDatePicker/);
     assert.match(source, /v-model="refundForm\.transaction_date"/);
 });
 
 test('transactions page exposes an undo-refund action and highlights refund rows explicitly', () => {
-    assert.match(source, /undoRefund\(transaction\)/);
+    assert.match(source, /undoRefund\(\s*transaction,?\s*\)/);
     assert.match(source, /transactions\.sheet\.actions\.undoRefund/);
     assert.match(source, /transaction\.can_undo_refund/);
     assert.match(source, /transaction\.kind === 'refund'/);
@@ -371,21 +375,18 @@ test('transactions permanent delete dialog is localized in italian and english',
     assert.match(messagesSource, /confirm: 'Delete permanently'/);
 });
 
-test('scheduled transactions expose recurring management instead of delete-only handling', () => {
-    assert.match(source, /transactions\.sheet\.actions\.openRecurring/);
-    assert.match(source, /transaction\.kind === 'scheduled'/);
-    assert.match(source, /transaction\.recurring_entry_show_url/);
-    assert.match(source, /TooltipProvider/);
-    assert.match(source, /TooltipTrigger as-child/);
-    assert.match(source, /ArrowUpRight/);
+test('scheduled transactions expose canonical recurring navigation on both layouts', () => {
+    assert.equal(source.match(/<TransactionRowActions/g)?.length, 2);
+    assert.match(rowActionsSource, /href: row.recurring_entry_show_url/);
     assert.match(
-        source,
-        /:aria-label="\s*t\(\s*'transactions\.sheet\.actions\.openRecurring'/,
+        rowActionsSource,
+        /transactions\.sheet\.actions\.openRecurring/,
     );
+    assert.match(rowActionsSource, /ArrowUpRight/);
 });
 
 test('transactions page exposes audit tooltip metadata for shared-account context', () => {
-    assert.match(source, /transactions\.sheet\.actions\.auditInfo/);
+    assert.match(source, /auditTransaction\.value\s*=\s*transaction/);
     assert.match(source, /isSharedAccountTransaction/);
     assert.match(source, /transactionHasAuditDetails/);
     assert.match(source, /shouldShowTransactionAuditIcon/);
@@ -393,7 +394,7 @@ test('transactions page exposes audit tooltip metadata for shared-account contex
     assert.match(source, /transactionAuditUpdatedLabel/);
     assert.match(source, /transactions\.sheet\.grid\.createdBy/);
     assert.match(source, /transactions\.sheet\.grid\.updatedBy/);
-    assert.match(source, /<User class="size-4"/);
+    assert.match(source, /transactionAuditCreatedLabel/);
 });
 
 test('audit icon visibility is symmetric and hides self-authored shared transactions', () => {
@@ -569,9 +570,7 @@ test('desktop table headers align account resource before category in the inline
 });
 
 test('desktop transaction rows render data cells in the same order as the headers', () => {
-    const desktopRowStart = source.indexOf(
-        '@dblclick="\n                                                startInlineEdit(transaction)',
-    );
+    const desktopRowStart = source.indexOf('@dblclick=');
     const desktopRowMarkup = source.slice(desktopRowStart);
     const accountLabelIndex = desktopRowMarkup.indexOf(
         'transaction.account_label',
@@ -603,11 +602,11 @@ test('transaction rows render cached tracked item logos with an accessible name 
     assert.match(source, /:name="\s*transaction\.tracked_item_label\s*"/);
 });
 
-test('desktop table formats the secondary date from the user date preference instead of ISO', () => {
+test('desktop table uses a single compact localized date', () => {
     assert.match(source, /function formatDateNumeric/);
     assert.match(source, /dateFormatPreference/);
     assert.match(source, /replace\('YYYY', year\)/);
-    assert.match(source, /formatDateNumeric\(\s*transaction\.date/);
+    assert.match(source, /formatDateShort\(\s*transaction\.date/);
 });
 
 test('transactions page marks credit debt generated movements and links back to the item', () => {
@@ -672,38 +671,21 @@ test('transactions summary cards switch to filtered account totals when filters 
     );
 });
 
-test('transactions refund actions use a neutral refresh icon instead of a monetary glyph', () => {
-    assert.match(source, /RefreshCcw,/);
-    assert.match(source, /<RefreshCcw class="mr-2 size-4" \/>/);
-    assert.match(source, /<RefreshCcw[\s\S]*class="size-4"/);
+test('refund actions use a neutral refresh icon and accessible localized explanations', () => {
+    assert.match(rowActionsSource, /icon: RefreshCcw/);
+    assert.match(rowActionsSource, /:aria-label="action.label"/);
+    assert.match(rowActionsSource, /:title="action.reason \|\| action.label"/);
+    assert.match(rowActionsSource, /TooltipContent/);
+    assert.match(rowActionsSource, /role="note"/);
 });
 
-test('desktop icon-only transaction actions expose localized tooltip explanations', () => {
-    assert.match(source, /transactions\.sheet\.actionTooltips\.refund/);
-    assert.match(source, /transactions\.sheet\.actionTooltips\.undoRefund/);
-    assert.match(source, /transactions\.sheet\.actionTooltips\.delete/);
-    assert.match(source, /transactions\.sheet\.actionTooltips\.resetInline/);
-    assert.match(source, /<TooltipTrigger\s+as-child/);
-    assert.match(messagesSource, /actionTooltips: \{/);
-    assert.match(messagesSource, /Registra un movimento di rimborso/);
-    assert.match(messagesSource, /Creates a refund movement/);
-    assert.match(messagesSource, /Sposta la transazione nel cestino/);
-    assert.match(messagesSource, /Moves the transaction to the trash/);
-});
-
-test('transactions layout preserves more horizontal room for inline amount inputs on laptop widths', () => {
-    assert.match(
-        source,
-        /grid gap-6 xl:grid-cols-\[minmax\(0,1fr\)_300px] 2xl:grid-cols-\[minmax\(0,1fr\)_340px]/,
-    );
-    assert.match(
-        source,
-        /w-\[11\.5rem] min-w-\[11\.5rem] px-4 py-3 text-right/,
-    );
-    assert.match(
-        source,
-        /min-w-\[10rem] px-4 text-right font-mono text-base font-semibold tracking-tight/,
-    );
+test('transaction register adapts to available width and releases the summary column', () => {
+    assert.doesNotMatch(source, /min-w-\[1140px\]|overflow-x-auto xl:block/);
+    assert.match(source, /table-fixed/);
+    assert.match(source, /summary-closed/);
+    assert.match(source, /grid-template-columns: minmax\(0, 1fr\) 36px/);
+    assert.match(source, /monthly-summary-open:v1/);
+    assert.match(source, /prefers-reduced-motion: reduce/);
 });
 
 test('macrogroup selects deduplicate the global all option', () => {
@@ -775,7 +757,7 @@ test('transaction form sheet shows the selected account current balance with ded
     );
     assert.match(formSheetSource, /desired_balance: 0/);
     assert.match(formSheetSource, /transactions\.form\.labels\.currentBalance/);
-    assert.match(formSheetSource, /accountCurrentBalance !== null/);
+    assert.match(formSheetSource, /accountCurrentBalance !==\s*null/);
 });
 
 test('move mode is available only in edit flows and locks non-date fields in both inline and sheet forms', () => {
@@ -814,8 +796,8 @@ test('move mode is available only in edit flows and locks non-date fields in bot
     assert.match(formSheetSource, /:disabled="isMoveMode"/);
     assert.match(source, /transaction_date/);
     assert.match(formSheetSource, /transaction_date/);
-    assert.match(source, /type="date"/);
-    assert.match(formSheetSource, /type="date"/);
+    assert.match(source, /<AppDatePicker/);
+    assert.match(formSheetSource, /<AppDatePicker/);
     assert.match(source, /transactions\.form\.labels\.moveDate/);
     assert.match(formSheetSource, /transactions\.form\.labels\.moveDate/);
 });
@@ -946,11 +928,11 @@ test('transaction form suggests existing tracked items and links a selected sugg
     );
     assert.match(
         formSheetSource,
-        /@search-query="trackedItemSearchQuery = \$event"/,
+        /@search-query="\s*trackedItemSearchQuery = \$event\s*"/,
     );
     assert.match(
         formSheetSource,
-        /@update:model-value="handleReferenceSelection"/,
+        /@update:model-value="\s*handleReferenceSelection\s*"/,
     );
 });
 
@@ -1103,9 +1085,13 @@ test('payment issue requires a dedicated dialog before sending the existing acti
     const ts = await import('typescript');
     const script = source.slice(
         source.indexOf('function reportPaymentProblem('),
+        source.indexOf('const paymentConfirmationForm'),
+    );
+    const confirmation = source.slice(
+        source.indexOf('function confirmPaymentProblem('),
         source.indexOf('function requestRefund('),
     );
-    const js = ts.default.transpile(script, {
+    const js = ts.default.transpile(script + confirmation, {
         target: ts.default.ScriptTarget.ES2022,
     });
     const selected = { value: null };
@@ -1212,4 +1198,105 @@ test('transactions calendar remembers disclosure state independently from filter
     );
     assert.match(floating, /v-if="selectedDate"/);
     assert.match(floating, /@click="selectedDate = null"/);
+});
+
+test('shared advances render once after both desktop and mobile bank registers', () => {
+    const position = source.indexOf('<SharedLedgerMovements');
+    assert.equal(source.match(/<SharedLedgerMovements/g)?.length, 1);
+    assert.ok(position > source.indexOf('</table>'));
+    assert.ok(position > source.indexOf('class="space-y-2 p-3 xl:hidden"'));
+    assert.ok(
+        position >
+            source.lastIndexOf('v-if="displayedTransactions.length === 0"'),
+    );
+    assert.ok(position < source.indexOf('id="monthly-summary"'));
+    assert.doesNotMatch(source, /function clearTransactionSearch/);
+});
+
+test('transaction actions share direct accessible controls on desktop and mobile', () => {
+    assert.doesNotMatch(rowActionsSource, /DropdownMenu|MoreHorizontal/);
+    assert.equal(source.match(/<TransactionRowActions/g)?.length, 2);
+    assert.match(rowActionsSource, /transaction-direct-actions flex flex-wrap/);
+    assert.match(rowActionsSource, /:aria-label="action.label"/);
+    assert.match(rowActionsSource, /min-width: 44px/);
+    assert.match(rowActionsSource, /:focus-visible/);
+
+    for (const permission of [
+        'can_edit',
+        'can_refund',
+        'can_delete',
+        'can_restore',
+        'can_force_delete',
+        'can_undo_refund',
+        'can_report_payment_problem',
+        'can_confirm_payment',
+    ]) {
+        assert.ok(rowActionsSource.includes('row.' + permission));
+    }
+});
+
+test('shared management reuses the transaction form and keeps inline draft fields in dialogs', () => {
+    assert.match(source, /function openSharedManagement/);
+    assert.match(source, /:shared-management="sharedManagement"/);
+    assert.match(source, /v-model:open="\s*inlineSharedOpen\s*"/);
+    assert.match(source, /v-model:open="\s*editSharedOpen\s*"/);
+    assert.match(source, /inlineForm\.shared_expense_my_share/);
+    assert.match(source, /editForm\.shared_expense_my_share/);
+    assert.match(
+        formSheetSource,
+        /sharedManagement && !isMobile[\s\S]*DialogContent[\s\S]*SheetContent/,
+    );
+    assert.match(formSheetSource, /ref="sharedFieldsElement"/);
+    assert.match(formSheetSource, /transactions\.sharedLedger\.myShare/);
+    assert.match(
+        formSheetSource,
+        /transaction\.shared_expense_counterparty_label/,
+    );
+});
+
+test('summary and edge toggle follow page scroll together while all summary content stays reachable', () => {
+    assert.doesNotMatch(source, /class="mb-3 hidden size-9/);
+    assert.match(source, /summary-toggle-track/);
+    assert.match(source, /overflow-x: clip/);
+    assert.match(source, /top: calc\(50dvh - 22px\)/);
+    assert.match(source, /summary-closed \.summary-content/);
+    assert.match(source, /display: none/);
+    const styles = source.slice(source.indexOf('<style scoped>'));
+    assert.doesNotMatch(
+        styles,
+        /\.summary-content\s*\{[^}]*position:\s*(fixed|sticky)/,
+    );
+    assert.match(styles, /\.summary-rail\s*\{[^}]*position:\s*sticky/);
+    assert.match(styles, /\.summary-toggle\s*\{[^}]*position:\s*absolute/);
+    assert.match(styles, /var\(--summary-height, 0px\)/);
+    assert.doesNotMatch(styles, /overflow-y: (auto|scroll)/);
+});
+
+test('shared expense searches remain inside their modal focus scope and stacking context', () => {
+    for (const markup of [source, formSheetSource]) {
+        const fields = [
+            ...markup.matchAll(/<SharedExpenseFields\b[\s\S]*?\/>/g),
+        ];
+        assert.ok(fields.length > 0);
+
+        for (const [field] of fields) {
+            assert.match(field, /:dropdown-teleport="\s*false\s*"/);
+        }
+    }
+});
+
+test('desktop shared management shows only the shared editor with an intrinsic-height dialog', () => {
+    assert.match(formSheetSource, /const sharedOnly = computed/);
+    assert.equal(
+        (formSheetSource.match(/<template v-if="!sharedOnly"\s*>/g) ?? [])
+            .length,
+        2,
+    );
+    assert.match(formSheetSource, /sharedOnly\s*\? 'min-w-0 px-5 py-4'/);
+    assert.doesNotMatch(formSheetSource, /h-\[min\(85dvh,900px\)\]/);
+    assert.match(formSheetSource, /preventScroll: true/);
+    assert.match(
+        formSheetSource,
+        /sharedOnly && Object\.keys\(form\.errors\)\.length/,
+    );
 });

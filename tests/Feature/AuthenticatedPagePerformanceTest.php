@@ -130,7 +130,7 @@ test('authenticated page matrix preserves successful responses and records query
                 if ($name === 'transactions.show') {
                     expect($counterpartyQueries)->toHaveCount(1, $name);
                     expect($counterpartyQueries->first()['sql'])
-                        ->toStartWith('select "id", "transaction_id", "return_of_id" from "counterparty_payments" where "transaction_id" in (');
+                        ->toContain('"counterparty_payments"', '"counterparty_source_links"', '"counterparty_allocation_entries"');
                 } else {
                     expect($counterpartyQueries)->toBeEmpty($name);
                 }

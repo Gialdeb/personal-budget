@@ -26,6 +26,7 @@ import {
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { show as commonCounterpartyShow } from '@/actions/App/Http/Controllers/CounterpartyPaymentController';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
@@ -3376,11 +3377,10 @@ const ListColumn = defineComponent({
                         <Label for="credit-debt-due-date">{{
                             ui('Scadenza (opzionale)')
                         }}</Label>
-                        <Input
+                        <AppDatePicker
                             id="credit-debt-due-date"
                             v-model="itemForm.due_date"
                             class="mt-1"
-                            type="date"
                         />
                         <InputError :message="itemForm.errors.due_date" />
                     </div>
@@ -3506,11 +3506,10 @@ const ListColumn = defineComponent({
                         <Label for="credit-debt-paid-at">{{
                             t('creditsDebts.paidAt')
                         }}</Label>
-                        <Input
+                        <AppDatePicker
                             id="credit-debt-paid-at"
                             v-model="paymentForm.paid_at"
                             class="mt-1"
-                            type="date"
                         />
                         <InputError :message="paymentForm.errors.paid_at" />
                     </div>

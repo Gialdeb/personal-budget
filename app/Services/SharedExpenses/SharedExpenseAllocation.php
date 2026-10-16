@@ -43,6 +43,23 @@ class SharedExpenseAllocation
         ];
     }
 
+    /**
+     * @return array{my_share_cents: int, counterparty_share_cents: int}
+     */
+    public function rescale(string $amount, ?int $myShareCents, ?int $counterpartyShareCents): array
+    {
+        $totalCents = $this->toCents($amount);
+        $previousTotal = ($myShareCents ?? 0) + ($counterpartyShareCents ?? 0);
+        $newMyShareCents = $myShareCents !== null && $counterpartyShareCents !== null && $previousTotal > 0
+            ? intdiv($totalCents * $myShareCents, $previousTotal)
+            : intdiv($totalCents, 2);
+
+        return [
+            'my_share_cents' => $newMyShareCents,
+            'counterparty_share_cents' => $totalCents - $newMyShareCents,
+        ];
+    }
+
     public function toCents(string $amount): int
     {
         $normalized = str_replace(',', '.', trim($amount));

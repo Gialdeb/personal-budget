@@ -2,6 +2,7 @@
 import { usePage } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import BankSearchSelect from '@/components/banks/BankSearchSelect.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
@@ -1000,10 +1001,9 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         )
                                     }}
                                 </Label>
-                                <Input
+                                <AppDatePicker
                                     id="opening_balance_date"
                                     v-model="form.opening_balance_date"
-                                    type="date"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     :required="isOpeningBalanceDateRequired"
                                     :min="openingBalanceDateMin"

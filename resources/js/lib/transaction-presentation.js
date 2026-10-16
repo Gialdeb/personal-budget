@@ -35,6 +35,11 @@ export const transactionTones = {
         row: 'bg-violet-50/60 dark:bg-violet-500/8',
         accent: 'border-violet-300 dark:border-violet-500/40',
     },
+    advanced: {
+        badge: 'border-dashed border-violet-300 bg-violet-100/70 text-violet-900 dark:border-violet-400/50 dark:bg-violet-500/15 dark:text-violet-100',
+        row: 'bg-violet-50/40 dark:bg-violet-500/5',
+        accent: 'border-violet-400 dark:border-violet-400/50',
+    },
     recurring: {
         badge: 'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-200',
         row: 'bg-sky-50/50 dark:bg-sky-500/5',
@@ -154,4 +159,23 @@ export function matchesTransactionDisplay(transaction, filters) {
     }
 
     return true;
+}
+
+/** Ledger entries have no bank account and never pass through banking totals. */
+export function matchesSharedLedgerDisplay(movement, filters) {
+    return (
+        movement.is_shared_ledger === true &&
+        movement.shared_expense_paid_by === 'counterparty' &&
+        filters.shared !== false &&
+        !filters.refunded &&
+        (!filters.day || movement.date?.slice(0, 10) === filters.day) &&
+        (!filters.period || movement.date?.startsWith(`${filters.period}-`)) &&
+        (filters.advancedBy === 'all' ||
+            movement.shared_expense_counterparty_uuid === filters.advancedBy) &&
+        (filters.category === 'all' ||
+            movement.category_uuid === filters.category) &&
+        (filters.macrogroup === 'all' ||
+            movement.type_key === filters.macrogroup) &&
+        filters.account === 'all'
+    );
 }

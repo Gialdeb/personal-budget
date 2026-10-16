@@ -295,7 +295,7 @@ class RecurringEntryOccurrenceGeneratorService
     protected function estimateOpenEndedOccurrences(RecurringEntry $entry, ?CarbonImmutable $throughDate): int
     {
         if ($throughDate instanceof CarbonImmutable) {
-            return 1000;
+            return max(1000, (int) $entry->firstBillingDate()->diffInDays($throughDate, false) + 1);
         }
 
         return match ($entry->recurrence_type) {
@@ -325,22 +325,18 @@ class RecurringEntryOccurrenceGeneratorService
             ->map(fn (string $weekday): int => $this->weekdayNumber($weekday))
             ->sort()
             ->values();
-        $occurrences = [];
-        $cursor = $startDate;
-
-        while (count($occurrences) < $sequenceNumber) {
-            $weeksSinceStart = intdiv($cursor->startOfWeek()->diffInDays($startDate->startOfWeek()), 7);
-
-            if ($weeksSinceStart % max(1, (int) $entry->recurrence_interval) === 0
-                && $weekdays->contains($cursor->dayOfWeekIso)
-                && $cursor->greaterThanOrEqualTo($startDate)) {
-                $occurrences[] = $cursor;
-            }
-
-            $cursor = $cursor->addDay();
+        $weekdays = $weekdays->unique()->values();
+        if ($weekdays->isEmpty()) {
+            throw new \InvalidArgumentException('A weekly recurrence requires at least one weekday.');
         }
+        $firstWeekdays = $weekdays->filter(fn (int $day): bool => $day >= $startDate->dayOfWeekIso)->values();
+        if ($sequenceNumber <= $firstWeekdays->count()) {
+            return $startDate->startOfWeek()->addDays($firstWeekdays[$sequenceNumber - 1] - 1);
+        }
+        $index = $sequenceNumber - $firstWeekdays->count() - 1;
+        $week = (intdiv($index, $weekdays->count()) + 1) * max(1, (int) $entry->recurrence_interval);
 
-        return $occurrences[$sequenceNumber - 1];
+        return $startDate->startOfWeek()->addWeeks($week)->addDays($weekdays[$index % $weekdays->count()] - 1);
     }
 
     protected function resolveMonthlyDate(RecurringEntry $entry, int $sequenceNumber, int $monthMultiplier): CarbonImmutable

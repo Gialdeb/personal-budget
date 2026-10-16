@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -84,10 +85,10 @@ const emit = defineEmits<{
 
             <div v-if="props.showPublishedAt" class="space-y-2">
                 <Label for="published-at">{{ ui('Published at') }}</Label>
-                <Input
+                <AppDatePicker
                     id="published-at"
                     :model-value="props.publishedAt"
-                    type="datetime-local"
+                    mode="dateTime"
                     @update:model-value="
                         emit('update:publishedAt', String($event ?? ''))
                     "

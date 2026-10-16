@@ -73,6 +73,7 @@ class UserYearController extends Controller
     public function update(UpdateUserYearRequest $request, UserYear $userYear): RedirectResponse
     {
         $userYear = $this->ownedYear($request, $userYear);
+        $this->userYearService->ensureYearIsOpenForSelection($request->user(), $userYear->year);
         $userYear->forceFill([
             'is_closed' => $request->boolean('is_closed'),
         ])->save();
@@ -125,7 +126,7 @@ class UserYearController extends Controller
 
         $user->loadMissing('settings', 'years');
         $usageSummary = $this->userYearService->usageSummary($user);
-        $activeYear = $user->settings?->active_year;
+        $activeYear = in_array($user->settings?->active_year, $selectableYears, true) ? $user->settings->active_year : ($selectableYears === [] ? null : max($selectableYears));
         $maxYear = $years->max('year');
         $totalYears = $years->count();
         $nextYear = $maxYear !== null ? $maxYear + 1 : $now->year;

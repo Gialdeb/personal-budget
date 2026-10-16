@@ -5,13 +5,13 @@ import {
     Check,
     ChevronRight,
     ChevronsUpDown,
-    Search,
     X,
 } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import SearchableSelectOptionContent from '@/components/transactions/SearchableSelectOptionContent.vue';
+import { Input } from '@/components/ui/input';
 import {
     Sheet,
     SheetContent,
@@ -96,7 +96,7 @@ const isMobile = useMediaQuery('(max-width: 767px)');
 const open = ref(false);
 const searchQuery = ref('');
 const currentParentValue = ref<string | null>(null);
-const searchInput = ref<HTMLInputElement | null>(null);
+const searchInput = ref<InstanceType<typeof Input> | null>(null);
 const { mobileFooterStyle, handleFocusIn } = useMobileSheetViewport();
 
 const selectedOption = computed(
@@ -440,12 +440,10 @@ function handleOpenAutoFocus(event: Event): void {
 
                 <div class="mt-5 flex min-h-0 flex-1 flex-col space-y-3">
                     <div class="relative">
-                        <Search
-                            class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-slate-400"
-                        />
-                        <input
+                        <Input
                             ref="searchInput"
                             v-model="searchQuery"
+                            type="search"
                             :placeholder="searchPlaceholder"
                             autofocus
                             autocomplete="off"

@@ -253,3 +253,138 @@ test('recurring option cards have decorative icons and preserve existing models'
     assert.match(shared, /<UsersRound[\s\S]*?aria-hidden="true"/);
     assert.match(shared, /v-model="enabled"/);
 });
+
+test('income type cards keep boolean selection, icons and accessible native radio controls', async () => {
+    const source = readFileSync(
+        new URL(
+            '../../resources/js/components/recurring/RecurringEntryFormSheet.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const choices = source.match(
+        /<fieldset\s[^>]*data-income-type-choices[\s\S]*?<\/fieldset>/,
+    )?.[0];
+    assert.ok(choices);
+    assert.doesNotMatch(choices, /<select/);
+    const compiled = compileTemplate({
+        source: choices,
+        filename: 'income-type-choices.vue',
+        id: 'income-type-choices',
+        compilerOptions: { mode: 'function' },
+    });
+    assert.deepEqual(compiled.errors, []);
+    const render = new Function('Vue', compiled.code)(Vue);
+    const { Banknote, BriefcaseBusiness, Check } =
+        await import('lucide-vue-next');
+    const context = {
+        isEditing: false,
+        isSalary: false,
+        Banknote,
+        BriefcaseBusiness,
+        Check,
+        t: (key) => key,
+    };
+    function inputs(node) {
+        if (Array.isArray(node)) {
+            return node.flatMap(inputs);
+        }
+
+        if (!node || typeof node !== 'object') {
+            return [];
+        }
+
+        return node.type === 'input' ? [node] : inputs(node.children);
+    }
+    let radios = [];
+    const renderChoices = () =>
+        renderToString(
+            Vue.createSSRApp({
+                components: { Check },
+                render() {
+                    const node = render(context, []);
+                    radios = inputs(node);
+
+                    return node;
+                },
+            }),
+        );
+    await renderChoices();
+
+    for (const selected of [false, true, false]) {
+        assert.equal(radios.length, 2);
+        assert.deepEqual(
+            radios.map((radio) => radio.props.value),
+            [false, true],
+        );
+        const radio = radios.find((item) => item.props.value === selected);
+        radio.props['onUpdate:modelValue'](selected);
+        assert.equal(context.isSalary, selected);
+        const html = await renderChoices();
+        assert.equal((html.match(/type="radio"/g) ?? []).length, 2);
+        assert.equal((html.match(/ checked/g) ?? []).length, 1);
+        assert.ok(html.includes('salary.normal'));
+        assert.ok(html.includes('salary.salary'));
+        assert.ok(html.includes('lucide-banknote'));
+        assert.ok(html.includes('lucide-briefcase-business'));
+        assert.match(
+            html,
+            /bg-emerald-100 text-emerald-700[^<]*><svg[^>]*lucide-briefcase-business/,
+        );
+        assert.ok(html.includes('grid-cols-2'));
+        assert.ok(html.includes('peer-focus-visible:outline-2'));
+    }
+
+    context.isEditing = true;
+    await renderChoices();
+    assert.equal(radios.length, 0);
+});
+
+test('salary mode animates plan controls and employer reference without changing the visibility rules', () => {
+    const source = readFileSync(
+        new URL(
+            '../../resources/js/components/recurring/RecurringEntryFormSheet.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(
+        source,
+        /<Transition\s+name="salary-fields"[\s\S]*?>\s*<div v-if="!salaryMode" class="grid">/,
+    );
+    assert.match(
+        source,
+        /<Transition name="salary-fields">\s*<div v-if="salaryMode" class="grid">/,
+    );
+    assert.match(source, /grid-template-rows 450ms ease-in-out/);
+    assert.match(source, /@after-leave="keepIncomeTypeVisible"/);
+    assert.match(source, /incomeTypeChoices.value\?\.scrollIntoView/);
+    assert.match(
+        source,
+        /salary-fields-leave-to[\s\S]*?grid-template-rows: 0fr/,
+    );
+    assert.match(
+        source,
+        /prefers-reduced-motion: reduce[\s\S]*?transition: none/,
+    );
+});
+
+test('employer reference menus remain unclipped after salary mode finishes animating', () => {
+    const source = readFileSync(
+        new URL(
+            '../../resources/js/components/recurring/RecurringEntryFormSheet.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const referenceWrapper = source.match(
+        /<div\s+class="salary-reference-content[^>]*>[\s\S]*?<\/div>/,
+    )?.[0];
+    assert.ok(referenceWrapper);
+    assert.match(referenceWrapper, /<ReuseReference/);
+    assert.doesNotMatch(referenceWrapper, /overflow-hidden/);
+    assert.match(
+        source,
+        /\.salary-fields-enter-active > \.salary-reference-content,[\s\S]*?\.salary-fields-leave-active > \.salary-reference-content\s*\{\s*overflow: hidden;/,
+    );
+});

@@ -306,3 +306,37 @@ test('first worker activation does not announce an update while replacement and 
     state.controllerChangeHandler();
     assert.equal(reloads, 1);
 });
+
+test('session validation starts before asynchronous page resolution without duplicate initialization', () => {
+    const bootstrap = appSource.slice(
+        appSource.indexOf('const initialPageElement ='),
+        appSource.indexOf('createInertiaApp({'),
+    );
+    const calls = [];
+    runInNewContext(bootstrap, {
+        document: {
+            getElementById: () => ({
+                dataset: {
+                    page: JSON.stringify({
+                        props: { auth: { user: { uuid: 'A' } } },
+                    }),
+                },
+            }),
+            documentElement: { hasAttribute: () => true },
+        },
+        initializeSessionIsolation: (...args) => calls.push(args),
+    });
+    assert.deepEqual(calls, [['A', true]]);
+    assert.match(appSource, /if \(!sessionIsolationInitialized\)/);
+});
+
+test('loading screens use neutral accessible copy and a delayed motion aware indicator', () => {
+    assert.doesNotMatch(
+        bladeSource,
+        /Verifica della sessione|Checking session|Prepariamo il tuo spazio/,
+    );
+    assert.match(bladeSource, /Caricamento…/);
+    assert.match(bladeSource, /startup-appear 0s 180ms forwards/);
+    assert.match(bladeSource, /prefers-reduced-motion: reduce/);
+    assert.match(bladeSource, /class="startup-label"/);
+});

@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { useStorage } from '@vueuse/core';
 import {
     ArrowLeft,
+    ArrowDownLeft,
+    ArrowUpRight,
+    CalendarClock,
+    Infinity as InfinityIcon,
     Check,
     LoaderCircle,
     Pause,
@@ -10,7 +15,6 @@ import {
     Receipt,
     ShieldCheck,
     Trash2,
-    Undo2,
     X,
 } from 'lucide-vue-next';
 import {
@@ -41,7 +45,9 @@ import {
     update as updateOccurrence,
 } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
 import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import OccurrencePayments from '@/components/recurring/OccurrencePayments.vue';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
@@ -68,6 +74,7 @@ import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
+import { recurringPlanProgress } from '@/lib/recurring-plan-progress';
 import type {
     Auth,
     BreadcrumbItem,
@@ -139,16 +146,46 @@ const occurrenceYears = computed(() => {
                       overdue_amount: 0,
                   },
               ]
-    ).sort((a, b) => a.year - b.year);
+    ).sort((a, b) => {
+        if (a.year === current) {
+            return -1;
+        }
+
+        if (b.year === current) {
+            return 1;
+        }
+
+        if (a.year > current && b.year > current) {
+            return a.year - b.year;
+        }
+
+        if (a.year > current) {
+            return -1;
+        }
+
+        if (b.year > current) {
+            return 1;
+        }
+
+        return b.year - a.year;
+    });
 });
 const loadedOccurrences = computed(() => Object.values(yearRows.value).flat());
 const latestAmountChange = computed(() =>
     props.recurringEntry.amount_history.at(-1),
 );
-async function fetchYear(year: number, offset: number): Promise<YearChunk> {
+async function fetchYear(
+    year: number,
+    offset: number | null,
+    highlight: string | null = null,
+): Promise<YearChunk> {
     const response = await fetch(
         showRecurringEntry.url(props.recurringEntry.entry.uuid, {
-            query: { occurrence_year: year, occurrence_offset: offset },
+            query: {
+                occurrence_year: year,
+                ...(offset === null ? {} : { occurrence_offset: offset }),
+                ...(highlight === null ? {} : { highlight }),
+            },
         }),
         {
             headers: {
@@ -164,7 +201,12 @@ async function fetchYear(year: number, offset: number): Promise<YearChunk> {
 
     return response.json();
 }
-async function loadYear(year: number, offset = 0): Promise<void> {
+async function loadYear(
+    year: number,
+    offset: number | null = null,
+    replace = false,
+    highlight: string | null = null,
+): Promise<void> {
     if (loadingYears.value.includes(year)) {
         return;
     }
@@ -174,13 +216,13 @@ async function loadYear(year: number, offset = 0): Promise<void> {
     failedYears.value = failedYears.value.filter((value) => value !== year);
 
     try {
-        const chunk = await fetchYear(year, offset);
+        const chunk = await fetchYear(year, offset, highlight);
 
         if (generation !== loadGeneration) {
             return;
         }
 
-        const existing = yearRows.value[year] ?? [];
+        const existing = replace ? [] : (yearRows.value[year] ?? []);
         yearRows.value[year] = [
             ...new Map(
                 [...existing, ...chunk.occurrences].map((row) => [
@@ -195,17 +237,17 @@ async function loadYear(year: number, offset = 0): Promise<void> {
                 ) || a.sequence_number - b.sequence_number,
         );
 
-        if (!existing.length || offset >= (yearFirst.value[year] ?? 0)) {
+        if (!existing.length || chunk.offset >= (yearFirst.value[year] ?? 0)) {
             yearNext.value[year] = chunk.next_offset;
         }
 
         yearFirst.value[year] = Math.min(
-            yearFirst.value[year] ?? offset,
-            offset,
+            replace ? chunk.offset : (yearFirst.value[year] ?? chunk.offset),
+            chunk.offset,
         );
     } catch {
         if (generation === loadGeneration) {
-            retryOffsets.value[year] = offset;
+            retryOffsets.value[year] = offset ?? 0;
             failedYears.value.push(year);
         }
     } finally {
@@ -453,17 +495,111 @@ const undoingExternalPayment = computed(() =>
     ),
 );
 const entry = computed(() => props.recurringEntry.entry);
+const focusedOccurrenceUuid = ref<string | null>(null);
 const highlightedOccurrenceUuid = computed(() => {
     const query = page.url.split('?')[1] ?? '';
 
-    return new URLSearchParams(query).get('highlight');
+    return (
+        focusedOccurrenceUuid.value ??
+        new URLSearchParams(query).get('highlight')
+    );
 });
-const progressTotal = computed(() =>
-    entry.value.entry_type === 'installment'
-        ? (entry.value.installments_count ??
-          props.recurringEntry.summary.total_occurrences)
-        : props.recurringEntry.summary.total_occurrences,
+const planProgress = computed(() =>
+    recurringPlanProgress(
+        entry.value,
+        props.recurringEntry.summary.settled_occurrences,
+    ),
 );
+const progressTotal = computed(() => planProgress.value.total);
+const automaticNotePreferences = useStorage<Record<string, boolean>>(
+    'recurring-automatic-note-preferences',
+    {},
+);
+const automaticNoteKey = computed(
+    () =>
+        `${auth.value.user?.uuid ?? auth.value.user?.id ?? 'guest'}:${entry.value.uuid}`,
+);
+const automaticNoteOpen = computed(
+    () => automaticNotePreferences.value[automaticNoteKey.value] ?? false,
+);
+function toggleAutomaticNote(event: Event): void {
+    const expanded = (event.currentTarget as HTMLDetailsElement).open;
+
+    if (expanded !== automaticNoteOpen.value) {
+        automaticNotePreferences.value = {
+            ...automaticNotePreferences.value,
+            [automaticNoteKey.value]: expanded,
+        };
+    }
+}
+
+const automaticOccurrencesNoteVisible = computed(
+    () =>
+        planProgress.value.openEnded &&
+        entry.value.auto_generate_occurrences &&
+        entry.value.is_active &&
+        entry.value.status === 'active',
+);
+const todayTargetYear = computed(() =>
+    Number(
+        (
+            props.recurringEntry.summary.nearest_occurrence?.date ??
+            props.dateOptions.today
+        ).slice(0, 4),
+    ),
+);
+
+async function focusOccurrence(uuid: string): Promise<void> {
+    await nextTick();
+    const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(
+            `[data-occurrence-uuid="${uuid}"]`,
+        ),
+    );
+    const visibleRow = rows.find((row) => row.offsetParent !== null);
+    visibleRow?.focus({ preventScroll: true });
+    visibleRow?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'auto'
+            : 'smooth',
+        block: 'center',
+    });
+}
+
+async function goToToday(): Promise<void> {
+    const target = props.recurringEntry.summary.nearest_occurrence;
+    const year = todayTargetYear.value;
+
+    if (loadingYears.value.includes(year)) {
+        return;
+    }
+
+    openYears.value = [year];
+    await loadYear(year, null, true, target?.uuid ?? null);
+
+    if (target && !failedYears.value.includes(year)) {
+        focusedOccurrenceUuid.value = target.uuid;
+        await focusOccurrence(target.uuid);
+    }
+}
+
+function occurrenceAmountLabel(label: string): string {
+    if (label === 'amountPaid') {
+        return entry.value.direction === 'income'
+            ? t('recurringDetail.alreadyReceived')
+            : ui('Già pagato');
+    }
+
+    return label === 'amountDue' ? ui('Totale') : ui('Residuo');
+}
+
+function summaryDate(value: string): string {
+    return new Intl.DateTimeFormat(locale.value, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    }).format(new Date(`${value}T12:00:00`));
+}
 const installmentDistributionTotalCents = computed(() =>
     installmentAmounts.value.reduce(
         (total, installment) =>
@@ -500,42 +636,96 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const summaryCards = computed(() => [
-    {
-        key: 'paid',
-        label: t('transactions.recurring.labels.installmentPaid'),
-        value:
-            props.recurringEntry.summary.paid_year === null
-                ? `${props.recurringEntry.summary.paid_count} / ${progressTotal.value}`
-                : `${props.recurringEntry.summary.paid_count} · ${props.recurringEntry.summary.paid_year}`,
-        tone: 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-        icon: ShieldCheck,
-    },
-    {
-        key: 'pending',
-        label: t('transactions.recurring.labels.pending'),
-        value: props.recurringEntry.summary.pending_occurrences,
-        tone: 'bg-slate-900/6 text-slate-700 dark:bg-white/8 dark:text-slate-200',
-        icon: Receipt,
-    },
-    {
-        key: 'progress',
-        label:
-            entry.value.entry_type === 'installment'
-                ? t('transactions.recurring.labels.installmentProgress')
-                : t('transactions.recurring.labels.recurringProgress'),
-        value: `${props.recurringEntry.summary.settled_occurrences} / ${progressTotal.value}`,
-        tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
-        icon: ShieldCheck,
-    },
-    {
-        key: 'remaining',
-        label: t('transactions.recurring.labels.plannedExpenses'),
-        value: formatMoney(props.recurringEntry.summary.remaining_amount),
-        tone: 'bg-rose-500/12 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
-        icon: Undo2,
-    },
-]);
+const summaryCards = computed(() => {
+    const summary = props.recurringEntry.summary;
+    const income = entry.value.direction === 'income';
+    const period =
+        summary.paid_year === null
+            ? t('recurringDetail.allTime')
+            : t('recurringDetail.year', { year: summary.paid_year });
+
+    return [
+        {
+            key: 'paid',
+            label: t(
+                income ? 'recurringDetail.received' : 'recurringDetail.paid',
+            ),
+            value: formatMoney(summary.paid_amount),
+            money: true,
+            description: period,
+            detail: t('recurringDetail.settledCount', {
+                count: summary.paid_count,
+            }),
+            tone: 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+            icon: income ? ArrowDownLeft : ArrowUpRight,
+        },
+        {
+            key: 'remaining',
+            label: t(
+                income ? 'recurringDetail.toReceive' : 'recurringDetail.toPay',
+            ),
+            value: formatMoney(summary.remaining_amount),
+            money: true,
+            description: t('recurringDetail.pendingCount', {
+                count: summary.pending_occurrences,
+            }),
+            detail:
+                summary.overdue_count > 0
+                    ? t('recurringDetail.overdue', {
+                          count: summary.overdue_count,
+                      })
+                    : summary.generated_until
+                      ? t('recurringDetail.preparedUntil', {
+                            date: summaryDate(summary.generated_until),
+                        })
+                      : '',
+            tone: income
+                ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300'
+                : 'bg-amber-500/12 text-amber-700 dark:text-amber-300',
+            icon: Receipt,
+        },
+        {
+            key: 'progress',
+            label: t('recurringDetail.progress'),
+            value: planProgress.value.value,
+            money: false,
+            description: planProgress.value.openEnded
+                ? t('recurringDetail.openEnded')
+                : progressTotal.value !== null
+                  ? t('recurringDetail.finiteProgress', {
+                        count: summary.settled_occurrences,
+                        total: progressTotal.value,
+                    })
+                  : entry.value.end_date
+                    ? t('recurringDetail.untilDate', {
+                          date: summaryDate(entry.value.end_date),
+                      })
+                    : '',
+            detail: planProgress.value.openEnded
+                ? t('recurringDetail.ongoing')
+                : t('recurringDetail.allTime'),
+            tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+            icon: planProgress.value.openEnded ? InfinityIcon : ShieldCheck,
+        },
+        {
+            key: 'next',
+            label: t(
+                income
+                    ? 'recurringDetail.nextIncome'
+                    : 'recurringDetail.nextExpense',
+            ),
+            value: summary.next_date ? summaryDate(summary.next_date) : '—',
+            money: false,
+            description:
+                summary.next_amount !== null
+                    ? formatMoney(summary.next_amount)
+                    : t('recurringDetail.noUpcoming'),
+            detail: '',
+            tone: 'bg-violet-500/12 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+            icon: CalendarClock,
+        },
+    ];
+});
 
 function formatMoney(value: number, currency?: string | null): string {
     return formatCurrency(
@@ -610,7 +800,10 @@ function occurrenceState(
 
     if (occurrence.settlement_status === 'settled') {
         return {
-            label: ui('Pagata'),
+            label:
+                entry.value.direction === 'income'
+                    ? t('recurringDetail.receivedStatus')
+                    : ui('Pagata'),
             tone: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
         };
     }
@@ -959,21 +1152,9 @@ onMounted(() => {
         handleMobilePrimaryAction as EventListener,
     );
 
-    void nextTick(() => {
-        if (!highlightedOccurrenceUuid.value) {
-            return;
-        }
-
-        const rows = Array.from(
-            document.querySelectorAll<HTMLElement>(
-                `[data-occurrence-uuid="${highlightedOccurrenceUuid.value}"]`,
-            ),
-        );
-        const visibleRow = rows.find((row) => row.offsetParent !== null);
-
-        visibleRow?.focus({ preventScroll: true });
-        visibleRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    if (highlightedOccurrenceUuid.value) {
+        void focusOccurrence(highlightedOccurrenceUuid.value);
+    }
 });
 
 onBeforeUnmount(() => {
@@ -1013,9 +1194,7 @@ function isFutureOccurrence(
             <section
                 class="overflow-hidden rounded-[30px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_36%),linear-gradient(135deg,rgba(255,255,255,0.97),rgba(248,250,252,0.93))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_36%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.91))]"
             >
-                <div
-                    class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] lg:p-7"
-                >
+                <div class="grid gap-6 p-4 sm:p-5 lg:p-7">
                     <div class="space-y-4">
                         <div class="flex flex-wrap items-center gap-2">
                             <Button
@@ -1149,24 +1328,24 @@ function isFutureOccurrence(
                         </div>
                     </div>
 
-                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
                         <article
                             v-for="card in summaryCards"
                             :key="card.key"
-                            class="rounded-[24px] border border-white/70 bg-white/82 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+                            class="relative flex min-w-0 flex-col rounded-3xl border border-white/70 bg-white/90 p-3 shadow-sm sm:p-5 dark:border-white/10 dark:bg-slate-950/70"
                         >
                             <div class="flex items-start justify-between gap-3">
-                                <div class="space-y-1">
+                                <div class="min-w-0 flex-1 space-y-1">
                                     <p
-                                        class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        class="pr-8 text-xs font-medium text-slate-500 sm:pr-12 sm:text-sm dark:text-slate-400"
                                     >
                                         {{ card.label }}
                                     </p>
                                     <p
-                                        class="text-2xl font-semibold text-slate-950 dark:text-white"
+                                        class="pt-2 text-lg font-semibold tracking-tight whitespace-nowrap text-slate-950 tabular-nums sm:text-2xl dark:text-white"
                                     >
                                         <SensitiveValue
-                                            v-if="card.key === 'remaining'"
+                                            v-if="card.money"
                                             variant="veil"
                                             :value="card.value"
                                         />
@@ -1175,27 +1354,58 @@ function isFutureOccurrence(
                                         </template>
                                     </p>
                                     <p
-                                        v-if="card.key === 'paid'"
-                                        class="text-sm text-muted-foreground"
+                                        class="pt-1 text-xs font-medium text-slate-600 sm:text-sm dark:text-slate-300"
                                     >
                                         <SensitiveValue
-                                            variant="veil"
-                                            :value="
-                                                formatMoney(
-                                                    recurringEntry.summary
-                                                        .paid_amount,
-                                                )
+                                            v-if="
+                                                card.key === 'next' &&
+                                                recurringEntry.summary
+                                                    .next_amount !== null
                                             "
+                                            :value="card.description"
                                         />
+                                        <template v-else>{{
+                                            card.description
+                                        }}</template>
                                     </p>
                                 </div>
                                 <div
-                                    class="flex size-10 items-center justify-center rounded-2xl"
+                                    class="absolute top-3 right-3 flex size-7 items-center justify-center rounded-xl sm:top-5 sm:right-5 sm:size-10 sm:rounded-2xl"
                                     :class="card.tone"
                                 >
-                                    <component :is="card.icon" class="size-5" />
+                                    <component
+                                        :is="card.icon"
+                                        class="size-4 sm:size-5"
+                                    />
                                 </div>
                             </div>
+                            <div
+                                v-if="
+                                    card.key === 'progress' &&
+                                    planProgress.percentage !== null
+                                "
+                                class="mt-4 h-1.5 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-950"
+                                role="progressbar"
+                                :aria-label="card.label"
+                                :aria-valuenow="
+                                    recurringEntry.summary.settled_occurrences
+                                "
+                                :aria-valuemin="0"
+                                :aria-valuemax="progressTotal ?? undefined"
+                            >
+                                <div
+                                    class="h-full rounded-full bg-sky-500 transition-[width] duration-500"
+                                    :style="{
+                                        width: `${planProgress.percentage}%`,
+                                    }"
+                                />
+                            </div>
+                            <p
+                                v-if="card.detail"
+                                class="mt-4 border-t border-slate-100 pt-3 text-xs leading-relaxed text-muted-foreground dark:border-white/10"
+                            >
+                                {{ card.detail }}
+                            </p>
                         </article>
                     </div>
                 </div>
@@ -1381,8 +1591,22 @@ function isFutureOccurrence(
                     <h2
                         class="text-xl font-semibold text-slate-950 dark:text-white"
                     >
-                        {{ t('transactions.recurring.detail.occurrences') }}
+                        {{ t('recurringDetail.timeline') }}
                     </h2>
+                    <div
+                        class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                        <p class="max-w-2xl text-sm text-muted-foreground">
+                            {{ t('recurringDetail.timelineHint') }}
+                        </p>
+                        <Button
+                            variant="outline"
+                            class="shrink-0 rounded-xl"
+                            :disabled="loadingYears.includes(todayTargetYear)"
+                            @click="goToToday"
+                            >{{ t('recurringDetail.today') }}</Button
+                        >
+                    </div>
                 </div>
 
                 <div
@@ -1405,6 +1629,16 @@ function isFutureOccurrence(
                                 <span
                                     class="text-lg font-semibold tabular-nums"
                                     >{{ group.year }}</span
+                                >
+                                <span
+                                    v-if="
+                                        group.year ===
+                                        Number(dateOptions.today.slice(0, 4))
+                                    "
+                                    class="rounded-full bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary"
+                                    >{{
+                                        t('recurringDetail.currentYear')
+                                    }}</span
                                 >
                                 <span class="text-xs text-muted-foreground">{{
                                     ui('{count} movimenti', {
@@ -1460,9 +1694,24 @@ function isFutureOccurrence(
                                         Math.max(0, yearFirst[group.year] - 12),
                                     )
                                 "
-                                >{{ ui('Mostra precedenti') }}</Button
+                                >{{ t('recurringDetail.previous') }}</Button
                             >
                         </div>
+                        <p
+                            v-if="yearRows[group.year]?.length"
+                            class="px-5 py-2 text-xs text-muted-foreground"
+                            aria-live="polite"
+                        >
+                            {{
+                                t('recurringDetail.window', {
+                                    from: (yearFirst[group.year] ?? 0) + 1,
+                                    to:
+                                        (yearFirst[group.year] ?? 0) +
+                                        yearRows[group.year].length,
+                                    total: group.count,
+                                })
+                            }}
+                        </p>
                         <div class="space-y-4 p-4 sm:hidden">
                             <article
                                 v-for="occurrence in yearRows[group.year] ?? []"
@@ -1512,13 +1761,10 @@ function isFutureOccurrence(
                                         "
                                     >
                                         <div class="flex items-center gap-1.5">
-                                            <Input
+                                            <MobileAmountInput
                                                 v-model="amountForm.amount"
-                                                type="number"
-                                                inputmode="decimal"
+                                                :currency-code="entry.currency"
                                                 min="0.01"
-                                                step="0.01"
-                                                autofocus
                                                 class="h-9 rounded-xl text-right"
                                             />
                                             <Button
@@ -1609,15 +1855,7 @@ function isFutureOccurrence(
                                         class="min-w-0"
                                     >
                                         <dt class="text-muted-foreground">
-                                            {{
-                                                ui(
-                                                    label === 'amountPaid'
-                                                        ? 'Già pagato'
-                                                        : label === 'amountDue'
-                                                          ? 'Totale'
-                                                          : 'Residuo',
-                                                )
-                                            }}
+                                            {{ occurrenceAmountLabel(label) }}
                                         </dt>
                                         <dd
                                             class="mt-1 font-semibold break-words tabular-nums"
@@ -2008,15 +2246,11 @@ function isFutureOccurrence(
                                                 <div
                                                     class="flex items-center gap-1.5"
                                                 >
-                                                    <Input
+                                                    <MobileAmountInput
                                                         v-model="
                                                             amountForm.amount
                                                         "
-                                                        type="number"
-                                                        inputmode="decimal"
                                                         min="0.01"
-                                                        step="0.01"
-                                                        autofocus
                                                         class="h-9 w-32 rounded-xl text-right"
                                                     />
                                                     <Button
@@ -2117,14 +2351,8 @@ function isFutureOccurrence(
                                                         class="text-muted-foreground"
                                                     >
                                                         {{
-                                                            ui(
-                                                                label ===
-                                                                    'amountPaid'
-                                                                    ? 'Già pagato'
-                                                                    : label ===
-                                                                        'amountDue'
-                                                                      ? 'Totale'
-                                                                      : 'Residuo',
+                                                            occurrenceAmountLabel(
+                                                                label,
                                                             )
                                                         }}
                                                     </dt>
@@ -2518,16 +2746,52 @@ function isFutureOccurrence(
                                     class="mr-2 size-4 animate-spin"
                                 />
                                 {{
-                                    ui(
-                                        loadingYears.includes(group.year)
-                                            ? 'Caricamento…'
-                                            : 'Mostra altre',
-                                    )
+                                    loadingYears.includes(group.year)
+                                        ? ui('Caricamento…')
+                                        : t('recurringDetail.next')
                                 }}
                             </Button>
                         </div>
                     </div>
                 </div>
+                <details
+                    v-if="automaticOccurrencesNoteVisible"
+                    :key="automaticNoteKey"
+                    :open="automaticNoteOpen"
+                    data-testid="automatic-occurrences-note"
+                    class="m-4 overflow-hidden rounded-2xl border border-sky-200/70 bg-sky-50/50 text-sky-950 sm:m-5 dark:border-sky-500/20 dark:bg-sky-500/5 dark:text-sky-100"
+                    @toggle="toggleAutomaticNote"
+                >
+                    <summary
+                        class="flex min-h-12 cursor-pointer list-none items-center gap-3 p-4 text-sm font-medium [&::-webkit-details-marker]:hidden"
+                    >
+                        <InfinityIcon
+                            class="size-5 shrink-0 text-sky-600 dark:text-sky-300"
+                            aria-hidden="true"
+                        />
+                        <span class="flex-1">{{
+                            t('recurringDetail.automaticTitle')
+                        }}</span>
+                        <span
+                            class="shrink-0 text-xs text-sky-700 dark:text-sky-300"
+                            >{{
+                                t(
+                                    automaticNoteOpen
+                                        ? 'recurringDetail.hideExplanation'
+                                        : 'recurringDetail.showExplanation',
+                                )
+                            }}</span
+                        >
+                        <span aria-hidden="true">{{
+                            automaticNoteOpen ? '−' : '+'
+                        }}</span>
+                    </summary>
+                    <p
+                        class="border-t border-sky-200/50 px-4 py-4 text-sm leading-relaxed text-sky-900/80 dark:border-sky-500/15 dark:text-sky-100/75"
+                    >
+                        {{ t('recurringDetail.automaticDescription') }}
+                    </p>
+                </details>
             </section>
         </div>
 
@@ -2563,7 +2827,7 @@ function isFutureOccurrence(
                         <span>{{
                             t('transactions.recurring.labels.date')
                         }}</span>
-                        <Input v-model="occurrenceForm.due_date" type="date" />
+                        <AppDatePicker v-model="occurrenceForm.due_date" />
                         <InputError :message="occurrenceForm.errors.due_date" />
                     </label>
                     <label class="block space-y-2 text-sm font-medium">
@@ -2815,12 +3079,11 @@ function isFutureOccurrence(
                         >
                             {{ ui('Importo pagato') }}
                         </label>
-                        <Input
+                        <MobileAmountInput
                             id="shared-occurrence-amount"
                             v-model="sharedPaymentForm.amount"
-                            type="number"
+                            :currency-code="entry.currency"
                             min="0.01"
-                            step="0.01"
                             required
                         />
                         <InputError
@@ -2834,10 +3097,9 @@ function isFutureOccurrence(
                         >
                             {{ ui('Data del pagamento') }}
                         </label>
-                        <Input
+                        <AppDatePicker
                             id="shared-occurrence-date"
                             v-model="sharedPaymentForm.transaction_date"
-                            type="date"
                             required
                         />
                         <InputError
@@ -3086,9 +3348,9 @@ function isFutureOccurrence(
                                 }}
                             </p>
                         </div>
-                        <Input
+                        <MobileAmountInput
                             v-model="installment.amount"
-                            inputmode="decimal"
+                            :currency-code="entry.currency"
                             class="w-28 text-right"
                             @update:model-value="
                                 compensateLastInstallment(installment.uuid)
@@ -3171,11 +3433,11 @@ function isFutureOccurrence(
                 >
                     <label class="min-w-0 flex-1 text-xs"
                         >{{ ui('Dal giorno')
-                        }}<Input v-model="candidateFrom" type="date"
+                        }}<AppDatePicker v-model="candidateFrom"
                     /></label>
                     <label class="min-w-0 flex-1 text-xs"
                         >{{ ui('Al giorno')
-                        }}<Input v-model="candidateTo" type="date"
+                        }}<AppDatePicker v-model="candidateTo"
                     /></label>
                     <Button variant="outline" :disabled="linkPaymentLoading">{{
                         ui('Cerca pagamenti')
@@ -3244,11 +3506,10 @@ function isFutureOccurrence(
                 >
                     <label class="block space-y-1 text-sm"
                         >{{ ui('Importo da collegare')
-                        }}<Input
+                        }}<MobileAmountInput
                             v-model="linkPaymentForm.amount"
-                            type="number"
+                            :currency-code="entry.currency"
                             min="0.01"
-                            step="0.01"
                             :max="linkPaymentOccurrence?.remaining_amount"
                     /></label>
                     <InputError

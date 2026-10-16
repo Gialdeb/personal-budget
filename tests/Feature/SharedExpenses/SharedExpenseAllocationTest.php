@@ -24,3 +24,15 @@ test('shared allocation rejects shares exceeding or not matching the total', fun
     ['30.00', '80.00'],
     ['30.00', '60.00'],
 ])->throws(ValidationException::class);
+
+test('rescaling uses the original shares and keeps every cent allocated', function (?int $mine, ?int $other, int $expectedMine, int $expectedOther) {
+    expect(app(SharedExpenseAllocation::class)->rescale('10.01', $mine, $other))
+        ->toBe(['my_share_cents' => $expectedMine, 'counterparty_share_cents' => $expectedOther]);
+})->with([
+    'equal' => [400, 400, 500, 501],
+    'custom' => [200, 600, 250, 751],
+    'zero own share' => [0, 800, 0, 1001],
+    'zero other share' => [800, 0, 1001, 0],
+    'missing shares' => [null, null, 500, 501],
+    'zero original total' => [0, 0, 500, 501],
+]);

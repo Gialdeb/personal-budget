@@ -84,7 +84,7 @@ test(
                                     'Content-Type',
                                     'application/json',
                                 );
-                                const file = `${directory}/${url.searchParams.get('occurrence_year')}-${url.searchParams.get('occurrence_offset') ?? 0}.json`;
+                                const file = `${directory}/${url.searchParams.get('occurrence_year')}-${url.searchParams.get('occurrence_offset') ?? 'focus'}.json`;
                                 setTimeout(
                                     () => res.end(readFileSync(file)),
                                     200,
@@ -144,7 +144,7 @@ test(
                         .evaluateAll((groups) =>
                             groups.map((group) => Number(group.dataset.year)),
                         ),
-                    [2024, 2025, 2026],
+                    [2026, 2025, 2024],
                 );
                 assert.match(
                     await group(2024).innerText(),
@@ -177,9 +177,9 @@ test(
                             ? 'article[data-occurrence-uuid]'
                             : 'tr[data-occurrence-uuid]',
                     );
-                assert.equal(await visibleRows(2026).count(), 12);
+                assert.equal(await visibleRows(2026).count(), 7);
                 const more = group(2026).getByRole('button', {
-                    name: 'Mostra altre',
+                    name: 'Scadenze precedenti',
                     exact: true,
                 });
                 await more.scrollIntoViewIfNeeded();
@@ -193,9 +193,22 @@ test(
                     () =>
                         document.querySelectorAll(
                             '[data-year="2026"] article[data-occurrence-uuid]',
-                        ).length === 24,
+                        ).length === 19,
                 );
                 assert.equal(requests.length - beforeRequests, 1);
+                assert.equal(await visibleRows(2026).count(), 19);
+                await group(2026)
+                    .getByRole('button', {
+                        name: 'Scadenze precedenti',
+                        exact: true,
+                    })
+                    .click();
+                await page.waitForFunction(
+                    () =>
+                        document.querySelectorAll(
+                            '[data-year="2026"] article[data-occurrence-uuid]',
+                        ).length === 24,
+                );
                 assert.equal(await visibleRows(2026).count(), 24);
                 assert.ok(
                     Math.abs(
@@ -206,7 +219,7 @@ test(
                     .getByRole('button', { expanded: false })
                     .click();
                 await visibleRows(2025).first().waitFor();
-                assert.equal(await visibleRows(2025).count(), 12);
+                assert.equal(await visibleRows(2025).count(), 3);
                 const row = visibleRows(2026).first();
 
                 if (process.env.RECURRING_HISTORY_SCREENSHOTS) {
@@ -225,14 +238,28 @@ test(
                 await page
                     .getByRole('button', { name: /Pagamento già registrato/ })
                     .click();
-                assert.equal(
-                    await page
-                        .getByRole('spinbutton', {
-                            name: 'Importo da collegare',
-                        })
-                        .inputValue(),
-                    '40',
-                );
+
+                if (width < 640) {
+                    assert.match(
+                        await page
+                            .getByRole('button', {
+                                name: 'Importo da collegare',
+                                exact: true,
+                            })
+                            .innerText(),
+                        /40,00/,
+                    );
+                } else {
+                    assert.equal(
+                        await page
+                            .getByRole('textbox', {
+                                name: 'Importo da collegare',
+                            })
+                            .inputValue(),
+                        '40,00',
+                    );
+                }
+
                 await page
                     .getByRole('button', { name: 'Conferma collegamento' })
                     .waitFor();
@@ -314,7 +341,7 @@ test(
                     1,
                 );
                 await visibleRows(2026).first().waitFor();
-                assert.equal(await visibleRows(2026).count(), 12);
+                assert.equal(await visibleRows(2026).count(), 7);
                 assert.deepEqual(errors, []);
                 await context.close();
             }

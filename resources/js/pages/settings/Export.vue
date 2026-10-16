@@ -14,6 +14,7 @@ import {
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -362,9 +363,8 @@ function presetTranslationKey(preset: ExportPeriodPresetKey): string {
                                                     t('export.period.startDate')
                                                 }}
                                             </span>
-                                            <input
+                                            <AppDatePicker
                                                 v-model="startDate"
-                                                type="date"
                                                 class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 transition outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
                                             />
                                         </label>
@@ -375,9 +375,8 @@ function presetTranslationKey(preset: ExportPeriodPresetKey): string {
                                             >
                                                 {{ t('export.period.endDate') }}
                                             </span>
-                                            <input
+                                            <AppDatePicker
                                                 v-model="endDate"
-                                                type="date"
                                                 class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 transition outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
                                             />
                                         </label>

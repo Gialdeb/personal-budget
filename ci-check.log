@@ -1,0 +1,2494 @@
+
+[32m [Wayfinder] Generated actions in /Users/gialdeb/Sites/soamco-budget/resources/js/actions[39m
+
+[32m [Wayfinder] Generated routes in /Users/gialdeb/Sites/soamco-budget/resources/js/routes[39m
+
+
+> format:check
+> prettier --check resources/
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> lint:check
+> eslint .
+
+
+> types:check
+> vue-tsc --noEmit
+
+
+  [37;44m INFO [39;49m Configuration cache cleared successfully.  
+
+
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  ............................................................................
+  .....................
+
+  ──────────────────────────────────────────────────────────────────── Laravel  
+    PASS   ........................................................ 1161 files  
+
+
+   PASS  Tests\Unit\AdminInvitationConcurrencyTest
+  ✓ two processes cannot consume the same administrator invitation twic… 1.71s  
+
+   WARN  Tests\Unit\CounterpartyBrowserTest
+  - real desktop and mobile users register revise allocate and cancel a… 0.02s  
+  - real desktop and mobile users register revise allocate and cancel a… 0.01s  
+
+   WARN  Tests\Unit\CounterpartyConcurrencyTest
+  - concurrent public payment workers serialize duplicate keys and reject simultaneous overpayment with dataset "same idempotency key" → Requires an isolated PostgreSQL test database for real row-lock concurrency.
+  - concurrent public payment workers serialize duplicate keys and reject simultaneous overpayment with dataset "competing payments on the same residual" → Requires an isolated PostgreSQL test database for real row-lock concurrency.
+  - a legacy request waiting on the counterparty lock cannot write after concurrent activation with ('manual') → Requires an isolated PostgreSQL test database for real row-lock concurrency.
+  - a legacy request waiting on the counterparty lock cannot write after concurrent activation with ('shared') → Requires an isolated PostgreSQL test database for real row-lock concurrency.
+  - concurrent subject alignment applies once without creating economic facts → Requires an isolated PostgreSQL test database for real row-lock concurrency.
+  - subject edits and manual payments serialize on the same economic subject with ('edit') → Requires an isolated PostgreSQL test database for real row-lock concurrency.
+  - subject edits and manual payments serialize on the same economic subject with ('payment') → Requires an isolated PostgreSQL test database for real row-lock concurrency.
+
+   WARN  Tests\Unit\EconomicIdentityBrowserTest
+  - economic identity and shared UX work in desktop mobile and standalo… 0.01s  
+  - economic identity and shared UX work in desktop mobile and standalo… 0.01s  
+  - economic identity and shared UX work in desktop mobile and standalo… 0.01s  
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+
+   PASS  Tests\Unit\ProductionMaintenanceRoutingTest
+  ✓ maintenance proxy changes only web handlers and retains hosts TLS w… 0.06s  
+  ✓ a missing app upstream rejects the switch before any runtime routin… 0.06s  
+  ✓ maintenance responder renders the exact existing Soamco view in the… 0.36s  
+
+   WARN  Tests\Unit\RecurringEntryYearGroupingPostgresTest
+  - groups native PostgreSQL dates by effective year without hydrating…  0.01s  
+
+   WARN  Tests\Unit\RecurringTransactionFocusBrowserTest
+  - recurring conversion focuses its actual transaction repeatedly on d… 0.01s  
+  - recurring conversion focuses its actual transaction repeatedly on d… 0.01s  
+  - recurring conversion focuses its actual transaction repeatedly on d… 0.01s  
+
+   WARN  Tests\Unit\TransactionsPostgresBrowserAuditTest
+  - postgres transaction actions remain coherent after real browser req… 0.01s  
+  - postgres real HTTP rejects forbidden refund undo and cross account…  0.01s  
+
+   PASS  Tests\Feature\AccessibleAccountsQueryTest
+  ✓ it returns owned and active shared accounts with access metadata an… 0.21s  
+  ✓ it supports owned shared and specific account filters                0.02s  
+  ✓ it adds backward compatible accessible account filter metadata to t… 0.08s  
+  ✓ it orders accounts by fixed type priority: payment, cash, credit ca… 0.02s  
+  ✓ it respects the manually saved sort_order within the same account t… 0.01s  
+  ✓ it places accounts with an unknown or custom account type after eve… 0.01s  
+  ✓ it does not let the default account flag influence the display orde… 0.01s  
+  ✓ it falls back to a deterministic order for accounts without a meani… 0.01s  
+  ✓ it applies the same centralized order to editable account lists via… 0.01s  
+
+   PASS  Tests\Feature\ActiveSessionsTest
+  ✓ user sees only their own active sessions in profile settings         0.05s  
+  ✓ user can revoke a single non current session                         0.03s  
+  ✓ user cannot revoke another users session through single revoke endp… 0.04s  
+  ✓ service does not revoke the current session when single revoke is r… 0.01s  
+  ✓ service revokes all other sessions while keeping the current one an… 0.02s  
+
+   PASS  Tests\Feature\ActivityLogIntegrationTest
+  ✓ it logs account creation with the authenticated causer               0.02s  
+  ✓ it logs only dirty account updates and skips updated at only touche… 0.02s  
+  ✓ it logs transaction deletion with enough data for investigation      0.02s  
+  ✓ it leaves causer empty for system model changes                      0.01s  
+  ✓ admin activity log page shows real activities and filters them       0.04s  
+
+   PASS  Tests\Feature\Admin\AdminAccessTest
+  ✓ admin can access the admin area                                      0.03s  
+  ✓ normal user cannot access the admin area                             0.02s  
+  ✓ guest cannot access the admin area                                   0.01s  
+  ✓ seeded admin user receives both user and admin roles                 0.02s  
+  ✓ shared auth user marks non admin accounts correctly                  0.04s  
+  ✓ admin can access settings and core management areas                  0.08s  
+  ✓ admin can access horizon dashboard in local environment              0.02s  
+  ✓ horizon sentinel context uses the dedicated driver instead of the g… 0.01s  
+  ✓ user can access dashboard but not admin only areas                   0.09s  
+
+   PASS  Tests\Feature\Admin\AdminInvitationTest
+  ✓ only admins can invite or cancel and staff has no implied privilege… 0.03s  
+  ✓ only admins can invite or cancel and staff has no implied privilege… 0.02s  
+  ✓ invitation queues encrypted localized email and grants no privilege… 0.07s  
+  ✓ target alone can confirm and consume code with audit and session ro… 0.04s  
+  ✓ foreign account cannot view or confirm invitation even knowing code  0.03s  
+  ✓ confirmation requires authenticated verified account                 0.02s  
+  ✓ unverified inactive and already admin accounts cannot be invited wi… 0.02s  
+  ✓ unverified inactive and already admin accounts cannot be invited wi… 0.02s  
+  ✓ unverified inactive and already admin accounts cannot be invited wi… 0.02s  
+  ✓ unverified inactive and already admin accounts cannot be invited wi… 0.02s  
+  ✓ wrong codes persist attempts and fifth failure irreversibly invalid… 0.04s  
+  ✓ expired code changed email or revoked inviter cannot grant admin wi… 0.02s  
+  ✓ expired code changed email or revoked inviter cannot grant admin wi… 0.02s  
+  ✓ expired code changed email or revoked inviter cannot grant admin wi… 0.02s  
+  ✓ resend replaces invitation and previous code can never be consumed   0.03s  
+  ✓ cancel records audit and permanently invalidates code                0.02s  
+  ✓ immediate duplicate requests are throttled without replacing active… 0.03s  
+  ✓ recipient hourly limit survives replacement and route rate limit bl… 0.06s  
+  ✓ database prevents two active invitations for the same target         0.03s  
+  ✓ last administrator cannot demote ban suspend or delete own account   0.03s  
+  ✓ profile deletion remains possible with another administrator         0.02s  
+  ✓ invitation page exposes no OTP or administrator audit details and I… 0.04s  
+  ✓ an impersonated session cannot personally confirm the invitation     0.03s  
+  ✓ administrator invitation volume is limited across recipients         0.06s  
+
+   PASS  Tests\Feature\Admin\AdminPagesTest
+  ✓ admin overview page renders the admin shell                          0.04s  
+  ✓ admin users page renders the admin users shell                       0.03s  
+  ✓ admin user billing page renders the billing shell                    0.03s  
+  ✓ admin user billing page returns not found for numeric user path      0.02s  
+  ✓ admin activity log page renders the admin activity log shell         0.04s  
+  ✓ admin automation page renders the automation shell                   0.03s  
+  ✓ admin changelog page renders the changelog shell                     0.03s  
+  ✓ admin knowledge base pages render the knowledge shell                0.05s  
+  ✓ admin support requests pages render the support request shell        0.03s  
+  ✓ admin contextual help pages render the contextual help shell         0.03s  
+  ✓ admin communication templates page renders the templates shell       0.03s  
+  ✓ admin communication categories page renders the category shell       0.03s  
+  ✓ admin communication composer page renders the composer shell         0.03s  
+  ✓ admin outbound history page renders the outbound shell               0.03s  
+
+   PASS  Tests\Feature\Admin\AuditLogServiceTest
+  ✓ it logs role assignment                                              0.02s  
+  ✓ it logs impersonation start                                          0.02s  
+
+   PASS  Tests\Feature\Admin\ChangelogReleaseAdminTest
+  ✓ it renders the admin changelog index and create pages                0.05s  
+  ✓ it creates a changelog release with multilingual translations, sect… 0.02s  
+  ✓ it updates a changelog release and can publish it                    0.02s  
+  ✓ it orders sections and items by numeric sort order in the edit payl… 0.04s  
+
+   PASS  Tests\Feature\Admin\ContextualHelpEntryAdminTest
+  ✓ it renders the admin contextual help index and create pages          0.04s  
+  ✓ it creates a contextual help entry with bilingual translations       0.02s  
+  ✓ it updates a contextual help entry and can unpublish it              0.02s  
+  ✓ it forbids non admin users from accessing contextual help admin pag… 0.02s  
+
+   PASS  Tests\Feature\Admin\HorizonRedisConfigTest
+  ✓ redis client configuration falls back to predis when the redis exte… 0.01s  
+
+   PASS  Tests\Feature\Admin\ImpersonationAuthorizationTest
+  ✓ admin can impersonate a user who gave consent                        0.02s  
+  ✓ admin cannot impersonate a user who did not give consent             0.01s  
+  ✓ admin cannot impersonate another admin even if consent flag is true  0.02s  
+  ✓ normal user cannot impersonate others                                0.01s  
+  ✓ admin can leave impersonation even when current impersonated user i… 0.02s  
+
+   PASS  Tests\Feature\Admin\KnowledgeArticleAdminTest
+  ✓ it renders the admin knowledge articles index and create pages       0.05s  
+  ✓ it creates a knowledge article with bilingual translations           0.02s  
+  ✓ it updates a knowledge article and can publish it                    0.02s  
+  ✓ it keeps unpublished articles out of the public help center          0.02s  
+  ✓ it validates the article slug as globally unique                     0.02s  
+  ✓ it deletes a knowledge article                                       0.02s  
+
+   PASS  Tests\Feature\Admin\KnowledgeSectionAdminTest
+  ✓ it renders the admin knowledge sections index and create pages       0.05s  
+  ✓ it creates a knowledge section with bilingual translations           0.02s  
+  ✓ it updates a knowledge section and can publish it                    0.02s  
+  ✓ it validates the section slug as globally unique                     0.02s  
+  ✓ it deletes a section and cascades to related articles                0.02s  
+
+   PASS  Tests\Feature\Admin\PushBroadcastAdminTest
+  ✓ it renders the admin push broadcasts page with history and recipien… 0.04s  
+  ✓ it paginates and filters the push broadcast history                  0.05s  
+  ✓ it queues a broadcast for all eligible users without changing the e… 0.03s  
+  ✓ it queues a targeted single-user push send through the admin-only j… 0.02s  
+  ✓ it sends an explicit in-app reminder to a user without active push   0.03s  
+
+   PASS  Tests\Feature\Admin\ReverbFoundationTest
+  ✓ reverb foundation uses the expected broadcasting configuration       0.02s  
+  ✓ admin automation realtime channel authorizes only admins             0.02s  
+  ✓ automation run recorder dispatches the admin realtime event when a…  0.01s  
+
+   PASS  Tests\Feature\Admin\RichContentAssetAdminTest
+  ✓ it allows an admin to upload a rich content image                    0.04s  
+  ✓ it allows an admin to delete a rich content image                    0.02s  
+  ✓ it rejects image deletion outside the rich content directory         0.02s  
+
+   PASS  Tests\Feature\Admin\SupportRequestAdminTest
+  ✓ it allows admin to access the support requests index and detail pag… 0.05s  
+  ✓ it filters support requests by status                                0.04s  
+  ✓ it filters support requests by category                              0.03s  
+  ✓ it updates the support request status                                0.02s  
+  ✓ it forbids non admin users from accessing support requests admin pa… 0.02s  
+  ✓ it redirects guests away from support requests admin pages           0.02s  
+
+   PASS  Tests\Feature\Admin\UserActionsTest
+  ✓ admin can ban a normal user                                          0.02s  
+  ✓ admin can suspend a normal user                                      0.02s  
+  ✓ admin can reactivate a suspended or banned user                      0.02s  
+  ✓ admin cannot ban another admin                                       0.02s  
+  ✓ admin can sync roles for non admin users using only allowed roles    0.02s  
+  ✓ admin cannot update roles of another admin                           0.02s  
+
+   PASS  Tests\Feature\Admin\UserBillingManagementTest
+  ✓ admin can view support history and support status for a user         0.04s  
+  ✓ admin can register a manual donation for a user                      0.02s  
+  ✓ admin can update an existing donation                                0.02s  
+  ✓ admin can associate an unreconciled donation to a user               0.02s  
+  ✓ admin can update the non blocking support window manually            0.02s  
+  ✓ admin can update the support subscription with direct patch request… 0.02s  
+  ✓ admin can clear a support subscription back to free                  0.02s  
+  ✓ admin can delete an erroneous support subscription without losing d… 0.02s  
+  ✓ billing form endpoints resolve correctly with user uuid paths        0.04s  
+
+   PASS  Tests\Feature\Admin\UserManagementTest
+  ✓ admin can access admin users page                                    0.03s  
+  ✓ normal user cannot access admin users page                           0.02s  
+  ✓ admin users page can filter by role                                  0.04s  
+  ✓ admin users page can filter by status                                0.04s  
+  ✓ admin payload disables sensitive actions for admin accounts          0.03s  
+
+   PASS  Tests\Feature\Analytics\UmamiIntegrationTest
+  ✓ it renders the umami script only when the integration is enabled an… 0.05s  
+  ✓ it does not render the umami script when the integration is disable… 0.03s  
+  ✓ it shares the umami analytics configuration with inertia             0.03s  
+
+   PASS  Tests\Feature\AssetVersionEndpointTest
+  ✓ asset version endpoint returns the current no cache asset version    0.02s  
+
+   PASS  Tests\Feature\Auth\AuthenticationTest
+  ✓ login screen can be rendered                                         0.03s  
+  ✓ login screen resolves english locale for guests                      0.06s  
+  ✓ users can authenticate using the login screen                        0.05s  
+  ✓ users with two factor enabled are redirected to two factor challeng… 0.01s  
+  ✓ users can not authenticate with invalid password                     0.01s  
+  ✓ users can logout                                                     0.01s  
+  ✓ users are rate limited                                               0.02s  
+  ✓ seeded admin can authenticate and is redirected to dashboard         0.04s  
+
+   PASS  Tests\Feature\Auth\BannedUserAccessTest
+  ✓ banned user is logged out when accessing an authenticated page       0.02s  
+  ✓ active user can still access authenticated pages                     0.04s  
+  ✓ banned user cannot log in                                            0.01s  
+
+   PASS  Tests\Feature\Auth\CreateNewUserTest
+  ✓ create new user persists surname and provisions a default cash acco… 0.04s  
+  ✓ newly registered user receives the user role                         0.06s  
+  ✓ application user provisioning centralizes defaults and foundations…  0.04s  
+  ✓ new users receive the expected default foundation subcategories      0.04s  
+  ✓ english users receive localized default foundation categories and s… 0.04s  
+  ✓ localized category backfill updates untouched defaults without over… 0.02s  
+  ✓ foundation default subcategories are not duplicated when provisioni… 0.04s  
+  ✓ new users have expected admin and subscription defaults              0.01s  
+
+   PASS  Tests\Feature\Auth\EmailVerificationTest
+  ✓ email verification screen can be rendered                            0.03s  
+  ✓ email can be verified                                                0.05s  
+  ✓ email is not verified with invalid hash                              0.01s  
+  ✓ email is not verified with invalid user id                           0.01s  
+  ✓ verified user is redirected to dashboard from verification prompt    0.02s  
+  ✓ already verified user visiting verification link is redirected with… 0.01s  
+
+   PASS  Tests\Feature\Auth\LocalizedAuthFlowTest
+  ✓ guest forgot password screen resolves english locale from browser    0.03s  
+  ✓ verify email page follows authenticated user locale                  0.03s  
+
+   PASS  Tests\Feature\Auth\PasswordConfirmationTest
+  ✓ confirm password screen can be rendered                              0.03s  
+  ✓ confirm password screen resolves english locale when selected        0.03s  
+  ✓ password confirmation requires authentication                        0.01s  
+
+   PASS  Tests\Feature\Auth\PasswordResetTest
+  ✓ reset password link screen can be rendered                           0.02s  
+  ✓ reset password link can be requested                                 0.23s  
+  ✓ reset password screen can be rendered                                0.27s  
+  ✓ password can be reset with valid token                               0.25s  
+  ✓ password cannot be reset with invalid token                          0.23s  
+  ✓ password reset email is localized in italian                         0.03s  
+  ✓ password reset email is localized in english when user locale is en… 0.02s  
+
+   PASS  Tests\Feature\Auth\PersistentAuthenticationTest
+  ✓ login issues a secure persistent twelve hour session cookie          0.03s  
+  ✓ authentication survives reopening and renews within twelve hours of… 0.02s  
+  ✓ authentication survives reopening and renews within twelve hours of… 0.02s  
+  ✓ authentication survives reopening and renews within twelve hours of… 0.02s  
+  ✓ authentication survives reopening and renews within twelve hours of… 0.02s  
+  ✓ a truly expired session cannot authenticate without remember me      0.02s  
+  ✓ optional native remember cookie lasts ninety days and restores an e… 0.02s  
+  ✓ login regenerates the anonymous session identifier                   0.03s  
+  ✓ logout invalidates both session and replayed remember cookie         0.02s  
+  ✓ revocation prevents remember cookie from recreating the revoked ses… 0.02s  
+  ✓ password reset invalidates stored sessions and remember cookies      0.02s  
+  ✓ password change retains only the regenerated current session         0.02s  
+  ✓ password hash mismatch terminates an otherwise valid session         0.02s  
+  ✓ persistent authentication does not bypass csrf protection            0.02s  
+
+   PASS  Tests\Feature\Auth\RecaptchaV3Test
+  ✓ login and register screens expose recaptcha frontend config          0.04s  
+  ✓ users can authenticate when recaptcha verification succeeds with th… 0.02s  
+  ✓ login verifies recaptcha only once even when two factor authenticat… 0.02s  
+  ✓ login is rejected when recaptcha action does not match the expected… 0.02s  
+  ✓ login is rejected when the recaptcha provider fails                  0.02s  
+  ✓ login is rejected when recaptcha hostname does not match the expect… 0.01s  
+  ✓ login logs the recaptcha provider result when debug logging is enab… 0.02s  
+  ✓ registration is rejected when recaptcha score is below the configur… 0.02s  
+  ✓ new users can register when recaptcha verification succeeds with th… 0.04s  
+  ✓ registration verifies recaptcha only once during user creation       0.04s  
+  ✓ recaptcha verification is bypassed when the feature is disabled      0.02s  
+
+   PASS  Tests\Feature\Auth\RegistrationTest
+  ✓ registration screen can be rendered                                  0.03s  
+  ✓ new users can register                                               0.04s  
+  ✓ guest in english keeps english locale after registration and email…  0.10s  
+  ✓ registration verification email content uses request locale when us… 0.01s  
+
+   PASS  Tests\Feature\Auth\TwoFactorChallengeTest
+  ✓ two factor challenge redirects to login when not authenticated       0.01s  
+  ✓ two factor challenge can be rendered                                 0.03s  
+
+   PASS  Tests\Feature\Auth\VerificationNotificationTest
+  ✓ sends verification notification                                      0.02s  
+  ✓ does not send verification notification if email is verified         0.01s  
+  ✓ verification email is localized in italian                           0.02s  
+  ✓ verification email is localized in english                           0.02s  
+
+   FAIL  Tests\Feature\AuthenticatedPagePerformanceTest
+  ⨯ authenticated page matrix preserves successful responses and record… 0.49s  
+
+   PASS  Tests\Feature\Automation\AutomationAdminEndpointsTest
+  ✓ it allows admin to dispatch a pipeline manually                      0.02s  
+  ✓ it allows admin to dispatch the credit card autopay pipeline manual… 0.02s  
+  ✓ it allows admin to dispatch and retry the weekly recurring summary…  0.02s  
+
+   PASS  Tests\Feature\Automation\AutomationAdminIndexTest
+  ✓ it filters automation runs by pipeline and status for admin          0.03s  
+  ✓ it renders automation run details for admin                          0.04s  
+
+   PASS  Tests\Feature\Automation\AutomationCommandTrackingTest
+  ✓ it tracks imports prune old runs through automation telemetry        0.02s  
+  ✓ it tracks horizon snapshot runs through automation telemetry         0.01s  
+  ✓ it tracks automation health check runs with a minimal recorded hear… 0.01s  
+  ✓ it marks backup artifacts as unavailable in admin resources when th… 0.01s  
+
+   PASS  Tests\Feature\Automation\AutomationDispatcherTest
+  ✓ it dispatches a registered pipeline manually                         0.02s  
+  ✓ it dispatches the credit card autopay pipeline manually with a refe… 0.01s  
+  ✓ it dispatches the full backup pipeline manually                      0.01s  
+  ✓ it dispatches the backup retention cleanup pipeline manually         0.01s  
+  ✓ it dispatches the imports prune old pipeline manually                0.01s  
+  ✓ it dispatches the horizon snapshot pipeline manually                 0.01s  
+  ✓ it dispatches the user backup pipeline manually                      0.02s  
+  ✓ it throws for unsupported pipeline                                   0.01s  
+  ✓ it dispatches retry for a retryable failed run                       0.01s  
+  ✓ it does not retry a non retryable run                                0.01s  
+
+   PASS  Tests\Feature\Automation\AutomationHealthCheckTest
+  ✓ it does not alert immediately when a pipeline has never run during…  0.01s  
+  ✓ it records the first missing run observation to start the bootstrap… 0.02s  
+  ✓ it alerts when latest run is stale                                   0.01s  
+  ✓ it does not alert stale when a queued run finished recently even if… 0.01s  
+  ✓ it does not alert stale while the latest run is inside the grace wi… 0.01s  
+  ✓ it alerts stale when the latest activity is older than the expected… 0.01s  
+  ✓ it compares stale timestamps consistently across application timezo… 0.01s  
+  ✓ it alerts when latest run failed                                     0.02s  
+  ✓ it does not send automation failed notifications for missing run al… 0.01s  
+
+   PASS  Tests\Feature\Automation\AutomationPipelineRunnerTest
+  ✓ it runs a pipeline successfully and records the run                  0.01s  
+  ✓ it records a failed pipeline run when callback throws                0.01s  
+  ✓ it records a warning pipeline run                                    0.01s  
+
+   PASS  Tests\Feature\Automation\AutomationRunFoundationTest
+  ✓ it creates the automation_runs table with expected columns           0.02s  
+  ✓ it casts enums and arrays correctly on AutomationRun model           0.01s  
+  ✓ it starts an automation run                                          0.01s  
+  ✓ it marks an automation run as running                                0.01s  
+  ✓ it marks an automation run as success                                0.01s  
+  ✓ it marks an automation run as failed                                 0.01s  
+
+   PASS  Tests\Feature\Automation\AutomationStatusServiceTest
+  ✓ it returns never ran when no run exists                              0.02s  
+  ✓ it returns healthy when latest run is recent and successful          0.01s  
+  ✓ it returns stale when latest run is too old                          0.01s  
+  ✓ it uses finished at rather than created at when evaluating stale st… 0.01s  
+  ✓ it returns healthy for borderline runs inside the stale grace windo… 0.01s  
+  ✓ it returns failed when latest run failed                             0.01s  
+  ✓ it exposes manual reference date support when configured for a pipe… 0.02s  
+
+   PASS  Tests\Feature\Automation\RecurringPipelineJobTest
+  ✓ it runs recurring pipeline job and records automation run            0.02s  
+  ✓ it runs recurring pipeline job through real lifecycle services and…  0.03s  
+
+   PASS  Tests\Feature\Automation\TelegramAutomationAlertChannelTest
+  ✓ it sends telegram alert when enabled                                 0.01s  
+  ✓ it does not send telegram alert when disabled                        0.02s  
+
+   PASS  Tests\Feature\AutomationTelegramAlertPolicyTest
+  ✓ it sends telegram only for real failed runs and deduplicates the sa… 0.01s  
+  ✓ it sends telegram for stale, missing and stuck alerts but not for s… 0.01s  
+
+   PASS  Tests\Feature\BackupAutomationTest
+  ✓ it runs a full backup and stores an honest application snapshot man… 0.03s  
+  ✓ it runs a user backup with a structured snapshot that is readable f… 0.02s  
+  ✓ it tracks a failed full backup and sends a failure telegram alert    0.03s  
+
+   PASS  Tests\Feature\BackupRetentionTest
+  ✓ it deletes only expired managed backup archives and keeps recent or… 0.02s  
+  ✓ it tracks a successful retention cleanup run without sending a tele… 0.02s  
+  ✓ it tracks a failed retention cleanup run and sends a real failure t… 0.02s  
+
+   PASS  Tests\Feature\Beta\BetaProductionReadinessTest
+  ✓ it hides import-related UI state and returns 404 for import endpoin… 0.05s  
+  ✓ it seeds bilingual beta contextual help and changelog content safel… 0.05s  
+  ✓ it keeps seeded contextual help and beta changelog readable from th… 0.08s  
+
+   PASS  Tests\Feature\Billing\BillingFoundationTest
+  ✓ it seeds the base billing plans                                      0.02s  
+  ✓ it self heals missing billing plans before resolving free and suppo… 0.01s  
+  ✓ it creates a provider aware donation transaction before reconciliat… 0.01s  
+  ✓ it keeps the free plan always available without a blocking expirati… 0.01s  
+  ✓ it creates or upgrades a non blocking supporter window from a donat… 0.02s  
+  ✓ it extends supporter validity by one year from the current end date  0.02s  
+  ✓ it marks the reminder as due when the support window is getting old  0.01s  
+  ✓ it keeps the full billing transaction history when supporter access… 0.02s  
+  ✓ it supports reconciling a pending donation to a user later on        0.01s  
+
+   PASS  Tests\Feature\BudgetPlanningTest
+  ✓ guests are redirected from budget planning                           0.02s  
+  ✓ authenticated users can view the annual budget planning page         0.04s  
+  ✓ budget planning keeps the default foundation subtree readable and e… 0.07s  
+  ✓ budget planning keeps homonymous categories separated by uuid inste… 0.04s  
+  ✓ budget planning falls back to an allowed user year                   0.04s  
+  ✓ budget planning prefers the active year over a stale session year    0.04s  
+  ✓ users can update a leaf budget planning cell                         0.02s  
+  ✓ users cannot update a parent budget planning row                     0.02s  
+  ✓ users can copy previous year values into the selected planning year  0.02s  
+  ✓ users cannot update a budget cell in a closed year                   0.02s  
+  ✓ users cannot copy previous year values into a closed year            0.02s  
+  ✓ budget planning keeps a single personal budget row even if the same… 0.04s  
+  ✓ invitee cannot edit a shared account category as if it were a separ… 0.02s  
+
+   PASS  Tests\Feature\Changelog\ChangelogFeedTest
+  ✓ it returns only published releases in semver order for the public c… 0.02s  
+  ✓ it returns localized release detail with ordered sections and items  0.01s  
+
+   PASS  Tests\Feature\Changelog\ChangelogUpsertReleaseCommandTest
+  ✓ it creates a new changelog release via command                       0.03s  
+  ✓ it infers stable and prerelease channels from SemVer labels by defa… 0.02s  
+  ✓ publishing a release pins it and depins the previously pinned relea… 0.02s  
+  ✓ upserting a release invalidates the shared application version cach… 0.02s  
+  ✓ it updates an existing changelog release for the same version witho… 0.03s  
+  ✓ metadata-only upsert preserves the existing Italian and English rel… 0.02s  
+  ✓ it persists italian and english changelog copy and exposes publishe… 0.03s  
+  ✓ it creates a complete changelog release from a json payload file     0.02s  
+
+   PASS  Tests\Feature\Changelog\ChangelogVersionSuggestionServiceTest
+  ✓ it suggests next semver variants from the latest beta release        0.02s  
+  ✓ it orders releases using structured semver columns instead of lexic… 0.01s  
+
+   PASS  Tests\Feature\Changelog\PublicChangelogPagesTest
+  ✓ it renders the public changelog index page                           0.03s  
+  ✓ it renders the public changelog detail page shell with version labe… 0.03s  
+
+   PASS  Tests\Feature\Changelog\SharedChangelogMetaTest
+  ✓ it shares the latest published changelog release in app meta         0.04s  
+  ✓ it falls back to changelog index when no release is published        0.03s  
+
+   PASS  Tests\Feature\Communication\AccountInvitationDispatchTest
+  ✓ it dispatches an account invitation as a mail-only outbound communi… 0.04s  
+
+   PASS  Tests\Feature\Communication\AccountInvitationMailFlowTest
+  ✓ it dispatches the account invitation event and queues an outbound m… 0.03s  
+  ✓ it resolves the account invitation communication context with the e… 0.04s  
+  ✓ it composes the invitation email with italian content and required…  0.03s  
+  ✓ it omits unresolved expiration placeholders when the invitation has… 0.03s  
+  ✓ it delivers the queued invitation email through the mail channel fo… 0.03s  
+
+   PASS  Tests\Feature\Communication\CommunicationCategoryAdminTest
+  ✓ it renders admin communication categories pages with global channel… 0.08s  
+  ✓ it uses the same category channel configuration for composer and au… 0.06s  
+  ✓ it keeps globally unavailable channels disabled even when a categor… 0.07s  
+
+   PASS  Tests\Feature\Communication\CommunicationCategoryFoundationTest
+  ✓ it creates communication categories table with expected columns      0.03s  
+  ✓ it creates communication category channel templates table with expe… 0.03s  
+  ✓ it seeds core communication categories                               0.03s  
+  ✓ it casts category enums correctly                                    0.03s  
+  ✓ it maps default mail templates to categories                         0.02s  
+  ✓ it does not expose active import channel mappings when imports are…  0.03s  
+  ✓ it links recurring summary categories to mail and database template… 0.03s  
+  ✓ it creates active welcome after verification channel mappings for m… 0.04s  
+  ✓ it backfills welcome after verification mappings when templates are… 0.04s  
+
+   PASS  Tests\Feature\Communication\CommunicationComposerServiceTest
+  ✓ it composes the welcome communication for a user on the mail channe… 0.03s  
+  ✓ it composes the imports completed communication for an import on th… 0.03s  
+  ✓ it returns a normalized composed communication payload               0.04s  
+
+   PASS  Tests\Feature\Communication\CommunicationContextResolverTest
+  ✓ it resolves the user context with expected fields                    0.03s  
+  ✓ it resolves the import context with expected fields                  0.03s  
+  ✓ it returns the correct resolver from the registry                    0.03s  
+  ✓ it replaces simple placeholders from a resolved context              0.03s  
+  ✓ it leaves unknown placeholders untouched                             0.03s  
+  ✓ it exposes available variables metadata for user and import context… 0.02s  
+
+   PASS  Tests\Feature\Communication\CommunicationDispatchServiceTest
+  ✓ it creates a queued outbound message for a mandatory category        0.04s  
+  ✓ it creates a queued outbound message for a configurable category wh… 0.03s  
+  ✓ it creates a skipped outbound message when no configurable channel…  0.03s  
+  ✓ it stores payload snapshot and polymorphic recipient/context refere… 0.04s  
+
+   PASS  Tests\Feature\Communication\CommunicationDispatchTest
+  ✓ it dispatches user notification for import completed                 0.03s  
+  ✓ it dispatches admin notification only to admins                      0.02s  
+  ✓ it does not dispatch when user disabled all supported channels       0.01s  
+
+   PASS  Tests\Feature\Communication\CommunicationDomainIntegrationTest
+  ✓ it sends automation failed notification to admins through the domai… 0.02s  
+  ✓ it sends import completed notification to the import owner           0.02s  
+  ✓ it sends monthly report ready notification to the user               0.03s  
+  ✓ it sends automation alert through automation alert service into the… 0.02s  
+
+   PASS  Tests\Feature\Communication\CommunicationFoundationTest
+  ✓ it resolves default channels from topic settings                     0.02s  
+  ✓ it resolves user-specific channel preferences over topic defaults    0.01s  
+  ✓ it resolves admin recipients for admin audience topics               0.01s  
+  ✓ it prepares a communication plan for user topics                     0.02s  
+  ✓ it skips recipients when no channel is enabled                       0.01s  
+  ✓ it resolves mandatory channels without requiring user preferences    0.01s  
+
+   PASS  Tests\Feature\Communication\CommunicationOutboundAdminTest
+  ✓ it renders the admin outbound history page with paginated outbound…  0.05s  
+  ✓ it supports real pagination on admin outbound history                0.09s  
+  ✓ it filters admin outbound history by status channel category and re… 0.05s  
+  ✓ it renders the admin outbound detail page with resolved content and… 0.05s  
+
+   PASS  Tests\Feature\Communication\CommunicationTemplateAdminTest
+  ✓ it renders the admin communication templates index with uuid only p… 0.06s  
+  ✓ it filters the admin communication templates index using query para… 0.04s  
+  ✓ it paginates the admin communication templates index                 0.05s  
+  ✓ it renders the admin communication template detail with base overri… 0.04s  
+  ✓ it renders the admin communication template edit page with uuid onl… 0.04s  
+  ✓ it creates or updates a global override from the admin endpoint      0.03s  
+  ✓ it disables a global override from the admin endpoint                0.02s  
+
+   PASS  Tests\Feature\Communication\CommunicationTemplateFoundationTest
+  ✓ it creates communication templates table with expected columns       0.02s  
+  ✓ it casts channel and template mode correctly                         0.02s  
+  ✓ it seeds system and customizable templates                           0.03s  
+  ✓ it links template to notification topic when available               0.02s  
+  ✓ it allows freeform templates without notification topic              0.02s  
+  ✓ it links recurring summary templates to the new notification topics  0.02s  
+  ✓ it seeds welcome mail template with localized base keys instead of…  0.02s  
+  ✓ it backfills legacy welcome mail template records when the seeder i… 0.03s  
+
+   PASS  Tests\Feature\Communication\CommunicationTemplateOverrideFoundationTest
+  ✓ it creates communication template overrides table with expected col… 0.02s  
+  ✓ it links override to communication template                          0.02s  
+  ✓ it resolves base template values when no override exists             0.02s  
+  ✓ it prefers active global override values over base template values   0.03s  
+  ✓ it ignores inactive overrides                                        0.02s  
+  ✓ it can resolve a freeform template by template key                   0.02s  
+  ✓ it ignores active overrides for system locked welcome templates      0.02s  
+
+   PASS  Tests\Feature\Communication\CommunicationTemplateOverrideServiceTest
+  ✓ it creates a global override for a customizable template             0.03s  
+  ✓ it updates the existing global override instead of creating duplica… 0.02s  
+  ✓ it can disable an active global override                             0.02s  
+  ✓ it returns null when disabling a missing global override             0.02s  
+  ✓ it throws when trying to override a system locked template           0.03s  
+  ✓ it returns the active global override when present                   0.02s  
+
+   PASS  Tests\Feature\Communication\LocalizedNotificationContentTest
+  ✓ it localizes automation failed notification content in english and…  0.02s  
+  ✓ it localizes import completed notification content in italian        0.02s  
+  ✓ it localizes monthly report ready notification content using the us… 0.07s  
+  ✓ it localizes credit card autopay completed notification content in…  0.07s  
+
+   PASS  Tests\Feature\Communication\ManualCommunicationComposerAdminTest
+  ✓ it renders the admin communication composer with compatible manual…  0.05s  
+  ✓ it returns recipient lookup payload with uuid and no internal ids    0.03s  
+  ✓ it searches recipients by name surname email and full name tokens    0.05s  
+  ✓ it returns a real backend preview for manual composer selections     0.05s  
+  ✓ it omits cta values from custom preview when custom cta fields are…  0.03s  
+  ✓ it dispatches a manual communication to a single user and creates o… 0.04s  
+  ✓ it dispatches a manual communication to multiple users with forced…  0.04s  
+  ✓ it rejects manual composer preview for invalid categories            0.04s  
+
+   PASS  Tests\Feature\Communication\OutboundMessageDeliveryTest
+  ✓ it queues a delivery job when a queued outbound message is created…  0.03s  
+  ✓ it delivers a mail outbound message and marks it as sent             0.03s  
+  ✓ it renders outbound mail notifications with the shared localized em… 0.03s  
+  ✓ it delivers a database outbound message and marks it as sent         0.04s  
+  ✓ it marks the outbound message as failed when delivery throws         0.03s  
+
+   PASS  Tests\Feature\Communication\UserNotificationInboxServiceTest
+  ✓ it stores a database notification with the structured inbox payload  0.03s  
+  ✓ it returns unread count and marks notifications as read              0.04s  
+  ✓ it can mark all notifications as read                                0.03s  
+
+   PASS  Tests\Feature\Communication\WelcomeAfterVerificationDispatchTest
+  ✓ it dispatches the welcome communication after email verification     0.03s  
+  ✓ it stores the verified user as both recipient and context            0.03s  
+  ✓ it dispatches welcome only once even if verified event is emitted t… 0.04s  
+  ✓ it localizes welcome communication and normalizes mail cta url for…  0.03s  
+
+   PASS  Tests\Feature\ContextualHelp\ContextualHelpSharedDataTest
+  ✓ it shares contextual help on supported authenticated pages when a p… 0.04s  
+  ✓ it does not share contextual help when the entry for the current pa… 0.05s  
+  ✓ it shares contextual help on dashboard when a published entry exist… 0.05s  
+  ✓ it shares contextual help on categories and exports pages when publ… 0.13s  
+  ✓ it shares contextual help on banks, tracked items, accounts, and ye… 0.11s  
+  ✓ it shares contextual help on transactions show and shared categorie… 0.09s  
+  ✓ it shares contextual help on recurring entries, profile, and exchan… 0.09s  
+  ✓ it shares contextual help on credits and debts only when the featur… 0.04s  
+  ✓ it caches resolved contextual help payload by page key and locale    0.04s  
+  ✓ it invalidates contextual help cache when the entry is updated       0.05s  
+  ✓ it invalidates contextual help cache when a linked knowledge articl… 0.04s  
+
+   PASS  Tests\Feature\Counterparties\CounterpartyLedgerTest
+  ✓ minor units follow the currency precision and round trip exactly wi… 0.02s  
+  ✓ minor units follow the currency precision and round trip exactly wi… 0.01s  
+  ✓ minor units follow the currency precision and round trip exactly wi… 0.02s  
+  ✓ minor units follow the currency precision and round trip exactly wi… 0.01s  
+  ✓ minor units follow the currency precision and round trip exactly wi… 0.01s  
+  ✓ minor units follow the currency precision and round trip exactly wi… 0.01s  
+  ✓ minor units follow the currency precision and round trip exactly wi… 0.01s  
+  ✓ minor units follow the currency precision and round trip exactly wi… 0.01s  
+  ✓ unrepresentable fractions invalid decimal inputs and unsupported cu… 0.02s  
+  ✓ unrepresentable fractions invalid decimal inputs and unsupported cu… 0.01s  
+  ✓ unrepresentable fractions invalid decimal inputs and unsupported cu… 0.01s  
+  ✓ unrepresentable fractions invalid decimal inputs and unsupported cu… 0.01s  
+  ✓ unrepresentable fractions invalid decimal inputs and unsupported cu… 0.01s  
+  ✓ minor unit parsing and sums cannot silently overflow or fall back t… 0.01s  
+  ✓ one relation exists per owner counterparty and currency              0.02s  
+  ✓ relation factory creates a valid personal economic counterparty      0.01s  
+  ✓ relation ownership personal scope and capability are enforced with…  0.01s  
+  ✓ relation ownership personal scope and capability are enforced with…  0.02s  
+  ✓ relation ownership personal scope and capability are enforced with…  0.02s  
+  ✓ relation ownership personal scope and capability are enforced with…  0.03s  
+  ✓ the ledger posts two obligations and one payment with exactly one b… 0.02s  
+  ✓ ledger idempotency is payload based and ignores metadata object key… 0.02s  
+  ✓ a source version cannot contribute twice even with a different oper… 0.01s  
+  ✓ allocations can be full partial or absent without changing the ledg… 0.02s  
+  ✓ allocations can be full partial or absent without changing the ledg… 0.02s  
+  ✓ allocations can be full partial or absent without changing the ledg… 0.03s  
+  ✓ allocation cannot exceed payment or obligation capacity with ('paym… 0.02s  
+  ✓ allocation cannot exceed payment or obligation capacity with ('obli… 0.02s  
+  ✓ different currencies cannot be allocated together                    0.02s  
+  ✓ payment directions only settle compatible obligation signs with ('s… 0.02s  
+  ✓ payment directions only settle compatible obligation signs with ('r… 0.03s  
+  ✓ an outgoing payment allocates a negative obligation using the same…  0.02s  
+  ✓ allocation reversal preserves the original and is idempotent         0.03s  
+  ✓ payment reversal releases all allocations and preserves all histori… 0.02s  
+  ✓ FIFO across distinct obligations is simulatable without a public pa… 0.02s  
+  ✓ explicit compensation changes document residuals but creates no cas… 0.04s  
+  ✓ obligation source revisions preserve economic identity and update p… 0.02s  
+  ✓ principal cannot be reduced or reversed below active allocations     0.02s  
+  ✓ revisions retain the current technical source and reserve all sourc… 0.05s  
+  ✓ obligation reversals restore the prior snapshot without undoing obs… 0.03s  
+  ✓ historical models reject ORM mutations and database triggers reject… 0.03s  
+  ✓ historical models reject ORM mutations and database triggers reject… 0.02s  
+  ✓ historical models reject ORM mutations and database triggers reject… 0.02s  
+  ✓ historical models reject ORM mutations and database triggers reject… 0.02s  
+  ✓ ledger currency consistency is enforced by a database foreign key    0.02s  
+  ✓ payment registration reuses an existing Transaction and never gener… 0.03s  
+  ✓ the new domain follows JPY precision across principal payment and a… 0.04s  
+  ✓ the actor and payment account must respect economic ownership and c… 0.02s  
+  ✓ shadow disabled leaves all new tables untouched and diagnostics nev… 0.02s  
+  ✓ shadow manual lifecycle remains economically identical and preserve… 0.05s  
+  ✓ reconciliation detects offsetting source discrepancies even when ag… 0.03s  
+  ✓ shadow revisions and deletions append history without changing the…  0.03s  
+  ✓ enabling shadow does not import positions or payments when a legacy… 0.03s  
+  ✓ shadow skips nonrepresentable legacy JPY fractions without rounding… 0.02s  
+  ✓ diagnostics expose uncaptured shared sources rather than silently i… 0.03s  
+  ✓ real manual and shared documents can be represented without replaci… 0.02s  
+  ✓ batch obligation projections match fresh reads with a fixed query b… 0.04s  
+  ✓ batch payment totals preserve documents allocations and reversals w… 0.07s  
+
+   PASS  Tests\Feature\Counterparties\CounterpartyPublicPaymentTest
+  ✓ one unified receipt settles FIFO and updates both the ledger and ma… 0.08s  
+  ✓ FIFO splits ninety between forty and one hundred using stable econo… 0.05s  
+  ✓ outgoing payments produce one expense and settle negative obligatio… 0.05s  
+  ✓ explicit direction can pay a compatible debt even when the net bala… 0.04s  
+  ✓ custom allocations are validated and can target shared claims first  0.04s  
+  ✓ overpayments overallocations and foreign obligations are rejected a… 0.03s  
+  ✓ overpayments overallocations and foreign obligations are rejected a… 0.05s  
+  ✓ overpayments overallocations and foreign obligations are rejected a… 0.04s  
+  ✓ explicit unallocated portions remain visible and reconciled without… 0.05s  
+  ✓ compensation is explicit append only and has no bank effect          0.06s  
+  ✓ administrative cancellation reopens residuals preserves history and… 0.06s  
+  ✓ payment revisions create a replacement and keep the old immutable d… 0.07s  
+  ✓ allocation only revisions never produce bank or balance effects      0.06s  
+  ✓ real partial returns create an opposite Transaction and restore the… 0.11s  
+  ✓ idempotency retries never create a second bank effect and collision… 0.05s  
+  ✓ a second payment cannot consume a residual already used by the firs… 0.05s  
+  ✓ owned payment Transactions reject generic edits deletion restore an… 0.06s  
+  ✓ insufficient bank funds roll back ledger allocations payment and op… 0.04s  
+  ✓ activated relations prohibit legacy payment writers and use ledger…  0.05s  
+  ✓ non reconciled relations cannot activate and continue to use legacy  0.05s  
+  ✓ HTTP lifecycle enforces ownership validation and publishes the new…  0.08s  
+  ✓ active source edits cannot destroy allocated claims and legitimate…  0.07s  
+  ✓ historical imported manual payments can be cancelled without alteri… 0.08s  
+  ✓ commercial expense refunds cannot reduce paid shared quotas through… 0.10s  
+  ✓ historical unallocated shared settlement cancellation and reallocat… 0.10s  
+  ✓ a blocked legacy currency precision does not break either rollout p… 0.08s  
+  ✓ public operation history rejects direct database mutation and delet… 0.03s  
+  ✓ shared account permissions are rechecked before cancelling or revis… 0.05s  
+  ✓ rollout flag off preserves legacy HTTP writers for inactive relatio… 0.10s  
+  ✓ all inactive readiness states refuse common payments while preservi… 0.08s  
+  ✓ all inactive readiness states refuse common payments while preservi… 0.08s  
+  ✓ all inactive readiness states refuse common payments while preservi… 0.07s  
+  ✓ not migrated counterparties have no common endpoint or automatic mi… 0.04s  
+  ✓ active HTTP relations never fall back to legacy after rollout disab… 0.07s  
+  ✓ active HTTP relations never fall back to legacy after rollout disab… 0.10s  
+  ✓ both HTTP entry scopes create only one common payment and one econo… 0.05s  
+  ✓ both HTTP entry scopes create only one common payment and one econo… 0.05s  
+  ✓ imported legacy documents cannot be updated or deleted through old…  0.10s  
+  ✓ person history separates document totals from claims and preserves…  0.09s  
+  ✓ person history paginates a stable filtered timeline without truncat… 0.18s  
+  ✓ realistic person presentation covers three months payments partial…  0.39s  
+  ✓ an existing shared payment can be revised after a later opposite ex… 0.07s  
+  ✓ an existing shared payment can be revised after a later opposite ex… 0.09s  
+  ✓ an existing shared payment can be revised after a later opposite ex… 0.07s  
+  ✓ an existing shared payment can be revised after a later opposite ex… 0.08s  
+  ✓ an existing shared payment can be revised after a later opposite ex… 0.07s  
+  ✓ an existing shared payment can be revised after a later opposite ex… 0.07s  
+  ✓ an existing shared payment can be revised after a later opposite ex… 0.08s  
+  ✓ an existing shared payment can be revised after a later opposite ex… 0.07s  
+  ✓ revision allowance cannot increase an advance or move it to another… 0.07s  
+  ✓ revision allowance cannot increase an advance or move it to another… 0.06s  
+  ✓ revision allowance cannot increase an advance or move it to another… 0.07s  
+
+   PASS  Tests\Feature\Counterparties\CounterpartySharedIntegrationTest
+  ✓ shared shadow recognizes only the economic share in both directions… 0.03s  
+  ✓ shared shadow recognizes only the economic share in both directions… 0.02s  
+  ✓ predicted expenses create no obligation until confirmation and can…  0.05s  
+  ✓ shared share and amount changes append a full reversal and a new re… 0.03s  
+  ✓ commercial refund revises the expense and never creates a counterpa… 0.04s  
+  ✓ commercial refund revises the expense and never creates a counterpa… 0.05s  
+  ✓ shared delete and restore keep identity and historical revisions     0.06s  
+  ✓ external shared edits cancellation and sign changes preserve one ob… 0.04s  
+  ✓ both technical conversions preserve the same economic identity and…  0.06s  
+  ✓ two distinct shared facts do not collide and retries do not duplica… 0.04s  
+  ✓ settlement shadow records one unallocated payment of the appropriat… 0.03s  
+  ✓ settlement shadow records one unallocated payment of the appropriat… 0.03s  
+  ✓ settlement lifecycle revision and cancellation preserve one payment… 0.07s  
+  ✓ historical settlement with partial commercial refund imports its ne… 0.05s  
+  ✓ shared flag is independent and defaults to leaving shared domain un… 0.02s  
+  ✓ explicit dry run apply and retry reconcile manual shared and known…  0.06s  
+  ✓ settlement backfill is unallocated idempotent and has no new Transa… 0.05s  
+  ✓ backfill rolls back an entire relation when a write fails midway     0.02s  
+  ✓ reconciliation reports per obligation mismatches even when the tota… 0.03s  
+  ✓ readiness blocks unacknowledged payments and pending shadow failure… 0.02s  
+  ✓ the explicit command defaults to dry run and validates scopes        0.05s  
+  ✓ source aliases cannot be rewritten or deleted even through bulk SQL  0.02s  
+  ✓ an occurrence uses its persistent UUID and cumulative postings revi… 0.04s  
+  ✓ recurring root cascade revokes captured external obligations before… 0.03s  
+  ✓ multiple effective documents with one occurrence identity are repor… 0.04s  
+  ✓ ambiguous identities fail open in shadow and leave a pending diagno… 0.03s  
+  ✓ a fully refunded historical settlement is imported with zero effect… 0.03s  
+  ✓ dry run and read diagnostics never modify legacy rows or timestamps  0.05s  
+  ✓ known aliases survive a technical conversion even when shared shado… 0.03s  
+  ✓ readiness distinguishes untouched incomplete shadowing and reconcil… 0.03s  
+  ✓ inactive historical counterparties can be explicitly reconciled wit… 0.03s  
+  ✓ migration failures remain diagnostic until a successful retry resol… 0.04s  
+  ✓ shared recognition uses currency specific units and never merges tw… 0.03s  
+  ✓ foundation and identity migrations can be rolled back and reapplied… 0.05s  
+  ✓ known scheduled partial transactions contribute to one occurrence o… 0.10s  
+  ✓ scheduled partial occurrence backfill is deterministic and retry cr… 0.05s  
+  ✓ refund followed by another scheduled posting updates the same occur… 0.06s  
+  ✓ component discrepancies that cancel within one occurrence are still… 0.05s  
+  ✓ the main accounting case remains coherent across import share revis… 0.15s  
+  ✓ valid settlement update does not produce a transient shadow error f… 0.05s  
+  ✓ backfill reuses a phase 2A shared identity and reverses prior delta… 0.03s  
+  ✓ settlement revisions project the current document and retain origin… 0.04s  
+
+   PASS  Tests\Feature\CreditCards\CreditCardAutopayTest
+  ✓ it keeps credit card transactions on the card account without movin… 0.06s  
+  ✓ it blocks a credit card expense that exceeds the configured credit…  0.04s  
+  ✓ it treats credit card refunds as exposure reductions before a later… 0.06s  
+  ✓ it lets editable credit card transactions create a refund with an a… 0.15s  
+  ✓ it shows the expected charge reference for credit card expenses and… 0.12s  
+  ✓ it does not expose credit card settlement rows as refundable transa… 0.17s  
+  ✓ it charges the credit card cycle automatically, stays idempotent, a… 0.15s  
+  ✓ it notifies the user by email and in app only when a new real credi… 0.11s  
+  ✓ it notifies the user by email and in app from explicit preferences…  0.12s  
+  ✓ it notifies the user by email and in app from explicit preferences…  0.11s  
+  ✓ it does not send the credit card charge communication when the user… 0.06s  
+  ✓ it keeps already processed credit card cycles closed when payment d… 0.14s  
+  ✓ it realigns future payment due dates when payment day changes witho… 0.14s  
+  ✓ it realigns future cycle boundaries when statement closing day chan… 0.17s  
+  ✓ it runs the credit card autopay job through the automation runner    0.13s  
+  ✓ it runs the credit card autopay from admin automation with a refere… 0.09s  
+  ✓ it reports a zero-amount due cycle as a business no-op instead of a… 0.04s  
+  ✓ it explains the real january expense scenario with a february due d… 0.13s  
+  ✓ it protects the generated credit card settlement from manual update… 0.13s  
+  ✓ it shows the credit card settlement on the linked payment account b… 0.15s  
+  ✓ it reconciles a processed cycle correctly when a historical card ex… 0.15s  
+  ✓ it reconciles a processed cycle with a technical delta when a histo… 0.15s  
+  ✓ it reconciles a processed cycle with a technical reverse delta when… 0.15s  
+  ✓ it reconciles a processed cycle correctly when a total refund is re… 0.18s  
+  ✓ it reconciles a processed cycle correctly when a partial refund is…  0.15s  
+  ✓ it keeps a processed cycle perfectly squared across multiple succes… 0.20s  
+  ✓ it reports a non-due card as a business no-op instead of an error    0.03s  
+  ✓ it reports an already processed cycle as a business no-op instead o… 0.13s  
+  ✓ it reports a real autopay execution error coherently in the automat… 0.05s  
+
+   PASS  Tests\Feature\CreditDebts\AggregatedObligationsTest
+  ✓ open arrears survive month and year changes and dashboard uses the…  0.07s  
+  ✓ capacity simulations expose overlap only for open occurrences forec… 0.03s  
+  ✓ recurring and installment arrears are aggregated once and link to t… 0.03s  
+  ✓ credits debts aggregates manual recurring installment and shared wi… 0.14s  
+  ✓ closed skipped future variable and other users obligations are not…  0.04s  
+  ✓ shared balances are read live and zero disappears without duplicate… 0.04s  
+  ✓ derived filters compose search type reference and status             0.04s  
+  ✓ a shared posted occurrence contributes only its net shared position  0.02s  
+  ✓ a partial external shared payment preserves the unpaid recurring ob… 0.02s  
+
+   PASS  Tests\Feature\CreditDebts\CounterpartyIntegrationTest
+  ✓ manual positions derive their counterparty and may omit the due dat… 0.02s  
+  ✓ manual positions derive their counterparty and may omit the due dat… 0.02s  
+  ✓ manual positions derive their counterparty and may omit the due dat… 0.04s  
+  ✓ manual positions derive their counterparty and may omit the due dat… 0.02s  
+  ✓ a due date can be removed and undated settled history remains visib… 0.03s  
+  ✓ undated positions are visible and summarized but never overdue futu… 0.07s  
+  ✓ a manual counterparty must match its economic reference              0.02s  
+  ✓ manual requests reject invalid or discordant technical counterparti… 0.02s  
+  ✓ manual requests reject invalid or discordant technical counterparti… 0.02s  
+  ✓ manual requests reject invalid or discordant technical counterparti… 0.03s  
+  ✓ manual requests reject invalid or discordant technical counterparti… 0.02s  
+  ✓ unknown counterparty uuids cannot silently become an unassigned pos… 0.02s  
+  ✓ counterparty cannot change after active payments but historical eli… 0.04s  
+  ✓ the same normalized person is reused from the common counterparty e… 0.03s  
+  ✓ aggregate balances use manual residuals and shared quotas without c… 0.10s  
+  ✓ manual debts and currencies stay separate and legacy references are… 0.04s  
+  ✓ aggregate balance refuses another owners counterparty                0.03s  
+  ✓ used counterparties cannot be deleted including soft deleted econom… 0.02s  
+  ✓ used counterparties cannot be deleted including soft deleted econom… 0.02s  
+  ✓ used counterparties cannot be deleted including soft deleted econom… 0.03s  
+  ✓ used counterparties cannot be deleted including soft deleted econom… 0.03s  
+  ✓ used counterparties cannot be deleted including soft deleted econom… 0.02s  
+  ✓ generated obligation transactions reject generic updates deletion r… 0.03s  
+  ✓ generated obligation transactions reject generic updates deletion r… 0.03s  
+  ✓ settlement effects ignore invalid bank transactions and recognize p… 0.06s  
+  ✓ settlement effects ignore invalid bank transactions and recognize p… 0.05s  
+  ✓ settlement effects ignore invalid bank transactions and recognize p… 0.05s  
+  ✓ settlement effects ignore invalid bank transactions and recognize p… 0.06s  
+  ✓ settlement effects ignore invalid bank transactions and recognize p… 0.05s  
+  ✓ settlement effects ignore invalid bank transactions and recognize p… 0.05s  
+  ✓ settlement updates reject an inverted balance and incompatible acco… 0.04s  
+  ✓ cent arithmetic remains exact for odd shares large amounts and sign… 0.01s  
+  ✓ shared transaction currencies are presented separately and cannot b… 0.07s  
+  ✓ counterparty-only manual balances keep their shared card visible wi… 0.04s  
+  ✓ transaction UI hides generic actions for manual payments and shared… 0.09s  
+  ✓ transaction UI hides generic actions for manual payments and shared… 0.09s  
+  ✓ settlements retain their meaning on an editable account owned by an… 0.04s  
+  ✓ legacy settlements with an already deleted transaction can be remov… 0.02s  
+
+   PASS  Tests\Feature\CreditDebts\CreditDebtFeatureTest
+  ✓ credits debts routes are hidden when the feature flag is disabled    0.04s  
+  ✓ credits debts index returns inertia payload with summary options an… 0.05s  
+  ✓ credits debts index retains open previous year items and returns pa… 0.05s  
+  ✓ credits debts index filters the register month but totals include a… 0.04s  
+  ✓ credits debts edit options retain inactive category and reference a… 0.04s  
+  ✓ credits debts index searches description reference note and keeps r… 0.20s  
+  ✓ credits debts future summaries include debit items due after today   0.06s  
+  ✓ guests cannot create credit debt items                               0.01s  
+  ✓ an authenticated user can create credits and debts without changing… 0.02s  
+  ✓ an authenticated user can create credits and debts without changing… 0.02s  
+  ✓ item validation blocks invalid type amount currency and foreign own… 0.02s  
+  ✓ item with payments cannot change locked fields or total amount       0.04s  
+  ✓ cross user item access is blocked                                    0.02s  
+  ✓ an item without payments can be deleted and an item with payments c… 0.02s  
+  ✓ credit and debt payments create real linked transactions and update… 0.03s  
+  ✓ credit and debt payments create real linked transactions and update… 0.04s  
+  ✓ payment validation blocks foreign item account currency mismatch an… 0.02s  
+  ✓ a credit with an orphaned legacy subject requires review before set… 0.02s  
+  ✓ an insufficient cash balance returns a form error and rolls back th… 0.02s  
+  ✓ credit debt generated transactions keep the reference expose a retu… 0.12s  
+  ✓ payments can only be deleted from newest to oldest and remove linke… 0.03s  
+  ✓ payment deletion refuses to force delete a transaction that is not…  0.02s  
+  ✓ credit debt flow does not create recurring entries                   0.02s  
+
+   PASS  Tests\Feature\CreditDebts\ManualEconomicSubjectTest
+  ✓ manual creation derives one subject for credits debts and different… 0.02s  
+  ✓ manual creation derives one subject for credits debts and different… 0.01s  
+  ✓ manual creation derives one subject for credits debts and different… 0.01s  
+  ✓ programmatic and factory writes cannot persist different subjects w… 0.01s  
+  ✓ programmatic and factory writes cannot persist different subjects w… 0.01s  
+  ✓ partial reference updates derive the counterpart and payment histor… 0.02s  
+  ✓ legacy classification is dry run first audited idempotent and prese… 0.01s  
+  ✓ legacy classification is dry run first audited idempotent and prese… 0.02s  
+  ✓ legacy classification is dry run first audited idempotent and prese… 0.03s  
+  ✓ legacy classification is dry run first audited idempotent and prese… 0.02s  
+  ✓ legacy classification is dry run first audited idempotent and prese… 0.02s  
+  ✓ legacy classification is dry run first audited idempotent and prese… 0.01s  
+  ✓ legacy classification is dry run first audited idempotent and prese… 0.01s  
+  ✓ Pino Mario and Mario Mario balances preserve the two economic subje… 0.02s  
+  ✓ Pino Mario and Mario Mario balances preserve the two economic subje… 0.02s  
+  ✓ bulk SQL cannot bypass manual subject equality                       0.01s  
+  ✓ an incoherent legacy manual blocks shadow and ledger backfill        0.02s  
+  ✓ numeric user option works with UUID typed PostgreSQL users           0.01s  
+  ✓ legacy normalization never reassigns a captured shadow obligation    0.03s  
+  ✓ soft deleted payments remain a lock for alignment and subject chang… 0.02s  
+  ✓ HTTP manual subject input accepts one identity and rejects conflict… 0.02s  
+  ✓ HTTP manual subject input accepts one identity and rejects conflict… 0.02s  
+  ✓ HTTP manual subject input accepts one identity and rejects conflict… 0.02s  
+  ✓ HTTP manual subject input accepts one identity and rejects conflict… 0.03s  
+  ✓ HTTP manual subject input accepts one identity and rejects conflict… 0.02s  
+  ✓ HTTP manual subject input accepts one identity and rejects conflict… 0.02s  
+  ✓ HTTP manual subject input accepts one identity and rejects conflict… 0.02s  
+  ✓ database guards reject quiet bulk and foreign subject bypasses with… 0.02s  
+  ✓ database guards reject quiet bulk and foreign subject bypasses with… 0.02s  
+  ✓ database guards reject quiet bulk and foreign subject bypasses with… 0.01s  
+  ✓ database guards reject quiet bulk and foreign subject bypasses with… 0.02s  
+  ✓ database guards reject quiet bulk and foreign subject bypasses with… 0.01s  
+  ✓ database guards reject quiet bulk and foreign subject bypasses with… 0.01s  
+  ✓ an unchanged counterparty explicitly supplied by an old client stil… 0.02s  
+  ✓ ordinary legacy edits cannot silently infer an economic subject or…  0.01s  
+  ✓ database history guards preserve the identity and UUID even when eq… 0.02s  
+  ✓ database history guards preserve the identity and UUID even when eq… 0.02s  
+
+   PASS  Tests\Feature\Currency\CurrenciesSyncRatesCommandTest
+  ✓ it syncs the configured daily rates through the artisan command      0.03s  
+  ✓ it syncs all relevant currency pairs for the day and avoids duplica… 0.03s  
+  ✓ it registers the daily exchange-rate sync command in the scheduler   0.01s  
+
+   PASS  Tests\Feature\Currency\CurrencyExchangeRateMigrationTest
+  ✓ currency exchange rates migration creates the expected foundation s… 0.01s  
+  ✓ currency exchange rates migration prevents duplicate rates for the…  0.01s  
+
+   PASS  Tests\Feature\Currency\CurrencySettingsTest
+  ✓ user with only the default cash account and no transactions can cha… 0.03s  
+  ✓ user with non-default accounts but no transactions can still change… 0.02s  
+  ✓ base currency change only syncs bootstrap cash account when real ac… 0.02s  
+  ✓ base currency change does not update bootstrap cash account with re… 0.02s  
+  ✓ user with transactions cannot change base currency                   0.03s  
+
+   PASS  Tests\Feature\Currency\CurrencySetupTest
+  ✓ new users default to eur as base currency                            0.01s  
+  ✓ new users default to it-IT as format locale                          0.01s  
+  ✓ accounts table exposes a currency code column                        0.01s  
+
+   PASS  Tests\Feature\Currency\CurrencySupportRelevantSyncTest
+  ✓ it builds the relevant sync currency sets from configured core, act… 0.02s  
+
+   PASS  Tests\Feature\Currency\ExchangeRateServiceTest
+  ✓ it resolves a historical exchange rate from the primary provider an… 0.02s  
+  ✓ it falls back to the secondary provider when the primary provider f… 0.01s  
+  ✓ it reuses the locally stored exchange rate without external calls    0.01s  
+  ✓ it supports deterministic historical lookup for a specific date      0.01s  
+  ✓ it falls back to a live provider lookup for a newly used supported…  0.01s  
+  ✓ it throws an explicit error when no provider can resolve the rate    0.01s  
+  ✓ it rejects unsupported currencies and future dates before calling p… 0.02s  
+
+   PASS  Tests\Feature\CurrencySyncAlertTest
+  ✓ it keeps the currency sync command scheduled daily                   0.01s  
+  ✓ it sends a telegram alert when the sync fails and telegram alerts a… 0.01s  
+  ✓ it does not send a telegram alert when telegram is not configured    0.01s  
+  ✓ it does not send a telegram alert when the sync succeeds             0.03s  
+
+   FAIL  Tests\Feature\DashboardPerformanceTest
+  ⨯ heavy authenticated pages preserve payloads and expose their measur… 0.69s  
+  ✓ page read snapshots are isolated by user and request and bypass mut… 0.02s  
+  ✓ dashboard build snapshots end with each build including changed per… 0.04s  
+  ✓ membership read snapshots avoid repeated queries and refresh on the… 0.02s  
+  ✓ dashboard timeline buckets preserve separate months across a year b… 0.03s  
+
+   PASS  Tests\Feature\DashboardSupportPromptTest
+  ✓ dashboard shows the ko-fi widget for users who never donated         0.06s  
+  ✓ dashboard hides the ko-fi widget for users with recent active suppo… 0.04s  
+  ✓ dashboard uses renew support prompt when the reminder is due         0.04s  
+  ✓ dashboard uses support again prompt for lapsed supporters            0.04s  
+  ✓ dashboard copy includes ko-fi support variants in italian and engli… 0.01s  
+  ✓ ko-fi widget loader uses a singleton script guard and controlled dr… 0.01s  
+  ✓ dashboard partial reload requests support prompt together with dash… 0.03s  
+
+   FAIL  Tests\Feature\DashboardTest
+  ✓ guests are redirected to the login page                              0.01s  
+  ✓ authenticated users can visit the dashboard with inertia props       0.06s  
+  ✓ dashboard shares its selected period with sidebar month links while… 0.07s  
+  ✓ dashboard legacy is not exposed outside local development            0.02s  
+  ✓ dashboard analysis redirects to the official dashboard while preser… 0.02s  
+  ✓ official dashboard defaults an annual request to the current month   0.07s  
+  ✓ dashboard keeps liquid balance separate from open credits and debts  0.05s  
+  ✓ dashboard exposes quick start for users without operational account… 0.04s  
+  ✓ dashboard keeps quick start visible when the user only has the defa… 0.08s  
+  ✓ dashboard hides quick start forever after the user records any tran… 0.07s  
+  ✓ dashboard hides quick start once the user has an operational accoun… 0.06s  
+  ✓ dashboard exposes previous closed month financial recap from real t… 0.05s  
+  ✓ dashboard monthly recap exposes an empty state when the closed mont… 0.04s  
+  ✓ monthly recap detail view reuses the dashboard recap data            0.09s  
+  ✓ monthly recap detail and pdf respect the active locale               0.05s  
+  ✓ monthly recap pdf is generated on demand without persisted files     0.05s  
+  ✓ dashboard aggregates foreign currency transactions using converted…  0.06s  
+  ✓ dashboard excludes unsafe legacy foreign transactions without excha… 0.05s  
+  ✓ dashboard accessible account filters do not compile to postgres dis… 0.02s  
+  ✓ visiting the official dashboard with only a year query selects a co… 0.06s  
+  ⨯ dashboard resolves available years from user years even without tra… 0.06s  
+  ✓ dashboard ignores records linked to tracked items owned by another…  0.06s  
+  ✓ dashboard suggests creating the next management year near year end   0.06s  
+  ✓ dashboard suggests opening the current calendar year when it is mis… 0.05s  
+  ✓ dashboard prefers the active year over a stale session year          0.05s  
+  ✓ dashboard falls back to evolved account balances when legacy balanc… 0.07s  
+  ✓ dashboard excludes opening balance transactions from operational to… 0.05s  
+  ✓ dashboard includes owned and shared accessible accounts in the defa… 0.06s  
+  ✓ dashboard can filter only owned accounts                             0.05s  
+  ✓ dashboard can filter only shared accounts                            0.05s  
+  ✓ dashboard can focus on a single shared account                       0.06s  
+  ✓ dashboard shows the shared account actual against the single person… 0.05s  
+  ✓ dashboard merges semantic root groups across owned actuals and shar… 0.07s  
+  ✓ dashboard does not alter root totals when the filter is narrowed to… 0.08s  
+  ✓ dashboard keeps account filters backward compatible for users with…  0.05s  
+  ✓ financial agenda uses future recurring and scheduled items in the c… 0.07s  
+  ✓ financial agenda top payees use meaningful fallbacks instead of mis… 0.06s  
+  ✓ financial agenda respects the dashboard account scope for future it… 0.07s  
+  ✓ pending actions respect the selected month filter                    0.05s  
+  ✓ dashboard normalizes shared scope to owned when the user has no sha… 0.05s  
+  ✓ analysis timeline separates actual forecast credits debts and preve… 0.08s  
+  ✓ dashboard arrears retain recent and old unpaid occurrences independ… 0.10s  
+  ✓ dashboard upcoming events use the canonical residual for every recu… 0.07s  
+  ✓ dashboard upcoming events use the canonical residual for every recu… 0.05s  
+  ✓ dashboard upcoming events use the canonical residual for every recu… 0.07s  
+  ✓ dashboard upcoming events use the canonical residual for every recu… 0.05s  
+  ✓ dashboard upcoming events use the canonical residual for every recu… 0.05s  
+
+   PASS  Tests\Feature\Database\DatabaseSeederTest
+  ✓ it seeds a clean quasi production base dataset                       1.24s  
+  ✓ it keeps demo data out of the base seeder                            1.22s  
+
+   PASS  Tests\Feature\EntrySearch\UniversalEntrySearchTest
+  ✓ it searches transactions for the active month and returns highlight… 0.02s  
+  ✓ it searches recurring entries with recurring filters and returns a…  0.03s  
+  ✓ it searches across transactions and recurring entries grouped by mo… 0.02s  
+  ✓ it supports a global text search with no additional filters          0.02s  
+  ✓ it ignores recurring status when the selected scope is not recurrin… 0.02s  
+  ✓ it returns an empty search payload when no criteria are active       0.04s  
+
+   PASS  Tests\Feature\ErrorPagesTest
+  ✓ error pages render localized copy with dataset "403 it"              0.02s  
+  ✓ error pages render localized copy with dataset "403 en"              0.01s  
+  ✓ error pages render localized copy with dataset "404 it"              0.01s  
+  ✓ error pages render localized copy with dataset "404 en"              0.01s  
+  ✓ error pages render localized copy with dataset "419 it"              0.02s  
+  ✓ error pages render localized copy with dataset "419 en"              0.01s  
+  ✓ error pages render localized copy with dataset "429 it"              0.01s  
+  ✓ error pages render localized copy with dataset "429 en"              0.01s  
+  ✓ error pages render localized copy with dataset "500 it"              0.01s  
+  ✓ error pages render localized copy with dataset "500 en"              0.01s  
+  ✓ error pages render localized copy with dataset "503 it"              0.02s  
+  ✓ error pages render localized copy with dataset "503 en"              0.01s  
+  ✓ error pages show dashboard cta only for authenticated users when us… 0.01s  
+  ✓ error pages show dashboard cta only for authenticated users when us… 0.01s  
+  ✓ error pages show dashboard cta only for authenticated users when us… 0.01s  
+  ✓ error pages show dashboard cta only for authenticated users when us… 0.02s  
+  ✓ error pages show dashboard cta only for authenticated users when us… 0.01s  
+  ✓ page expired error includes a reload action                          0.01s  
+  ✓ maintenance page avoids dashboard and home ctas                      0.01s  
+  ✓ error pages fall back to request preferred language when the app lo… 0.01s  
+  ✓ maintenance page uses browser english when no authenticated user lo… 0.01s  
+  ✓ authenticated user locale wins over browser language in error pages  0.02s  
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ returns a successful response                                        0.03s  
+
+   PASS  Tests\Feature\ExchangeRateSettingsTest
+  ✓ it renders the settings exchange-rates page with persisted database… 0.04s  
+  ✓ it filters persisted exchange rates by date and currency pair        0.05s  
+  ✓ it shows an empty exchange-rates state when no persisted row matche… 0.03s  
+
+   PASS  Tests\Feature\GlobalErrorHandlingTest
+  ✓ web 5xx shows safe soamco page and correlated reference              0.02s  
+  ✓ json 5xx returns only generic message and correlation identifiers    0.01s  
+  ✓ inertia 5xx renders a page instead of the technical html modal       0.03s  
+  ✓ non server status codes retain their original contracts with (401)   0.01s  
+  ✓ non server status codes retain their original contracts with (403)   0.01s  
+  ✓ non server status codes retain their original contracts with (404)   0.01s  
+  ✓ non server status codes retain their original contracts with (419)   0.02s  
+  ✓ non server status codes retain their original contracts with (422)   0.01s  
+  ✓ inertia error page does not rerun failing shared business props      0.01s  
+  ✓ other server status codes retain their status                        0.01s  
+  ✓ debug environment keeps technical diagnostics available              0.02s  
+  ✓ log viewer and data endpoints allow only authenticated administrato… 0.03s  
+  ✓ log viewer and data endpoints allow only authenticated administrato… 0.02s  
+  ✓ log viewer and data endpoints allow only authenticated administrato… 0.01s  
+  ✓ administrator can find actual sanitized exception stack by request…  0.04s  
+  ✓ deployment maintenance retains its page and automatic refresh heade… 0.01s  
+  ✓ deployment maintenance retains its page and automatic refresh heade… 0.01s  
+  ✓ maintenance page refreshes automatically even without deployment re… 0.01s  
+
+   PASS  Tests\Feature\HelpCenter\PublicHelpCenterPagesTest
+  ✓ it renders the public help center index page with seeded database c… 0.05s  
+  ✓ it renders a public help center section page                         0.03s  
+  ✓ it renders a public help center article page                         0.03s  
+  ✓ it excludes unpublished sections and articles from public access     0.04s  
+  ✓ it falls back to the first available translation when the requested… 0.04s  
+  ✓ it exposes public seo metadata for help center routes without hrefl… 0.05s  
+  ✓ it includes help center routes in the public sitemap                 0.01s  
+
+   PASS  Tests\Feature\ImportBanksFromMfiCommandTest
+  ✓ mfi import command reads utf16 tsv and upserts banks without duplic… 0.02s  
+
+   PASS  Tests\Feature\Imports\ApproveDuplicateCandidateRowTest
+  ✓ it approves a duplicate candidate row and marks it ready             0.03s  
+  ✓ it does not approve an already imported row                          0.02s  
+  ✓ it does not approve a row belonging to another import                0.01s  
+
+   PASS  Tests\Feature\Imports\ImportBackendSchemaTest
+  ✓ imports table exposes review and lifecycle columns                   0.01s  
+  ✓ import rows table exposes functional status and deduplication colum… 0.02s  
+  ✓ import models cast the new backend fields                            0.01s  
+  ✓ import status enums expose the review and rollback states            0.01s  
+
+   PASS  Tests\Feature\Imports\ImportUiTest
+  ✓ it serves imports routes under the settings prefix                   0.01s  
+  ✓ imports index renders operational list and upload options            0.05s  
+  ✓ imports index auto-provisions the generic csv format when none exis… 0.04s  
+  ✓ imports index exposes bank profile formats only to admin users       0.06s  
+  ✓ imports store rejects bank profile formats for non admin users       0.04s  
+  ✓ imports detail renders rows with raw and normalized payloads         0.04s  
+  ✓ imports detail exposes selectable categories for row review          0.04s  
+  ✓ imports detail exposes a single persisted feedback message for dupl… 0.05s  
+  ✓ imports detail exposes hierarchical categories and tracked item ref… 0.04s  
+  ✓ imports index paginates the import history                           0.04s  
+  ✓ imports index filters by status and management year                  0.05s  
+  ✓ imports index follows the selected active management year like othe… 0.04s  
+  ✓ imports template downloads a localized xlsx with user dropdown data… 0.02s  
+  ✓ imports template uses english copy for english users                 0.04s  
+  ✓ imports store accepts generated xlsx template rows through the exis… 0.05s  
+  ✓ imports store accepts the official generated xlsx template as the g… 0.20s  
+  ✓ xlsx import keeps resolving a renamed account when the template car… 0.06s  
+  ✓ xlsx import accepts workbooks saved with shared string rich text     0.03s  
+  ✓ xlsx import accepts the official template after inline rich text ro… 0.03s  
+  ✓ xlsx import ignores destination account on non-transfer rows         0.04s  
+  ✓ xlsx import interprets excel serial dates from date-formatted cells  0.03s  
+  ✓ xlsx import keeps accepting textual dates in the expected format     0.03s  
+  ✓ xlsx import sends unresolved account rows to manual review and allo… 0.05s  
+  ✓ mediobanca xlsx upload processes real profile rows and detects reim… 0.08s  
+  ✓ mediobanca xlsx learns category suggestions from previously importe… 0.09s  
+  ✓ xlsx import fails only for structural workbook errors                0.02s  
+  ✓ imports store shows a clear validation error when file is missing    0.04s  
+  ✓ imports store requires an explicit format when more than one generi… 0.04s  
+  ✓ imports store can use the auto-provisioned single generic format     0.03s  
+  ✓ imports store rejects unavailable or inactive formats with a clear…  0.04s  
+  ✓ imports store uploads a file and redirects to detail page            0.02s  
+  ✓ imports store processes blocked year review and already imported ro… 0.03s  
+  ✓ imports keep existing imported transactions untouched when a new fi… 0.02s  
+  ✓ imports allow reimport after a previously imported transaction was…  0.06s  
+  ✓ imports can promote ready rows into transactions                     0.04s  
+  ✓ imports import-ready keeps the user on import detail when transacti… 0.04s  
+  ✓ imports import-ready completes successfully when import completed t… 0.03s  
+  ✓ imports can be rolled back after transactions were created           0.02s  
+  ✓ imports can be archived filtered and restored without touching tran… 0.08s  
+  ✓ rolled back imports can be deleted safely                            0.02s  
+  ✓ active imports cannot be deleted                                     0.02s  
+
+   PASS  Tests\Feature\Imports\ProcessGenericCsvImportServiceTest
+  ✓ generic csv import parses, normalizes and classifies rows while upd… 0.04s  
+  ✓ bank profile csv maps custom columns and suggests a category from t… 0.02s  
+  ✓ mediobanca xlsx profile reads the real header row and maps separate… 0.02s  
+  ✓ revolut csv profile maps signed amounts fee fallback and completed…  0.02s  
+  ✓ hype xlsx profile reads movimenti sheet and maps signed amounts wit… 0.02s  
+  ✓ n26 csv profile maps signed eur amounts and preserves original amou… 0.03s  
+  ✓ paypal csv profile maps net amounts and keeps funding rows in revie… 0.02s  
+  ✓ satispay xlsx profile reads transactions sheet and preserves meal v… 0.02s  
+  ✓ generic csv import fails when required headers are missing           0.01s  
+  ✓ generic import sends ambiguous account names to manual review        0.01s  
+  ✓ generic import normalizes amounts reliably across eu and us formats… 0.04s  
+  ✓ generic import does not crash on manipulated account guid values an… 0.02s  
+
+   PASS  Tests\Feature\Imports\PruneOldImportsCommandTest
+  ✓ prune old imports removes old source files for closed imports but k… 0.02s  
+  ✓ prune old imports deletes failed imports and related rows when they… 0.02s  
+
+   PASS  Tests\Feature\Imports\ReviewImportRowTest
+  ✓ it updates a review row and marks it ready when data is valid        0.04s  
+  ✓ it marks a row as blocked_year when reviewed with a date outside ma… 0.02s  
+  ✓ it keeps a transfer row in needs_review                              0.02s  
+  ✓ it marks a reviewed row as already_imported using the import accoun… 0.02s  
+  ✓ it marks a row as skipped                                            0.03s  
+  ✓ it updates import counters after skipping a row                      0.02s  
+
+   PASS  Tests\Feature\KofiWebhookTest
+  ✓ token valido accetta la request del webhook                          0.02s  
+  ✓ token invalido rifiuta la request del webhook                        0.03s  
+  ✓ payload form urlencoded con data json viene parsato correttamente    0.01s  
+  ✓ payload json malformato viene rifiutato in modo sicuro               0.01s  
+  ✓ donation viene salvata correttamente                                 0.01s  
+  ✓ subscription con is subscription payment true viene salvata corrett… 0.01s  
+  ✓ is first subscription payment true viene salvato correttamente       0.02s  
+  ✓ shop order salva gli shop items                                      0.01s  
+  ✓ commission viene salvata in modo coerente senza attivare support wi… 0.01s  
+  ✓ is public false viene salvato coerentemente                          0.01s  
+  ✓ retry con stesso message id non duplica                              0.03s  
+  ✓ transazione non riconciliata resta tracciata                         0.01s  
+  ✓ matching immediato per email riconcilia la donation ad un utente es… 0.01s  
+  ✓ display name da solo non genera un match automatico senza email esa… 0.01s  
+
+   PASS  Tests\Feature\Localization\I18nStructureTest
+  ✓ it provides the required backend i18n namespaces for supported loca… 0.03s  
+  ✓ it keeps backend message keys and placeholders aligned in Italian a… 0.02s  
+  ✓ it localizes manifest shortcuts and contextual help without changin… 0.01s  
+  ✓ it localizes manifest shortcuts and contextual help without changin… 0.01s  
+  ✓ it keeps core validation attributes available for both supported lo… 0.01s  
+  ✓ it keeps literal backend translation keys resolvable for supported…  0.14s  
+  ✓ it translates every built-in notification preference category in bo… 0.01s  
+
+   PASS  Tests\Feature\MailReadinessConfigTest
+  ✓ mail defaults to mailtrap for local readiness                        0.02s  
+  ✓ mail config exposes ses and brevo mailers                            0.01s  
+  ✓ ses service config exposes readiness fields                          0.01s  
+  ✓ transactional provider can be resolved by configuration only         0.01s  
+
+   PASS  Tests\Feature\Maintenance\TechnicalArchiveTest
+  ✓ old completed technical records are archived in full and recent and… 0.01s  
+  ✓ old completed technical records are archived in full and recent and… 0.03s  
+  ✓ pending running and retryable terminal runs remain online regardles… 0.01s  
+  ✓ pending running and retryable terminal runs remain online regardles… 0.01s  
+  ✓ pending running and retryable terminal runs remain online regardles… 0.01s  
+  ✓ pending running and retryable terminal runs remain online regardles… 0.01s  
+  ✓ pending running and retryable terminal runs remain online regardles… 0.01s  
+  ✓ archive insertion failure rolls back and leaves all original record… 0.03s  
+  ✓ verification failure rolls back the entire batch including earlier…  0.01s  
+  ✓ retry and an interrupted run resume across multiple bounded chunks…  0.01s  
+  ✓ an existing verified archive is reused but a changed or corrupted a… 0.01s  
+  ✓ an existing verified archive is reused but a changed or corrupted a… 0.01s  
+  ✓ dry run reports bounded candidates without modifying source or arch… 0.03s  
+  ✓ all non allowlisted tables including every financial table are reje… 0.02s  
+  ✓ interruption retains committed chunks and a subsequent run safely c… 0.01s  
+  ✓ retention is configurable and a recently finished or updated run is… 0.01s  
+  ✓ technical maintenance is scheduled daily with overlapping and multi… 0.03s  
+  ✓ archives retain separate owner contexts and export verified payload… 0.01s  
+  ✓ migration rollback cannot destroy the sole archived copy             0.01s  
+  ✓ invalid configuration and arguments fail closed                      0.01s  
+
+   PASS  Tests\Feature\MaintenanceRealtimeTest
+  ✓ maintenance state update broadcasts on the global public channel     0.03s  
+  ✓ maintenance disabled update clears the global maintenance state      0.01s  
+  ✓ laravel maintenance events broadcast active and inactive states imm… 0.01s  
+  ✓ maintenance status endpoint exposes the backend source of truth      0.01s  
+
+   PASS  Tests\Feature\Notification\NotificationTopicFoundationTest
+  ✓ it creates notification topics table with expected columns           0.01s  
+  ✓ it creates user notification preferences table with expected column… 0.03s  
+  ✓ it casts notification topic audience correctly                       0.01s  
+  ✓ it links user preferences to topics                                  0.01s  
+  ✓ it seeds default notification topics                                 0.01s  
+
+   PASS  Tests\Feature\NotificationFeedbackTest
+  ✓ shares contextual notification messages for every supported level    0.03s  
+  ✓ shares validation messages even for fields absent from the visible…  0.02s  
+
+   PASS  Tests\Feature\NotificationInboxTest
+  ✓ shared notification inbox exposes unread count and latest notificat… 0.03s  
+  ✓ notification preview endpoint returns the latest inbox items         0.01s  
+  ✓ notification mark as read endpoint updates the unread count          0.01s  
+  ✓ notifications page renders the real inbox                            0.04s  
+  ✓ user can permanently delete one of their notifications               0.01s  
+  ✓ user cannot delete another users notification                        0.01s  
+  ✓ deleting the only notification on the last page redirects to the pr… 0.01s  
+  ✓ notification pagination labels are localized with dataset "Italian"  0.03s  
+  ✓ notification pagination labels are localized with dataset "English"  0.04s  
+
+   PASS  Tests\Feature\NotificationRealtimeTest
+  ✓ notification realtime channel authorizes only the matching user uui… 0.01s  
+  ✓ database notifications dispatch the realtime inbox update event      0.01s  
+  ✓ user notification inbox update event broadcasts the expected payloa… 0.01s  
+
+   PASS  Tests\Feature\ProductionLoggingTest
+  ✓ real http exceptions reach both sinks with safe correlation context… 0.03s  
+  ✓ real http exceptions reach both sinks with safe correlation context… 0.02s  
+  ✓ stderr remains available when persistent log writing fails           0.01s  
+  ✓ diagnostic logs redact nested secrets and retain argument free exce… 0.01s  
+  ✓ cli exceptions are reported to actual stderr and daily files withou… 0.14s  
+  ✓ numeric request secrets are redacted from exception messages         0.03s  
+  ✓ production logging deployment is persistent rotated and debug safe   0.01s  
+  ✓ queue and scheduler failures keep operational context without dupli… 0.02s  
+
+   PASS  Tests\Feature\PublicEditorialAssetTest
+  ✓ it serves public editorial assets through a dedicated route          0.02s  
+  ✓ it does not serve files outside the editorial rich content director… 0.03s  
+
+   PASS  Tests\Feature\PublicSeoTest
+  ✓ home page exposes localized public seo metadata                      0.03s  
+  ✓ private authenticated pages do not expose public seo metadata        0.04s  
+  ✓ public changelog show route exposes initial release props and route… 0.03s  
+  ✓ sitemap includes public urls only and excludes private areas         0.03s  
+  ✓ robots file disallows private sections and references sitemap        0.01s  
+
+   PASS  Tests\Feature\Push\PushNotificationsTest
+  ✓ it creates the device tokens table with the expected columns         0.01s  
+  ✓ it registers updates and invalidates device tokens through the serv… 0.02s  
+  ✓ it reactivates an existing inactive device token when the current b… 0.03s  
+  ✓ it rotates the token for the same browser device without creating a… 0.02s  
+  ✓ it recovers an invalidated browser token automatically when the sam… 0.02s  
+  ✓ it shows and saves the push enabled preference when the feature is…  0.03s  
+  ✓ it shows the current active web token count on the profile page      0.04s  
+  ✓ it registers the current browser push token and returns the updated… 0.02s  
+  ✓ it sends one test notification only to the current browser device    0.02s  
+  ✓ it returns the current browser push device status without assuming…  0.03s  
+  ✓ it disables only the current browser token and keeps the account-le… 0.02s  
+  ✓ it disables the current browser token using only the device identif… 0.02s  
+  ✓ it does not deactivate another platform token with the same token v… 0.01s  
+  ✓ it checking the current browser push device status does not deactiv… 0.03s  
+  ✓ it does not expose or save the push preference when the feature is…  0.03s  
+  ✓ it hides the profile push ui when the user-facing push flag is off   0.04s  
+  ✓ it filters eligible users and invalidates tokens reported as invali… 0.02s  
+  ✓ it logs the firebase invalidation context when firebase rejects tok… 0.02s  
+  ✓ it builds a browser-oriented webpush payload for broadcasts          0.02s  
+  ✓ it the send push notification job delegates to the service and upda… 0.03s  
+  ✓ it exposes the admin push broadcast page only when the feature is o… 0.04s  
+  ✓ it counts users as eligible in the admin audience summary when at l… 0.01s  
+  ✓ it drops the admin audience summary when one of two browser devices… 0.02s  
+  ✓ it deduplicates active broadcast targets per browser device and pru… 0.03s  
+  ✓ it sends push broadcasts only to the latest active token for each b… 0.02s  
+
+   PASS  Tests\Feature\Pwa\PwaFoundationTest
+  ✓ it serves a professional web app manifest                            0.02s  
+  ✓ it ships icon and screenshot assets that exist with the declared si… 0.01s  
+  ✓ it renders a stable service worker with versioned caches and contro… 0.05s  
+  ✓ it precaches the offline fallback and current build shell assets on… 0.01s  
+
+   PASS  Tests\Feature\Recurring\AutomaticPaymentVerificationTest
+  ✓ automatic posting accounts immediately but awaits verification with… 0.03s  
+  ✓ automatic posting accounts immediately but awaits verification with… 0.03s  
+  ✓ automatic posting accounts immediately but awaits verification with… 0.04s  
+  ✓ manual confirmation preserves identity amount and balance            0.03s  
+  ✓ verification expires exactly after seven days without accounting mo… 0.02s  
+  ✓ payment problem before or after verification removes registration a… 0.04s  
+  ✓ payment problem before or after verification removes registration a… 0.06s  
+  ✓ waiting mode creates no transaction and manual settlement remains a… 0.02s  
+  ✓ other users cannot confirm or invalidate automatic transactions      0.02s  
+  ✓ variable automatic amounts post before confirmation and remain corr… 0.05s  
+  ✓ skipped occurrences do not enter payment verification                0.02s  
+  ✓ payment problem rollback restores the transaction and occurrence wh… 0.03s  
+  ✓ failure leaves other occurrences and transactions untouched and exp… 0.04s  
+  ✓ dashboard lists pending payment verification independently of the s… 0.07s  
+  ✓ matched transactions and unconfirmed variable amounts are excluded…  0.03s  
+  ✓ automatic lifecycle posts past variable schedules and waits only fo… 0.03s  
+  ✓ automatic lifecycle posts past variable schedules and waits only fo… 0.05s  
+  ✓ automatic lifecycle posts past variable schedules and waits only fo… 0.04s  
+  ✓ invalid automatic amount waits without creating a zero transaction   0.02s  
+  ✓ changing the actual bank date preserves scheduled verification and…  0.04s  
+  ✓ scheduler job can run twice and also posts generated occurrences     0.04s  
+  ✓ the transaction endpoint permits actual date and amount corrections… 0.04s  
+  ✓ correcting a shared automatic amount preserves the plan allocation…  0.04s  
+  ✓ correcting a shared automatic amount preserves the plan allocation…  0.06s  
+  ✓ correcting a shared automatic amount preserves the plan allocation…  0.04s  
+  ✓ correcting a shared automatic amount preserves the plan allocation…  0.04s  
+  ✓ correcting a shared automatic amount preserves the plan allocation…  0.04s  
+  ✓ correcting a shared automatic amount preserves the plan allocation…  0.05s  
+  ✓ correcting a shared automatic amount preserves the plan allocation…  0.03s  
+  ✓ correcting a shared automatic amount preserves the plan allocation…  0.03s  
+  ✓ correcting a shared automatic transaction ignores a fixed old share… 0.05s  
+  ✓ correcting a shared automatic transaction ignores a fixed old share… 0.04s  
+
+   PASS  Tests\Feature\Recurring\OccurrencePartialPaymentTest
+  ✓ partial payments expose only the residual and close at zero without… 0.04s  
+  ✓ partial payments expose only the residual and close at zero without… 0.05s  
+  ✓ partial payments expose only the residual and close at zero without… 0.03s  
+  ✓ partial payments expose only the residual and close at zero without… 0.03s  
+  ✓ a 450 payment leaves exactly 50 in the plan credit debts and dashbo… 0.17s  
+  ✓ a 450 payment leaves exactly 50 in the plan credit debts and dashbo… 0.17s  
+  ✓ allocation retries are idempotent and reject changed quotas or over… 0.02s  
+  ✓ a transaction can allocate distinct quotas to multiple occurrences…  0.02s  
+  ✓ allocation and automation block roll back together on an error       0.03s  
+  ✓ ineligible occurrences and transactions reject allocations without…  0.02s  
+  ✓ ineligible occurrences and transactions reject allocations without…  0.02s  
+  ✓ ineligible occurrences and transactions reject allocations without…  0.02s  
+  ✓ ineligible occurrences and transactions reject allocations without…  0.02s  
+  ✓ ineligible occurrences and transactions reject allocations without…  0.03s  
+  ✓ ineligible occurrences and transactions reject allocations without…  0.02s  
+  ✓ cent allocations close exactly and deletion reopens only the remove… 0.02s  
+  ✓ a replaced payment cannot be restored or revalidated beyond the res… 0.02s  
+  ✓ a replaced payment cannot be restored or revalidated beyond the res… 0.04s  
+  ✓ deleted or invalidated allocated transactions reopen the live oblig… 0.02s  
+  ✓ deleted or invalidated allocated transactions reopen the live oblig… 0.02s  
+  ✓ deleted or invalidated allocated transactions reopen the live oblig… 0.02s  
+  ✓ allocation endpoint enforces ownership and amount limits             0.04s  
+  ✓ legacy manual pending and generated obligations survive new nullabl… 0.09s  
+  ✓ legacy manual pending and generated obligations survive new nullabl… 0.11s  
+  ✓ legacy manual pending and generated obligations survive new nullabl… 0.09s  
+  ✓ legacy manual pending and generated obligations survive new nullabl… 0.11s  
+  ✓ legacy closed occurrences never become open obligations or arrears…  0.09s  
+  ✓ legacy closed occurrences never become open obligations or arrears…  0.11s  
+  ✓ legacy closed occurrences never become open obligations or arrears…  0.11s  
+  ✓ legacy closed occurrences never become open obligations or arrears…  0.09s  
+  ✓ legacy closed occurrences never become open obligations or arrears…  0.11s  
+  ✓ legacy closed occurrences never become open obligations or arrears…  0.09s  
+  ✓ legacy closed occurrences never become open obligations or arrears…  0.11s  
+  ✓ legacy closed occurrences never become open obligations or arrears…  0.10s  
+  ✓ manual occurrence payments use the normal transaction store and pre… 0.25s  
+  ✓ manual occurrence payments use the normal transaction store and pre… 0.24s  
+  ✓ refunded allocated payments no longer reduce the occurrence residua… 0.02s  
+  ✓ batched rendering snapshots match fresh payment reads without influ… 0.02s  
+  ✓ late allocated payment retains both navigation links across differe… 0.14s  
+  ✓ existing payment can be explicitly relinked without changing cash o… 0.05s  
+  ✓ legacy matched relation remains visible without an inverse transact… 0.16s  
+  ✓ manual and automatic posting keep the source scadence when payment…  0.16s  
+  ✓ manual and automatic posting keep the source scadence when payment…  0.15s  
+  ✓ one transaction allocated to several occurrences exposes every cano… 0.13s  
+  ✓ linking an existing payment rejects incompatible amounts and foreig… 0.03s  
+
+   PASS  Tests\Feature\Recurring\RecurringDomainFoundationTest
+  ✓ recurring domain schema exposes the new foundational columns         0.02s  
+  ✓ recurring entry, occurrence and transaction casts use the new enums  0.02s  
+  ✓ recurring domain relations are wired coherently                      0.02s  
+  ✓ occurrence sequence number is unique within a recurring entry        0.03s  
+  ✓ a recurring occurrence retains refunded transactions alongside repl… 0.02s  
+  ✓ a transaction can be refunded only once in v1                        0.01s  
+  ✓ the migration backfills coherent defaults for legacy recurring data  0.09s  
+
+   PASS  Tests\Feature\Recurring\RecurringDomainServicesTest
+  ✓ validator accepts a valid recurring plan                             0.02s  
+  ✓ validator accepts a valid installment plan and normalizes installme… 0.02s  
+  ✓ validator rejects recurring plans with installment fields            0.02s  
+  ✓ validator rejects installment plans without total amount             0.02s  
+  ✓ validator rejects installment plans without installments count       0.02s  
+  ✓ validator rejects after occurrences without a limit                  0.02s  
+  ✓ validator rejects until date without end date                        0.02s  
+  ✓ validator rejects end dates before the start date                    0.02s  
+  ✓ allocator handles exact installment division                         0.01s  
+  ✓ allocator handles rounded installment division with the last instal… 0.01s  
+  ✓ generator creates daily recurring occurrences                        0.02s  
+  ✓ generator creates weekly recurring occurrences using weekdays        0.13s  
+  ✓ generator creates monthly day of month recurring occurrences         0.02s  
+  ✓ generator creates monthly ordinal weekday recurring occurrences      0.02s  
+  ✓ generator creates quarterly recurring occurrences on a fixed day of… 0.02s  
+  ✓ generator creates yearly fixed date recurring occurrences            0.02s  
+  ✓ generator creates yearly ordinal weekday recurring occurrences       0.02s  
+  ✓ generator creates installment occurrences with allocated amounts an… 0.02s  
+  ✓ generator is idempotent and respects occurrence limits               0.02s  
+  ✓ lifecycle respects auto create transaction flag                      0.04s  
+  ✓ posting converts an occurrence into a scheduled transaction without… 0.03s  
+  ✓ refund service creates a correct one to one refund for a scheduled…  0.05s  
+  ✓ refund service forbids double refund refund on refund and refund on… 0.04s  
+  ✓ open ended schedules keep generating beyond one thousand occurrence… 0.29s  
+  ✓ open ended schedules keep generating beyond one thousand occurrence… 0.45s  
+  ✓ weekly generation preserves partial first weeks and multiweek inter… 0.14s  
+
+   PASS  Tests\Feature\Recurring\RecurringEntryAmountHistoryTest
+  ✓ base amount increases and decreases retain immutable history withou… 0.12s  
+  ✓ variable occurrence overrides do not create price history and survi… 0.05s  
+  ✓ refunded occurrences and their transactions remain unchanged after…  0.07s  
+  ✓ installment base price changes preserve registered and customized d… 0.05s  
+  ✓ metadata edits and initial creation do not add an unnecessary amoun… 0.06s  
+{"records":7,"bytes":10583,"queries":46}
+
+   PASS  Tests\Feature\Recurring\RecurringEntryLazyHistoryTest
+  ✓ measures recurring history response                                  0.09s  
+  ✓ loads bounded year chunks and locates an old occurrence without loa… 0.13s  
+  ✓ year grouping uses the overridden due date                           0.09s  
+  ✓ keeps global summaries exact across batches without per occurrence…  0.10s  
+  ✓ shows years chronologically and only flags overdue unpaid residuals  0.11s  
+  ✓ opens daily schedules around today while preserving explicit access… 0.19s  
+  ✓ today target is the nearest actual due date even when it has alread… 0.07s  
+  ✓ today target is the nearest actual due date even when it has alread… 0.07s  
+  ✓ today target is the nearest actual due date even when it has alread… 0.07s  
+  ✓ today target crosses year boundaries and skips cancelled occurrence… 0.07s  
+  ✓ future recurring rows remain generated but are hidden until next ye… 0.15s  
+
+   PASS  Tests\Feature\Recurring\RecurringEntryManagementTest
+  ✓ installment paid summary counts actual historical and partial payme… 0.14s  
+  ✓ indefinite recurring detail only counts payments received in the cu… 0.04s  
+  ✓ recurring and installment forms receive the authenticated users act… 0.06s  
+  ✓ recurring exchange preview returns no fx preview when account curre… 0.04s  
+  ✓ recurring exchange preview returns stored fx data when account curr… 0.02s  
+  ✓ recurring exchange preview returns a readable error when the rate i… 0.02s  
+  ✓ store recurring entry creates the plan and generates initial occurr… 0.02s  
+  ✓ recurring and installment entries resolve an active personal shared… 0.05s  
+  ✓ a shared recurring entry persists its allocation, propagates it to…  0.05s  
+  ✓ the recurring shared filter excludes normal plans without leaking a… 0.10s  
+  ✓ store recurring entry persists up to three advance reminders         0.03s  
+  ✓ store recurring entry validates advance reminder limits with datase… 0.02s  
+  ✓ store recurring entry validates advance reminder limits with datase… 0.03s  
+  ✓ store recurring entry validates advance reminder limits with datase… 0.02s  
+  ✓ store recurring entry validates advance reminder limits with datase… 0.02s  
+  ✓ store recurring entry rejects an end date earlier than the start da… 0.02s  
+  ✓ store recurring entry accepts a distant end date and creates its ma… 0.08s  
+  ✓ store installment entry creates the plan and generates installment…  0.02s  
+  ✓ store accepts an unchecked installment recalculation confirmation f… 0.02s  
+  ✓ index returns recurring entries and supports filters and sorting     0.10s  
+  ✓ index searches recurring entries by their displayed fields without…  0.20s  
+  ✓ store recurring entry automatically creates a future management yea… 0.02s  
+  ✓ store recurring entry still rejects a past unavailable management y… 0.02s  
+  ✓ store recurring entry does not reopen a closed future management ye… 0.03s  
+  ✓ store recurring entry does not create a future management year when… 0.02s  
+  ✓ store recurring entry rejects an uncreated accounting year without…  0.02s  
+  ✓ store recurring entry rejects an uncreated accounting year without…  0.02s  
+  ✓ index recurring date options expose available years and today        0.05s  
+  ✓ index supports cancelled status filter                               0.05s  
+  ✓ show returns recurring entry details occurrences and summary payloa… 0.05s  
+  ✓ show reports paid installments against the plan total                0.07s  
+  ✓ destroy removes the plan generated transactions and refunds but pre… 0.05s  
+  ✓ show orders occurrences chronologically by date                      0.06s  
+  ✓ user sees recurring entries from accessible shared accounts but not… 0.06s  
+  ✓ viewer can read shared recurring entries but cannot mutate them      0.07s  
+  ✓ shared recurring form options expose accessible filter accounts and… 0.07s  
+  ✓ editor can create and mutate recurring entries on shared accounts w… 0.05s  
+  ✓ owner sees recurring entries created by an invitee on a shared acco… 0.07s  
+  ✓ invitee sees recurring entries created by the owner on a shared acc… 0.06s  
+  ✓ editor can create shared recurring entries using shared account sco… 0.07s  
+  ✓ recurring editor can create a new tracked item option on a shared a… 0.03s  
+  ✓ recurring form tracked item creation reuses an existing personal re… 0.02s  
+  ✓ shared recurring show payload keeps account scoped categories and t… 0.08s  
+  ✓ store recurring automatic entry with start date today creates the f… 0.03s  
+  ✓ store installment automatic entry with start date today creates the… 0.03s  
+  ✓ store recurring automatic entry with past start date creates all ma… 0.06s  
+  ✓ store installment automatic entry with past start date creates all…  0.05s  
+  ✓ an installment plan reports the dated negative balance and rolls ba… 0.03s  
+  ✓ an installment plan reports the dated negative balance and rolls ba… 0.05s  
+  ✓ store recurring manual entry with start date today does not create…  0.02s  
+  ✓ store installment manual entry with past start date does not create… 0.02s  
+  ✓ initial automatic posting remains idempotent on a second lifecycle…  0.06s  
+  ✓ update allows structural changes when the plan has no converted occ… 0.03s  
+  ✓ plan edits preserve customized and past occurrences while updating…  0.07s  
+  ✓ changing a recurring base amount never rewrites a converted occurre… 0.06s  
+  ✓ a refunded automatic occurrence remains history when its future sch… 0.15s  
+  ✓ converted occurrence transaction link points to the matching transa… 0.05s  
+  ✓ variable recurring plan updates only one pending occurrence amount   0.05s  
+  ✓ dashboard confirms a due variable occurrence without changing its p… 0.09s  
+  ✓ dashboard confirms a due variable occurrence without changing its p… 0.10s  
+  ✓ a pending occurrence can override its date and account without chan… 0.05s  
+  ✓ conversion uses the occurrence date and account overrides and locks… 0.08s  
+  ✓ variable recurring plan synchronizes a converted transaction amount… 0.04s  
+  ✓ fixed installment matched and refunded occurrences cannot change th… 0.08s  
+  ✓ variable occurrence amount validation rejects invalid precision and… 0.02s  
+  ✓ variable occurrence amount validation rejects invalid precision and… 0.02s  
+  ✓ variable occurrence amount validation rejects invalid precision and… 0.02s  
+  ✓ variable occurrence amount validation rejects invalid precision and… 0.04s  
+  ✓ variable occurrence amount validation rejects invalid precision and… 0.02s  
+  ✓ index recurring payload exposes linked transaction path with highli… 0.05s  
+  ✓ update blocks structural changes when the plan has converted occurr… 0.07s  
+  ✓ update changes only future installment base amounts after confirmat… 0.04s  
+  ✓ update requires confirmation before recalculating a converted insta… 0.05s  
+  ✓ installment distribution updates occurrences and linked transaction… 0.05s  
+  ✓ installment distribution rejects a total different from the plan to… 0.02s  
+  ✓ installment pause resume and cancel retain the existing behavior     0.03s  
+  ✓ convert occurrence creates a scheduled transaction and does not dup… 0.05s  
+  ✓ future occurrence conversion requires explicit confirmation          0.02s  
+  ✓ undo conversion permanently removes the scheduled transaction and r… 0.04s  
+  ✓ undo conversion is blocked when the scheduled transaction has alrea… 0.05s  
+  ✓ refund from recurring is available only for the latest converted oc… 0.06s  
+  ✓ undo conversion is blocked for occurrences linked to non scheduled…  0.04s  
+  ✓ refund endpoint refunds eligible transactions and blocks forbidden…  0.07s  
+  ✓ a single recurring or installment occurrence can be skipped and res… 0.10s  
+  ✓ a single recurring or installment occurrence can be skipped and res… 0.08s  
+  ✓ skip and restore reject another users occurrence                     0.04s  
+  ✓ temporary pause skips the next three periods and resumes without ch… 0.05s  
+  ✓ temporary pause skips the next three periods and resumes without ch… 0.17s  
+  ✓ temporary pause skips the next three periods and resumes without ch… 0.04s  
+  ✓ temporary pause skips the next three periods and resumes without ch… 0.04s  
+  ✓ temporary pause selects occurrences without an aggregate query inco… 0.03s  
+  ✓ temporary pause materializes missing future occurrences and does no… 0.05s  
+  ✓ temporary pause validates quantity and rejects another users plan    0.03s  
+  ✓ scheduled automation excludes skipped occurrences and still posts f… 0.03s  
+  ✓ a skipped shared occurrence cannot generate a ledger record          0.05s  
+  ✓ enabling automatic posting on a plan with recorded history immediat… 0.08s  
+  ✓ cancelled automatic plans reactivate with overdue dates manual and…  0.08s  
+  ✓ cancelled automatic plans reactivate with overdue dates manual and…  0.08s  
+  ✓ reactivation materializes missed dates and preserves skipped and re… 0.07s  
+  ✓ external shared payment settles the obligation without cash and can… 0.27s  
+  ✓ external shared payment settles the obligation without cash and can… 0.25s  
+  ✓ changing a scheduled payment to counterparty retains the occurrence… 0.05s  
+  ✓ a shared occurrence chooses its actual payer independently of the p… 0.03s  
+  ✓ a shared occurrence chooses its actual payer independently of the p… 0.03s  
+  ✓ partial counterparty payments accumulate on the linked ledger until… 0.04s  
+  ✓ existing plans can enable and disable sharing without rewriting set… 0.06s  
+  ✓ existing plans can enable and disable sharing without rewriting set… 0.06s  
+  ✓ refund reopens the correct residual and accepts a replacement while… 0.09s  
+  ✓ refund reopens the correct residual and accepts a replacement while… 0.10s  
+  ✓ partial refunds and transaction state changes keep only active sett… 0.06s  
+  ✓ replacement payment rejects inaccessible accounts and accepts a dif… 0.09s  
+  ✓ unrelated updates preserve custom sharing ratios on a plan with set… 0.06s  
+
+   PASS  Tests\Feature\Recurring\RecurringSummaryNotificationServiceTest
+  ✓ it sends the weekly recurring summary only to users who enabled the… 0.24s  
+  ✓ it sends the weekly recurring summary by email and in app using the… 0.18s  
+  ✓ it sends the weekly recurring summary by email and in app using the… 0.17s  
+  ✓ it sends the monthly recurring summary in english for the start-of-… 0.04s  
+  ✓ it registers the recurring summary jobs in the scheduler             0.02s  
+
+   PASS  Tests\Feature\Recurring\RecurringTransactionFocusTest
+  ✓ conversion redirects directly to its persisted transaction and effe… 0.17s  
+  ✓ conversion redirects directly to its persisted transaction and effe… 0.17s  
+  ✓ conversion redirects directly to its persisted transaction and effe… 0.17s  
+  ✓ conversion redirects directly to its persisted transaction and effe… 0.17s  
+  ✓ an accessible focus selects the actual month while preserving its q… 0.05s  
+
+   PASS  Tests\Feature\Recurring\RecurringTrialPeriodTest
+  ✓ trial starts real monthly occurrences on the first billing day with… 0.03s  
+  ✓ trial can be rescheduled before billing but not after a real automa… 0.09s  
+  ✓ first paid occurrence uses the existing seven day advance reminder   0.03s  
+  ✓ weeks and months calculate trial end without overflowing calendar m… 0.01s  
+  ✓ trial is rejected for installment plans                              0.01s  
+
+   PASS  Tests\Feature\Reminders\DailyReminderTest
+  ✓ it sends an in-app localized reminder for a credit due today and de… 0.04s  
+  ✓ it skips credits and debts when the feature flag is disabled         0.03s  
+  ✓ it notifies an overdue partial debt with the remaining amount and i… 0.03s  
+  ✓ it does not notify credit debt items without due date or beyond the… 0.03s  
+  ✓ it sends a manual recurring occurrence reminder and skips generated… 0.03s  
+  ✓ it uses the global recurring preference only on the due date         0.03s  
+  ✓ it sends selected recurring advance reminders even when the global…  0.04s  
+  ✓ it does not send the due-date recurring reminder when its global pr… 0.03s  
+  ✓ it requests the actual amount on the due date for a variable plan e… 0.07s  
+  ✓ it supports the fifteen day recurring reminder boundary              0.03s  
+  ✓ it sends push for a selected recurring advance reminder when push i… 0.03s  
+  ✓ it respects in-app preferences and does not send email for reminder… 0.03s  
+  ✓ it sends push only when enabled and an active device token exists    0.03s  
+  ✓ it commands output reminder counts                                   0.03s  
+
+   PASS  Tests\Feature\Reports\AccountReportExportTest
+  ✓ accounts report export generates a pdf for a single filtered accoun… 0.15s  
+  ✓ accounts report export is fully localized in english with locale-aw… 0.15s  
+  ✓ accounts report export groups all account movements and applies the… 0.15s  
+
+   PASS  Tests\Feature\Reports\ReportFeatureFlagsTest
+  ✓ reports are enabled by default in the test environment               0.01s  
+  ✓ disabling reports hides only the reports area while budget planning… 0.07s  
+  ✓ disabling a report section does not affect budget planning or the r… 0.05s  
+
+   PASS  Tests\Feature\Reports\ReportsIndexTest
+  ✓ reports index renders the new report shell inside the app layout     0.03s  
+  ✓ reports overview page exposes real kpis and trend data for the sele… 0.16s  
+  ✓ reports overview includes shared account data for invited users lik… 0.18s  
+  ✓ category analysis page renders with category filters and ledger-bas… 0.17s  
+  ✓ category analysis annual main expense category matches ledger accou… 0.20s  
+  ✓ category analysis uses each user personal budget on the same shared… 0.20s  
+  ✓ category analysis does not use owner personal budget when current u… 0.17s  
+  ✓ category analysis filters by subcategory and exposes previous perio… 0.20s  
+  ✓ category analysis renders a useful empty state when the selected ca… 0.16s  
+  ✓ category analysis renders correctly with reset filters and no raw t… 0.18s  
+  ✓ category analysis pdf filename includes timestamp and localizes ita… 0.15s  
+  ✓ category analysis pdf localizes english content and hides raw trans… 0.15s  
+  ✓ category analysis report section labels are localized                0.17s  
+  ✓ reports overview filters keep period math and resolved counts align… 0.21s  
+  ✓ reports categories page exposes hierarchical category analytics and… 0.19s  
+  ✓ category rename is reflected in reports from the linked category     0.16s  
+  ✓ category display matrix is consistent in category reports with data… 0.16s  
+  ✓ category display matrix is consistent in category reports with data… 0.16s  
+  ✓ reports accounts page exposes account vision analytics and comparis… 0.22s  
+  ✓ report pages keep empty states readable when no data matches the se… 0.20s  
+  ✓ reports overview stays aligned with the ledger for generated income… 0.26s  
+
+   PASS  Tests\Feature\RouteInputErrorHandlingTest
+  ✓ missing counterparties render the existing safe 404 page             0.02s  
+  ✓ malformed counterparties never query the uuid column with ('invalid… 0.02s  
+  ✓ malformed counterparties never query the uuid column with ('b6847ac… 0.02s  
+  ✓ another users counterparty is hidden                                 0.02s  
+  ✓ counterparty filters safely ignore unknown and structured values wi… 0.03s  
+  ✓ counterparty filters safely ignore unknown and structured values wi… 0.06s  
+  ✓ counterparty filters safely ignore unknown and structured values wi… 0.03s  
+  ✓ deleted counterparties return 404                                    0.02s  
+  ✓ every explicit uuid route rejects malformed parameters before bindi… 0.01s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.02s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.01s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.01s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.02s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.01s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.02s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.02s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.01s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.02s  
+  ✓ financial filters reject invalid uuid dates and structured strings…  0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.04s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.02s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.04s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ uuid mutation endpoints return 404 for missing and malformed resour… 0.01s  
+  ✓ transaction uuid query filters are validated with ('highlight')      0.04s  
+  ✓ transaction uuid query filters are validated with ('template')       0.02s  
+  ✓ invalid route periods return 404 with ('999999999/10')               0.01s  
+  ✓ invalid route periods return 404 with ('2026/99')                    0.03s  
+  ✓ invalid route periods return 404 with ('0/1')                        0.02s  
+  ✓ a missing counterparty relation target is handled as 404             0.01s  
+  ✓ foreign accounts and transactions are hidden while credit policy re… 0.04s  
+  ✓ soft deleted transactions and credits return 404                     0.02s  
+  ✓ unknown scalar credit filters are harmless and valid filters keep w… 0.02s  
+  ✓ unknown scalar credit filters are harmless and valid filters keep w… 0.04s  
+
+   PASS  Tests\Feature\Salary\SalaryEmploymentTest
+  ✓ multiple employments and schedules stay separate and ordinary salar… 0.06s  
+  ✓ generic additional payments reuse the existing recurrence engine wi… 0.03s  
+  ✓ generic additional payments reuse the existing recurrence engine wi… 0.05s  
+  ✓ generic additional payments reuse the existing recurrence engine wi… 0.04s  
+  ✓ generic additional payments reuse the existing recurrence engine wi… 0.05s  
+  ✓ signed components form one authoritative total and one idempotent t… 0.09s  
+  ✓ signed components form one authoritative total and one idempotent t… 0.06s  
+  ✓ signed components form one authoritative total and one idempotent t… 0.08s  
+  ✓ future base changes preserve past snapshots and explicit monthly ov… 0.04s  
+  ✓ ending employment preserves posted and overdue occurrences and stop… 0.05s  
+  ✓ salary endpoints enforce ownership and closed year rules without pa… 0.04s  
+  ✓ year on year comparison is isolated by employment and missing perio… 0.09s  
+  ✓ salary creation through the recurring endpoint validates and links…  0.03s  
+  ✓ posted salary composition is immutable and posting respects closed…  0.11s  
+  ✓ negative total rolls back every component and an existing component… 0.03s  
+  ✓ existing employment cannot be attached across users and invalid add… 0.04s  
+  ✓ salary category default is derived from the existing catalog and st… 0.05s  
+  ✓ existing manual payment allocations count actual salary once and pr… 0.03s  
+  ✓ salary name is optional and validation uses readable translated fie… 0.03s  
+  ✓ all salary payments share one registration mode during creation and… 0.15s  
+  ✓ salary uses the existing tracked reference without creating a separ… 0.03s  
+  ✓ creating an automatic salary in the past immediately posts every du… 0.08s  
+  ✓ salary reconciliation keeps composition and received money separate… 0.09s  
+  ✓ salary future revision replaces fourteen with thirteen while preser… 0.09s  
+  ✓ salary revision adds and moves only future additional dates and pre… 0.12s  
+  ✓ future salary overrides and cross user changes are protected with a… 0.04s  
+  ✓ salary calendar payload only includes the chosen month and excludes… 0.13s  
+  ✓ retired salary schedules cannot post restored future occurrences or… 0.04s  
+  ✓ salary annual received excludes refunded occurrences and calendar n… 0.06s  
+  ✓ salary recurrence can be renamed after posting while preserving tra… 0.09s  
+
+   PASS  Tests\Feature\Security\CrossAccountIsolationTest
+  ✓ dynamic pages and session identity cannot be reused by shared cache… 0.10s  
+  ✓ login logout and another login resolve identity from the current se… 0.30s  
+  ✓ authenticated payloads never enter the shared SSR process            0.01s  
+  ✓ authorization errors and server failures also forbid response cachi… 0.02s  
+  ✓ authorization errors and server failures also forbid response cachi… 0.04s  
+  ✓ authorization errors and server failures also forbid response cachi… 0.01s  
+  ✓ authorization errors and server failures also forbid response cachi… 0.01s  
+  ✓ authorization errors and server failures also forbid response cachi… 0.04s  
+  ✓ maintenance responses remain neutral even with an authenticated adm… 0.02s  
+  ✓ logout revokes only the push device associated with the current use… 0.02s  
+  ✓ the same push device can register again after logout and another ac… 0.03s  
+  ✓ public and guest pages do not require session verification even for… 0.12s  
+
+   PASS  Tests\Feature\SessionActivityTest
+  ✓ session warning shared props expose expiry metadata to authenticate… 0.06s  
+  ✓ warning trigger broadcasts a realtime warning for the authenticated… 0.04s  
+  ✓ session status confirms the session is still active for authenticat… 0.01s  
+  ✓ keep alive renews the session through http and broadcasts a refresh… 0.01s  
+  ✓ guests cannot trigger session warning endpoints                      0.01s  
+
+   PASS  Tests\Feature\Settings\AccountCurrencyTest
+  ✓ account creation stores the selected currency from the catalog       0.04s  
+  ✓ account currency can be updated when the account has no accounting…  0.02s  
+  ✓ account currency cannot be updated after transactions exist          0.02s  
+  ✓ account currency cannot be updated after recurring entries exist     0.02s  
+
+   PASS  Tests\Feature\Settings\AccountManagementTest
+  ✓ accounts page returns payload ready for the ui                       0.07s  
+  ✓ user can set an account as default and a new default removes the pr… 0.02s  
+  ✓ accounts are ordered persistently within their real account type     0.04s  
+  ✓ account reorder rejects accounts from another type or owner          0.25s  
+  ✓ user can set the default account with the dedicated action           0.02s  
+  ✓ default account action rejects another user account and inactive ac… 0.02s  
+  ✓ first active bank backed account becomes default automatically when… 0.02s  
+  ✓ creating a new bank backed account does not override an existing de… 0.05s  
+  ✓ user can create a credit card account with validated settings        0.03s  
+  ✓ credit card linked payment account must belong to the same selected… 0.02s  
+  ✓ credit card requires bank, debit account, and billing cycle setting… 0.02s  
+  ✓ credit card cannot be linked to an account from another user or to…  0.04s  
+  ✓ cash account cannot accept iban or masked account number             0.02s  
+  ✓ accounts page excludes cash accounts from linked payment account op… 0.03s  
+  ✓ negative balances are blocked by default but can be enabled on elig… 0.02s  
+  ✓ user can update account and toggle active state                      0.04s  
+  ✓ account create defaults is_manual to true when the ui does not send… 0.02s  
+  ✓ account update preserves existing is_manual when the ui omits the f… 0.02s  
+  ✓ account update ignores current balance sent by the client            0.04s  
+  ✓ account opening balance creates and updates a dedicated opening bal… 0.03s  
+  ✓ opening balance date is required when setting an opening balance     0.02s  
+  ✓ opening balance date cannot be in the future or outside open manage… 0.02s  
+  ✓ opening balance date cannot be later than the first account transac… 0.03s  
+  ✓ opening balance date can match the first account transaction and up… 0.02s  
+  ✓ account cannot use a bank from another user                          0.02s  
+  ✓ cash accounts force no bank on create and update                     0.02s  
+  ✓ protected cash account cannot be deactivated or deleted              0.03s  
+  ✓ account create and update persist the reported flag                  0.02s  
+  ✓ used account cannot be deleted but unused account can be removed sa… 0.02s  
+
+   PASS  Tests\Feature\Settings\AccountsTest
+  ✓ accounts page is displayed                                           0.06s  
+  ✓ accounts page keeps owned accounts separate from shared accounts     0.03s  
+  ✓ accounts can be created using public uuids for related entities      0.02s  
+
+   PASS  Tests\Feature\Settings\BankManagementTest
+  ✓ user can create a custom bank                                        0.03s  
+  ✓ user can add a bank from catalog without duplicates                  0.02s  
+  ✓ user can update only a custom bank                                   0.01s  
+  ✓ user can toggle active state of available bank                       0.01s  
+  ✓ used user bank cannot be deleted but unused custom bank can          0.02s  
+
+   PASS  Tests\Feature\Settings\BanksTest
+  ✓ banks page shows only user available banks and remaining catalog op… 0.05s  
+  ✓ catalog banks can be attached using public bank uuid                 0.01s  
+
+   PASS  Tests\Feature\Settings\CategoriesTest
+  ✓ categories page is displayed                                         0.03s  
+  ✓ categories can be created using public parent uuid                   0.03s  
+  ✓ categories can be created through the existing store endpoint as js… 0.02s  
+  ✓ categories page exposes the default foundation subtree with non sel… 0.09s  
+  ✓ foundation categories expose coherent icons and colors for semantic… 0.09s  
+  ✓ categories page hides technical system transfer categories from the… 0.11s  
+
+   PASS  Tests\Feature\Settings\CategoryManagementTest
+  ✓ categories page returns tree and flat payload ready for the ui       0.03s  
+  ✓ shared account categories do not leak into the personal settings ca… 0.03s  
+  ✓ user can create a child category with normalized slug                0.03s  
+  ✓ new categories are appended after their siblings without accepting…  0.02s  
+  ✓ created and edited categories are immediately available in transact… 0.09s  
+  ✓ category reordering persists independent sequences for roots and si… 0.06s  
+  ✓ child category inherits direction and group from the parent on crea… 0.02s  
+  ✓ user cannot create a fourth level category                           0.02s  
+  ✓ user can still create a custom root category alongside system found… 0.03s  
+  ✓ same user cannot create two personal categories with the same slug   0.02s  
+  ✓ same user cannot create two root categories with the same name       0.01s  
+  ✓ same user cannot create two leaf categories with the same name unde… 0.01s  
+  ✓ same leaf name remains allowed in different category branches        0.03s  
+  ✓ foundation leaves cannot be duplicated under the same branch but re… 0.04s  
+  ✓ creating the first child moves parent budgets to the new child       0.02s  
+  ✓ user cannot assign a descendant as parent when updating a category   0.02s  
+  ✓ categories page exposes level three nodes but they cannot be used a… 0.05s  
+  ✓ updating a child keeps branch direction and group inherited from th… 0.02s  
+  ✓ child categories cannot be moved to a parent with an incompatible b… 0.02s  
+  ✓ saving foundation and its children use expense saving classificatio… 0.04s  
+  ✓ system foundation root category cannot change parent                 0.06s  
+  ✓ active category cannot be created under an inactive parent           0.02s  
+  ✓ used category cannot be deleted                                      0.02s  
+  ✓ system foundation category can be renamed and keep its persisted sl… 0.02s  
+  ✓ renaming a foundation category keeps transaction relations intact    0.03s  
+  ✓ system foundation root category cannot change direction or group     0.01s  
+  ✓ system foundation category keeps active true but can update icon co… 0.02s  
+  ✓ system foundation category cannot be deleted while custom categorie… 0.02s  
+  ✓ technical transfer system category cannot be updated from the stand… 0.03s  
+  ✓ custom category remains freely editable including name icon color a… 0.02s  
+  ✓ unused category can be deleted safely                                0.02s  
+  ✓ deleting the last child returns its budgets to the parent            0.02s  
+  ✓ deactivating a category also deactivates its descendants             0.03s  
+  ✓ system foundation category cannot be deactivated through the toggle… 0.01s  
+  ✓ user can update selectable and active flags explicitly               0.01s  
+
+   PASS  Tests\Feature\Settings\CategoryNameCustomizationTest
+  ✓ category display name matrix respects foundation defaults and custo… 0.02s  
+  ✓ category custom name backfill flags only legacy foundation rows tha… 0.03s  
+
+   PASS  Tests\Feature\Settings\ExportDownloadTest
+  ✓ export page renders available datasets and defaults                  0.03s  
+  ✓ transactions csv export is scoped to the authenticated user and fil… 0.02s  
+  ✓ category display matrix is consistent in transaction exports with d… 0.02s  
+  ✓ category display matrix is consistent in transaction exports with d… 0.04s  
+  ✓ accounts json export includes readable fields for non temporal data… 0.02s  
+  ✓ full export json stays scoped to the authenticated user and avoids…  0.03s  
+
+   PASS  Tests\Feature\Settings\ImpersonationConsentTest
+  ✓ authenticated user can enable impersonation consent                  0.02s  
+  ✓ authenticated user can disable impersonation consent                 0.03s  
+  ✓ guest cannot update impersonation consent                            0.01s  
+  ✓ impersonation consent requires a boolean value                       0.01s  
+
+   PASS  Tests\Feature\Settings\LocaleSettingsTest
+  ✓ authenticated user can update locale                                 0.02s  
+  ✓ authenticated user locale has priority over session and browser loc… 0.06s  
+  ✓ guest session locale has priority over browser locale                0.02s  
+  ✓ guest without session uses accept language locale                    0.02s  
+  ✓ unsupported browser locale falls back to default locale              0.02s  
+  ✓ guest can update locale and it is stored in session                  0.01s  
+  ✓ inertia shares the resolved locale for guests                        0.05s  
+  ✓ unsupported locale is rejected                                       0.01s  
+
+   PASS  Tests\Feature\Settings\NotificationPreferencesTest
+  ✓ profile page shows only user configurable notification topics        0.05s  
+  ✓ profile page falls back to topic defaults when no notification pref… 0.06s  
+  ✓ recurring reminder settings are translated for the user locale with… 0.05s  
+  ✓ recurring reminder settings are translated for the user locale with… 0.05s  
+  ✓ user can update notification preferences from profile settings       0.05s  
+  ✓ import completed preference stays hidden and cannot be saved when i… 0.05s  
+  ✓ report available preference is not exposed or saved                  0.05s  
+  ✓ profile page can render an empty configurable notifications state    0.07s  
+
+   PASS  Tests\Feature\Settings\ProfileSupportTest
+  ✓ utente con donazioni vede lo storico nel profilo                     0.04s  
+  ✓ utente senza donazioni vede stato vuoto corretto e widget kofi       0.03s  
+  ✓ widget kofi compare nel profilo quando il reminder e dovuto          0.05s  
+  ✓ widget kofi non compare nel profilo quando il supporto e recente     0.03s  
+  ✓ il profilo mostra solo le donazioni effettivamente associate all ut… 0.03s  
+  ✓ copy it en e riuso del widget kofi sono presenti nel profilo         0.04s  
+  ✓ la sezione profilo non mostra il prossimo promemoria                 0.01s  
+
+   PASS  Tests\Feature\Settings\ProfileUpdateTest
+  ✓ profile page is displayed                                            0.03s  
+  ✓ settings root renders the mobile settings entry point without redir… 0.03s  
+  ✓ profile page keeps base currency editable when only the default cas… 0.05s  
+  ✓ profile page exposes base currency lock state when transactions exi… 0.03s  
+  ✓ profile information can be updated                                   0.02s  
+  ✓ email verification status is unchanged when the email address is un… 0.01s  
+  ✓ user cannot update format locale with an unsupported value           0.03s  
+  ✓ updating format locale does not modify locale or base currency       0.01s  
+  ✓ user cannot save the same separator for thousands and decimals       0.01s  
+  ✓ user cannot save unsupported date format                             0.01s  
+  ✓ user can delete their account                                        0.02s  
+  ✓ correct password must be provided to delete account                  0.03s  
+  ✓ user can upload a profile avatar                                     0.05s  
+  ✓ user can replace an existing profile avatar                          0.06s  
+  ✓ user can remove a profile avatar                                     0.06s  
+  ✓ authenticated user can fetch their avatar through the profile avata… 0.02s  
+
+   PASS  Tests\Feature\Settings\SecurityTest
+  ✓ security page is displayed                                           0.03s  
+  ✓ security page requires password confirmation when enabled            0.01s  
+  ✓ security page does not require password confirmation when disabled   0.05s  
+  ✓ security page renders without two factor when feature is disabled    0.03s  
+  ✓ password can be updated                                              0.02s  
+  ✓ correct password must be provided to update password                 0.01s  
+
+   PASS  Tests\Feature\Settings\SharedCategoriesPageTest
+  ✓ shared categories page shows an empty state when the user has no sh… 0.06s  
+  ✓ shared categories page separates multiple shared account catalogs w… 0.07s  
+  ✓ viewer can see shared categories but cannot edit them                0.04s  
+  ✓ editor can create a shared category while viewer is forbidden        0.04s  
+  ✓ editor can materialize a missing personal category into the shared…  0.44s  
+  ✓ owner can import a custom category from a personal non shared accou… 0.06s  
+  ✓ editor can import a custom category from their own personal account… 0.05s  
+  ✓ shared categories bridge candidates include navigation parents and…  0.25s  
+  ✓ shared categories bridge exposes only the current user personal can… 0.43s  
+  ✓ shared categories bridge rejects materializing a personal category…  0.06s  
+  ✓ owner can materialize a personal category without creating duplicat… 0.42s  
+  ✓ non shared accounts cannot use the personal to shared materializati… 0.04s  
+  ✓ personal and shared categories can reuse the same slug while shared… 0.04s  
+  ✓ manually created shared category stays visible in the shared tree f… 0.07s  
+  ✓ shared categories source options keep homonymous leaves distinct wi… 0.05s  
+  ✓ owner and editor can update, toggle, and delete shared categories w… 0.05s  
+  ✓ shared categories page excludes tax investment and transfer group o… 0.04s  
+  ✓ shared child category inherits direction and group from the parent…  0.02s  
+  ✓ shared categories cannot create a fourth level node                  0.04s  
+  ✓ shared child category cannot move to an incompatible branch          0.02s  
+  ✓ shared foundation root category cannot change parent or classificat… 0.02s  
+  ✓ shared foundation root category can be renamed by the account owner  0.02s  
+  ✓ shared localized category backfill updates untouched defaults witho… 0.02s  
+
+   PASS  Tests\Feature\Settings\TrackedItemLogoTest
+  ✓ supplier domains are normalized to safe https urls                   0.03s  
+  ✓ large source logos are resized and optimized before they are cached  0.03s  
+  ✓ valid ico logos remain usable when gd cannot decode their container  0.01s  
+  ✓ unavailable websites use a provider fallback and retry a cached not… 0.01s  
+  ✓ logo fetch retries the next public address when the first resolved…  0.01s  
+  ✓ logo fetch retries the next public address after a transient cdn re… 0.03s  
+  ✓ logo preview returns a locally cached website identity               0.02s  
+  ✓ different users reuse the same cached website identity               0.02s  
+  ✓ tracked items payload exposes website and local logo url             0.03s  
+  ✓ cached logo endpoint serves only the known local file with immutabl… 0.03s  
+
+   PASS  Tests\Feature\Settings\TrackedItemManagementTest
+  ✓ user can create a child tracked item with normalized slug            0.02s  
+  ✓ user can associate a tracked item to compatible category branches    0.02s  
+  ✓ user cannot assign a descendant as parent when updating a tracked i… 0.02s  
+  ✓ active tracked item cannot be created under an inactive parent       0.03s  
+  ✓ disabling a tracked item disables descendants too                    0.02s  
+  ✓ used tracked item cannot be deleted                                  0.02s  
+  ✓ tracked item used by a credit or debt cannot be deleted              0.02s  
+  ✓ unused leaf tracked item can be deleted                              0.03s  
+  ✓ same user cannot create two tracked items with the same slug         0.01s  
+  ✓ same user cannot create two tracked items with the same name in the… 0.01s  
+  ✓ different users can create tracked items with the same slug          0.02s  
+  ✓ tracked item update accepts the current record slug without false d… 0.03s  
+
+   PASS  Tests\Feature\Settings\TrackedItemsTest
+  ✓ tracked items page is displayed                                      0.03s  
+  ✓ tracked items page returns tree and flat payload ready for the ui    0.03s  
+  ✓ tracked items can be created using public uuids                      0.03s  
+  ✓ personal tracked items page excludes account scoped tracked items a… 0.03s  
+  ✓ tracked items category options stay readable with default foundatio… 0.07s  
+  ✓ tracked item model distinguishes personal and account scoped catalo… 0.01s  
+  ✓ tracked items cannot create a fourth hierarchy level                 0.03s  
+  ✓ personal tracked items cannot link shared categories from an incomp… 0.02s  
+  ✓ editor personal tracked item missing in shared can be materialized…  0.08s  
+  ✓ owner can materialize a personal tracked item without duplicates an… 0.07s  
+  ✓ non shared accounts do not expose the tracked item bridge endpoint   0.02s  
+
+   PASS  Tests\Feature\Settings\YearManagementTest
+  ✓ creating the first year sets it as active                            0.02s  
+  ✓ user can create a previous management year                           0.03s  
+  ✓ user can create the current management year when it is missing       0.01s  
+  ✓ user cannot create a future management year                          0.01s  
+  ✓ user can prepare the next management year from november without cha… 0.01s  
+  ✓ user cannot prepare the next management year before november         0.04s  
+  ✓ user cannot skip the current management year or create more than on… 0.02s  
+  ✓ user cannot create a duplicate management year                       0.01s  
+  ✓ user can set another year as active and sync settings                0.01s  
+  ✓ distant recurring management years remain registered but are not se… 0.05s  
+  ✓ user can close and reopen a management year                          0.02s  
+  ✓ active year cannot be deleted                                        0.01s  
+  ✓ used year cannot be deleted                                          0.01s  
+  ✓ unused non active year can be deleted                                0.04s  
+
+   PASS  Tests\Feature\Settings\YearsTest
+  ✓ years page is displayed                                              0.03s  
+  ✓ years page enables next year creation from november                  0.03s  
+  ✓ automatically prepared next year stays hidden and cannot be activat… 0.02s  
+
+   PASS  Tests\Feature\SharedExpenses\DirectSharedExpenseTest
+  ✓ a direct shared expense paid by me creates a transaction             0.04s  
+  ✓ a direct shared expense paid by counterparty creates only ledger en… 0.01s  
+  ✓ direct shared expense validates custom allocations                   0.01s  
+  ✓ direct shared expense is isolated to its owner                       0.01s  
+
+   PASS  Tests\Feature\SharedExpenses\SharedExpenseAllocationTest
+  ✓ shared allocation defaults to an exact fifty fifty split and recalc… 0.01s  
+  ✓ shared allocation splits an odd cent deterministically and supports… 0.03s  
+  ✓ shared allocation rejects shares exceeding or not matching the tota… 0.01s  
+  ✓ shared allocation rejects shares exceeding or not matching the tota… 0.01s  
+  ✓ shared allocation rejects shares exceeding or not matching the tota… 0.01s  
+  ✓ rescaling uses the original shares and keeps every cent allocated w… 0.01s  
+  ✓ rescaling uses the original shares and keeps every cent allocated w… 0.01s  
+  ✓ rescaling uses the original shares and keeps every cent allocated w… 0.03s  
+  ✓ rescaling uses the original shares and keeps every cent allocated w… 0.01s  
+  ✓ rescaling uses the original shares and keeps every cent allocated w… 0.01s  
+  ✓ rescaling uses the original shares and keeps every cent allocated w… 0.01s  
+
+   PASS  Tests\Feature\SharedExpenses\SharedExpenseFormPayloadTest
+  ✓ reimbursement form receives the existing reference catalog and cate… 0.06s  
+  ✓ transaction and recurring forms expose active shared expense counte… 0.06s  
+  ✓ disabling eligibility hides new shared choices but preserves ledger… 0.03s  
+  ✓ settlement rejects normal inactive and foreign references as new co… 0.02s  
+
+   PASS  Tests\Feature\SharedExpenses\SharedExpensePresentationTest
+  ✓ person cards combine origins and include confirmed manual only peop… 0.06s  
+  ✓ person cards combine origins and include confirmed manual only peop… 0.04s  
+  ✓ shared filters use actual partial and fully refunded residuals       0.09s  
+  ✓ quick creation for a manual reference sets capability without enabl… 0.02s  
+  ✓ Roberta confirmation exposes one relationship and subsequent paymen… 0.19s  
+  ✓ payment only relationships stay visible in their currency without i… 0.04s  
+  ✓ a fully paid confirmed manual relationship remains visible at zero…  0.04s  
+
+   PASS  Tests\Feature\SharedExpenses\SharedExpenseReviewTest
+  ✓ review action opens the exact transaction and identifies the actual… 0.08s  
+  ✓ an orphan external share is resolved in place without a bank transa… 0.06s  
+  ✓ a wrong shared person can be corrected without replacing the mercha… 0.02s  
+  ✓ captured shares refuse identity changes and ownership is enforced    0.04s  
+  ✓ existing reimbursements can be explicitly linked through the common… 0.13s  
+  ✓ confirming an already correct external person does not change balan… 0.04s  
+  ✓ cancelled reimbursements are not presented as a reference verificat… 0.06s  
+  ✓ disabled payment management is explained as a protected control and… 0.04s  
+  ✓ saving a shared review confirms the transaction only with the expli… 0.07s  
+  ✓ a mismatched reimbursement document remains visible as a protected…  0.04s  
+
+   PASS  Tests\Feature\SharedExpenses\SharedExpenseSettlementTest
+  ✓ a partial reimbursement creates a real incoming transaction and lea… 0.03s  
+  ✓ a complete payment creates an outgoing transaction and brings a deb… 0.04s  
+  ✓ a complete reimbursement received brings a credit to zero            0.02s  
+  ✓ a partial payment leaves a shared debit open                         0.02s  
+  ✓ a reimbursement cannot exceed the remaining balance and leaves no r… 0.01s  
+  ✓ a user cannot settle another users counterparty balance              0.02s  
+  ✓ a settlement update keeps its transaction and recalculates the bala… 0.06s  
+  ✓ deleting a settlement deletes only its linked transaction and resto… 0.03s  
+
+   PASS  Tests\Feature\SharedExpenses\SharedExpensesFeatureTest
+  ✓ a counterparty ledger movement reopens in the transaction form and…  0.24s  
+  ✓ editing a counterparty ledger to self payment creates exactly one r… 0.03s  
+  ✓ ledger edits reject invalid shares and foreign owners without side…  0.04s  
+  ✓ ledger conversion rolls back a created transaction when removing le… 0.04s  
+  ✓ transaction form records counterparty payment only in the shared le… 0.22s  
+  ✓ transaction form keeps the real transaction when I pay               0.05s  
+  ✓ editing a shared transaction to counterparty payment restores the a… 0.19s  
+  ✓ editing a shared transaction to counterparty payment restores the a… 0.19s  
+  ✓ counterparty transaction rejects invalid shares without creating ac… 0.02s  
+  ✓ counterparty transaction refuses another users counterparty          0.02s  
+  ✓ counterparty conversion rolls back ledger and account changes if tr… 0.02s  
+  ✓ shared expense foundations persist counterparties independently fro… 0.01s  
+  ✓ an authenticated user can create a personal shared expense counterp… 0.02s  
+  ✓ counterparty creation reuses a reference having the same name        0.01s  
+  ✓ counterparty creation reuses equivalent names without creating dupl… 0.04s  
+  ✓ a shared transaction resolves an active personal shared counterpart… 0.02s  
+  ✓ counterparty creation reactivates an inactive personal counterparty  0.01s  
+  ✓ the transaction form receives only the authenticated users active c… 0.02s  
+  ✓ monthly advances use canonical payers and shares without changing b… 0.22s  
+  ✓ monthly advances retain original shares after partial and complete…  0.22s  
+  ✓ monthly advances retain original shares after partial and complete…  0.23s  
+  ✓ monthly advances support empty single and long lists across differe… 0.02s  
+  ✓ monthly advances support empty single and long lists across differe… 0.19s  
+  ✓ monthly advances support empty single and long lists across differe… 0.21s  
+
+   PASS  Tests\Feature\SharedExpenses\SharedExpensesPaginationTest
+  ✓ shared register paginates the complete filtered set and preserves b… 0.10s  
+  ✓ counterparty cards hide only zero balances without filtered activit… 0.04s  
+  ✓ pagination merges transactions ledger entries and repayments before… 0.07s  
+
+   PASS  Tests\Feature\SharedPropsPayloadTest
+  ✓ login payload keeps only the minimal shared props                    0.03s  
+  ✓ public pages receive only public seo and analytics shared props      0.03s  
+  ✓ authenticated app shell routes receive the shared props they need    0.06s  
+  ✓ public pages receive tawk to integration config when configured      0.08s  
+  ✓ public tawk to integration is disabled by default                    0.07s  
+  ✓ authenticated users do not receive public tawk to integration paylo… 0.03s  
+  ✓ reports route receives app shell shared props and report payload     0.04s  
+  ✓ reports kpis route receives report analytics payload alongside app…  0.21s  
+  ✓ admin routes do not receive shared entry search payload              0.03s  
+  ✓ settings routes receive settings navigation without public analytic… 0.04s  
+
+   PASS  Tests\Feature\Sharing\AccountInvitationOnboardingEdgeCasesTest
+  ✓ it returns invalid for onboarding with wrong token                   0.02s  
+  ✓ it returns expired for onboarding when invitation is expired         0.02s  
+  ✓ it returns already_processed for onboarding when invitation is no l… 0.02s  
+  ✓ it returns email_mismatch for onboarding when authenticated user ha… 0.02s  
+  ✓ it returns 422 when registering from invitation but user already ex… 0.05s  
+  ✓ it returns 422 when authenticated user tries to accept invitation w… 0.02s  
+
+   PASS  Tests\Feature\Sharing\AccountInvitationOnboardingHttpTest
+  ✓ it returns registration_required for a valid invitation when no use… 0.04s  
+  ✓ it renders a user-facing registration page for a valid invitation w… 0.05s  
+  ✓ it returns login_required for a valid invitation when user exists b… 0.03s  
+  ✓ it renders a user-facing login page for a valid invitation when use… 0.05s  
+  ✓ it returns ready_to_accept for a valid invitation when authenticate… 0.03s  
+  ✓ it renders a user-facing confirmation page when the authenticated u… 0.05s  
+  ✓ it registers a new user from a valid account invitation              0.07s  
+  ✓ it does not dispatch the welcome-after-verification communication w… 0.07s  
+  ✓ it renders a user-facing mismatch page when authenticated with a di… 0.05s  
+  ✓ it newly registered invited users can see the shared account in acc… 0.11s  
+  ✓ it redirects invited registrations to accounts settings where the s… 0.09s  
+  ✓ it registers an invited user on the invited account without confusi… 0.12s  
+  ✓ it shows the accepted invited user in the owner account members dat… 0.07s  
+  ✓ it redirects authenticated invitation acceptance to accounts settin… 0.06s  
+  ✓ it accepts a valid account invitation for an authenticated existing… 0.04s  
+
+   PASS  Tests\Feature\Sharing\AccountInvitationServiceTest
+  ✓ it allows original owner to create an account invitation             0.02s  
+  ✓ it prevents non original owner from inviting to the same account     0.02s  
+  ✓ it accepts an account invitation and creates membership              0.02s  
+  ✓ it bootstraps only used categories and tracked items into the share… 0.06s  
+  ✓ it reuses existing shared categories and tracked items without dupl… 0.05s  
+  ✓ it bootstraps only recurring entries already linked to the shared a… 0.08s  
+  ✓ it keeps category budgets personal when an account becomes shared a… 0.05s  
+  ✓ it rejects invitation acceptance if email does not match             0.04s  
+
+   PASS  Tests\Feature\Sharing\AccountMembershipLifecycleServiceTest
+  ✓ it allows a non-owner active member to leave their own membership    0.02s  
+  ✓ it prevents the last active owner from leaving the account           0.01s  
+  ✓ it allows original owner to revoke an active non-owner membership    0.02s  
+  ✓ it prevents a non original owner from revoking a membership          0.02s  
+  ✓ it restores a revoked or left membership by the original owner       0.02s  
+  ✓ it restores a shared membership without duplicating recurring entri… 0.02s  
+  ✓ it restores a shared membership by normalizing legacy shared-catego… 0.05s  
+  ✓ it prevents restoring an already active membership                   0.02s  
+  ✓ it allows original owner to change an active member from viewer to…  0.02s  
+  ✓ it allows original owner to change an active member from editor to…  0.02s  
+  ✓ it prevents non owners from changing the access level of a membersh… 0.04s  
+
+   PASS  Tests\Feature\Sharing\AccountSharingActionsTest
+  ✓ it invites and accepts account sharing through actions               0.03s  
+  ✓ it blocks duplicate pending invitation through action                0.02s  
+  ✓ it allows invited user to leave and owner to restore through action… 0.02s  
+  ✓ it blocks the last owner from leaving through action                 0.01s  
+  ✓ it blocks restore of an already active membership through action     0.04s  
+
+   PASS  Tests\Feature\Sharing\AccountSharingHttpEdgeCasesTest
+  ✓ it returns 422 when owner tries to invite themselves through http e… 0.02s  
+  ✓ it returns 422 for duplicate pending invitation through http endpoi… 0.02s  
+  ✓ it returns 422 when accepting invitation with invalid token          0.02s  
+  ✓ it returns 422 when accepting an expired invitation                  0.04s  
+  ✓ it returns 403 when another user tries to accept invitation with di… 0.02s  
+  ✓ it returns 422 when the last owner tries to leave through http endp… 0.02s  
+  ✓ it returns 422 when trying to revoke the last active owner through…  0.02s  
+  ✓ it returns 422 when inviting a user who already has active membersh… 0.04s  
+  ✓ it returns 422 when accepting an invitation that is not pending      0.02s  
+  ✓ it returns 403 when user tries to leave another users membership     0.02s  
+  ✓ it returns 403 when non original owner tries to revoke a membership  0.02s  
+  ✓ it returns 403 when non original owner tries to restore a membershi… 0.04s  
+  ✓ it returns 422 when trying to restore an already active membership   0.02s  
+
+   PASS  Tests\Feature\Sharing\AccountSharingHttpTest
+  ✓ it allows original owner to submit an invitation through the sharin… 0.04s  
+  ✓ it rejects invitations for credit card accounts                      0.05s  
+  ✓ it lists pending invitations for the original owner after creation   0.03s  
+  ✓ it prevents non owner from submitting an invitation through the sha… 0.03s  
+  ✓ it accepts invitation through http endpoint when email matches       0.04s  
+  ✓ it allows member to leave through http endpoint                      0.05s  
+  ✓ it allows original owner to revoke and restore through http endpoin… 0.04s  
+  ✓ it allows original owner to change a member access level from viewe… 0.04s  
+  ✓ it allows original owner to change a member access level from edito… 0.06s  
+  ✓ it prevents non owners from changing a member access level through…  0.03s  
+
+   PASS  Tests\Feature\Sharing\HouseholdBackfillCommandTest
+  ✓ it creates personal households and owner memberships for existing a… 0.02s  
+  ✓ it is idempotent when run multiple times                             0.04s  
+
+   PASS  Tests\Feature\Sharing\HouseholdFoundationTest
+  ✓ it casts household enums correctly                                   0.01s  
+  ✓ it creates unique household membership per user and household        0.01s  
+  ✓ it casts account membership enums correctly                          0.01s  
+  ✓ it relates household to memberships and invitations                  0.01s  
+  ✓ it relates account to memberships and invitations                    0.04s  
+
+   PASS  Tests\Feature\Support\SupportRequestTest
+  ✓ it renders the authenticated support page                            0.03s  
+  ✓ it redirects the legacy support route to settings support preservin… 0.02s  
+  ✓ it allows an authenticated user to submit a support request and rou… 0.03s  
+  ✓ it does not allow guests to submit support requests                  0.04s  
+  ✓ it validates required support request fields                         0.02s  
+  ✓ it stores feature request and general support categories correctly…  0.02s  
+  ✓ it stores feature request and general support categories correctly…  0.05s  
+  ✓ it reads source context from the support page query string           0.04s  
+
+   PASS  Tests\Feature\Support\SupportTicketConversationTest
+  ✓ it opens each ticket type with the server version and a persisted f… 0.03s  
+  ✓ it opens each ticket type with the server version and a persisted f… 0.05s  
+  ✓ it opens each ticket type with the server version and a persisted f… 0.02s  
+  ✓ it allows multiple active tickets but blocks consecutive user messa… 0.02s  
+  ✓ it alternates replies and preserves an anonymous user payload while… 0.07s  
+  ✓ it delivers database notifications and the existing admin email onc… 0.03s  
+  ✓ it notifies the user in app and via existing push without email and… 0.02s  
+  ✓ it closes and reopens tickets with audit history alongside another…  0.06s  
+  ✓ it protects other user conversations and admin endpoints             0.03s  
+  ✓ it filters by user and version and sorts tickets needing a reply fi… 0.05s  
+  ✓ it uses current locked state rather than a stale ticket model for d… 0.05s  
+  ✓ it keeps the in app reply exactly once when push throws and a queue… 0.02s  
+  ✓ it notifies every administrator when a ticket is opened              0.02s  
+  ✓ it backfills legacy requests without fabricating versions or resend… 0.06s  
+  ✓ it respects the existing user push opt out while preserving the in…  0.06s  
+  ✓ it retries an unsuccessful push response instead of marking it deli… 0.02s  
+  ✓ it paginates the compact user history and rejects malformed ticket…  0.05s  
+  ✓ it shows the database version and keeps the opening snapshot after…  0.06s  
+  ✓ it counts all open tickets by category for the owner across pages e… 0.05s  
+  ✓ it selects the newest active ticket deterministically when opening…  0.04s  
+
+   PASS  Tests\Feature\Support\SupportTicketInactivityTest
+  ✓ it warns on day two once and closes only after a full day of notice  0.07s  
+  ✓ it cancels pending warnings and closure when the user replies and r… 0.02s  
+  ✓ it does not warn manually closed tickets and grants a day when warn… 0.02s  
+  ✓ it offers only ticket owners and recorded versions with open type c… 0.07s  
+  ✓ it retries a failed push without setting the closing deadline and s… 0.02s  
+  ✓ it keeps the in app warning while respecting push opt out            0.02s  
+
+   PASS  Tests\Feature\SyncBankDisplayNamesCommandTest
+  ✓ sync bank display names command is idempotent and preserves officia… 0.02s  
+  ✓ sync bank display names command truncates very long cleaned names s… 0.04s  
+
+   PASS  Tests\Feature\Transactions\TransactionExchangeSnapshotTest
+  ✓ it stores an identity exchange snapshot when the account currency m… 0.02s  
+  ✓ it stores a historical exchange snapshot for a transaction in a dif… 0.03s  
+  ✓ it refreshes the exchange snapshot when an updated transaction chan… 0.06s  
+  ✓ it does not dynamically recalculate the saved exchange snapshot for… 0.03s  
+  ✓ it returns no fx preview when the account currency already matches…  0.02s  
+  ✓ it returns a stored fx preview payload for multi currency transacti… 0.02s  
+  ✓ it fails clearly when no historical exchange rate is available for…  0.05s  
+  ✓ it fails preview clearly when no historical exchange rate is availa… 0.02s  
+  ✓ it exposes fx snapshot fields in the monthly transaction sheet payl… 0.23s  
+  ✓ it keeps legacy inserts compatible because the exchange snapshot co… 0.02s  
+
+   PASS  Tests\Feature\Transactions\TransactionReimbursementPresentationTest
+  ✓ register distinguishes an incoming refund from both ordinary income… 0.24s  
+  ✓ register identifies shared reimbursements through the settlement re… 0.21s  
+  ✓ register identifies native counterparty payments and returns withou… 0.27s  
+  ✓ register identifies credit repayments through their payment relatio… 0.22s  
+
+   WARN  Tests\Feature\Transactions\TransactionRowActionsTest
+  ✓ row capabilities preserve ordinary refund and disable impossible or… 0.27s  
+  ✓ a resettled recurring refund navigates to the occurrence and the ba… 0.24s  
+  ✓ counterparty bank documents expose canonical history instead of gen… 0.29s  
+  ✓ automatic confirmation is separate from problem reporting and remai… 0.28s  
+  ✓ matched automatic postings and manual recurring settlements do not…  0.23s  
+  ✓ settled shared sources navigate to sharing instead of advertising f… 0.27s  
+  ✓ transfers with an inaccessible counterpart never advertise mutation… 0.27s  
+  - isolated row action browser fixture → Browser fixture export not re… 0.01s  
+
+   PASS  Tests\Feature\Transactions\TransactionTemplatesTest
+  ✓ quick actions retain ordinary references but reject them as shared…  0.05s  
+  ✓ active quick actions expose only owned active templates with catego… 0.03s  
+  ✓ a single use can change amount day account and disable shared witho… 0.03s  
+  ✓ template catalog includes reference logos and structural category c… 0.04s  
+  ✓ quick action configuration includes new owned categories and childr… 0.06s  
+  ✓ templates persist domain icons and custom colors and reject unsafe…  0.03s  
+  ✓ templates create edit deactivate and delete without any accounting…  0.03s  
+  ✓ template opening prefills normal transaction page and does not coun… 0.05s  
+  ✓ normal transaction endpoint counts template only after a successful… 0.04s  
+  ✓ shared templates use normal self or counterparty accounting behavio… 0.03s  
+  ✓ shared templates use normal self or counterparty accounting behavio… 0.07s  
+  ✓ shared transaction and template positions immediately update credit… 0.12s  
+  ✓ shared transaction and template positions immediately update credit… 0.12s  
+  ✓ shared transaction and template positions immediately update credit… 0.10s  
+  ✓ shared transaction and template positions immediately update credit… 0.11s  
+  ✓ unavailable references are explicitly reported and require replacem… 0.02s  
+  ✓ templates and references remain isolated between users               0.03s  
+  ✓ templates persist custom percentage independently from any transact… 0.02s  
+  ✓ inactive and foreign template references cannot silently fall back   0.03s  
+  ✓ incompatible category and reference combinations are rejected by te… 0.02s  
+  ✓ quick actions keep sort order on create and persist drag and drop r… 0.15s  
+  ✓ a posting failure never counts template usage                        0.02s  
+
+   PASS  Tests\Feature\Transactions\TransactionsTest
+  ✓ guests are redirected from transactions pages                        0.02s  
+  ✓ transactions index follows the active management year instead of th… 0.26s  
+  ✓ transactions month page renders monthly sheet data for the operatio… 0.23s  
+  ✓ category rename is reflected in the monthly ledger from the linked…  0.22s  
+  ✓ automatic opening balance texts follow the active locale with datas… 0.21s  
+  ✓ automatic opening balance texts follow the active locale with datas… 0.23s  
+  ✓ foundation category defaults are localized without overriding custo… 0.22s  
+  ✓ category display matrix is consistent in ledger and editor category… 0.22s  
+  ✓ category display matrix is consistent in ledger and editor category… 0.22s  
+  ✓ transactions month page aggregates mixed-currency totals using conv… 0.23s  
+  ✓ transactions month page excludes unsafe legacy foreign records from… 0.23s  
+  ✓ transactions month page exposes recurring markers and planned recur… 0.23s  
+  ✓ transactions month page includes owned and active shared account re… 0.26s  
+  ✓ shared account transfer transactions render without requiring trans… 0.25s  
+  ✓ shared account monthly totals stay consistent between owner and inv… 0.28s  
+  ✓ all accounts totals keep uncategorized shared expenses in the month… 0.24s  
+  ✓ all accounts totals merge owned and shared account movements withou… 0.24s  
+  ✓ transactions can be created from the monthly sheet                   0.03s  
+  ✓ viewer memberships can read shared transactions but cannot create u… 0.24s  
+  ✓ editor memberships can create update and delete shared transactions… 0.30s  
+  ✓ balance adjustment preview and store compute a negative adjustment…  0.02s  
+  ✓ balance adjustment can create a positive adjustment and realign the… 0.02s  
+  ✓ shared balance adjustment respects viewer and editor permissions     0.03s  
+  ✓ shared account transaction payload uses the canonical shared catalo… 0.33s  
+  ✓ shared account category preview uses owner budget data for owner ca… 0.32s  
+  ✓ shared account transaction payload exposes account scoped tracked i… 0.27s  
+  ✓ shared account editor can create and update transactions with accou… 0.07s  
+  ✓ shared account transactions reject contributor personal tracked ite… 0.04s  
+  ✓ shared account payload keeps legacy personal tracked items already…  0.28s  
+  ✓ shared transactions use the account scoped tracked item after track… 0.06s  
+  ✓ shared accounts bootstrap and use a canonical account category taxo… 0.36s  
+  ✓ shared taxonomy canonicalization ignores incoherent personal child…  0.35s  
+  ✓ shared account catalog survives share removal and is reused on re-s… 0.51s  
+  ✓ manual transaction form cannot create an opening balance kind        0.02s  
+  ✓ cash accounts cannot be driven below zero by new transactions        0.02s  
+  ✓ transactions can be updated from the monthly sheet                   0.03s  
+  ✓ expense transactions can be moved to another month without changing… 0.03s  
+  ✓ move mode rejects the current transaction date                       0.02s  
+  ✓ move mode rejects years that are not available for the user          0.02s  
+  ✓ move mode is allowed for manual income updates on another available… 0.08s  
+  ✓ manual transactions are soft deleted from the monthly sheet          0.02s  
+  ✓ manual transactions can be restored after soft delete                0.02s  
+  ✓ manual transactions can be permanently deleted after soft delete     0.02s  
+  ✓ scheduled transactions cannot be deleted and expose recurring manag… 0.24s  
+  ✓ opening balance transactions cannot be deleted                       0.02s  
+  ✓ refund transactions cannot be deleted                                0.02s  
+  ✓ transactions payload exposes refund availability only for editable…  0.23s  
+  ✓ editable personal transactions can be refunded with an autonomous r… 0.06s  
+  ✓ a refunded original transaction cannot be deleted while the linked…  0.24s  
+  ✓ refund transactions can be undone from the monthly register          0.25s  
+  ✓ monthly summary compensates expenses fully when an expense is fully… 0.28s  
+  ✓ monthly summary compensates expenses partially when an expense is p… 0.23s  
+  ✓ monthly summary keeps standard income and expense totals unchanged…  0.24s  
+  ✓ cash account transactions can be refunded from the monthly register  0.03s  
+  ✓ shared account editors can refund shared transactions from the mont… 0.03s  
+  ✓ technical transactions cannot be refunded from the monthly register  0.02s  
+  ✓ transactions payload includes deleted rows separately without affec… 0.25s  
+  ✓ january monthly sheet shows opening balance rows but excludes them…  0.24s  
+  ✓ all accounts monthly sheet sums opening balances across multiple ac… 0.22s  
+  ✓ all accounts monthly sheet carries ending balances into later month… 0.27s  
+  ✓ all accounts monthly sheet sums the latest balance of each included… 0.23s  
+  ✓ january monthly sheet does not derive an opening row before the rea… 0.23s  
+  ✓ transaction mutation routes do not resolve internal ids in public u… 0.02s  
+  ✓ closed years are read only for transaction mutations                 0.02s  
+  ✓ transactions reject dates outside the displayed month                0.02s  
+  ✓ transactions block likely duplicate inserts on the same accessible…  0.02s  
+  ✓ transactions reject february 29 on non leap years                    0.02s  
+  ✓ transactions accept february 29 on leap years                        0.03s  
+  ✓ saving categories with transfer direction remain valid in the month… 0.03s  
+  ✓ transactions reject tracked items owned by another user              0.02s  
+  ✓ tracked items can be created quickly with transaction context metad… 0.02s  
+  ✓ transaction inline reference creation associates its existing websi… 0.02s  
+  ✓ transaction inline reference creation rejects unsafe website addres… 0.02s  
+  ✓ an existing tracked item is reused and linked to the selected trans… 0.02s  
+  ✓ a personal tracked item created from the transactions form stays pe… 0.03s  
+  ✓ transaction inline tracked item creation reuses an existing referen… 0.02s  
+  ✓ shared account owner can create a tracked item from the transaction… 0.06s  
+  ✓ shared account invitee can create a tracked item from the transacti… 0.06s  
+  ✓ transactions reject tracked items outside the selected group or cat… 0.02s  
+  ✓ tracked items linked to a category branch are valid on descendant l… 0.26s  
+  ✓ giroconti create two linked transfer movements                       0.27s  
+  ✓ giroconti can be updated while keeping the pair linked               0.04s  
+  ✓ deleting one giroconto movement soft deletes the linked pair         0.04s  
+  ✓ transaction navigation limits annual coverage and latest date to to… 0.05s  
+  ✓ transactions landing renders its focused month and canonical inerti… 0.26s  
+
+   PASS  Tests\Feature\Transactions\TransferImportTest
+  ✓ it keeps a transfer row in needs_review when destination account is… 0.04s  
+  ✓ it marks a transfer row invalid when destination account equals sou… 0.02s  
+  ✓ it marks a transfer row ready when destination account is valid and… 0.02s  
+  ✓ it imports a ready transfer row by creating two linked transactions  0.03s  
+  ✓ it rolls back a transfer import by removing both linked transaction… 0.04s  
+
+   PASS  Tests\Feature\Uuid\PublicUuidRolloutTest
+  ✓ all selected domain tables expose a public uuid column               0.01s  
+  ✓ all selected domain tables enforce uniqueness on the public uuid co… 0.01s  
+  ✓ new records automatically receive a public uuid                      0.01s  
+  ✓ backfill logic assigns uuids to legacy rows left without one         0.01s  
+
+   PASS  Tests\Feature\VerifiedUserTelegramAlertTest
+  ✓ it sends a telegram alert when a user verifies their email           0.01s  
+  ✓ it does not send a telegram alert when telegram notifications are d… 0.01s  
+
+   PASS  Tests\Feature\ViteProxyHeadersTest
+  ✓ it keeps guest redirects on https behind the trusted proxy           0.01s  
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\AuthenticatedPagePerformanceTest > authenticated pa…   
+  transactions.show
+Failed asserting that actual size 4 matches expected size 1.
+
+  at tests/Feature/AuthenticatedPagePerformanceTest.php:131
+    127▕             }
+    128▕             if (! in_array($name, ['dashboard', 'credits-debts.index', 'shared-expenses.index', 'counterparties.show'], true)) {
+    129▕                 $counterpartyQueries = collect($queries)->filter(fn ($query): bool => preg_match('/counterparty_(relations|ledger_entries|obligations|payments|allocation_entries|source_links)/', $query['sql']));
+    130▕                 if ($name === 'transactions.show') {
+  ➜ 131▕                     expect($counterpartyQueries)->toHaveCount(1, $name);
+    132▕                     expect($counterpartyQueries->first()['sql'])
+    133▕                         ->toStartWith('select "id", "transaction_id", "return_of_id" from "counterparty_payments" where "transaction_id" in (');
+    134▕                 } else {
+    135▕                     expect($counterpartyQueries)->toBeEmpty($name);
+
+  1   tests/Feature/AuthenticatedPagePerformanceTest.php:131
+
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\DashboardPerformanceTest > heavy authenticated page…   
+  transactions.show
+Failed asserting that actual size 4 matches expected size 1.
+
+  at tests/Feature/DashboardPerformanceTest.php:188
+    184▕                 expect(count($queries))->toBeLessThanOrEqual($queryBudgets[$name] ?? 100, $name);
+    185▕             }
+    186▕             if ($name === 'transactions.show') {
+    187▕                 $counterpartyQueries = collect($queries)->filter(fn ($query): bool => preg_match('/counterparty_(relations|ledger_entries|obligations|payments|allocation_entries|source_links)/', $query['sql']));
+  ➜ 188▕                 expect($counterpartyQueries)->toHaveCount(1, $name);
+    189▕                 expect($counterpartyQueries->first()['sql'])
+    190▕                     ->toStartWith('select "id", "transaction_id", "return_of_id" from "counterparty_payments" where "transaction_id" in (');
+    191▕             }
+    192▕             $duplicates = collect($queries)->groupBy(fn ($q) => $q['sql'].json_encode($q['bindings']))->sum(fn ($group) => max(0, $group->count() - 1));
+
+  1   tests/Feature/DashboardPerformanceTest.php:188
+
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\DashboardTest > dashboard resolves available years…    
+  Property [dashboard.filters.year] does not match the expected value.
+Failed asserting that 2026 is identical to 2027.
+
+  at tests/Feature/DashboardTest.php:736
+    732▕     $response
+    733▕         ->assertSuccessful()
+    734▕         ->assertInertia(fn (Assert $page) => $page
+    735▕             ->component('dashboard/Analysis')
+  ➜ 736▕             ->where('dashboard.filters.year', 2027)
+    737▕             ->where('dashboard.filters.available_years', fn ($years) => collect($years)
+    738▕                 ->pluck('value')
+    739▕                 ->contains(2027))
+    740▕             ->where('dashboard.filters.available_years', fn ($years) => ! collect($years)
+
+      [2m+2 vendor frames [22m
+  3   tests/Feature/DashboardTest.php:734
+
+
+  Tests:    3 failed, 19 skipped, 1963 passed (23812 assertions)
+  Duration: 100.04s
+
+Script @php artisan test handling the test event returned with error code 1
+Script @test was called via ci:check

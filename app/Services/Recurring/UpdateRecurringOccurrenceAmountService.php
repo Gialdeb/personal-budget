@@ -8,6 +8,7 @@ use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\Transactions\TransactionMutationService;
 use App\Services\UserYearService;
@@ -20,6 +21,7 @@ class UpdateRecurringOccurrenceAmountService
         protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
         protected TransactionMutationService $transactionMutationService,
         protected UserYearService $userYearService,
+        protected SharedExpenseAllocation $sharedExpenseAllocation,
     ) {}
 
     public function update(
@@ -51,7 +53,21 @@ class UpdateRecurringOccurrenceAmountService
 
             $this->userYearService->ensureDateYearIsOpen($entry->user, $effectiveDate, 'amount');
 
+            $sharedAttributes = [];
+            if ($entry->shared_expense_counterparty_id !== null) {
+                $allocation = $this->sharedExpenseAllocation->rescale(
+                    number_format($normalizedAmount, 2, '.', ''),
+                    $entry->shared_expense_my_share_cents,
+                    $entry->shared_expense_counterparty_share_cents,
+                );
+                $sharedAttributes = [
+                    'shared_expense_my_share_cents' => $allocation['my_share_cents'],
+                    'shared_expense_counterparty_share_cents' => $allocation['counterparty_share_cents'],
+                ];
+            }
+
             $lockedOccurrence->forceFill([
+                ...$sharedAttributes,
                 'expected_amount' => $salaryDetail && $transaction !== null ? $salaryDetail->expectedTotal() : $normalizedAmount,
                 'amount_confirmed_at' => now(),
             ])->save();
@@ -77,6 +93,7 @@ class UpdateRecurringOccurrenceAmountService
 
                 $transaction->forceFill([
                     'amount' => $normalizedAmount,
+                    ...$sharedAttributes,
                     ...$snapshot,
                     'updated_by_user_id' => $actor->id,
                 ])->save();

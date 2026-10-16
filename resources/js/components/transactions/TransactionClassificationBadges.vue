@@ -9,9 +9,13 @@ import {
     transactionTones,
 } from '@/lib/transaction-presentation.js';
 import type { MonthlyTransactionSheetTransaction } from '@/types';
-const props = defineProps<{
-    transaction: MonthlyTransactionSheetTransaction;
-}>();
+const props = withDefaults(
+    defineProps<{
+        transaction: MonthlyTransactionSheetTransaction;
+        compact?: boolean;
+    }>(),
+    { compact: false },
+);
 const { t } = useI18n();
 const category = computed(() => economicCategory(props.transaction));
 const primaryLabel = computed(() =>
@@ -31,12 +35,18 @@ const attributeLabels = computed(() => ({
 <template>
     <div class="contents">
         <Badge
-            class="rounded-full border px-2.5 py-1 text-[11px]"
-            :class="transactionTones[category].badge"
+            :class="[
+                transactionTones[category].badge,
+                compact
+                    ? 'rounded-md border px-1.5 py-0.5 text-[10px]'
+                    : 'rounded-full border px-2.5 py-1 text-[11px]',
+            ]"
+            :title="compact ? transaction.type : undefined"
             >{{ primaryLabel }}</Badge
         >
         <Badge
             v-if="
+                !compact &&
                 transaction.type &&
                 transaction.type !== primaryLabel &&
                 !transaction.is_opening_balance &&

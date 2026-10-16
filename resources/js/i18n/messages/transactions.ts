@@ -1,5 +1,19 @@
 export const transactionsMessages = {
     it: {
+        sharedLedger: {
+            title: 'Spese anticipate da altri',
+            helper: 'La tua quota condivisa, fuori dalle uscite bancarie.',
+            advancedBy: 'Anticipata da',
+            all: 'Tutte le controparti',
+            search: 'Cerca controparte',
+            badge: 'Anticipata da altri',
+            total: 'Totale spesa',
+            myShare: 'La tua quota',
+            reference: 'Riferimento',
+            untitled: 'Spesa condivisa',
+            edit: 'Modifica {title}',
+            empty: 'Nessuna spesa anticipata da altri per i filtri selezionati.',
+        },
         navigation: {
             title: 'Transazioni',
             periodSelector: 'Periodo attivo',
@@ -520,6 +534,13 @@ export const transactionsMessages = {
         },
         sheet: {
             confirmRegistration: 'Conferma registrazione',
+            paymentConfirmation: {
+                description:
+                    'Confermi la verifica di questo movimento già registrato? Il saldo non cambia e non viene creata una nuova transazione.',
+                processing: 'Conferma in corso…',
+                undoDescription:
+                    'Annullare questo rimborso? Il saldo verrà ricalcolato e il movimento originale tornerà senza questo rimborso.',
+            },
             metaTitle: 'Transazioni {month} {year}',
             badge: 'Registro operativo mensile',
             budgetLinked: 'Collegato al budget',
@@ -536,6 +557,9 @@ export const transactionsMessages = {
                 reset: 'Reset',
                 openCreate: 'Apri inserimento',
                 edit: 'Modifica',
+                manageShared: 'Gestisci spesa condivisa',
+                sharedDescription:
+                    'Scegli la controparte, chi ha pagato e come dividere la spesa.',
                 refund: 'Rimborsa',
                 undoRefund: 'Annulla rimborso',
                 delete: 'Elimina',
@@ -613,7 +637,7 @@ export const transactionsMessages = {
                 visibleRowsSummary:
                     '{visible} righe visibili su {total} registrazioni del mese.',
                 desktopHint:
-                    'Desktop: doppio click su una riga per aprire la modifica. La matita resta solo su mobile.',
+                    'Usa le icone per le azioni. Su desktop puoi anche modificare con un doppio click.',
                 activeFilters: 'Filtri attivi',
                 fullView: 'Vista completa',
                 columns: {
@@ -680,6 +704,8 @@ export const transactionsMessages = {
             },
             overview: {
                 title: 'Riepilogo dinamico mensile',
+                collapse: 'Chiudi riepilogo mensile',
+                expand: 'Apri riepilogo mensile',
                 description:
                     'Attuale vs previsto per i gruppi del mese. La nuova riga mette in evidenza subito il contesto selezionato.',
                 highlightedGroup:
@@ -835,6 +861,20 @@ export const transactionsMessages = {
         },
     },
     en: {
+        sharedLedger: {
+            title: 'Expenses advanced by others',
+            helper: 'Your shared portion, separate from bank outflows.',
+            advancedBy: 'Advanced by',
+            all: 'All counterparties',
+            search: 'Search counterparty',
+            badge: 'Advanced by others',
+            total: 'Expense total',
+            myShare: 'Your share',
+            reference: 'Reference',
+            untitled: 'Shared expense',
+            edit: 'Edit {title}',
+            empty: 'No expenses advanced by others match the selected filters.',
+        },
         navigation: {
             title: 'Transactions',
             periodSelector: 'Active period',
@@ -1356,6 +1396,13 @@ export const transactionsMessages = {
         },
         sheet: {
             confirmRegistration: 'Confirm registration',
+            paymentConfirmation: {
+                description:
+                    'Confirm verification of this existing posting? The balance stays the same and no new transaction is created.',
+                processing: 'Confirming…',
+                undoDescription:
+                    'Undo this refund? The balance will be recalculated and the original posting will no longer have this refund.',
+            },
             metaTitle: 'Transactions {month} {year}',
             badge: 'Monthly operational register',
             budgetLinked: 'Linked to budget',
@@ -1372,6 +1419,9 @@ export const transactionsMessages = {
                 reset: 'Reset',
                 openCreate: 'Open entry',
                 edit: 'Edit',
+                manageShared: 'Manage shared expense',
+                sharedDescription:
+                    'Choose the counterparty, who paid, and how to split the expense.',
                 refund: 'Refund',
                 undoRefund: 'Undo refund',
                 delete: 'Delete',
@@ -1449,7 +1499,7 @@ export const transactionsMessages = {
                 visibleRowsSummary:
                     '{visible} visible rows out of {total} monthly records.',
                 desktopHint:
-                    'Desktop: double-click a row to edit it. The pencil stays on mobile only.',
+                    'Use the icons for actions. On desktop, you can also double-click a row to edit.',
                 activeFilters: 'Active filters',
                 fullView: 'Full view',
                 columns: {
@@ -1514,6 +1564,8 @@ export const transactionsMessages = {
             },
             overview: {
                 title: 'Dynamic monthly summary',
+                collapse: 'Collapse monthly summary',
+                expand: 'Expand monthly summary',
                 description:
                     'Actual vs planned for the month groups. The new row immediately highlights the selected context.',
                 highlightedGroup:

@@ -58,6 +58,34 @@ function leaves(value, prefix = '') {
     );
 }
 
+test('shared advance copy resolves in every supported locale with matching placeholders', () => {
+    const expectedKeys = Object.keys(
+        messages.it.transactions.sharedLedger,
+    ).sort();
+
+    for (const [locale, dictionary] of Object.entries(messages)) {
+        const copy = dictionary.transactions.sharedLedger;
+        assert.deepEqual(Object.keys(copy).sort(), expectedKeys, locale);
+
+        for (const key of expectedKeys) {
+            assert.ok(copy[key].trim(), `${locale}: ${key}`);
+            assert.deepEqual(
+                [...copy[key].matchAll(/\{(\w+)\}/g)]
+                    .map((match) => match[1])
+                    .sort(),
+                [
+                    ...messages.it.transactions.sharedLedger[key].matchAll(
+                        /\{(\w+)\}/g,
+                    ),
+                ]
+                    .map((match) => match[1])
+                    .sort(),
+                `${locale}: ${key}`,
+            );
+        }
+    }
+});
+
 test('all frontend dictionary keys and interpolation placeholders exist in both languages', () => {
     const italian = Object.fromEntries(leaves(messages.it));
     const english = Object.fromEntries(leaves(messages.en));

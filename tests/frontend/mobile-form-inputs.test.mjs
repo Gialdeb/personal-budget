@@ -70,31 +70,52 @@ const moneyInputSource = readFileSync(
     'utf8',
 );
 const sheetContentSource = readFileSync(
-    new URL('../../resources/js/components/ui/sheet/SheetContent.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/ui/sheet/SheetContent.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const sheetOverlaySource = readFileSync(
-    new URL('../../resources/js/components/ui/sheet/SheetOverlay.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/ui/sheet/SheetOverlay.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const dialogContentSource = readFileSync(
-    new URL('../../resources/js/components/ui/dialog/DialogContent.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/ui/dialog/DialogContent.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const dialogOverlaySource = readFileSync(
-    new URL('../../resources/js/components/ui/dialog/DialogOverlay.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/ui/dialog/DialogOverlay.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const buttonVariantsSource = readFileSync(
-    new URL('../../resources/js/components/ui/button/index.ts', import.meta.url),
+    new URL(
+        '../../resources/js/components/ui/button/index.ts',
+        import.meta.url,
+    ),
     'utf8',
 );
 const selectTriggerSource = readFileSync(
-    new URL('../../resources/js/components/ui/select/SelectTrigger.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/ui/select/SelectTrigger.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const sidebarSource = readFileSync(
-    new URL('../../resources/js/components/ui/sidebar/index.ts', import.meta.url),
+    new URL(
+        '../../resources/js/components/ui/sidebar/index.ts',
+        import.meta.url,
+    ),
     'utf8',
 );
 const appCssSource = readFileSync(
@@ -124,7 +145,10 @@ test('mobile amount input falls back to the base field on desktop and uses a bot
     assert.match(mobileAmountInputSource, /update:editorOpen/);
     assert.match(mobileAmountInputSource, /\{\s*immediate:\s*true\s*}/);
     assert.match(mobileAmountInputSource, /app-touch-interactive/);
-    assert.match(mobileAmountInputSource, /class="z-\[180] rounded-t-\[2rem] border-none bg-white/);
+    assert.match(
+        mobileAmountInputSource,
+        /class="z-\[340] rounded-t-\[2rem] border-none bg-white/,
+    );
     assert.match(mobileAmountInputSource, /dark:bg-\[#161616] dark:text-white/);
 });
 
@@ -149,11 +173,8 @@ test('mobile searchable select swaps to a bottom sheet with a searchable text in
     assert.match(mobileSearchableSelectSource, /<SearchableSelect/);
     assert.match(mobileSearchableSelectSource, /<SheetContent\s+side="bottom"/);
     assert.match(mobileSearchableSelectSource, /<Sheet :open="open"/);
-    assert.doesNotMatch(
-        mobileSearchableSelectSource,
-        /:modal="false"/,
-    );
-    assert.match(mobileSearchableSelectSource, /<input/);
+    assert.doesNotMatch(mobileSearchableSelectSource, /:modal="false"/);
+    assert.match(mobileSearchableSelectSource, /<Input[\s\S]*?type="search"/);
     assert.match(mobileSearchableSelectSource, /useMobileSheetViewport/);
     assert.match(mobileSearchableSelectSource, /enterkeyhint="search"/);
     assert.match(mobileSearchableSelectSource, /autocapitalize="none"/);
@@ -237,7 +258,10 @@ test('shared mobile input primitives prevent iPhone zoom and raise modal layers 
     assert.match(appCssSource, /-webkit-user-select: none;/);
     assert.match(appCssSource, /-webkit-touch-callout: none;/);
     assert.match(appCssSource, /\.app-touch-selectable\s*\{/);
-    assert.match(appCssSource, /@media \(max-width: 767px\)[\s\S]*font-size: 16px;/);
+    assert.match(
+        appCssSource,
+        /@media \(max-width: 767px\)[\s\S]*font-size: 16px;/,
+    );
     assert.match(sheetContentSource, /z-\[170]/);
     assert.match(sheetOverlaySource, /z-\[160]/);
     assert.match(dialogContentSource, /z-\[170]/);

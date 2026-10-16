@@ -2,8 +2,10 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -600,10 +602,10 @@ function assignPendingTransaction(transactionId: number): void {
                                                     'admin.users.billing.fields.supportStartedAt',
                                                 )
                                             }}</Label>
-                                            <Input
+                                            <AppDatePicker
                                                 v-model="supportForm.started_at"
                                                 class="mt-2 rounded-xl"
-                                                type="datetime-local"
+                                                mode="dateTime"
                                             />
                                         </div>
                                         <div>
@@ -612,10 +614,10 @@ function assignPendingTransaction(transactionId: number): void {
                                                     'admin.users.billing.fields.supportEndsAt',
                                                 )
                                             }}</Label>
-                                            <Input
+                                            <AppDatePicker
                                                 v-model="supportForm.ends_at"
                                                 class="mt-2 rounded-xl"
-                                                type="datetime-local"
+                                                mode="dateTime"
                                             />
                                         </div>
                                         <div class="sm:col-span-2">
@@ -624,12 +626,12 @@ function assignPendingTransaction(transactionId: number): void {
                                                     'admin.users.billing.fields.nextReminderAt',
                                                 )
                                             }}</Label>
-                                            <Input
+                                            <AppDatePicker
                                                 v-model="
                                                     supportForm.next_reminder_at
                                                 "
                                                 class="mt-2 rounded-xl"
-                                                type="datetime-local"
+                                                mode="dateTime"
                                             />
                                         </div>
                                         <div class="sm:col-span-2">
@@ -787,10 +789,12 @@ function assignPendingTransaction(transactionId: number): void {
                                                 'admin.users.billing.fields.amount',
                                             )
                                         }}</Label>
-                                        <Input
+                                        <MobileAmountInput
                                             v-model="donationForm.amount"
+                                            :currency-code="
+                                                donationForm.currency
+                                            "
                                             class="mt-2 rounded-xl"
-                                            inputmode="decimal"
                                         />
                                     </div>
                                     <div>
@@ -811,10 +815,10 @@ function assignPendingTransaction(transactionId: number): void {
                                                 'admin.users.billing.fields.paidAt',
                                             )
                                         }}</Label>
-                                        <Input
+                                        <AppDatePicker
                                             v-model="donationForm.paid_at"
                                             class="mt-2 rounded-xl"
-                                            type="datetime-local"
+                                            mode="dateTime"
                                         />
                                     </div>
                                     <div>
@@ -823,10 +827,10 @@ function assignPendingTransaction(transactionId: number): void {
                                                 'admin.users.billing.fields.receivedAt',
                                             )
                                         }}</Label>
-                                        <Input
+                                        <AppDatePicker
                                             v-model="donationForm.received_at"
                                             class="mt-2 rounded-xl"
-                                            type="datetime-local"
+                                            mode="dateTime"
                                         />
                                     </div>
                                     <div class="sm:col-span-2">
@@ -948,10 +952,13 @@ function assignPendingTransaction(transactionId: number): void {
                                                 'admin.users.billing.fields.amount',
                                             )
                                         }}</Label>
-                                        <Input
+                                        <MobileAmountInput
                                             v-model="transactionForm.amount"
+                                            :currency-code="
+                                                selectedTransaction?.currency ??
+                                                'EUR'
+                                            "
                                             class="mt-2 rounded-xl"
-                                            inputmode="decimal"
                                         />
                                     </div>
                                     <div>
@@ -960,10 +967,10 @@ function assignPendingTransaction(transactionId: number): void {
                                                 'admin.users.billing.fields.paidAt',
                                             )
                                         }}</Label>
-                                        <Input
+                                        <AppDatePicker
                                             v-model="transactionForm.paid_at"
                                             class="mt-2 rounded-xl"
-                                            type="datetime-local"
+                                            mode="dateTime"
                                         />
                                     </div>
                                     <div>
@@ -972,12 +979,12 @@ function assignPendingTransaction(transactionId: number): void {
                                                 'admin.users.billing.fields.receivedAt',
                                             )
                                         }}</Label>
-                                        <Input
+                                        <AppDatePicker
                                             v-model="
                                                 transactionForm.received_at
                                             "
                                             class="mt-2 rounded-xl"
-                                            type="datetime-local"
+                                            mode="dateTime"
                                         />
                                     </div>
                                     <div class="sm:col-span-2">

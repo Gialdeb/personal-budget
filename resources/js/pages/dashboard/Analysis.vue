@@ -28,10 +28,10 @@ import MonthDetailSheet from '@/components/dashboard/MonthDetailSheet.vue';
 import MonthlyRecapPanel from '@/components/dashboard/MonthlyRecapPanel.vue';
 import SpendingCapacityCard from '@/components/dashboard/SpendingCapacityCard.vue';
 import InputError from '@/components/InputError.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -1183,12 +1183,11 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                                         ui('Importo della singola occorrenza')
                                     }}</label
                                 >
-                                <Input
+                                <MobileAmountInput
                                     :id="`confirm-amount-${item.id}`"
                                     v-model="amountConfirmation.amount"
-                                    type="number"
+                                    :currency-code="item.currency ?? currency"
                                     min="0.01"
-                                    step="0.01"
                                     required
                                 />
                                 <InputError

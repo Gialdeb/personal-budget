@@ -146,7 +146,7 @@ test('recurring plans expose paid progress and confirmed permanent deletion', ()
     );
 
     assert.match(showSource, /settled_occurrences.*progressTotal\.value/s);
-    assert.match(showSource, /installmentProgress/);
+    assert.match(showSource, /recurringPlanProgress/);
     assert.match(showSource, /destroy\.url\(entry\.value\.uuid\)/);
     assert.match(showSource, /dialogs\.deleteDescription/);
     assert.match(indexSource, /destroy\.url\(deleteDialogEntry\.value\.uuid\)/);

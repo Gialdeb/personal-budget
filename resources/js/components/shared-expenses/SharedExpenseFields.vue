@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { UsersRound } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import CounterpartySelect from '@/components/shared-expenses/CounterpartySelect.vue';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUiCopy } from '@/i18n/ui-copy';
 
@@ -280,18 +280,14 @@ watch(counterparty, () => {
                 <div v-if="custom" class="grid gap-2 sm:grid-cols-2">
                     <div class="grid gap-1">
                         <Label>{{ ui('Mia quota') }}</Label
-                        ><Input
+                        ><MobileAmountInput
                             :model-value="myShare"
-                            inputmode="decimal"
                             @update:model-value="setMine(String($event))"
                         />
                     </div>
                     <div class="grid gap-1">
                         <Label>{{ ui('Quota') }} {{ counterpartyLabel }}</Label
-                        ><Input
-                            v-model="counterpartyShare"
-                            inputmode="decimal"
-                        />
+                        ><MobileAmountInput v-model="counterpartyShare" />
                     </div>
                 </div>
             </template>

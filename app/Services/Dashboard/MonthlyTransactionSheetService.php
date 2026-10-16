@@ -10,7 +10,6 @@ use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\Budget;
 use App\Models\Category;
-use App\Models\CounterpartyPayment;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Scope;
 use App\Models\SharedExpenseLedgerEntry;
@@ -40,6 +39,7 @@ class MonthlyTransactionSheetService
         protected SharedAccountCategoryTaxonomyService $sharedAccountCategoryTaxonomyService,
         protected CreditCardAutopayService $creditCardAutopayService,
         protected OperationalLedgerAnalyticsService $operationalLedgerAnalyticsService,
+        protected TransactionRowActionService $rowActionService,
     ) {}
 
     /**
@@ -62,11 +62,11 @@ class MonthlyTransactionSheetService
         $transactions = $this->getMonthlyTransactions($user, $year, $month);
         $deletedTransactions = $this->getDeletedMonthlyTransactions($user, $year, $month);
         $registerTransactions = $transactions->concat($deletedTransactions);
-        $counterpartyPayments = CounterpartyPayment::query()->whereIn('transaction_id', $registerTransactions->pluck('id'))->get(['id', 'transaction_id', 'return_of_id'])->keyBy('transaction_id');
-        $registerTransactions->each(fn (Transaction $transaction) => $transaction->setRelation('registerCounterpartyPayment', $counterpartyPayments->get($transaction->id)));
+        $registerTransactions = $registerTransactions->concat($registerTransactions->pluck('refundedTransaction')->filter());
+        $this->rowActionService->prepare($registerTransactions, $editableAccountIds);
         $budgets = $this->getMonthlyBudgets($user->id, $year, $month);
         $transactionList = $this->buildTransactionsList($user, $year, $month, $transactions, $editableAccountIds);
-        $deletedTransactionList = $this->buildDeletedTransactionsList($deletedTransactions, $editableAccountIds);
+        $deletedTransactionList = $this->buildDeletedTransactionsList($deletedTransactions, $editableAccountIds, $user->id);
         $plannedOccurrences = $this->buildPlannedOccurrencesList($user, $year, $month);
         $transactionFilterPool = $transactions->concat($deletedTransactions->all());
 
@@ -185,7 +185,9 @@ class MonthlyTransactionSheetService
                 'trackedItem.websiteIdentity',
                 'sharedExpenseCounterparty',
                 'refundTransaction',
-                'refundedTransaction',
+                'refundedTransaction.recurringOccurrence.recurringEntry',
+                'refundedTransaction.creditDebtPayment.item',
+                'refundedTransaction.sharedExpenseSettlement',
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
                 'occurrencePaymentAllocations.occurrence.recurringEntry',
@@ -224,7 +226,9 @@ class MonthlyTransactionSheetService
                 'trackedItem.websiteIdentity',
                 'sharedExpenseCounterparty',
                 'refundTransaction',
-                'refundedTransaction',
+                'refundedTransaction.recurringOccurrence.recurringEntry',
+                'refundedTransaction.creditDebtPayment.item',
+                'refundedTransaction.sharedExpenseSettlement',
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
                 'occurrencePaymentAllocations.occurrence.recurringEntry',
@@ -693,7 +697,7 @@ class MonthlyTransactionSheetService
     protected function buildTransactionsList(User $user, int $year, int $month, Collection $transactions, array $editableAccountIds): array
     {
         $items = $transactions
-            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction, $editableAccountIds))
+            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction, $editableAccountIds, $user->id))
             ->values()
             ->all();
 
@@ -723,10 +727,10 @@ class MonthlyTransactionSheetService
      * @param  Collection<int, Transaction>  $transactions
      * @return array<int, array<string, int|float|string|bool|null>>
      */
-    protected function buildDeletedTransactionsList(Collection $transactions, array $editableAccountIds): array
+    protected function buildDeletedTransactionsList(Collection $transactions, array $editableAccountIds, int $viewerId): array
     {
         return $transactions
-            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction, $editableAccountIds))
+            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction, $editableAccountIds, $viewerId))
             ->values()
             ->all();
     }
@@ -836,45 +840,56 @@ class MonthlyTransactionSheetService
     /** @return array<int, array<string, mixed>> */
     protected function sharedLedgerMovements(User $user, int $year, int $month, array $editableAccountIds): array
     {
-        return SharedExpenseLedgerEntry::query()->where('user_id', $user->id)
+        $entries = SharedExpenseLedgerEntry::query()->where('user_id', $user->id)
+            ->recorded()->where('paid_by', 'counterparty')
             ->whereNull('recurring_entry_occurrence_id')->whereYear('entry_date', $year)->whereMonth('entry_date', $month)
-            ->with('counterparty')->orderByDesc('entry_date')->get()->map(function (SharedExpenseLedgerEntry $entry) use ($editableAccountIds): array {
-                $context = $entry->transaction_context ?? [];
-                $account = Account::query()->whereIn('id', $editableAccountIds)
-                    ->when(isset($context['account_id']), fn ($query) => $query->whereKey($context['account_id']))->first();
-                // Unsaved form projection only: never part of the personal transaction register or totals.
-                $projection = new Transaction([
-                    'uuid' => $entry->uuid, 'account_id' => $account?->id,
-                    'transaction_date' => $entry->entry_date, 'amount' => $entry->total_cents / 100,
-                    'description' => $entry->title, 'notes' => $context['notes'] ?? null,
-                    'direction' => TransactionDirectionEnum::EXPENSE, 'kind' => TransactionKindEnum::MANUAL,
-                    'currency' => $entry->currency, 'shared_expense_paid_by' => $entry->paid_by,
-                    'shared_expense_my_share_cents' => $entry->my_share_cents,
-                    'shared_expense_counterparty_share_cents' => $entry->counterparty_share_cents,
-                ]);
-                foreach (['merchant', 'relatedTransaction', 'recurringOccurrence', 'refundTransaction', 'refundedTransaction', 'creditDebtPayment', 'sharedExpenseSettlement', 'createdByUser', 'updatedByUser'] as $relation) {
-                    $projection->setRelation($relation, null);
-                }
-                foreach (['occurrencePaymentAllocations', 'convertedRecurringOccurrences', 'matchedRecurringOccurrences'] as $relation) {
-                    $projection->setRelation($relation, $projection->newCollection());
-                }
-                $projection->setRelation('account', $account);
-                $projection->setRelation('category', Category::query()->whereKey($context['category_id'] ?? null)->first());
-                $projection->setRelation('trackedItem', TrackedItem::query()->where('user_id', $entry->user_id)->whereKey($context['tracked_item_id'] ?? null)->first());
-                $projection->setRelation('scope', Scope::query()->whereKey($context['scope_id'] ?? null)->first());
-                $projection->setRelation('sharedExpenseCounterparty', $entry->counterparty);
+            ->with('counterparty')->orderByDesc('entry_date')->orderByDesc('id')->get();
+        if ($entries->isEmpty()) {
+            return [];
+        }
 
-                return array_merge($this->mapTransactionListItem($projection, $editableAccountIds), [
-                    'uuid' => $entry->uuid, 'is_shared_ledger' => true, 'can_refund' => false, 'can_delete' => false,
-                    'type_key' => $context['type_key'] ?? 'expense',
-                ]);
-            })->all();
+        $contexts = $entries->pluck('transaction_context');
+        $accounts = Account::query()->whereIn('id', $editableAccountIds)->get()->keyBy('id');
+        $categories = Category::query()->whereIn('id', $contexts->pluck('category_id')->filter())->get()->keyBy('id');
+        $references = TrackedItem::query()->where('user_id', $user->id)->whereIn('id', $contexts->pluck('tracked_item_id')->filter())->get()->keyBy('id');
+        $scopes = Scope::query()->whereIn('id', $contexts->pluck('scope_id')->filter())->get()->keyBy('id');
+
+        return $entries->map(function (SharedExpenseLedgerEntry $entry) use ($editableAccountIds, $accounts, $categories, $references, $scopes, $user): array {
+            $context = $entry->transaction_context ?? [];
+            $account = isset($context['account_id']) ? $accounts->get($context['account_id']) : $accounts->first();
+            // Unsaved form projection only: never part of the personal transaction register or totals.
+            $projection = new Transaction([
+                'uuid' => $entry->uuid, 'account_id' => $account?->id,
+                'transaction_date' => $entry->entry_date, 'amount' => $entry->total_cents / 100,
+                'description' => $entry->title, 'notes' => $context['notes'] ?? null,
+                'direction' => TransactionDirectionEnum::EXPENSE, 'kind' => TransactionKindEnum::MANUAL,
+                'currency' => $entry->currency, 'shared_expense_paid_by' => $entry->paid_by,
+                'shared_expense_my_share_cents' => $entry->my_share_cents,
+                'shared_expense_counterparty_share_cents' => $entry->counterparty_share_cents,
+            ]);
+            foreach (['merchant', 'relatedTransaction', 'recurringOccurrence', 'refundTransaction', 'refundedTransaction', 'creditDebtPayment', 'sharedExpenseSettlement', 'createdByUser', 'updatedByUser'] as $relation) {
+                $projection->setRelation($relation, null);
+            }
+            foreach (['occurrencePaymentAllocations', 'convertedRecurringOccurrences', 'matchedRecurringOccurrences'] as $relation) {
+                $projection->setRelation($relation, $projection->newCollection());
+            }
+            $projection->setRelation('account', $account);
+            $projection->setRelation('category', $categories->get($context['category_id'] ?? null));
+            $projection->setRelation('trackedItem', $references->get($context['tracked_item_id'] ?? null));
+            $projection->setRelation('scope', $scopes->get($context['scope_id'] ?? null));
+            $projection->setRelation('sharedExpenseCounterparty', $entry->counterparty);
+
+            return array_merge($this->mapTransactionListItem($projection, $editableAccountIds, $user->id), [
+                'uuid' => $entry->uuid, 'is_shared_ledger' => true, 'can_refund' => false, 'can_delete' => false,
+                'type_key' => $context['type_key'] ?? 'expense',
+            ]);
+        })->all();
     }
 
     /**
      * @return array<string, int|float|string|bool|null>
      */
-    protected function mapTransactionListItem(Transaction $transaction, array $editableAccountIds): array
+    protected function mapTransactionListItem(Transaction $transaction, array $editableAccountIds, int $viewerId): array
     {
         $sectionKey = $transaction->category instanceof Category
             ? $this->sectionKeyForCategory($transaction->category)
@@ -917,7 +932,8 @@ class MonthlyTransactionSheetService
             'due_date' => ($occurrence->due_date ?? $occurrence->expected_date)?->toDateString(),
             'show_url' => route('recurring-entries.show', [$occurrence->recurringEntry->uuid, 'highlight' => $occurrence->uuid]),
         ])->all();
-        $canMutate = in_array((int) $transaction->account_id, $editableAccountIds, true);
+        $canMutate = in_array((int) $transaction->account_id, $editableAccountIds, true)
+            && ! $transaction->register_transfer_pair_is_read_only;
         $isLinkedObligation = $transaction->creditDebtPayment !== null || $transaction->sharedExpenseSettlement !== null;
         $canRefund = ! $isLinkedObligation && $canMutate
             && ! $transaction->trashed()
@@ -938,7 +954,7 @@ class MonthlyTransactionSheetService
             && $transaction->kind === TransactionKindEnum::REFUND
             && $transaction->refunded_transaction_id !== null;
 
-        return [
+        $row = [
             'uuid' => $transaction->uuid,
             'date' => $transaction->transaction_date?->toDateString(),
             'date_label' => $transaction->transaction_date?->translatedFormat('d M'),
@@ -1078,6 +1094,8 @@ class MonthlyTransactionSheetService
             'can_restore' => ! $isLinkedObligation && $canMutate && $canRestore,
             'can_force_delete' => ! $isLinkedObligation && $canMutate && $canForceDelete && ! $hasLinkedRefund,
         ];
+
+        return $this->rowActionService->present($transaction, $row, $viewerId);
     }
 
     /**

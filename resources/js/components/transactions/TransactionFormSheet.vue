@@ -8,14 +8,18 @@ import { store as storeTransaction } from '@/actions/App/Http/Controllers/Transa
 import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
 import { updateSharedLedger } from '@/actions/App/Http/Controllers/TransactionsController';
 import { storeTrackedItemOption } from '@/actions/App/Http/Controllers/TransactionsController';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import TransactionCategoryQuickCreate from '@/components/transactions/TransactionCategoryQuickCreate.vue';
+import TransactionClassificationBadges from '@/components/transactions/TransactionClassificationBadges.vue';
 import { Button } from '@/components/ui/button';
+import { DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -111,6 +115,7 @@ const { mobileFooterStyle, mobileScrollStyle, handleFocusIn } =
 const props = defineProps<{
     open: boolean;
     confirmSharedReview?: boolean;
+    sharedManagement?: boolean;
     year: number;
     month: number;
     sheet: MonthlyTransactionSheetData;
@@ -296,9 +301,11 @@ const isEditing = computed(
 );
 
 const title = computed(() =>
-    isEditing.value
-        ? t('transactions.form.titleEdit')
-        : t('transactions.form.titleNew'),
+    props.sharedManagement
+        ? t('transactions.sheet.actions.manageShared')
+        : isEditing.value
+          ? t('transactions.form.titleEdit')
+          : t('transactions.form.titleNew'),
 );
 
 function canMoveTransaction(
@@ -366,10 +373,13 @@ const mobileTypeOptions = computed<TypeOption[]>(() => {
     });
 });
 
+const sharedOnly = computed(() => props.sharedManagement && !isMobile.value);
 const description = computed(() =>
-    isEditing.value
-        ? t('transactions.form.descriptionEdit')
-        : t('transactions.form.descriptionNew'),
+    sharedOnly.value
+        ? t('transactions.sheet.actions.sharedDescription')
+        : isEditing.value
+          ? t('transactions.form.descriptionEdit')
+          : t('transactions.form.descriptionNew'),
 );
 
 function resolveDefaultAccountUuid(): string {
@@ -1738,6 +1748,19 @@ watch(
     },
 );
 
+async function focusSharedOrTemplate(): Promise<void> {
+    if (props.sharedManagement && !isMobile.value) {
+        await nextTick();
+        sharedFieldsElement.value
+            ?.querySelector<HTMLInputElement>('input')
+            ?.focus({ preventScroll: true });
+
+        return;
+    }
+
+    focusTemplateAmount();
+}
+const sharedFieldsElement = ref<HTMLElement | null>(null);
 function closeSheet(): void {
     emit('update:open', false);
 }
@@ -2025,14 +2048,17 @@ function submit(): void {
         :modal="!isMobile"
         @update:open="emit('update:open', $event)"
     >
-        <SheetContent
+        <component
+            :is="sharedManagement && !isMobile ? DialogContent : SheetContent"
             :side="isMobile ? 'bottom' : 'right'"
             :class="
-                isMobile
-                    ? 'h-[100dvh] max-h-[100dvh] w-full rounded-t-[1.75rem] border-t border-l-0 p-0'
-                    : 'w-full border-l p-0 sm:max-w-2xl'
+                sharedManagement && !isMobile
+                    ? 'flex max-w-2xl flex-col gap-0 p-0'
+                    : isMobile
+                      ? 'h-[100dvh] max-h-[100dvh] w-full rounded-t-[1.75rem] border-t border-l-0 p-0'
+                      : 'w-full border-l p-0 sm:max-w-2xl'
             "
-            @open-auto-focus.prevent="focusTemplateAmount"
+            @open-auto-focus.prevent="focusSharedOrTemplate"
         >
             <div class="flex h-full flex-col">
                 <SheetHeader
@@ -2046,7 +2072,11 @@ function submit(): void {
 
                 <div
                     :style="mobileScrollStyle"
-                    class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-6"
+                    :class="
+                        sharedOnly
+                            ? 'min-w-0 px-5 py-4'
+                            : 'min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-6'
+                    "
                 >
                     <form
                         ref="transactionFormElement"
@@ -2054,204 +2084,193 @@ function submit(): void {
                         @focusin.capture="handleFocusIn"
                         @submit.prevent="submit"
                     >
-                        <div
-                            v-if="template && !transaction"
-                            class="rounded-xl border bg-primary/5 p-3 text-sm"
-                        >
-                            <p class="font-medium">
-                                {{ ui('Azione rapida:') }} {{ template.name }}
-                            </p>
-                            <p
-                                v-for="message in unresolvedTemplateIssues"
-                                :key="message"
-                                role="alert"
-                                class="mt-2 text-destructive"
+                        <template v-if="!sharedOnly"
+                            ><div
+                                v-if="template && !transaction"
+                                class="rounded-xl border bg-primary/5 p-3 text-sm"
                             >
-                                {{ message }}
-                            </p>
-                        </div>
-                        <div
-                            class="grid gap-5"
-                            :class="
-                                isMoveMode ? 'md:grid-cols-2' : 'md:grid-cols-2'
-                            "
-                        >
-                            <div class="grid min-w-0 gap-2">
-                                <Label
-                                    :for="
-                                        isMoveMode || paymentOccurrence
-                                            ? 'transaction_date'
-                                            : 'transaction_day'
-                                    "
-                                    >{{
-                                        isMoveMode || paymentOccurrence
-                                            ? t(
-                                                  'transactions.form.labels.moveDate',
-                                              )
-                                            : t('transactions.form.labels.day')
-                                    }}</Label
+                                <p class="font-medium">
+                                    {{ ui('Azione rapida:') }}
+                                    {{ template.name }}
+                                </p>
+                                <p
+                                    v-for="message in unresolvedTemplateIssues"
+                                    :key="message"
+                                    role="alert"
+                                    class="mt-2 text-destructive"
                                 >
-                                <Input
-                                    v-if="isMoveMode || paymentOccurrence"
-                                    :id="
-                                        isMoveMode || paymentOccurrence
-                                            ? 'transaction_date'
-                                            : 'transaction_day'
-                                    "
-                                    v-model="form.transaction_date"
-                                    type="date"
-                                    :min="moveDateMin"
-                                    :max="moveDateMax"
-                                    class="h-11 rounded-2xl border-slate-200 text-center dark:border-slate-800"
-                                />
-                                <Input
-                                    v-else
-                                    id="transaction_day"
-                                    v-model="form.transaction_day"
-                                    :type="isMobile ? 'text' : 'number'"
-                                    inputmode="numeric"
-                                    pattern="[0-9]*"
-                                    autocomplete="off"
-                                    enterkeyhint="next"
-                                    :placeholder="
-                                        t('transactions.form.placeholders.day')
-                                    "
-                                    :min="monthDayRange.min"
-                                    :max="monthDayRange.max"
-                                    class="h-11 rounded-2xl border-slate-200 text-center dark:border-slate-800"
-                                />
-                                <InputError
-                                    :message="visibleTransactionDateError"
-                                />
-                                <div
-                                    v-if="isMobile && effectiveTransactionDate"
-                                    class="flex items-center gap-2 rounded-xl border px-3 py-2 text-xs"
-                                    :class="{
-                                        'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200':
-                                            transactionDateContext.tone ===
-                                            'today',
-                                        'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200':
-                                            transactionDateContext.tone ===
-                                            'period',
-                                        'border-border bg-muted/60 text-muted-foreground':
-                                            transactionDateContext.tone ===
-                                            'neutral',
-                                    }"
-                                >
-                                    <CalendarDays class="size-4 shrink-0" />
-                                    <div class="min-w-0">
-                                        <p class="font-medium text-foreground">
-                                            {{ effectiveTransactionDateLabel }}
-                                        </p>
-                                        <p>
-                                            {{ transactionDateContext.message }}
-                                        </p>
+                                    {{ message }}
+                                </p>
+                            </div>
+                            <div
+                                class="grid gap-5"
+                                :class="
+                                    isMoveMode
+                                        ? 'md:grid-cols-2'
+                                        : 'md:grid-cols-2'
+                                "
+                            >
+                                <div class="grid min-w-0 gap-2">
+                                    <Label
+                                        :for="
+                                            isMoveMode || paymentOccurrence
+                                                ? 'transaction_date'
+                                                : 'transaction_day'
+                                        "
+                                        >{{
+                                            isMoveMode || paymentOccurrence
+                                                ? t(
+                                                      'transactions.form.labels.moveDate',
+                                                  )
+                                                : t(
+                                                      'transactions.form.labels.day',
+                                                  )
+                                        }}</Label
+                                    >
+                                    <AppDatePicker
+                                        v-if="isMoveMode || paymentOccurrence"
+                                        :id="
+                                            isMoveMode || paymentOccurrence
+                                                ? 'transaction_date'
+                                                : 'transaction_day'
+                                        "
+                                        v-model="form.transaction_date"
+                                        :min="moveDateMin"
+                                        :max="moveDateMax"
+                                        class="h-11 rounded-2xl border-slate-200 text-center dark:border-slate-800"
+                                    />
+                                    <Input
+                                        v-else
+                                        id="transaction_day"
+                                        v-model="form.transaction_day"
+                                        :type="isMobile ? 'text' : 'number'"
+                                        inputmode="numeric"
+                                        pattern="[0-9]*"
+                                        autocomplete="off"
+                                        enterkeyhint="next"
+                                        :placeholder="
+                                            t(
+                                                'transactions.form.placeholders.day',
+                                            )
+                                        "
+                                        :min="monthDayRange.min"
+                                        :max="monthDayRange.max"
+                                        class="h-11 rounded-2xl border-slate-200 text-center dark:border-slate-800"
+                                    />
+                                    <InputError
+                                        :message="visibleTransactionDateError"
+                                    />
+                                    <div
+                                        v-if="
+                                            isMobile && effectiveTransactionDate
+                                        "
+                                        class="flex items-center gap-2 rounded-xl border px-3 py-2 text-xs"
+                                        :class="{
+                                            'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200':
+                                                transactionDateContext.tone ===
+                                                'today',
+                                            'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200':
+                                                transactionDateContext.tone ===
+                                                'period',
+                                            'border-border bg-muted/60 text-muted-foreground':
+                                                transactionDateContext.tone ===
+                                                'neutral',
+                                        }"
+                                    >
+                                        <CalendarDays class="size-4 shrink-0" />
+                                        <div class="min-w-0">
+                                            <p
+                                                class="font-medium text-foreground"
+                                            >
+                                                {{
+                                                    effectiveTransactionDateLabel
+                                                }}
+                                            </p>
+                                            <p>
+                                                {{
+                                                    transactionDateContext.message
+                                                }}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    t('transactions.form.labels.type')
-                                }}</Label>
-                                <div
-                                    class="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:hidden"
-                                    role="group"
-                                    :aria-label="
+                                <div class="grid gap-2">
+                                    <Label>{{
                                         t('transactions.form.labels.type')
-                                    "
-                                >
-                                    <Button
-                                        v-for="option in mobileTypeOptions"
-                                        :key="option.value"
-                                        type="button"
-                                        variant="outline"
-                                        :aria-pressed="
-                                            form.type_key === option.value
-                                        "
-                                        :class="[
-                                            'min-h-10 justify-center rounded-2xl px-3 py-1.5 text-sm font-semibold shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                                            option.value ===
-                                            balanceAdjustmentTypeKey
-                                                ? 'col-span-2 sm:col-span-3'
-                                                : '',
-                                            mobileTypeButtonClass(
-                                                option.value,
-                                                form.type_key === option.value,
-                                            ),
-                                        ]"
-                                        @click="
-                                            handleTypeSelection(option.value)
+                                    }}</Label>
+                                    <div
+                                        class="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:hidden"
+                                        role="group"
+                                        :aria-label="
+                                            t('transactions.form.labels.type')
                                         "
                                     >
-                                        {{ option.label }}
-                                    </Button>
-                                </div>
-                                <Select
-                                    :model-value="form.type_key"
-                                    @update:model-value="
-                                        handleTypeSelection(String($event))
-                                    "
-                                >
-                                    <SelectTrigger
-                                        class="hidden h-11 rounded-2xl border-slate-200 md:flex dark:border-slate-800"
-                                    >
-                                        <SelectValue
-                                            :placeholder="
-                                                t(
-                                                    'transactions.form.placeholders.selectType',
+                                        <Button
+                                            v-for="option in mobileTypeOptions"
+                                            :key="option.value"
+                                            type="button"
+                                            variant="outline"
+                                            :aria-pressed="
+                                                form.type_key === option.value
+                                            "
+                                            :class="[
+                                                'min-h-10 justify-center rounded-2xl px-3 py-1.5 text-sm font-semibold shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                                                option.value ===
+                                                balanceAdjustmentTypeKey
+                                                    ? 'col-span-2 sm:col-span-3'
+                                                    : '',
+                                                mobileTypeButtonClass(
+                                                    option.value,
+                                                    form.type_key ===
+                                                        option.value,
+                                                ),
+                                            ]"
+                                            @click="
+                                                handleTypeSelection(
+                                                    option.value,
                                                 )
                                             "
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent class="z-[170]">
-                                        <SelectItem
-                                            v-for="option in adjustmentTypeOptions"
-                                            :key="option.value"
-                                            :value="option.value"
                                         >
                                             {{ option.label }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <InputError :message="form.errors.type_key" />
+                                        </Button>
+                                    </div>
+                                    <Select
+                                        :model-value="form.type_key"
+                                        @update:model-value="
+                                            handleTypeSelection(String($event))
+                                        "
+                                    >
+                                        <SelectTrigger
+                                            class="hidden h-11 rounded-2xl border-slate-200 md:flex dark:border-slate-800"
+                                        >
+                                            <SelectValue
+                                                :placeholder="
+                                                    t(
+                                                        'transactions.form.placeholders.selectType',
+                                                    )
+                                                "
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent class="z-[170]">
+                                            <SelectItem
+                                                v-for="option in adjustmentTypeOptions"
+                                                :key="option.value"
+                                                :value="option.value"
+                                            >
+                                                {{ option.label }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError
+                                        :message="form.errors.type_key"
+                                    />
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="grid gap-5 md:grid-cols-2">
-                            <div class="grid gap-2">
-                                <Label>{{
-                                    isTransfer
-                                        ? t(
-                                              'transactions.form.labels.sourceAccount',
-                                          )
-                                        : t('transactions.form.labels.account')
-                                }}</Label>
-                                <MobileSearchableSelect
-                                    v-model="form.account_uuid"
-                                    :options="accountSelectOptions"
-                                    :placeholder="
-                                        isTransfer
-                                            ? t(
-                                                  'transactions.form.placeholders.selectSourceAccount',
-                                              )
-                                            : t(
-                                                  'transactions.form.placeholders.selectAccount',
-                                              )
-                                    "
-                                    :search-placeholder="
-                                        isTransfer
-                                            ? t(
-                                                  'transactions.form.placeholders.searchSourceAccount',
-                                              )
-                                            : t(
-                                                  'transactions.form.placeholders.searchAccount',
-                                              )
-                                    "
-                                    clearable
-                                    :disabled="isMoveMode"
-                                    :teleport="false"
-                                    :mobile-title="
+                            <div class="grid gap-5 md:grid-cols-2">
+                                <div class="grid gap-2">
+                                    <Label>{{
                                         isTransfer
                                             ? t(
                                                   'transactions.form.labels.sourceAccount',
@@ -2259,660 +2278,823 @@ function submit(): void {
                                             : t(
                                                   'transactions.form.labels.account',
                                               )
-                                    "
-                                    trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                />
-                                <InputError
-                                    :message="form.errors.account_uuid"
-                                />
-                                <p
-                                    v-if="form.account_uuid !== ''"
-                                    class="text-xs text-slate-500 dark:text-slate-400"
-                                >
-                                    {{
-                                        t(
-                                            'transactions.form.helper.accountCurrency',
-                                            {
-                                                currency:
-                                                    selectedAccountCurrencyLabel,
-                                            },
-                                        )
-                                    }}
-                                </p>
-                                <div
-                                    v-if="form.account_uuid !== ''"
-                                    class="rounded-2xl border border-dashed border-slate-200 px-3 py-3 dark:border-slate-800"
-                                >
-                                    <div
-                                        class="text-right text-sm font-semibold text-slate-700 dark:text-slate-200"
-                                    >
-                                        {{
-                                            accountCurrentBalanceLoading
+                                    }}</Label>
+                                    <MobileSearchableSelect
+                                        v-model="form.account_uuid"
+                                        :options="accountSelectOptions"
+                                        :placeholder="
+                                            isTransfer
                                                 ? t(
-                                                      'transactions.form.placeholders.balanceAdjustmentLoading',
+                                                      'transactions.form.placeholders.selectSourceAccount',
                                                   )
-                                                : accountCurrentBalance !== null
-                                                  ? formatCurrency(
-                                                        accountCurrentBalance,
-                                                        selectedAccountCurrency,
-                                                    )
-                                                  : t(
-                                                        'transactions.form.placeholders.balanceAdjustmentPending',
-                                                    )
-                                        }}
-                                    </div>
+                                                : t(
+                                                      'transactions.form.placeholders.selectAccount',
+                                                  )
+                                        "
+                                        :search-placeholder="
+                                            isTransfer
+                                                ? t(
+                                                      'transactions.form.placeholders.searchSourceAccount',
+                                                  )
+                                                : t(
+                                                      'transactions.form.placeholders.searchAccount',
+                                                  )
+                                        "
+                                        clearable
+                                        :disabled="isMoveMode"
+                                        :teleport="false"
+                                        :mobile-title="
+                                            isTransfer
+                                                ? t(
+                                                      'transactions.form.labels.sourceAccount',
+                                                  )
+                                                : t(
+                                                      'transactions.form.labels.account',
+                                                  )
+                                        "
+                                        trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    />
+                                    <InputError
+                                        :message="form.errors.account_uuid"
+                                    />
                                     <p
-                                        class="mt-1 text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                        v-if="form.account_uuid !== ''"
+                                        class="text-xs text-slate-500 dark:text-slate-400"
                                     >
                                         {{
                                             t(
-                                                'transactions.form.labels.currentBalance',
+                                                'transactions.form.helper.accountCurrency',
+                                                {
+                                                    currency:
+                                                        selectedAccountCurrencyLabel,
+                                                },
                                             )
                                         }}
                                     </p>
+                                    <div
+                                        v-if="form.account_uuid !== ''"
+                                        class="rounded-2xl border border-dashed border-slate-200 px-3 py-3 dark:border-slate-800"
+                                    >
+                                        <div
+                                            class="text-right text-sm font-semibold text-slate-700 dark:text-slate-200"
+                                        >
+                                            {{
+                                                accountCurrentBalanceLoading
+                                                    ? t(
+                                                          'transactions.form.placeholders.balanceAdjustmentLoading',
+                                                      )
+                                                    : accountCurrentBalance !==
+                                                        null
+                                                      ? formatCurrency(
+                                                            accountCurrentBalance,
+                                                            selectedAccountCurrency,
+                                                        )
+                                                      : t(
+                                                            'transactions.form.placeholders.balanceAdjustmentPending',
+                                                        )
+                                            }}
+                                        </div>
+                                        <p
+                                            class="mt-1 text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.form.labels.currentBalance',
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-2">
+                                    <Label>{{
+                                        isBalanceAdjustment
+                                            ? t(
+                                                  'transactions.form.labels.theoreticalBalance',
+                                              )
+                                            : isTransfer
+                                              ? t(
+                                                    'transactions.form.labels.destinationAccount',
+                                                )
+                                              : t(
+                                                    'transactions.form.labels.category',
+                                                )
+                                    }}</Label>
+                                    <div
+                                        v-if="isBalanceAdjustment"
+                                        class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
+                                    >
+                                        {{
+                                            balanceAdjustmentPreview
+                                                ? formatCurrency(
+                                                      balanceAdjustmentPreview.theoretical_balance_raw,
+                                                      selectedAccountCurrency,
+                                                  )
+                                                : t(
+                                                      'transactions.form.placeholders.balanceAdjustmentPending',
+                                                  )
+                                        }}
+                                    </div>
+                                    <div
+                                        v-else-if="isMoveMode"
+                                        class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
+                                    >
+                                        {{
+                                            lockedMoveValue(
+                                                transactionCategoryLabel(
+                                                    props.transaction,
+                                                ),
+                                            )
+                                        }}
+                                    </div>
+                                    <div
+                                        v-else-if="!isTransfer && isMobile"
+                                        class="grid min-w-0 gap-2"
+                                    >
+                                        <MobileQuickChoices
+                                            v-model="form.category_uuid"
+                                            :options="quickCategories"
+                                            appearance="category"
+                                        />
+                                        <MobileQuickChoices
+                                            v-if="
+                                                selectedCategoryChildren.length
+                                            "
+                                            v-model="form.category_uuid"
+                                            :options="selectedCategoryChildren"
+                                            appearance="category"
+                                        />
+                                        <MobileSearchableSelect
+                                            v-model="form.category_uuid"
+                                            :options="filteredCategories"
+                                            :placeholder="
+                                                ui('Tutte le categorie · Cerca')
+                                            "
+                                            :search-placeholder="
+                                                ui('Cerca categoria')
+                                            "
+                                            clearable
+                                            hierarchical
+                                            :teleport="false"
+                                            :mobile-title="ui('Categoria')"
+                                            trigger-class="min-h-11 rounded-2xl"
+                                        />
+                                    </div>
+                                    <MobileSearchableSelect
+                                        v-else-if="!isTransfer"
+                                        v-model="form.category_uuid"
+                                        :options="filteredCategories"
+                                        :placeholder="
+                                            t(
+                                                'transactions.form.placeholders.selectCategory',
+                                            )
+                                        "
+                                        :search-placeholder="
+                                            t(
+                                                'transactions.form.placeholders.searchCategory',
+                                            )
+                                        "
+                                        :disabled="form.type_key === ''"
+                                        clearable
+                                        hierarchical
+                                        :teleport="false"
+                                        :mobile-title="
+                                            t(
+                                                'transactions.form.labels.category',
+                                            )
+                                        "
+                                        trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    />
+                                    <TransactionCategoryQuickCreate
+                                        v-if="
+                                            !isTransfer && !isBalanceAdjustment
+                                        "
+                                        v-model="form.category_uuid"
+                                        :account-uuid="form.account_uuid"
+                                        :type-key="form.type_key"
+                                        :categories="
+                                            props.sheet.editor.categories
+                                        "
+                                        :accounts="props.sheet.editor.accounts"
+                                        :type-options="
+                                            props.sheet.editor.type_options
+                                        "
+                                        v-slot="{ openQuickCreate }"
+                                    >
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            class="w-fit gap-1.5 px-1 text-sky-700 hover:text-sky-800 dark:text-sky-300 dark:hover:text-sky-200"
+                                            :disabled="
+                                                form.account_uuid === '' ||
+                                                form.type_key === ''
+                                            "
+                                            @click="openQuickCreate"
+                                        >
+                                            <Plus class="size-4" />
+                                            {{
+                                                t(
+                                                    'transactions.form.actions.createCategory',
+                                                )
+                                            }}
+                                        </Button>
+                                    </TransactionCategoryQuickCreate>
+                                    <MobileSearchableSelect
+                                        v-else
+                                        v-model="form.destination_account_uuid"
+                                        :options="destinationAccountOptions"
+                                        :placeholder="
+                                            t(
+                                                'transactions.form.placeholders.selectDestinationAccount',
+                                            )
+                                        "
+                                        :search-placeholder="
+                                            t(
+                                                'transactions.form.placeholders.searchDestinationAccount',
+                                            )
+                                        "
+                                        clearable
+                                        :teleport="false"
+                                        :mobile-title="
+                                            t(
+                                                'transactions.form.labels.destinationAccount',
+                                            )
+                                        "
+                                        trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    />
+                                    <InputError
+                                        :message="
+                                            isBalanceAdjustment
+                                                ? undefined
+                                                : isTransfer
+                                                  ? form.errors
+                                                        .destination_account_uuid
+                                                  : form.errors.category_uuid
+                                        "
+                                    />
                                 </div>
                             </div>
 
+                            <div
+                                v-if="isTransfer"
+                                class="rounded-2xl border border-sky-200/80 bg-sky-50/70 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/5 dark:text-sky-200"
+                            >
+                                {{ t('transactions.form.helper.transferInfo') }}
+                            </div>
+
+                            <div
+                                v-else-if="isBalanceAdjustment"
+                                class="rounded-2xl border border-amber-200/80 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-100"
+                            >
+                                {{
+                                    t(
+                                        'transactions.form.helper.balanceAdjustmentInfo',
+                                    )
+                                }}
+                            </div>
+
+                            <div
+                                v-else-if="isMoveMode"
+                                class="rounded-2xl border border-sky-200/80 bg-sky-50/70 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/5 dark:text-sky-200"
+                            >
+                                {{ t('transactions.form.helper.moveInfo') }}
+                            </div>
+
+                            <div class="grid gap-5">
+                                <div class="grid gap-2">
+                                    <MobileAmountInput
+                                        v-if="!isBalanceAdjustment"
+                                        id="amount"
+                                        v-model="form.amount"
+                                        :editor-open="
+                                            template
+                                                ? templateAmountEditorOpen
+                                                : undefined
+                                        "
+                                        @update:editor-open="
+                                            templateAmountEditorOpen = $event
+                                        "
+                                        :label="
+                                            t('transactions.form.labels.amount')
+                                        "
+                                        :mobile-title="
+                                            t('transactions.form.labels.amount')
+                                        "
+                                        :disabled="isMoveMode"
+                                        :format-locale="moneyFormatLocale"
+                                        :currency-code="selectedAccountCurrency"
+                                        :placeholder="
+                                            t(
+                                                'transactions.form.placeholders.amount',
+                                            )
+                                        "
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                        @blur="normalizeAmountField"
+                                    />
+                                    <MobileAmountInput
+                                        v-else
+                                        id="desired_balance"
+                                        v-model="form.desired_balance"
+                                        :label="
+                                            t(
+                                                'transactions.form.labels.desiredBalance',
+                                            )
+                                        "
+                                        :mobile-title="
+                                            t(
+                                                'transactions.form.labels.desiredBalance',
+                                            )
+                                        "
+                                        :format-locale="moneyFormatLocale"
+                                        :currency-code="selectedAccountCurrency"
+                                        :placeholder="
+                                            t(
+                                                'transactions.form.placeholders.amount',
+                                            )
+                                        "
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                        @blur="normalizeDesiredBalanceField"
+                                    />
+                                    <InputError
+                                        :message="
+                                            isBalanceAdjustment
+                                                ? form.errors.desired_balance
+                                                : form.errors.amount
+                                        "
+                                    />
+                                    <div
+                                        v-if="
+                                            !isBalanceAdjustment &&
+                                            !isTransfer &&
+                                            !isMoveMode &&
+                                            (exchangePreviewLoading ||
+                                                exchangePreview?.should_preview ||
+                                                exchangePreviewError)
+                                        "
+                                        class="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/80"
+                                    >
+                                        <p
+                                            class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.form.helper.fxPreviewTitle',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            v-if="exchangePreviewLoading"
+                                            class="mt-2 text-sm text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.form.placeholders.balanceAdjustmentLoading',
+                                                )
+                                            }}
+                                        </p>
+                                        <template
+                                            v-else-if="
+                                                exchangePreview &&
+                                                exchangePreview.should_preview
+                                            "
+                                        >
+                                            <p
+                                                class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.form.helper.fxPreviewAmount',
+                                                        {
+                                                            source: formatCurrency(
+                                                                exchangePreview.amount_raw,
+                                                                exchangePreview.currency_code,
+                                                                moneyFormatLocale,
+                                                            ),
+                                                            target: formatCurrency(
+                                                                exchangePreview.converted_base_amount_raw,
+                                                                exchangePreview.base_currency_code,
+                                                                moneyFormatLocale,
+                                                            ),
+                                                        },
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.form.helper.fxPreviewRateDate',
+                                                        {
+                                                            date: formatPreviewDate(
+                                                                exchangePreview.exchange_rate_date,
+                                                            ),
+                                                        },
+                                                    )
+                                                }}
+                                            </p>
+                                        </template>
+                                        <p
+                                            v-else-if="exchangePreviewError"
+                                            class="mt-2 text-sm text-rose-600 dark:text-rose-400"
+                                        >
+                                            {{ exchangePreviewError }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <div
+                            ref="sharedFieldsElement"
+                            class="scroll-mt-4 space-y-4"
+                        >
+                            <section
+                                v-if="
+                                    sharedManagement && !isMobile && transaction
+                                "
+                                class="space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-500/25 dark:bg-violet-500/5"
+                                :aria-label="
+                                    t('transactions.sheet.actions.manageShared')
+                                "
+                            >
+                                <p class="font-medium">
+                                    {{
+                                        transaction.detail ??
+                                        transaction.description ??
+                                        transaction.shared_expense_counterparty_label
+                                    }}
+                                </p>
+                                <div class="flex flex-wrap gap-1">
+                                    <TransactionClassificationBadges
+                                        :transaction="transaction"
+                                        compact
+                                    />
+                                </div>
+                                <dl class="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <dt
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.sharedLedger.total',
+                                                )
+                                            }}
+                                        </dt>
+                                        <dd class="font-semibold">
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        Math.abs(
+                                                            transaction.amount_raw,
+                                                        ),
+                                                        transaction.currency_code ??
+                                                            props.sheet.settings
+                                                                .base_currency,
+                                                    )
+                                                "
+                                            />
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.sharedLedger.myShare',
+                                                )
+                                            }}
+                                        </dt>
+                                        <dd class="font-semibold">
+                                            <SensitiveValue
+                                                :value="
+                                                    transaction.shared_expense_my_share ==
+                                                    null
+                                                        ? '—'
+                                                        : formatCurrency(
+                                                              Number(
+                                                                  transaction.shared_expense_my_share,
+                                                              ),
+                                                              transaction.currency_code ??
+                                                                  props.sheet
+                                                                      .settings
+                                                                      .base_currency,
+                                                          )
+                                                "
+                                            />
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </section>
+                            <SharedExpenseFields
+                                :dropdown-teleport="false"
+                                v-if="!isBalanceAdjustment && !isTransfer"
+                                v-model:enabled="form.is_shared_expense"
+                                v-model:counterparty="
+                                    form.shared_expense_counterparty_uuid
+                                "
+                                v-model:paid-by="form.shared_expense_paid_by"
+                                v-model:my-share="form.shared_expense_my_share"
+                                v-model:counterparty-share="
+                                    form.shared_expense_counterparty_share
+                                "
+                                v-model:custom="
+                                    form.shared_expense_custom_split
+                                "
+                                :counterparties="
+                                    props.sheet.editor
+                                        .shared_expense_counterparties
+                                "
+                                dropdown-side="bottom"
+                                :amount="form.amount"
+                                :errors="form.errors"
+                            />
+                        </div>
+
+                        <template v-if="!sharedOnly">
                             <div class="grid gap-2">
+                                <MobileTextFieldEditor
+                                    v-if="isMobile"
+                                    class="min-w-0"
+                                    v-model="form.description"
+                                    v-model:open="mobileDescriptionEditorOpen"
+                                    :label="
+                                        isBalanceAdjustment
+                                            ? t('transactions.form.labels.note')
+                                            : t(
+                                                  'transactions.form.labels.detail',
+                                              )
+                                    "
+                                    :placeholder="
+                                        isBalanceAdjustment
+                                            ? t(
+                                                  'transactions.form.placeholders.balanceAdjustmentNote',
+                                              )
+                                            : t(
+                                                  'transactions.form.placeholders.detailExample',
+                                              )
+                                    "
+                                    :description="
+                                        isBalanceAdjustment
+                                            ? t('transactions.form.labels.note')
+                                            : t(
+                                                  'transactions.form.labels.detail',
+                                              )
+                                    "
+                                    :disabled="isMoveMode"
+                                />
+                                <Input
+                                    v-else
+                                    id="description"
+                                    v-model="form.description"
+                                    :placeholder="
+                                        isBalanceAdjustment
+                                            ? t(
+                                                  'transactions.form.placeholders.balanceAdjustmentNote',
+                                              )
+                                            : t(
+                                                  'transactions.form.placeholders.detailExample',
+                                              )
+                                    "
+                                    :disabled="isMoveMode"
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                />
+                                <InputError
+                                    :message="form.errors.description"
+                                />
+                            </div>
+
+                            <div v-if="isBalanceAdjustment" class="grid gap-2">
                                 <Label>{{
-                                    isBalanceAdjustment
-                                        ? t(
-                                              'transactions.form.labels.theoreticalBalance',
-                                          )
-                                        : isTransfer
-                                          ? t(
-                                                'transactions.form.labels.destinationAccount',
-                                            )
-                                          : t(
-                                                'transactions.form.labels.category',
-                                            )
+                                    t(
+                                        'transactions.form.labels.adjustmentDifference',
+                                    )
                                 }}</Label>
                                 <div
-                                    v-if="isBalanceAdjustment"
                                     class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
                                 >
                                     {{
-                                        balanceAdjustmentPreview
-                                            ? formatCurrency(
-                                                  balanceAdjustmentPreview.theoretical_balance_raw,
-                                                  selectedAccountCurrency,
+                                        balanceAdjustmentLoading
+                                            ? t(
+                                                  'transactions.form.placeholders.balanceAdjustmentLoading',
                                               )
-                                            : t(
-                                                  'transactions.form.placeholders.balanceAdjustmentPending',
-                                              )
+                                            : balanceAdjustmentPreview
+                                              ? formatCurrency(
+                                                    balanceAdjustmentPreview.adjustment_amount_raw,
+                                                    selectedAccountCurrency,
+                                                )
+                                              : t(
+                                                    'transactions.form.placeholders.balanceAdjustmentPending',
+                                                )
                                     }}
                                 </div>
+                            </div>
+
+                            <div v-if="!isTransfer" class="grid min-w-0 gap-2">
+                                <Label>{{
+                                    t('transactions.form.labels.trackedItem')
+                                }}</Label>
                                 <div
-                                    v-else-if="isMoveMode"
+                                    v-if="isMoveMode"
                                     class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
                                 >
                                     {{
                                         lockedMoveValue(
-                                            transactionCategoryLabel(
-                                                props.transaction,
-                                            ),
+                                            props.transaction
+                                                ?.tracked_item_label ??
+                                                props.transaction?.scope_label,
                                         )
                                     }}
                                 </div>
                                 <div
-                                    v-else-if="!isTransfer && isMobile"
+                                    v-if="isMobile && !isMoveMode"
                                     class="grid min-w-0 gap-2"
                                 >
                                     <MobileQuickChoices
-                                        v-model="form.category_uuid"
-                                        :options="quickCategories"
-                                        appearance="category"
-                                    />
-                                    <MobileQuickChoices
-                                        v-if="selectedCategoryChildren.length"
-                                        v-model="form.category_uuid"
-                                        :options="selectedCategoryChildren"
-                                        appearance="category"
-                                    />
-                                    <MobileSearchableSelect
-                                        v-model="form.category_uuid"
-                                        :options="filteredCategories"
-                                        :placeholder="
-                                            ui('Tutte le categorie · Cerca')
+                                        v-if="quickReferences.length"
+                                        :model-value="selectedReferenceValue"
+                                        :options="quickReferences"
+                                        appearance="reference"
+                                        @update:model-value="
+                                            handleReferenceSelection
                                         "
-                                        :search-placeholder="
-                                            ui('Cerca categoria')
-                                        "
-                                        clearable
-                                        hierarchical
-                                        :teleport="false"
-                                        :mobile-title="ui('Categoria')"
-                                        trigger-class="min-h-11 rounded-2xl"
                                     />
+                                    <div
+                                        class="flex min-w-0 items-center gap-2"
+                                    >
+                                        <MobileSearchableSelect
+                                            v-if="referenceOptions.length"
+                                            :model-value="
+                                                selectedReferenceValue
+                                            "
+                                            :options="referenceOptions"
+                                            :placeholder="ui('Tutti · Cerca')"
+                                            :search-placeholder="
+                                                ui('Cerca riferimento')
+                                            "
+                                            clearable
+                                            :teleport="false"
+                                            :mobile-title="ui('Riferimento')"
+                                            trigger-class="min-h-11 rounded-2xl"
+                                            class="min-w-0 flex-1"
+                                            @update:model-value="
+                                                handleReferenceSelection
+                                            "
+                                            @search-query="
+                                                trackedItemSearchQuery = $event
+                                            "
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            class="min-h-11 shrink-0 rounded-2xl"
+                                            @click="
+                                                newReferenceOpen =
+                                                    !newReferenceOpen
+                                            "
+                                            >{{ ui('+ Nuovo') }}</Button
+                                        >
+                                    </div>
+                                    <div
+                                        v-if="newReferenceOpen"
+                                        class="grid gap-3 rounded-2xl border border-border bg-muted/30 p-3"
+                                    >
+                                        <Label for="new-reference-name">{{
+                                            ui('Nome riferimento')
+                                        }}</Label>
+                                        <Input
+                                            id="new-reference-name"
+                                            v-model="newReferenceName"
+                                            :placeholder="ui('Es. Amazon')"
+                                            class="min-h-11"
+                                        />
+                                        <Label for="new-reference-website">{{
+                                            ui(
+                                                'Sito web per il logo (opzionale)',
+                                            )
+                                        }}</Label>
+                                        <Input
+                                            id="new-reference-website"
+                                            v-model="newReferenceWebsite"
+                                            type="url"
+                                            placeholder="https://www.amazon.it"
+                                            class="min-h-11"
+                                        />
+                                        <Button
+                                            type="button"
+                                            :disabled="
+                                                creatingTrackedItem ||
+                                                !newReferenceName.trim()
+                                            "
+                                            class="min-h-11"
+                                            @click="
+                                                createTrackedItemFromContext(
+                                                    newReferenceName.trim(),
+                                                )
+                                            "
+                                            >{{
+                                                ui('Crea e seleziona')
+                                            }}</Button
+                                        >
+                                    </div>
                                 </div>
                                 <MobileSearchableSelect
-                                    v-else-if="!isTransfer"
-                                    v-model="form.category_uuid"
-                                    :options="filteredCategories"
+                                    v-else-if="!isMoveMode"
+                                    :model-value="selectedReferenceValue"
+                                    :options="[
+                                        {
+                                            value: '',
+                                            label: t(
+                                                'transactions.form.placeholders.none',
+                                            ),
+                                        },
+                                        ...referenceOptions,
+                                    ]"
                                     :placeholder="
                                         t(
-                                            'transactions.form.placeholders.selectCategory',
+                                            'transactions.form.placeholders.selectTrackedItem',
                                         )
                                     "
                                     :search-placeholder="
                                         t(
-                                            'transactions.form.placeholders.searchCategory',
+                                            'transactions.form.placeholders.searchTrackedItem',
                                         )
                                     "
                                     :disabled="form.type_key === ''"
                                     clearable
-                                    hierarchical
                                     :teleport="false"
-                                    :mobile-title="
-                                        t('transactions.form.labels.category')
-                                    "
-                                    trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                />
-                                <TransactionCategoryQuickCreate
-                                    v-if="!isTransfer && !isBalanceAdjustment"
-                                    v-model="form.category_uuid"
-                                    :account-uuid="form.account_uuid"
-                                    :type-key="form.type_key"
-                                    :categories="props.sheet.editor.categories"
-                                    :accounts="props.sheet.editor.accounts"
-                                    :type-options="
-                                        props.sheet.editor.type_options
-                                    "
-                                    v-slot="{ openQuickCreate }"
-                                >
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        class="w-fit gap-1.5 px-1 text-sky-700 hover:text-sky-800 dark:text-sky-300 dark:hover:text-sky-200"
-                                        :disabled="
-                                            form.account_uuid === '' ||
-                                            form.type_key === ''
-                                        "
-                                        @click="openQuickCreate"
-                                    >
-                                        <Plus class="size-4" />
-                                        {{
-                                            t(
-                                                'transactions.form.actions.createCategory',
-                                            )
-                                        }}
-                                    </Button>
-                                </TransactionCategoryQuickCreate>
-                                <MobileSearchableSelect
-                                    v-else
-                                    v-model="form.destination_account_uuid"
-                                    :options="destinationAccountOptions"
-                                    :placeholder="
-                                        t(
-                                            'transactions.form.placeholders.selectDestinationAccount',
-                                        )
-                                    "
-                                    :search-placeholder="
-                                        t(
-                                            'transactions.form.placeholders.searchDestinationAccount',
-                                        )
-                                    "
-                                    clearable
-                                    :teleport="false"
+                                    creatable
+                                    :creating="creatingTrackedItem"
                                     :mobile-title="
                                         t(
-                                            'transactions.form.labels.destinationAccount',
+                                            'transactions.form.labels.trackedItem',
+                                        )
+                                    "
+                                    :create-label="
+                                        t(
+                                            'transactions.form.placeholders.createTrackedItem',
                                         )
                                     "
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                />
-                                <InputError
-                                    :message="
-                                        isBalanceAdjustment
-                                            ? undefined
-                                            : isTransfer
-                                              ? form.errors
-                                                    .destination_account_uuid
-                                              : form.errors.category_uuid
-                                    "
-                                />
-                            </div>
-                        </div>
-
-                        <div
-                            v-if="isTransfer"
-                            class="rounded-2xl border border-sky-200/80 bg-sky-50/70 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/5 dark:text-sky-200"
-                        >
-                            {{ t('transactions.form.helper.transferInfo') }}
-                        </div>
-
-                        <div
-                            v-else-if="isBalanceAdjustment"
-                            class="rounded-2xl border border-amber-200/80 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-100"
-                        >
-                            {{
-                                t(
-                                    'transactions.form.helper.balanceAdjustmentInfo',
-                                )
-                            }}
-                        </div>
-
-                        <div
-                            v-else-if="isMoveMode"
-                            class="rounded-2xl border border-sky-200/80 bg-sky-50/70 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/5 dark:text-sky-200"
-                        >
-                            {{ t('transactions.form.helper.moveInfo') }}
-                        </div>
-
-                        <div class="grid gap-5">
-                            <div class="grid gap-2">
-                                <MobileAmountInput
-                                    v-if="!isBalanceAdjustment"
-                                    id="amount"
-                                    v-model="form.amount"
-                                    :editor-open="
-                                        template
-                                            ? templateAmountEditorOpen
-                                            : undefined
-                                    "
-                                    @update:editor-open="
-                                        templateAmountEditorOpen = $event
-                                    "
-                                    :label="
-                                        t('transactions.form.labels.amount')
-                                    "
-                                    :mobile-title="
-                                        t('transactions.form.labels.amount')
-                                    "
-                                    :disabled="isMoveMode"
-                                    :format-locale="moneyFormatLocale"
-                                    :currency-code="selectedAccountCurrency"
-                                    :placeholder="
-                                        t(
-                                            'transactions.form.placeholders.amount',
-                                        )
-                                    "
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    @blur="normalizeAmountField"
-                                />
-                                <MobileAmountInput
-                                    v-else
-                                    id="desired_balance"
-                                    v-model="form.desired_balance"
-                                    :label="
-                                        t(
-                                            'transactions.form.labels.desiredBalance',
-                                        )
-                                    "
-                                    :mobile-title="
-                                        t(
-                                            'transactions.form.labels.desiredBalance',
-                                        )
-                                    "
-                                    :format-locale="moneyFormatLocale"
-                                    :currency-code="selectedAccountCurrency"
-                                    :placeholder="
-                                        t(
-                                            'transactions.form.placeholders.amount',
-                                        )
-                                    "
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    @blur="normalizeDesiredBalanceField"
-                                />
-                                <InputError
-                                    :message="
-                                        isBalanceAdjustment
-                                            ? form.errors.desired_balance
-                                            : form.errors.amount
-                                    "
-                                />
-                                <div
-                                    v-if="
-                                        !isBalanceAdjustment &&
-                                        !isTransfer &&
-                                        !isMoveMode &&
-                                        (exchangePreviewLoading ||
-                                            exchangePreview?.should_preview ||
-                                            exchangePreviewError)
-                                    "
-                                    class="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/80"
-                                >
-                                    <p
-                                        class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.form.helper.fxPreviewTitle',
-                                            )
-                                        }}
-                                    </p>
-                                    <p
-                                        v-if="exchangePreviewLoading"
-                                        class="mt-2 text-sm text-slate-600 dark:text-slate-300"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.form.placeholders.balanceAdjustmentLoading',
-                                            )
-                                        }}
-                                    </p>
-                                    <template
-                                        v-else-if="
-                                            exchangePreview &&
-                                            exchangePreview.should_preview
-                                        "
-                                    >
-                                        <p
-                                            class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.form.helper.fxPreviewAmount',
-                                                    {
-                                                        source: formatCurrency(
-                                                            exchangePreview.amount_raw,
-                                                            exchangePreview.currency_code,
-                                                            moneyFormatLocale,
-                                                        ),
-                                                        target: formatCurrency(
-                                                            exchangePreview.converted_base_amount_raw,
-                                                            exchangePreview.base_currency_code,
-                                                            moneyFormatLocale,
-                                                        ),
-                                                    },
-                                                )
-                                            }}
-                                        </p>
-                                        <p
-                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.form.helper.fxPreviewRateDate',
-                                                    {
-                                                        date: formatPreviewDate(
-                                                            exchangePreview.exchange_rate_date,
-                                                        ),
-                                                    },
-                                                )
-                                            }}
-                                        </p>
-                                    </template>
-                                    <p
-                                        v-else-if="exchangePreviewError"
-                                        class="mt-2 text-sm text-rose-600 dark:text-rose-400"
-                                    >
-                                        {{ exchangePreviewError }}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <SharedExpenseFields
-                            v-if="!isBalanceAdjustment && !isTransfer"
-                            v-model:enabled="form.is_shared_expense"
-                            v-model:counterparty="
-                                form.shared_expense_counterparty_uuid
-                            "
-                            v-model:paid-by="form.shared_expense_paid_by"
-                            v-model:my-share="form.shared_expense_my_share"
-                            v-model:counterparty-share="
-                                form.shared_expense_counterparty_share
-                            "
-                            v-model:custom="form.shared_expense_custom_split"
-                            :counterparties="
-                                props.sheet.editor.shared_expense_counterparties
-                            "
-                            dropdown-side="bottom"
-                            :amount="form.amount"
-                            :errors="form.errors"
-                        />
-
-                        <div class="grid gap-2">
-                            <MobileTextFieldEditor
-                                v-if="isMobile"
-                                class="min-w-0"
-                                v-model="form.description"
-                                v-model:open="mobileDescriptionEditorOpen"
-                                :label="
-                                    isBalanceAdjustment
-                                        ? t('transactions.form.labels.note')
-                                        : t('transactions.form.labels.detail')
-                                "
-                                :placeholder="
-                                    isBalanceAdjustment
-                                        ? t(
-                                              'transactions.form.placeholders.balanceAdjustmentNote',
-                                          )
-                                        : t(
-                                              'transactions.form.placeholders.detailExample',
-                                          )
-                                "
-                                :description="
-                                    isBalanceAdjustment
-                                        ? t('transactions.form.labels.note')
-                                        : t('transactions.form.labels.detail')
-                                "
-                                :disabled="isMoveMode"
-                            />
-                            <Input
-                                v-else
-                                id="description"
-                                v-model="form.description"
-                                :placeholder="
-                                    isBalanceAdjustment
-                                        ? t(
-                                              'transactions.form.placeholders.balanceAdjustmentNote',
-                                          )
-                                        : t(
-                                              'transactions.form.placeholders.detailExample',
-                                          )
-                                "
-                                :disabled="isMoveMode"
-                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                            />
-                            <InputError :message="form.errors.description" />
-                        </div>
-
-                        <div v-if="isBalanceAdjustment" class="grid gap-2">
-                            <Label>{{
-                                t(
-                                    'transactions.form.labels.adjustmentDifference',
-                                )
-                            }}</Label>
-                            <div
-                                class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
-                            >
-                                {{
-                                    balanceAdjustmentLoading
-                                        ? t(
-                                              'transactions.form.placeholders.balanceAdjustmentLoading',
-                                          )
-                                        : balanceAdjustmentPreview
-                                          ? formatCurrency(
-                                                balanceAdjustmentPreview.adjustment_amount_raw,
-                                                selectedAccountCurrency,
-                                            )
-                                          : t(
-                                                'transactions.form.placeholders.balanceAdjustmentPending',
-                                            )
-                                }}
-                            </div>
-                        </div>
-
-                        <div v-if="!isTransfer" class="grid min-w-0 gap-2">
-                            <Label>{{
-                                t('transactions.form.labels.trackedItem')
-                            }}</Label>
-                            <div
-                                v-if="isMoveMode"
-                                class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
-                            >
-                                {{
-                                    lockedMoveValue(
-                                        props.transaction?.tracked_item_label ??
-                                            props.transaction?.scope_label,
-                                    )
-                                }}
-                            </div>
-                            <div
-                                v-if="isMobile && !isMoveMode"
-                                class="grid min-w-0 gap-2"
-                            >
-                                <MobileQuickChoices
-                                    v-if="quickReferences.length"
-                                    :model-value="selectedReferenceValue"
-                                    :options="quickReferences"
-                                    appearance="reference"
                                     @update:model-value="
                                         handleReferenceSelection
                                     "
+                                    @search-query="
+                                        trackedItemSearchQuery = $event
+                                    "
+                                    @create-option="
+                                        createTrackedItemFromContext
+                                    "
                                 />
-                                <div class="flex min-w-0 items-center gap-2">
-                                    <MobileSearchableSelect
-                                        v-if="referenceOptions.length"
-                                        :model-value="selectedReferenceValue"
-                                        :options="referenceOptions"
-                                        :placeholder="ui('Tutti · Cerca')"
-                                        :search-placeholder="
-                                            ui('Cerca riferimento')
-                                        "
-                                        clearable
-                                        :teleport="false"
-                                        :mobile-title="ui('Riferimento')"
-                                        trigger-class="min-h-11 rounded-2xl"
-                                        class="min-w-0 flex-1"
-                                        @update:model-value="
-                                            handleReferenceSelection
-                                        "
-                                        @search-query="
-                                            trackedItemSearchQuery = $event
-                                        "
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        class="min-h-11 shrink-0 rounded-2xl"
-                                        @click="
-                                            newReferenceOpen = !newReferenceOpen
-                                        "
-                                        >{{ ui('+ Nuovo') }}</Button
-                                    >
-                                </div>
-                                <div
-                                    v-if="newReferenceOpen"
-                                    class="grid gap-3 rounded-2xl border border-border bg-muted/30 p-3"
-                                >
-                                    <Label for="new-reference-name">{{
-                                        ui('Nome riferimento')
-                                    }}</Label>
-                                    <Input
-                                        id="new-reference-name"
-                                        v-model="newReferenceName"
-                                        :placeholder="ui('Es. Amazon')"
-                                        class="min-h-11"
-                                    />
-                                    <Label for="new-reference-website">{{
-                                        ui('Sito web per il logo (opzionale)')
-                                    }}</Label>
-                                    <Input
-                                        id="new-reference-website"
-                                        v-model="newReferenceWebsite"
-                                        type="url"
-                                        placeholder="https://www.amazon.it"
-                                        class="min-h-11"
-                                    />
-                                    <Button
-                                        type="button"
-                                        :disabled="
-                                            creatingTrackedItem ||
-                                            !newReferenceName.trim()
-                                        "
-                                        class="min-h-11"
-                                        @click="
-                                            createTrackedItemFromContext(
-                                                newReferenceName.trim(),
-                                            )
-                                        "
-                                        >{{ ui('Crea e seleziona') }}</Button
-                                    >
-                                </div>
+                                <InputError
+                                    :message="
+                                        form.errors.tracked_item_uuid ||
+                                        form.errors.scope_uuid
+                                    "
+                                />
                             </div>
-                            <MobileSearchableSelect
-                                v-else-if="!isMoveMode"
-                                :model-value="selectedReferenceValue"
-                                :options="[
-                                    {
-                                        value: '',
-                                        label: t(
-                                            'transactions.form.placeholders.none',
-                                        ),
-                                    },
-                                    ...referenceOptions,
-                                ]"
-                                :placeholder="
-                                    t(
-                                        'transactions.form.placeholders.selectTrackedItem',
-                                    )
-                                "
-                                :search-placeholder="
-                                    t(
-                                        'transactions.form.placeholders.searchTrackedItem',
-                                    )
-                                "
-                                :disabled="form.type_key === ''"
-                                clearable
-                                :teleport="false"
-                                creatable
-                                :creating="creatingTrackedItem"
-                                :mobile-title="
-                                    t('transactions.form.labels.trackedItem')
-                                "
-                                :create-label="
-                                    t(
-                                        'transactions.form.placeholders.createTrackedItem',
-                                    )
-                                "
-                                trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                @update:model-value="handleReferenceSelection"
-                                @search-query="trackedItemSearchQuery = $event"
-                                @create-option="createTrackedItemFromContext"
-                            />
-                            <InputError
-                                :message="
-                                    form.errors.tracked_item_uuid ||
-                                    form.errors.scope_uuid
-                                "
-                            />
-                        </div>
 
-                        <div v-if="!isBalanceAdjustment" class="grid gap-2">
-                            <MobileTextFieldEditor
-                                v-if="isMobile"
-                                v-model="form.notes"
-                                class="min-w-0"
-                                v-model:open="mobileNotesEditorOpen"
-                                :label="t('transactions.form.labels.notes')"
-                                :placeholder="
-                                    t(
-                                        'transactions.form.placeholders.optionalNotes',
-                                    )
-                                "
-                                :disabled="isMoveMode"
-                                multiline
-                                :rows="8"
-                            />
-                            <textarea
-                                v-else
-                                id="notes"
-                                v-model="form.notes"
-                                rows="4"
-                                :disabled="isMoveMode"
-                                class="min-h-28 rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-sm shadow-xs transition-colors outline-none placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-800 dark:placeholder:text-slate-500"
-                                :placeholder="
-                                    t(
-                                        'transactions.form.placeholders.optionalNotes',
-                                    )
-                                "
-                            />
-                            <InputError :message="form.errors.notes" />
-                        </div>
+                            <div v-if="!isBalanceAdjustment" class="grid gap-2">
+                                <MobileTextFieldEditor
+                                    v-if="isMobile"
+                                    v-model="form.notes"
+                                    class="min-w-0"
+                                    v-model:open="mobileNotesEditorOpen"
+                                    :label="t('transactions.form.labels.notes')"
+                                    :placeholder="
+                                        t(
+                                            'transactions.form.placeholders.optionalNotes',
+                                        )
+                                    "
+                                    :disabled="isMoveMode"
+                                    multiline
+                                    :rows="8"
+                                />
+                                <textarea
+                                    v-else
+                                    id="notes"
+                                    v-model="form.notes"
+                                    rows="4"
+                                    :disabled="isMoveMode"
+                                    class="min-h-28 rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-sm shadow-xs transition-colors outline-none placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-800 dark:placeholder:text-slate-500"
+                                    :placeholder="
+                                        t(
+                                            'transactions.form.placeholders.optionalNotes',
+                                        )
+                                    "
+                                />
+                                <InputError :message="form.errors.notes" />
+                            </div>
+                        </template>
+                        <p
+                            v-if="sharedOnly && Object.keys(form.errors).length"
+                            role="alert"
+                            class="text-sm text-destructive"
+                        >
+                            {{ Object.values(form.errors).join(' ') }}
+                        </p>
                     </form>
                 </div>
 
@@ -2950,6 +3132,6 @@ function submit(): void {
                     </div>
                 </div>
             </div>
-        </SheetContent>
+        </component>
     </Sheet>
 </template>

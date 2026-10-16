@@ -22,7 +22,7 @@ test('export page keeps the flow simple and uses the typed export route for down
         exportPageSource,
         /window\.location\.assign\(downloadHref\.value\)/,
     );
-    assert.match(exportPageSource, /type="date"/);
+    assert.match(exportPageSource, /<AppDatePicker/);
     assert.match(exportPageSource, /selectedDataset\.value\.supports_period/);
     assert.match(exportPageSource, /tracked_items:\s+'trackedItems'/);
     assert.match(exportPageSource, /`export\.formats\.\$\{format}\.label`/);

@@ -7,6 +7,7 @@ use App\Models\AccountType;
 use App\Models\Category;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
@@ -14,6 +15,7 @@ use App\Services\Dashboard\DashboardService;
 use App\Services\Recurring\AutomaticPaymentVerificationService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\UpdateRecurringOccurrenceAmountService;
+use App\Services\SharedExpenses\SharedExpenseSettlementService;
 use App\Services\Transactions\RecurringEntryLifecycleService;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -268,3 +270,93 @@ test('the transaction endpoint permits actual date and amount corrections but pr
     $this->post(route('transactions.payment-confirmation', $transaction->uuid))->assertSessionHasNoErrors();
     expect($transaction->fresh()->payment_verified_at)->not->toBeNull();
 });
+
+function sharedPaymentVerificationOccurrence(int $mine, int $other): RecurringEntryOccurrence
+{
+    $occurrence = paymentVerificationOccurrence();
+    $entry = $occurrence->recurringEntry;
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $entry->user_id, 'name' => 'Partner', 'slug' => 'partner',
+        'is_active' => true, 'is_shared_expense_counterpart' => true,
+    ]);
+    $entry->update([
+        'expected_amount' => 8, 'is_amount_variable' => true,
+        'shared_expense_counterparty_id' => $counterparty->id,
+        'shared_expense_paid_by' => 'self',
+        'shared_expense_my_share_cents' => $mine,
+        'shared_expense_counterparty_share_cents' => $other,
+    ]);
+    $occurrence->update([
+        'expected_amount' => 8,
+        'shared_expense_paid_by' => 'self',
+        'shared_expense_my_share_cents' => $mine,
+        'shared_expense_counterparty_share_cents' => $other,
+    ]);
+
+    return $occurrence;
+}
+
+test('correcting a shared automatic amount preserves the plan allocation on every correction', function (int $mine, int $other, float $amount, int $expectedMine, int $expectedOther, bool $posted) {
+    $occurrence = sharedPaymentVerificationOccurrence($mine, $other);
+    $entry = $occurrence->recurringEntry;
+    if ($posted) {
+        app(RecurringEntryPostingService::class)->post($occurrence, metadata: ['automatic_posting' => true]);
+    }
+    $service = app(UpdateRecurringOccurrenceAmountService::class);
+    foreach ([0.01, $amount] as $correctedAmount) {
+        $service->update($occurrence, $entry->user, $correctedAmount);
+    }
+    $occurrence->refresh();
+    expect($occurrence->shared_expense_my_share_cents)->toBe($expectedMine)
+        ->and($occurrence->shared_expense_counterparty_share_cents)->toBe($expectedOther);
+    $transaction = $posted
+        ? $occurrence->convertedTransaction
+        : app(RecurringEntryPostingService::class)->post($occurrence);
+    expect((float) $transaction->amount)->toBe($amount)
+        ->and($transaction->shared_expense_my_share_cents)->toBe($expectedMine)
+        ->and($transaction->shared_expense_counterparty_share_cents)->toBe($expectedOther)
+        ->and($transaction->shared_expense_my_share_cents + $transaction->shared_expense_counterparty_share_cents)->toBe((int) round($amount * 100))
+        ->and((float) $transaction->account->fresh()->current_balance)->toBe(1000 - $amount)
+        ->and(app(SharedExpenseSettlementService::class)->balanceCents($entry->user, $entry->sharedExpenseCounterparty))->toBe($expectedOther)
+        ->and($entry->fresh()->shared_expense_my_share_cents)->toBe($mine)
+        ->and($entry->fresh()->shared_expense_counterparty_share_cents)->toBe($other)
+        ->and(Transaction::query()->count())->toBe(1);
+})->with([
+    'equal posted' => [400, 400, 10.0, 500, 500, true],
+    'custom posted' => [200, 600, 10.0, 250, 750, true],
+    'odd cents posted' => [400, 400, 10.01, 500, 501, true],
+    'zero own share' => [0, 800, 10.0, 0, 1000, true],
+    'full own share' => [800, 0, 10.0, 1000, 0, true],
+    'decreasing posted' => [200, 600, 4.0, 100, 300, true],
+    'equal pending' => [400, 400, 10.0, 500, 500, false],
+    'custom pending' => [200, 600, 10.0, 250, 750, false],
+]);
+
+test('correcting a shared automatic transaction ignores a fixed old share and uses the plan percentage', function (int $mine, int $other, string $submittedMine, string $submittedOther, int $expectedMine, int $expectedOther) {
+    $occurrence = sharedPaymentVerificationOccurrence($mine, $other);
+    $entry = $occurrence->recurringEntry;
+    $category = Category::create([
+        'user_id' => $entry->user_id, 'name' => 'Subscription', 'slug' => 'subscription',
+        'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true,
+    ]);
+    $entry->update(['category_id' => $category->id]);
+    $transaction = app(RecurringEntryPostingService::class)->post($occurrence, metadata: ['automatic_posting' => true]);
+    $this->actingAs($entry->user)->patch(route('transactions.update', ['year' => 2026, 'month' => 10, 'transaction' => $transaction->uuid]), [
+        'account_uuid' => $transaction->account->uuid, 'category_uuid' => $category->uuid,
+        'type_key' => 'expense', 'transaction_day' => 9, 'amount' => 10, 'description' => 'Corrected', 'notes' => null,
+        'is_shared_expense' => true, 'shared_expense_counterparty_uuid' => $entry->sharedExpenseCounterparty->uuid,
+        'shared_expense_paid_by' => 'self', 'shared_expense_my_share' => $submittedMine,
+        'shared_expense_counterparty_share' => $submittedOther,
+    ])->assertSessionHasNoErrors()->assertRedirect();
+    $transaction->refresh();
+    expect((float) $transaction->amount)->toBe(10.0)
+        ->and($transaction->shared_expense_my_share_cents)->toBe($expectedMine)
+        ->and($transaction->shared_expense_counterparty_share_cents)->toBe($expectedOther)
+        ->and((float) $transaction->account->fresh()->current_balance)->toBe(990.0)
+        ->and(app(SharedExpenseSettlementService::class)->balanceCents($entry->user, $entry->sharedExpenseCounterparty))->toBe($expectedOther)
+        ->and($transaction->payment_verified_at)->toBeNull()
+        ->and(Transaction::query()->count())->toBe(1);
+})->with([
+    'equal' => [400, 400, '6.00', '4.00', 500, 500],
+    'custom' => [200, 600, '4.00', '6.00', 250, 750],
+]);

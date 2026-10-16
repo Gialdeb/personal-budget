@@ -1,6 +1,13 @@
 <?php
 
 return [
+    'row_actions' => [
+        'manage_counterparty' => 'Gestisci nello storico controparte',
+        'manage_credit_debt' => 'Gestisci credito/debito',
+        'manage_shared' => 'Gestisci spesa condivisa',
+        'manage_recurring' => 'Gestisci nella ricorrenza',
+        'undo_unavailable' => 'Annullamento non disponibile: il rimborso non ha un originale valido o la quota è già regolata.',
+    ],
     'title' => 'Transazioni',
     'closed_year_message' => "L'anno :year è chiuso. Puoi consultare le transazioni, ma non modificarle finché non viene riaperto.",
     'navigation' => [

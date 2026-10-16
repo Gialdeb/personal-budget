@@ -2,7 +2,9 @@
 import { computed, watch, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { update } from '@/actions/App/Http/Controllers/SalaryEmploymentController';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import RecurringPostingMode from '@/components/recurring/RecurringPostingMode.vue';
 import { Button } from '@/components/ui/button';
@@ -171,9 +173,8 @@ function save(): void {
             <form class="space-y-5" @submit.prevent="save">
                 <label class="grid gap-2 text-sm font-medium"
                     >{{ t('salary.effectiveFrom')
-                    }}<Input
+                    }}<AppDatePicker
                         v-model="form.effective_from"
-                        type="date"
                         :min="minimum"
                         required
                 /></label>
@@ -220,18 +221,22 @@ function save(): void {
                         /></label>
                         <label class="grid gap-1 text-sm"
                             >{{ t('salary.amount')
-                            }}<Input
+                            }}<MobileAmountInput
                                 v-model="payment.amount"
-                                type="number"
+                                :currency-code="
+                                    options.accounts.find(
+                                        (account) =>
+                                            account.value ===
+                                            payment.account_uuid,
+                                    )?.currency
+                                "
                                 min="0.01"
-                                step="0.01"
                                 required
                         /></label>
                         <label class="grid gap-1 text-sm"
                             >{{ t('salary.date')
-                            }}<Input
+                            }}<AppDatePicker
                                 v-model="payment.start_date"
-                                type="date"
                                 required
                         /></label>
                         <label class="grid gap-1 text-sm"

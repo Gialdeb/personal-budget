@@ -4,7 +4,6 @@ import {
     Check,
     ChevronRight,
     ChevronsUpDown,
-    Search,
     X,
 } from 'lucide-vue-next';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
@@ -80,7 +79,7 @@ const emit = defineEmits<{
 
 const root = ref<HTMLElement | null>(null);
 const dropdown = ref<HTMLElement | null>(null);
-const searchInput = ref<HTMLInputElement | null>(null);
+const searchInput = ref<InstanceType<typeof Input> | null>(null);
 const isOpen = ref(false);
 const searchQuery = ref('');
 const currentParentValue = ref<string | null>(null);
@@ -428,12 +427,10 @@ function createOption(): void {
                 @wheel.stop
             >
                 <div class="relative">
-                    <Search
-                        class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-slate-400"
-                    />
                     <Input
                         ref="searchInput"
                         v-model="searchQuery"
+                        type="search"
                         :placeholder="searchPlaceholder"
                         class="h-11 rounded-2xl border-slate-200/90 bg-slate-50 pl-11 text-sm shadow-none focus-visible:border-sky-400 focus-visible:ring-sky-200 dark:border-white/10 dark:bg-slate-900/80"
                     />

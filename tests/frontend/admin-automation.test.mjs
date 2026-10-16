@@ -3,23 +3,38 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const indexSource = readFileSync(
-    new URL('../../resources/js/pages/admin/Automation/Index.vue', import.meta.url),
+    new URL(
+        '../../resources/js/pages/admin/Automation/Index.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const showSource = readFileSync(
-    new URL('../../resources/js/pages/admin/Automation/Show.vue', import.meta.url),
+    new URL(
+        '../../resources/js/pages/admin/Automation/Show.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const overviewSource = readFileSync(
-    new URL('../../resources/js/components/admin/automation/AutomationPipelineOverview.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/admin/automation/AutomationPipelineOverview.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const filtersSource = readFileSync(
-    new URL('../../resources/js/components/admin/automation/AutomationFilters.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/admin/automation/AutomationFilters.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const tableSource = readFileSync(
-    new URL('../../resources/js/components/admin/automation/AutomationRunsTable.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/admin/automation/AutomationRunsTable.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 
@@ -38,9 +53,18 @@ test('automation admin index wires overview, filters, and runs table', () => {
 test('automation admin index refreshes statuses and runs after run and retry actions', () => {
     assert.match(indexSource, /router\.reload\(\{\s*only: refreshOnly/);
     assert.match(indexSource, /const refreshOnly = \['runs', 'statuses']/);
-    assert.match(indexSource, /setInterval\(\(\) => \{\s*reloadAutomationData\(\);/);
-    assert.match(indexSource, /setTimeout\(\(\) => \{\s*stopRefreshPolling\(\);/);
-    assert.match(indexSource, /onSuccess: \(\) => \{\s*reloadAutomationData\(\);\s*startRefreshPolling\(\);/);
+    assert.match(
+        indexSource,
+        /setInterval\(\(\) => \{\s*reloadAutomationData\(\);/,
+    );
+    assert.match(
+        indexSource,
+        /setTimeout\(\(\) => \{\s*stopRefreshPolling\(\);/,
+    );
+    assert.match(
+        indexSource,
+        /onSuccess: \(\) => \{\s*reloadAutomationData\(\);\s*startRefreshPolling\(\);/,
+    );
     assert.match(indexSource, /reference_date:/);
 });
 
@@ -59,7 +83,7 @@ test('automation admin index opens a configurable run dialog for pipelines that 
     assert.match(indexSource, /openRunDialog/);
     assert.match(indexSource, /submitRunDialog/);
     assert.match(indexSource, /supports_reference_date/);
-    assert.match(indexSource, /type="date"/);
+    assert.match(indexSource, /<AppDatePicker/);
 });
 
 test('automation filters expose pipeline, status, and trigger controls', () => {
@@ -81,8 +105,14 @@ test('automation runs table renders retry only when backend marks the run as ret
 test('automation show page renders summary, metrics, and readable payload sections', () => {
     assert.match(showSource, /admin\.automation\.show\.sections\.summary/);
     assert.match(showSource, /admin\.automation\.show\.sections\.metrics/);
-    assert.match(showSource, /admin\.automation\.show\.sections\.businessSummary/);
-    assert.match(showSource, /admin\.automation\.show\.sections\.accountResults/);
+    assert.match(
+        showSource,
+        /admin\.automation\.show\.sections\.businessSummary/,
+    );
+    assert.match(
+        showSource,
+        /admin\.automation\.show\.sections\.accountResults/,
+    );
     assert.match(showSource, /admin\.automation\.show\.sections\.errorDetails/);
     assert.match(showSource, /admin\.automation\.show\.sections\.context/);
     assert.match(showSource, /admin\.automation\.show\.sections\.result/);

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -239,10 +239,8 @@ const categorySelectOptions = computed(() =>
             <div class="grid gap-4 lg:col-span-2 lg:grid-cols-2">
                 <div class="grid gap-2">
                     <Label>{{ t('entrySearch.advanced.amountMin') }}</Label>
-                    <Input
+                    <MobileAmountInput
                         :model-value="modelValue.amountMin"
-                        type="number"
-                        inputmode="decimal"
                         class="h-11 rounded-2xl"
                         @update:model-value="
                             update({
@@ -254,10 +252,8 @@ const categorySelectOptions = computed(() =>
 
                 <div class="grid gap-2">
                     <Label>{{ t('entrySearch.advanced.amountMax') }}</Label>
-                    <Input
+                    <MobileAmountInput
                         :model-value="modelValue.amountMax"
-                        type="number"
-                        inputmode="decimal"
                         class="h-11 rounded-2xl"
                         @update:model-value="
                             update({

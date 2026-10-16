@@ -9,6 +9,7 @@ import {
 } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppDatePicker from '@/components/AppDatePicker.vue';
 import Heading from '@/components/Heading.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -417,11 +418,10 @@ function recipientLine(item: AdminOutboundItem): string {
                                                 )
                                             }}
                                         </Label>
-                                        <Input
+                                        <AppDatePicker
                                             id="outbound-date-from"
                                             v-model="dateFrom"
                                             class="mt-2"
-                                            type="date"
                                         />
                                     </div>
                                     <div>
@@ -432,11 +432,10 @@ function recipientLine(item: AdminOutboundItem): string {
                                                 )
                                             }}
                                         </Label>
-                                        <Input
+                                        <AppDatePicker
                                             id="outbound-date-to"
                                             v-model="dateTo"
                                             class="mt-2"
-                                            type="date"
                                         />
                                     </div>
                                     <div class="flex items-end">

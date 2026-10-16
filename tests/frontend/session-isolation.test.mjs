@@ -220,7 +220,8 @@ test('an online server error shows a neutral retry instead of claiming offline',
     await h.initialize('A');
     assert.equal(h.state.hidden, true);
     assert.equal(nodes[2].textContent, 'Riprova');
-    assert.match(nodes[1].textContent, /verificare la sessione/);
+    assert.match(nodes[1].textContent, /caricare la pagina/);
+    assert.doesNotMatch(nodes[1].textContent, /sessione/i);
     assert.equal(h.state.reloads, 0);
 });
 

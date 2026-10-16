@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { matchesSharedLedgerDisplay } from '../../resources/js/lib/transaction-presentation.js';
 import {
     economicCategory,
     matchesTransactionDisplay,
@@ -221,4 +222,62 @@ test('transfer switch is independent of income and expense and uses its own tone
     assert.equal(visible(transfer, { day: '2026-10-15' }), true);
     assert.equal(visible(transfer, { day: '2026-10-16' }), false);
     assert.equal(visible(transfer, { day: '' }), true);
+});
+
+test('advance filters use the canonical payer, day and category independently from bank outflows', () => {
+    const movement = {
+        is_shared_ledger: true,
+        shared_expense_paid_by: 'counterparty',
+        date: '2026-10-10',
+        shared_expense_counterparty_uuid: 'payer-a',
+        tracked_item_uuid: 'merchant',
+        category_uuid: 'food',
+        type_key: 'expense',
+        shared_expense_my_share: '30.00',
+    };
+    const filters = {
+        shared: true,
+        refunded: false,
+        day: '',
+        period: '2026-10',
+        advancedBy: 'all',
+        category: 'all',
+        macrogroup: 'all',
+        account: 'all',
+        expense: false,
+    };
+    assert.equal(matchesSharedLedgerDisplay(movement, filters), true);
+
+    for (const change of [
+        { day: '2026-10-11' },
+        { period: '2026-11' },
+        { advancedBy: 'payer-b' },
+        { advancedBy: 'merchant' },
+        { category: 'other' },
+        { macrogroup: 'income' },
+        { shared: false },
+        { account: 'bank-a' },
+        { refunded: true },
+    ]) {
+        assert.equal(
+            matchesSharedLedgerDisplay(movement, { ...filters, ...change }),
+            false,
+        );
+    }
+
+    assert.equal(
+        matchesSharedLedgerDisplay(movement, {
+            ...filters,
+            advancedBy: 'payer-a',
+            day: '2026-10-10',
+        }),
+        true,
+    );
+    assert.equal(
+        matchesSharedLedgerDisplay(
+            { ...movement, is_shared_ledger: false },
+            filters,
+        ),
+        false,
+    );
 });

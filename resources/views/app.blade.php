@@ -62,6 +62,15 @@
             #session-state {position:fixed;inset:0;z-index:2147483647;display:grid;place-content:center;background:#faf9f7;color:#334155;text-align:center;font:16px system-ui;padding:24px;}
             html.dark #session-state {background:#0f172a;color:#e2e8f0;}
             #session-state[hidden] {display:none;}
+            .startup-indicator { width: 24px; height: 24px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; opacity: 0; animation: startup-appear 0s 180ms forwards, startup-spin 900ms linear infinite; }
+            #session-state { justify-items: center; gap: 16px; }
+            #session-state p { margin: 0; }
+            .startup-label { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+            @keyframes startup-appear { to { opacity: .45; } }
+            @keyframes startup-spin { to { transform: rotate(360deg); } }
+            @media (prefers-reduced-motion: reduce) {
+                .startup-indicator { animation: none; opacity: .45; }
+            }
             #session-state iframe {position:fixed;inset:0;width:100%;height:100%;border:0;}
 
             #soamco-startup {
@@ -142,9 +151,10 @@
     </head>
     <body class="font-sans antialiased">
         <div id="soamco-startup" role="status" aria-live="polite">
-            <img src="/favicon.svg" alt="" width="64" height="64">
-            <strong>{{ config('app.name', 'Soamco Budget') }}</strong>
-            <p data-startup-loading>{{ app()->getLocale() === 'it' ? 'Prepariamo il tuo spazio…' : 'Preparing your space…' }}</p>
+            <div data-startup-loading>
+                <span class="startup-indicator" style="display:block" aria-hidden="true"></span>
+                <span class="startup-label">{{ app()->getLocale() === 'it' ? 'Caricamento…' : 'Loading…' }}</span>
+            </div>
             <div data-startup-error hidden>
                 <p>{{ app()->getLocale() === 'it' ? 'Il caricamento sta impiegando più tempo del previsto. Controlla la connessione e riprova.' : 'Loading is taking longer than expected. Check your connection and try again.' }}</p>
                 <a href="{{ request()->getRequestUri() }}">{{ app()->getLocale() === 'it' ? 'Riprova' : 'Try again' }}</a>
@@ -167,7 +177,7 @@
                 window.addEventListener('soamco:startup-error', showFallback);
             })();
         </script>
-        <div id="session-state" role="status" @if(!$requiresSessionVerification) hidden @endif><strong>Soamco</strong><p>{{ app()->getLocale() === 'it' ? 'Verifica della sessione…' : 'Checking session…' }}</p></div>
+        <div id="session-state" role="status" @if(!$requiresSessionVerification) hidden @endif><span class="startup-indicator" aria-hidden="true"></span><span class="startup-label">{{ app()->getLocale() === 'it' ? 'Caricamento…' : 'Loading…' }}</span></div>
         <template id="neutral-offline-page">{!! file_get_contents(public_path('offline.html')) !!}</template>
         @inertia
     </body>
