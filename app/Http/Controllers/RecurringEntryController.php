@@ -37,6 +37,8 @@ use App\Services\Recurring\RecurringEntryPeriodService;
 use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Services\Salary\SalaryEmploymentService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
+use App\Services\TrackedItems\TrackedItemResolver;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\UserYearService;
@@ -50,8 +52,6 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -142,9 +142,12 @@ class RecurringEntryController extends Controller
 
     public function store(StoreRecurringEntryRequest $request): RedirectResponse
     {
-        $entry = $request->filled('salary')
+        $entry = app(TrackedItemIdentityService::class)->withNewReferences([
+            'tracked_item_id' => $request->validated('tracked_item_id'),
+            'shared_expense_counterparty_id' => $request->validated('shared_expense_counterparty_id'),
+        ], fn () => $request->filled('salary')
             ? app(SalaryEmploymentService::class)->create($request->user(), $request->validated())
-            : $this->managementService->store($request->user(), $request->validated());
+            : $this->managementService->store($request->user(), $request->validated()));
 
         if ($request->string('redirect_to')->toString() === 'index') {
             return to_route('recurring-entries.index')
@@ -242,7 +245,8 @@ class RecurringEntryController extends Controller
     public function storeTrackedItemOption(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:150'],
+            'name' => ['required_without:tracked_item_uuid', 'nullable', 'string', 'max:150'],
+            'tracked_item_uuid' => ['nullable', 'uuid'],
             'account_uuid' => ['required', 'uuid'],
             'category_uuid' => ['required', 'uuid'],
             'direction' => ['required', 'in:income,expense'],
@@ -278,107 +282,14 @@ class RecurringEntryController extends Controller
             ]);
         }
 
-        $trackedItem = DB::transaction(function () use ($request, $account, $category, $validated): TrackedItem {
-            $slug = Str::slug((string) $validated['name']);
-
-            if ($this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account)) {
-                $trackedItem = TrackedItem::query()
-                    ->sharedForAccount($account->id)
-                    ->where('slug', $slug)
-                    ->first();
-
-                if (! $trackedItem instanceof TrackedItem) {
-                    $trackedItem = TrackedItem::query()->create([
-                        'user_id' => $account->user_id,
-                        'account_id' => $account->id,
-                        'parent_id' => null,
-                        'name' => (string) $validated['name'],
-                        'slug' => $slug,
-                        'type' => null,
-                        'is_active' => true,
-                        'settings' => [],
-                    ]);
-                }
-
-                $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
-                $groupKeys = collect($settings['transaction_group_keys'] ?? [])
-                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                    ->push((string) $validated['direction'])
-                    ->unique()
-                    ->values()
-                    ->all();
-                $categoryUuids = collect($settings['transaction_category_uuids'] ?? [])
-                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                    ->push($category->uuid)
-                    ->unique()
-                    ->values()
-                    ->all();
-
-                $trackedItem->forceFill([
-                    'name' => $trackedItem->name ?: (string) $validated['name'],
-                    'is_active' => true,
-                    'settings' => [
-                        ...$settings,
-                        'transaction_group_keys' => $groupKeys,
-                        'transaction_category_uuids' => $categoryUuids,
-                        'shared_account_uuid' => $account->uuid,
-                    ],
-                ])->save();
-
-                $trackedItem->compatibleCategories()->syncWithoutDetaching([
-                    (int) $category->id,
-                ]);
-
-                return $trackedItem->fresh(['compatibleCategories']);
-            }
-
-            $trackedItem = TrackedItem::query()
-                ->ownedBy($request->user()->id)
-                ->where('slug', $slug)
-                ->first();
-
-            if (! $trackedItem instanceof TrackedItem) {
-                $trackedItem = TrackedItem::query()->create([
-                    'user_id' => $request->user()->id,
-                    'account_id' => null,
-                    'parent_id' => null,
-                    'name' => (string) $validated['name'],
-                    'slug' => $slug,
-                    'type' => null,
-                    'is_active' => true,
-                    'settings' => [],
-                ]);
-            }
-
-            $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
-            $groupKeys = collect($settings['transaction_group_keys'] ?? [])
-                ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                ->push((string) $validated['direction'])
-                ->unique()
-                ->values()
-                ->all();
-            $categoryUuids = collect($settings['transaction_category_uuids'] ?? [])
-                ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                ->push($category->uuid)
-                ->unique()
-                ->values()
-                ->all();
-
-            $trackedItem->forceFill([
-                'is_active' => true,
-                'settings' => [
-                    ...$settings,
-                    'transaction_group_keys' => $groupKeys,
-                    'transaction_category_uuids' => $categoryUuids,
-                ],
-            ])->save();
-
-            $trackedItem->compatibleCategories()->syncWithoutDetaching([
-                (int) $category->id,
-            ]);
-
-            return $trackedItem->fresh(['compatibleCategories']);
-        });
+        $trackedItem = app(TrackedItemResolver::class)->forAccount(
+            actor: $request->user(),
+            account: $account,
+            name: $validated['name'] ?? null,
+            uuid: $validated['tracked_item_uuid'] ?? null,
+            category: $category,
+            groupKey: $validated['direction'],
+        );
 
         return response()->json([
             'item' => $this->trackedItemOptionPayloadForAccount($account, $trackedItem),
@@ -985,13 +896,7 @@ class RecurringEntryController extends Controller
                     $account->uuid => $this->trackedItemOptionsForAccount($account),
                 ])
                 ->all(),
-            'shared_expense_counterparties' => TrackedItem::query()
-                ->sharedExpenseCounterparties($user->id)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['uuid', 'name'])
-                ->map(fn (TrackedItem $item): array => ['value' => $item->uuid, 'label' => $item->name])
-                ->all(),
+            'shared_expense_counterparties' => app(TrackedItemResolver::class)->counterpartyOptions($user->id),
             'salary_employments' => SalaryEmployment::query()->where('user_id', $user->id)->with('schedules.recurringEntry.account', 'schedules.recurringEntry.trackedItem')->orderBy('name')->get()->map(function (SalaryEmployment $employment): array {
                 $entry = $employment->schedules->firstWhere('kind', 'ordinary')?->recurringEntry;
 
@@ -1155,7 +1060,8 @@ class RecurringEntryController extends Controller
     {
         return collect(
             $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(
-                $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account)
+                $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account, RecurringEntry::query()->where('account_id', $account->id)->whereNotNull('tracked_item_id')->pluck('tracked_item_id')->all()),
+                $account,
             )
         )
             ->map(fn (array $trackedItem): array => [

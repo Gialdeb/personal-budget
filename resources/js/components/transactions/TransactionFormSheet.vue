@@ -41,6 +41,7 @@ import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import { fetchWithNotifications } from '@/lib/notifications';
+import { prioritizeReferenceOptions } from '@/lib/tracked-item-options';
 import { transactionTemplateSplit } from '@/lib/transaction-template-split';
 import type {
     MonthlyTransactionSheetData,
@@ -54,6 +55,8 @@ const ui = useUiCopy();
 type ReferenceOption = {
     value: string;
     label: string;
+    is_selectable?: boolean;
+    search_terms?: string[];
 };
 
 type AccountSelectOption = {
@@ -204,7 +207,6 @@ const unresolvedTemplateIssues = computed(() => {
 const mobileDescriptionEditorOpen = ref(false);
 const mobileNotesEditorOpen = ref(false);
 const trackedItemCatalog = ref<MonthlyTransactionSheetTrackedItemOption[]>([]);
-const trackedItemSearchQuery = ref('');
 const newReferenceOpen = ref(false);
 const newReferenceName = ref('');
 const newReferenceWebsite = ref('');
@@ -214,7 +216,6 @@ watch(
         newReferenceOpen.value = false;
         newReferenceName.value = '';
         newReferenceWebsite.value = '';
-        trackedItemSearchQuery.value = '';
     },
 );
 
@@ -582,7 +583,6 @@ const trackedItemOptions = computed(() =>
         form.type_key,
         form.category_uuid,
         form.tracked_item_uuid,
-        trackedItemSearchQuery.value,
     ),
 );
 
@@ -594,6 +594,8 @@ const referenceOptions = computed<ReferenceOption[]>(() => [
     ...trackedItemOptions.value.map((trackedItem) => ({
         value: `tracked_item:${trackedItem.uuid ?? trackedItem.value}`,
         label: trackedItem.label,
+        is_selectable: trackedItem.is_selectable,
+        search_terms: trackedItem.search_terms,
         logo_url: trackedItem.logo_url,
     })),
 ]);
@@ -778,43 +780,35 @@ function filterTrackedItemOptions(
     typeKey: string,
     categoryUuid: string,
     selectedValue: string,
-    searchQuery: string,
 ): MonthlyTransactionSheetTrackedItemOption[] {
     if (typeKey === '' || typeKey === transferTypeKey) {
         return options.filter((option) => option.value === selectedValue);
     }
 
-    const selectedOption =
-        options.find((option) => option.value === selectedValue) ?? null;
-    const matchingOptions = options.filter((option) =>
-        trackedItemMatchesContext(option, accountUuid, typeKey, categoryUuid),
+    return prioritizeReferenceOptions(
+        options,
+        (option) =>
+            trackedItemMatchesContext(
+                option,
+                accountUuid,
+                typeKey,
+                categoryUuid,
+            ),
+        (option) =>
+            (isEditing.value && option.value === selectedValue) ||
+            (option.is_selectable !== false &&
+                trackedItemIsAvailableForAccount(option, accountUuid)),
     );
-    const suggestedOptions =
-        searchQuery.trim() === ''
-            ? []
-            : options.filter(
-                  (option) =>
-                      !matchingOptions.some(
-                          (matchingOption) =>
-                              matchingOption.value === option.value,
-                      ) &&
-                      trackedItemIsAvailableForAccount(option, accountUuid),
-              );
-
-    if (
-        selectedOption &&
-        !matchingOptions.some((option) => option.value === selectedOption.value)
-    ) {
-        return [selectedOption, ...matchingOptions, ...suggestedOptions];
-    }
-
-    return [...matchingOptions, ...suggestedOptions];
 }
 
 function trackedItemIsAvailableForAccount(
     option: MonthlyTransactionSheetTrackedItemOption,
     accountUuid: string,
 ): boolean {
+    if (option.available_account_uuids) {
+        return option.available_account_uuids.includes(accountUuid);
+    }
+
     const contributorUserIds =
         resolveAccountTrackedItemContributorUserIds(accountUuid);
 
@@ -941,7 +935,10 @@ function transactionCategoryLabel(
     );
 }
 
-async function createTrackedItemFromContext(name: string): Promise<void> {
+async function createTrackedItemFromContext(
+    name: string,
+    trackedItemUuid?: string,
+): Promise<void> {
     if (form.type_key === '' || form.type_key === transferTypeKey) {
         form.setError(
             'tracked_item_uuid',
@@ -951,13 +948,18 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
         return;
     }
 
+    const requestContext = [
+        form.account_uuid,
+        form.category_uuid,
+        form.type_key,
+    ].join(':');
     creatingTrackedItem.value = true;
 
     try {
         const response = await fetchWithNotifications(
             storeTrackedItemOption.url(),
             {
-                notification: 'Riferimento creato correttamente.',
+                notification: 'Riferimento selezionato.',
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
@@ -966,7 +968,8 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: JSON.stringify({
-                    name,
+                    name: trackedItemUuid ? undefined : name,
+                    tracked_item_uuid: trackedItemUuid,
                     account_uuid: form.account_uuid,
                     category_uuid: form.category_uuid,
                     type_key: form.type_key,
@@ -976,6 +979,13 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                 }),
             },
         );
+
+        if (
+            requestContext !==
+            [form.account_uuid, form.category_uuid, form.type_key].join(':')
+        ) {
+            return;
+        }
 
         if (!response.ok) {
             const payload = await response.json().catch(() => null);
@@ -1000,6 +1010,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
 
         const payload = await response.json();
         const option = payload.item as MonthlyTransactionSheetTrackedItemOption;
+        option.available_account_uuids ??= [form.account_uuid];
 
         trackedItemCatalog.value = [
             ...trackedItemCatalog.value.filter(
@@ -1049,7 +1060,10 @@ function handleReferenceSelection(value: string): void {
         return;
     }
 
-    void createTrackedItemFromContext(trackedItem.name ?? trackedItem.label);
+    void createTrackedItemFromContext(
+        trackedItem.name ?? trackedItem.label,
+        trackedItemUuid,
+    );
 }
 
 function normalizeAmountField(): number | null {
@@ -1820,6 +1834,10 @@ function mobileTypeButtonClass(value: string, isSelected: boolean): string {
 }
 
 function submit(): void {
+    if (creatingTrackedItem.value) {
+        return;
+    }
+
     if (form.processing) {
         return;
     }
@@ -2942,9 +2960,6 @@ function submit(): void {
                                             @update:model-value="
                                                 handleReferenceSelection
                                             "
-                                            @search-query="
-                                                trackedItemSearchQuery = $event
-                                            "
                                         />
                                         <Button
                                             type="button"
@@ -3041,9 +3056,6 @@ function submit(): void {
                                     @update:model-value="
                                         handleReferenceSelection
                                     "
-                                    @search-query="
-                                        trackedItemSearchQuery = $event
-                                    "
                                     @create-option="
                                         createTrackedItemFromContext
                                     "
@@ -3116,7 +3128,7 @@ function submit(): void {
                         <Button
                             type="button"
                             class="rounded-2xl"
-                            :disabled="form.processing"
+                            :disabled="form.processing || creatingTrackedItem"
                             @click="submit"
                         >
                             {{

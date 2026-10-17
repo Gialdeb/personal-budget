@@ -19,6 +19,8 @@ use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\TransactionRefundService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
+use App\Services\TrackedItems\TrackedItemResolver;
 use App\Services\TrackedItems\WebsiteLogoService;
 use App\Services\Transactions\BalanceAdjustmentService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
@@ -31,8 +33,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -126,7 +126,10 @@ class TransactionsController extends Controller
 
     public function store(StoreTransactionRequest $request, int $year, int $month): RedirectResponse
     {
-        $created = DB::transaction(function () use ($request): Transaction|SharedExpenseLedgerEntry {
+        $created = app(TrackedItemIdentityService::class)->withNewReferences([
+            'tracked_item_id' => $request->validated('tracked_item_id'),
+            'shared_expense_counterparty_id' => $request->validated('shared_expense_counterparty_id'),
+        ], function () use ($request): Transaction|SharedExpenseLedgerEntry {
             $template = $request->filled('transaction_template_uuid')
                 ? TransactionTemplate::where('user_id', $request->user()->id)->where('is_active', true)->where('uuid', $request->validated('transaction_template_uuid'))->lockForUpdate()->firstOrFail()
                 : null;
@@ -228,7 +231,8 @@ class TransactionsController extends Controller
     public function storeTrackedItemOption(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:150'],
+            'name' => ['required_without:tracked_item_uuid', 'nullable', 'string', 'max:150'],
+            'tracked_item_uuid' => ['nullable', 'uuid'],
             'account_uuid' => ['required', 'uuid'],
             'category_uuid' => ['required', 'uuid'],
             'type_key' => ['required', 'string', 'in:income,expense,bill,debt,saving'],
@@ -275,117 +279,31 @@ class TransactionsController extends Controller
             ];
         }
 
-        $trackedItem = DB::transaction(function () use ($request, $account, $category, $validated, $websiteAttributes): TrackedItem {
-            $slug = Str::slug((string) $validated['name']);
+        $trackedItem = app(TrackedItemResolver::class)->forAccount(
+            actor: $request->user(),
+            account: $account,
+            name: $validated['name'] ?? null,
+            uuid: $validated['tracked_item_uuid'] ?? null,
+            category: $category,
+            groupKey: $validated['type_key'],
+            attributes: [...$websiteAttributes, 'settings' => ['economic_subject' => ($validated['context'] ?? null) === 'credit_debt']],
+            personalCatalog: ($validated['context'] ?? null) === 'credit_debt',
+        );
 
-            if (($validated['context'] ?? null) !== 'credit_debt' && $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account)) {
-                $trackedItem = TrackedItem::query()
-                    ->sharedForAccount($account->id)
-                    ->where('slug', $slug)
-                    ->first();
+        $option = ($validated['context'] ?? null) === 'credit_debt'
+            ? $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(
+                TrackedItem::query()->ownedBy($request->user()->id)->with(['compatibleCategories', 'websiteIdentity'])->get(),
+            )
+            : [$this->trackedItemOptionPayloadForAccount($account, $trackedItem)];
+        $option = collect($option)->firstWhere('value', $trackedItem->uuid);
+        $option['available_account_uuids'] = $this->accessibleAccountsQuery->getEditable($request->user())
+            ->filter(fn (Account $candidate): bool => $trackedItem->account_id !== null
+                ? $candidate->id === $trackedItem->account_id
+                : ! $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($candidate)
+                    && in_array($trackedItem->user_id, $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($candidate), true))
+            ->pluck('uuid')->values()->all();
 
-                if (! $trackedItem instanceof TrackedItem) {
-                    $trackedItem = TrackedItem::query()->create([
-                        'user_id' => $account->user_id,
-                        'account_id' => $account->id,
-                        'parent_id' => null,
-                        'name' => (string) $validated['name'],
-                        'slug' => $slug,
-                        'type' => null,
-                        'is_active' => true,
-                        'settings' => [],
-                    ]);
-                }
-
-                $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
-                $groupKeys = collect($settings['transaction_group_keys'] ?? [])
-                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                    ->push((string) $validated['type_key'])
-                    ->unique()
-                    ->values()
-                    ->all();
-                $categoryUuids = collect($settings['transaction_category_uuids'] ?? [])
-                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                    ->push($category->uuid)
-                    ->unique()
-                    ->values()
-                    ->all();
-
-                $trackedItem->forceFill([
-                    ...$websiteAttributes,
-                    'name' => $trackedItem->name ?: (string) $validated['name'],
-                    'is_active' => true,
-                    'settings' => [
-                        ...$settings,
-                        'transaction_group_keys' => $groupKeys,
-                        'transaction_category_uuids' => $categoryUuids,
-                        'shared_account_uuid' => $account->uuid,
-                    ],
-                ])->save();
-
-                $trackedItem->compatibleCategories()->syncWithoutDetaching([
-                    (int) $category->id,
-                ]);
-
-                return $trackedItem->fresh(['compatibleCategories']);
-            }
-
-            $trackedItem = TrackedItem::query()
-                ->ownedBy($request->user()->id)
-                ->where('slug', $slug)
-                ->first();
-
-            if (! $trackedItem instanceof TrackedItem) {
-                $trackedItem = TrackedItem::query()->create([
-                    'user_id' => $request->user()->id,
-                    'account_id' => null,
-                    'parent_id' => null,
-                    'name' => (string) $validated['name'],
-                    'slug' => $slug,
-                    'type' => null,
-                    'is_active' => true,
-                    'settings' => [],
-                ]);
-            }
-
-            $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
-            $groupKeys = collect($settings['transaction_group_keys'] ?? [])
-                ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                ->push((string) $validated['type_key'])
-                ->unique()
-                ->values()
-                ->all();
-            $categoryUuids = collect($settings['transaction_category_uuids'] ?? [])
-                ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                ->push($category->uuid)
-                ->unique()
-                ->values()
-                ->all();
-
-            $trackedItem->forceFill([
-                ...$websiteAttributes,
-                'name' => $trackedItem->name ?: (string) $validated['name'],
-                'is_active' => true,
-                'settings' => [
-                    ...$settings,
-                    ...(($validated['context'] ?? null) === 'credit_debt' ? ['economic_subject' => true] : []),
-                    'transaction_group_keys' => $groupKeys,
-                    'transaction_category_uuids' => $categoryUuids,
-                ],
-            ])->save();
-
-            $trackedItem->compatibleCategories()->syncWithoutDetaching([
-                (int) $category->id,
-            ]);
-
-            return $trackedItem->fresh(['compatibleCategories']);
-        });
-
-        return response()->json([
-            'item' => ($validated['context'] ?? null) === 'credit_debt'
-                ? $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(collect([$trackedItem]))[0]
-                : $this->trackedItemOptionPayloadForAccount($account, $trackedItem),
-        ]);
+        return response()->json(['item' => $option]);
     }
 
     public function update(
@@ -614,15 +532,18 @@ class TransactionsController extends Controller
      */
     protected function trackedItemOptionPayloadForAccount(Account $account, TrackedItem $trackedItem): array
     {
-        return $this->operationalTransactionCategoryResolver
-            ->trackedItemOptionsFromCollection(
-                collect([
-                    $this->operationalTransactionCategoryResolver->findTrackedItemForAccount(
-                        $account,
-                        (int) $trackedItem->id,
-                    ) ?? $trackedItem,
-                ]),
-            )[0];
+        return collect($this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(
+            $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account),
+            $account,
+        ))->firstWhere('value', $trackedItem->uuid) ?? [
+            'value' => $trackedItem->uuid,
+            'uuid' => $trackedItem->uuid,
+            'name' => $trackedItem->name,
+            'label' => $trackedItem->name,
+            'group_keys' => $trackedItem->settings['transaction_group_keys'] ?? [],
+            'category_uuids' => $trackedItem->compatibleCategories->pluck('uuid')->all(),
+            'logo_url' => $trackedItem->logoUrl(),
+        ];
     }
 
     protected function resolvedTypeKeyForCategory(Category $category): string

@@ -2,10 +2,14 @@
 
 namespace App\Http\Requests\SharedExpenses;
 
+use App\Concerns\CanonicalTrackedItemInputs;
+use App\Models\TrackedItem;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreDirectSharedExpenseRequest extends FormRequest
 {
+    use CanonicalTrackedItemInputs;
+
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -23,5 +27,11 @@ class StoreDirectSharedExpenseRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge(['amount' => str_replace(',', '.', (string) $this->input('amount')), 'my_share' => $this->filled('my_share') ? str_replace(',', '.', (string) $this->input('my_share')) : null, 'counterparty_share' => $this->filled('counterparty_share') ? str_replace(',', '.', (string) $this->input('counterparty_share')) : null]);
+        if ($this->isMethod('POST')) {
+            foreach (['reference', 'counterparty'] as $field) {
+                $this->canonicalizeNewReference($field.'_uuid', $field.'_id', TrackedItem::query()->ownedBy($this->user()->id));
+            }
+        }
+
     }
 }

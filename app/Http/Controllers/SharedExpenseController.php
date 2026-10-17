@@ -22,6 +22,7 @@ use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
 use App\Services\SharedExpenses\ResolveSharedExpenseReference;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\SharedExpenses\SharedExpenseSettlementService;
+use App\Services\TrackedItems\TrackedItemResolver;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Support\MoneyAmount;
 use App\Supports\ManagementContextResolver;
@@ -30,7 +31,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -381,47 +381,13 @@ class SharedExpenseController extends Controller
 
     public function storeCounterparty(StoreSharedExpenseCounterpartyRequest $request): JsonResponse
     {
-        $name = $this->collapseCounterpartyWhitespace(
-            (string) $request->validated('name'),
+        $item = app(TrackedItemResolver::class)->resolve(
+            userId: $request->user()->id,
+            accountId: null,
+            name: $request->validated('name'),
+            uuid: $request->validated('tracked_item_uuid'),
+            counterparty: true,
         );
-        $normalizedName = $this->normalizeCounterpartyName($name);
-        $userId = $request->user()->id;
-        $item = TrackedItem::query()
-            ->ownedBy($userId)
-            ->get()
-            ->first(
-                fn (TrackedItem $candidate): bool => $this->normalizeCounterpartyName(
-                    $candidate->name,
-                ) === $normalizedName,
-            );
-
-        if (! $item instanceof TrackedItem) {
-            $baseSlug = 'shared-expense-'.Str::slug($name);
-            $slug = $baseSlug;
-            $suffix = 2;
-
-            while (TrackedItem::query()->ownedBy($userId)->where('slug', $slug)->exists()) {
-                $slug = "{$baseSlug}-{$suffix}";
-                $suffix++;
-            }
-
-            $item = TrackedItem::query()->create([
-                'user_id' => $userId,
-                'account_id' => null,
-                'type' => null,
-                'slug' => $slug,
-                'name' => $name,
-                'parent_id' => null,
-                'is_active' => true,
-                'is_shared_expense_counterpart' => true,
-                'settings' => [],
-            ]);
-        } elseif (! $item->is_active || ! $item->is_shared_expense_counterpart) {
-            $item->update([
-                'is_active' => true,
-                'is_shared_expense_counterpart' => true,
-            ]);
-        }
 
         return response()->json(['uuid' => $item->uuid, 'name' => $item->name], 201);
     }
@@ -438,15 +404,5 @@ class SharedExpenseController extends Controller
 
         return $transaction->status->value === 'confirmed' && $transaction->refundTransaction?->status->value === 'confirmed'
             && MoneyAmount::cents((string) $transaction->refundTransaction->amount) >= MoneyAmount::cents((string) $transaction->amount);
-    }
-
-    private function normalizeCounterpartyName(string $name): string
-    {
-        return mb_strtolower($this->collapseCounterpartyWhitespace($name));
-    }
-
-    private function collapseCounterpartyWhitespace(string $name): string
-    {
-        return preg_replace('/\\s+/u', ' ', trim($name)) ?? '';
     }
 }

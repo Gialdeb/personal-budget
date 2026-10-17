@@ -13,11 +13,13 @@ type Option = {
     uuid?: string | null;
     name?: string | null;
     is_selectable?: boolean;
+    search_terms?: string[];
 };
 type NormalizedOption = {
     value: string;
     label: string;
     is_selectable?: boolean;
+    search_terms?: string[];
 };
 const props = withDefaults(
     defineProps<{
@@ -40,6 +42,7 @@ const counterparties = computed(() =>
                 value: item.value ?? ('uuid' in item ? (item.uuid ?? '') : ''),
                 label: item.label ?? ('name' in item ? (item.name ?? '') : ''),
                 is_selectable: item.is_selectable,
+                search_terms: item.search_terms,
             }),
         )
         .filter(
@@ -59,7 +62,10 @@ function readCsrfToken(): string {
     );
 }
 
-async function createCounterparty(name: string): Promise<void> {
+async function createCounterparty(
+    name: string,
+    trackedItemUuid?: string,
+): Promise<void> {
     const normalizedName = name.trim();
 
     if (normalizedName === '') {
@@ -71,7 +77,7 @@ async function createCounterparty(name: string): Promise<void> {
 
     try {
         const response = await fetchWithNotifications(storeCounterparty.url(), {
-            notification: 'Controparte creata correttamente.',
+            notification: 'Riferimento selezionato.',
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -79,7 +85,10 @@ async function createCounterparty(name: string): Promise<void> {
                 'X-CSRF-TOKEN': readCsrfToken(),
                 'X-Requested-With': 'XMLHttpRequest',
             },
-            body: JSON.stringify({ name: normalizedName }),
+            body: JSON.stringify({
+                name: trackedItemUuid ? undefined : normalizedName,
+                tracked_item_uuid: trackedItemUuid,
+            }),
         });
         const payload = (await response.json()) as {
             uuid?: string;
@@ -100,6 +109,7 @@ async function createCounterparty(name: string): Promise<void> {
         const option = { value: payload.uuid, label: payload.name };
 
         if (
+            !trackedItemUuid &&
             !createdCounterparties.value.some(
                 (item) => item.value === option.value,
             )
@@ -108,7 +118,10 @@ async function createCounterparty(name: string): Promise<void> {
         }
 
         counterparty.value = option.value;
-        emit('created', option);
+
+        if (!trackedItemUuid) {
+            emit('created', option);
+        }
     } catch {
         counterpartyCreationError.value = ui(
             'Impossibile creare la controparte.',
@@ -117,13 +130,27 @@ async function createCounterparty(name: string): Promise<void> {
         creatingCounterparty.value = false;
     }
 }
+function selectCounterparty(uuid: string): void {
+    if (!uuid) {
+        counterparty.value = '';
+
+        return;
+    }
+
+    const option = counterparties.value.find((item) => item.value === uuid);
+
+    if (option) {
+        void createCounterparty(option.label, uuid);
+    }
+}
 </script>
 <template>
     <div class="grid min-w-0 gap-2">
         <MobileSearchableSelect
-            v-model="counterparty"
+            :model-value="counterparty"
+            @update:model-value="selectCounterparty"
             :options="counterparties"
-            :disabled="disabled"
+            :disabled="disabled || creatingCounterparty"
             :side="side"
             :teleport="teleport"
             clearable

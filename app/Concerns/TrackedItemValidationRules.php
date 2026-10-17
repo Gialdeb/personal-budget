@@ -5,6 +5,7 @@ namespace App\Concerns;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Models\Category;
 use App\Models\TrackedItem;
+use App\Services\TrackedItems\TrackedItemResolver;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Str;
@@ -143,21 +144,8 @@ trait TrackedItemValidationRules
         ?TrackedItem $trackedItem = null,
         ?int $accountId = null,
     ): ?string {
-        $normalizedName = mb_strtolower(trim($name));
-
-        if ($normalizedName === '') {
-            return null;
-        }
-
-        $query = TrackedItem::query()
-            ->inCatalog($userId, $accountId)
-            ->whereRaw('LOWER(name) = ?', [$normalizedName]);
-
-        if ($trackedItem instanceof TrackedItem) {
-            $query->whereKeyNot($trackedItem->id);
-        }
-
-        if ($query->exists()) {
+        if (app(TrackedItemResolver::class)
+            ->matchingName($userId, $accountId, $name, $trackedItem?->id)->exists()) {
             return __('ui.an_item_with_this_name_already_exists_in_this_catalog_a14e96ec');
         }
 

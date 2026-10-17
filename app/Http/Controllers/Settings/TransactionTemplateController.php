@@ -9,6 +9,7 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Models\TransactionTemplate;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -88,10 +89,16 @@ class TransactionTemplateController extends Controller
 
     public function store(SaveTransactionTemplateRequest $request): RedirectResponse
     {
-        $template = new TransactionTemplate($request->templateData());
-        $template->user_id = $request->user()->id;
-        $template->sort_order = (int) TransactionTemplate::where('user_id', $request->user()->id)->max('sort_order') + 1;
-        $template->save();
+        $data = $request->templateData();
+        app(TrackedItemIdentityService::class)->withNewReferences([
+            'tracked_item_id' => $data['tracked_item_id'],
+            'shared_counterparty_id' => $data['shared_counterparty_id'],
+        ], function () use ($request, $data): void {
+            $template = new TransactionTemplate($data);
+            $template->user_id = $request->user()->id;
+            $template->sort_order = (int) TransactionTemplate::where('user_id', $request->user()->id)->max('sort_order') + 1;
+            $template->save();
+        });
 
         return to_route('transaction-templates.index')->with('success', __('ui.quick_action_created_0d6edc71'));
     }

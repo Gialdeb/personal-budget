@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -19,6 +20,12 @@ class TrackedItem extends Model
 
     protected static function booted(): void
     {
+        static::updating(function (self $item): void {
+            if ($item->isDirty('is_active') && $item->is_active && $item->identityAlias()->exists()) {
+                throw ValidationException::withMessages(['is_active' => 'Un riferimento secondario non può essere riattivato.']);
+            }
+        });
+
         static::deleting(function (self $item): void {
             if ($item->transactions()->withTrashed()->exists()
                 || $item->creditDebtItems()->withTrashed()->exists()
@@ -79,6 +86,16 @@ class TrackedItem extends Model
     public function activeCommonRelations(): HasMany
     {
         return $this->hasMany(CounterpartyRelation::class, 'counterparty_id')->whereNotNull('activated_at');
+    }
+
+    public function identityAlias(): HasOne
+    {
+        return $this->hasOne(TrackedItemAlias::class, 'source_tracked_item_id');
+    }
+
+    public function incomingIdentityAliases(): HasMany
+    {
+        return $this->hasMany(TrackedItemAlias::class, 'canonical_tracked_item_id');
     }
 
     public function user(): BelongsTo

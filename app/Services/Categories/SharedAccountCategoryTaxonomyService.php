@@ -98,9 +98,11 @@ class SharedAccountCategoryTaxonomyService
      * @param  array<int, int>  $usedCategoryIds
      * @return Collection<int, Category>
      */
-    public function categoriesForAccount(Account $account, array $usedCategoryIds = []): Collection
+    public function categoriesForAccount(Account $account, array $usedCategoryIds = [], bool $materialize = true): Collection
     {
-        $this->ensureForAccount($account);
+        if ($materialize) {
+            $this->ensureForAccount($account);
+        }
 
         return Category::query()
             ->sharedForAccount($account->id)
@@ -139,9 +141,11 @@ class SharedAccountCategoryTaxonomyService
             ]);
     }
 
-    public function findCategoryForAccount(Account $account, int $categoryId): ?Category
+    public function findCategoryForAccount(Account $account, int $categoryId, bool $materialize = true): ?Category
     {
-        $this->ensureForAccount($account);
+        if ($materialize) {
+            $this->ensureForAccount($account);
+        }
 
         $sharedCategory = Category::query()
             ->sharedForAccount($account->id)
@@ -160,12 +164,16 @@ class SharedAccountCategoryTaxonomyService
             return null;
         }
 
-        return $this->ensurePathFromSourceCategory($account, $sourceCategory);
+        return $materialize
+            ? $this->ensurePathFromSourceCategory($account, $sourceCategory)
+            : $this->resolvePathFromSourceCategory($account, $sourceCategory, false);
     }
 
-    public function findExistingCategoryForSourceCategory(Account $account, Category $sourceCategory): ?Category
+    public function findExistingCategoryForSourceCategory(Account $account, Category $sourceCategory, bool $materialize = true): ?Category
     {
-        $this->ensureForAccount($account);
+        if ($materialize) {
+            $this->ensureForAccount($account);
+        }
 
         return $this->resolvePathFromSourceCategory($account, $sourceCategory, false);
     }
@@ -406,7 +414,10 @@ class SharedAccountCategoryTaxonomyService
         bool $preserveSourceSlug = false,
     ): ?Category {
         $lineage = $this->sourceLineage($sourceCategory);
-        $root = $this->resolveFoundationRoot($account, $lineage);
+        $root = $this->resolveFoundationRoot($account, $lineage, $createMissing);
+        if ($root === null) {
+            return null;
+        }
         $currentParent = $root;
 
         foreach ($lineage as $node) {
@@ -452,7 +463,7 @@ class SharedAccountCategoryTaxonomyService
         return $lineage->values();
     }
 
-    protected function resolveFoundationRoot(Account $account, Collection $lineage): Category
+    protected function resolveFoundationRoot(Account $account, Collection $lineage, bool $required = true): ?Category
     {
         /** @var Category|null $rootNode */
         $rootNode = $lineage->first();
@@ -462,11 +473,12 @@ class SharedAccountCategoryTaxonomyService
                 ? CategoryGroupTypeEnum::INCOME->value
                 : CategoryGroupTypeEnum::EXPENSE->value);
 
-        return Category::query()
+        $query = Category::query()
             ->sharedForAccount($account->id)
             ->whereNull('parent_id')
-            ->where('group_type', $foundationGroup)
-            ->firstOrFail();
+            ->where('group_type', $foundationGroup);
+
+        return $required ? $query->firstOrFail() : $query->first();
     }
 
     protected function firstOrCreateSharedChild(

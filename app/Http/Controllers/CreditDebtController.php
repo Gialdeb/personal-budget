@@ -15,6 +15,7 @@ use App\Services\Counterparties\CounterpartyViewService;
 use App\Services\CreditDebts\CounterpartyBalanceService;
 use App\Services\CreditDebts\CreditDebtItemService;
 use App\Services\CreditDebts\DerivedObligationsService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use App\Support\Banks\BankNamePresenter;
@@ -127,7 +128,10 @@ class CreditDebtController extends Controller
     {
         Gate::authorize('create', CreditDebtItem::class);
 
-        $item = $service->create($request->user(), $request->validated());
+        $item = app(TrackedItemIdentityService::class)->withNewReferences([
+            'reference_id' => $request->validated('reference_id'),
+            'counterparty_id' => $request->validated('counterparty_id'),
+        ], fn () => $service->create($request->user(), $request->validated()));
 
         if ($request->expectsJson()) {
             return CreditDebtItemResource::make($item);

@@ -21,6 +21,10 @@ import {
 } from '@/components/ui/sheet';
 import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
 import { useUiCopy } from '@/i18n/ui-copy';
+import {
+    matchesReferenceSearch,
+    normalizeReferenceSearch,
+} from '@/lib/tracked-item-options';
 import { cn } from '@/lib/utils';
 
 const ui = useUiCopy();
@@ -37,6 +41,7 @@ type SearchableOption = {
     color?: string | null;
     ancestor_uuids?: string[];
     is_selectable?: boolean;
+    search_terms?: string[];
     sort_order?: number | null;
 };
 
@@ -123,7 +128,7 @@ const optionsByValue = computed(
 );
 
 const normalizedSearchQuery = computed(() =>
-    searchQuery.value.trim().toLowerCase(),
+    normalizeReferenceSearch(searchQuery.value),
 );
 
 const filteredOptions = computed(() => {
@@ -134,11 +139,7 @@ const filteredOptions = computed(() => {
     }
 
     return props.options.filter((option) =>
-        [option.label, option.fullPath, option.full_path, option.value].some(
-            (value) =>
-                typeof value === 'string' &&
-                value.toLowerCase().includes(query),
-        ),
+        matchesReferenceSearch(option, query),
     );
 });
 
@@ -214,7 +215,9 @@ const canCreateOption = computed(() => {
     }
 
     return !props.options.some(
-        (option) => option.label.trim().toLowerCase() === query.toLowerCase(),
+        (option) =>
+            normalizeReferenceSearch(option.label) ===
+            normalizeReferenceSearch(query),
     );
 });
 

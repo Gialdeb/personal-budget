@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\CreditDebts;
 
+use App\Concerns\CanonicalTrackedItemInputs;
 use App\Enums\CreditDebtTypeEnum;
 use App\Models\Account;
 use App\Models\Category;
@@ -16,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class StoreCreditDebtItemRequest extends FormRequest
 {
+    use CanonicalTrackedItemInputs;
+
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -108,5 +111,11 @@ class StoreCreditDebtItemRequest extends FormRequest
         }
 
         $this->merge($prepared);
+        if ($this->isMethod('POST') && ! $this->route('creditDebtItem') instanceof CreditDebtItem) {
+            foreach (['reference', 'counterparty'] as $field) {
+                $this->canonicalizeNewReference($field.'_uuid', $field.'_id', TrackedItem::query()->ownedBy($this->user()->id));
+            }
+        }
+
     }
 }

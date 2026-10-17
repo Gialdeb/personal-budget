@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Concerns\CanonicalTrackedItemInputs;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\TrackedItem;
@@ -14,6 +15,17 @@ use Illuminate\Validation\Validator;
 
 class SaveTransactionTemplateRequest extends FormRequest
 {
+    use CanonicalTrackedItemInputs;
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->isMethod('POST')) {
+            foreach (['tracked_item', 'shared_counterparty'] as $field) {
+                $this->canonicalizeNewReference($field.'_uuid', $field.'_id', TrackedItem::query()->where('user_id', $this->user()->id));
+            }
+        }
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */

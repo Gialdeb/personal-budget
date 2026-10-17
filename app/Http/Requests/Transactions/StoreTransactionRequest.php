@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Transactions;
 
+use App\Concerns\CanonicalTrackedItemInputs;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\TransactionDirectionEnum;
@@ -24,6 +25,8 @@ use Illuminate\Validation\Validator;
 
 class StoreTransactionRequest extends FormRequest
 {
+    use CanonicalTrackedItemInputs;
+
     public const BALANCE_ADJUSTMENT_TYPE_KEY = 'balance_adjustment';
 
     public const MOVE_TYPE_KEY = 'move';
@@ -275,6 +278,14 @@ class StoreTransactionRequest extends FormRequest
                 : ($this->filled('notes') ? trim((string) $this->input('notes')) : null),
             'type_key' => $this->filled('type_key') ? (string) $this->input('type_key') : null,
         ]);
+        if ($this->isMethod('POST') && ! $routeTransaction instanceof Transaction) {
+            $account = app(AccessibleAccountsQuery::class)->editable($this->user())->where('accounts.id', $this->input('account_id'))->first();
+            if ($account !== null) {
+                $this->canonicalizeNewReference('tracked_item_uuid', 'tracked_item_id', app(OperationalTransactionCategoryResolver::class)->trackedItemCatalogForNewOperation($account));
+            }
+            $this->canonicalizeNewReference('shared_expense_counterparty_uuid', 'shared_expense_counterparty_id', TrackedItem::query()->ownedBy($this->user()->id));
+        }
+
     }
 
     public function withValidator(Validator $validator): void

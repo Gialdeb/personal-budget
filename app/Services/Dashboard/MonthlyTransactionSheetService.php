@@ -20,6 +20,7 @@ use App\Models\UserYear;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\CreditCards\CreditCardAutopayService;
+use App\Services\TrackedItems\TrackedItemResolver;
 use App\Services\Transactions\OperationalLedgerAnalyticsService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
@@ -50,9 +51,6 @@ class MonthlyTransactionSheetService
         $baseCurrency = $this->normalizeCurrencyCode($user->base_currency_code, 'EUR');
         $availableYears = $this->userYearService->availableYears($user);
         $accessibleAccounts = $this->accessibleAccountsQuery->get($user);
-        $accessibleAccounts->each(function (Account $account): void {
-            $this->sharedAccountCategoryTaxonomyService->ensureForAccount($account);
-        });
         $editableAccountIds = $this->accessibleAccountsQuery->editableIds($user);
         $selectedYear = UserYear::query()
             ->where('user_id', $user->id)
@@ -127,7 +125,7 @@ class MonthlyTransactionSheetService
                 'category_overview_items' => $this->buildEditorCategoryOverviewItems($user, $year, $month, $transactions),
                 'scopes' => $this->buildEditorScopeOptions($user, $transactionFilterPool),
                 'tracked_items' => $this->buildEditorTrackedItemOptions($user, $transactionFilterPool),
-                'shared_expense_counterparties' => TrackedItem::query()->sharedExpenseCounterparties($user->id)->where('is_active', true)->orderBy('name')->get(['uuid', 'name'])->map(fn (TrackedItem $item): array => ['value' => $item->uuid, 'label' => $item->name])->all(),
+                'shared_expense_counterparties' => app(TrackedItemResolver::class)->counterpartyOptions($user->id),
             ],
             'overview' => [
                 'groups' => $this->buildOverviewGroups($sections),
@@ -1370,18 +1368,22 @@ class MonthlyTransactionSheetService
 
         return $this->accessibleAccountsQuery->editable($user)
             ->get(['accounts.*'])
-            ->flatMap(
-                fn (Account $account): Collection => $this->operationalTransactionCategoryResolver->trackedItemsForAccount(
-                    $account,
-                    $usedTrackedItemIds,
-                )
-            )
-            ->unique('id')
-            ->sortBy('name')
+            ->flatMap(function (Account $account) use ($usedTrackedItemIds): array {
+                $items = $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account, $usedTrackedItemIds);
+
+                return array_map(
+                    fn (array $option): array => [...$option, 'available_account_uuids' => ($option['is_selectable'] ?? true) ? [$account->uuid] : []],
+                    $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection($items, $account),
+                );
+            })
+            ->groupBy('value')
+            ->map(fn (Collection $options): array => [
+                ...($options->firstWhere('is_selectable', true) ?? $options->first()),
+                'available_account_uuids' => $options->pluck('available_account_uuids')->flatten()->unique()->values()->all(),
+            ])
+            ->sortBy('label')
             ->values()
-            ->pipe(
-                fn (Collection $trackedItems): array => $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection($trackedItems)
-            );
+            ->all();
     }
 
     /**
@@ -1885,7 +1887,7 @@ class MonthlyTransactionSheetService
                     }
 
                     $canonicalCategory = $account->getAttribute('is_shared')
-                        ? $this->sharedAccountCategoryTaxonomyService->findCategoryForAccount($account, (int) $sourceCategory->id)
+                        ? $this->sharedAccountCategoryTaxonomyService->findCategoryForAccount($account, (int) $sourceCategory->id, materialize: false)
                         : $sourceCategory;
 
                     if (! $canonicalCategory instanceof Category) {

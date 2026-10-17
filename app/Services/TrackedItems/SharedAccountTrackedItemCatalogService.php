@@ -75,10 +75,15 @@ class SharedAccountTrackedItemCatalogService
 
     public function findExistingTrackedItemForSourceTrackedItem(Account $account, TrackedItem $sourceTrackedItem): ?TrackedItem
     {
-        return TrackedItem::query()
-            ->where('account_id', $account->id)
-            ->where('slug', $sourceTrackedItem->slug)
-            ->first();
+        $sources = TrackedItem::query()->sharedForAccount($account->id)
+            ->where('settings->source_personal_tracked_item_uuid', $sourceTrackedItem->uuid)->get();
+        if ($sources->isNotEmpty()) {
+            return $sources->count() === 1 ? $sources->first() : null;
+        }
+
+        $matches = app(TrackedItemResolver::class)->matchingName($account->user_id, $account->id, $sourceTrackedItem->name)->get();
+
+        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     /**
@@ -89,48 +94,55 @@ class SharedAccountTrackedItemCatalogService
         TrackedItem $sourceTrackedItem,
         array $fallbackCategoryIds = [],
     ): ?TrackedItem {
-        $sourceTrackedItem->loadMissing('compatibleCategories:id,uuid,user_id,account_id,parent_id,is_active');
+        return app(TrackedItemResolver::class)->inCatalog($account->user_id, $account->id, function () use ($account, $sourceTrackedItem, $fallbackCategoryIds): ?TrackedItem {
+            $sourceTrackedItem->loadMissing('compatibleCategories:id,uuid,user_id,account_id,parent_id,is_active');
 
-        $mappedCategoryIds = array_values(array_unique([
-            ...$this->mappedAccountCategoryIds($account, $sourceTrackedItem, true),
-            ...$this->mappedFallbackCategoryIds($account, $fallbackCategoryIds),
-        ]));
+            $mappedCategoryIds = array_values(array_unique([
+                ...$this->mappedAccountCategoryIds($account, $sourceTrackedItem, true),
+                ...$this->mappedFallbackCategoryIds($account, $fallbackCategoryIds),
+            ]));
 
-        if ($mappedCategoryIds === []) {
-            return null;
-        }
+            if ($mappedCategoryIds === []) {
+                return null;
+            }
 
-        $sharedTrackedItem = $this->findExistingTrackedItemForSourceTrackedItem($account, $sourceTrackedItem)
-            ?? TrackedItem::query()->create([
-                'user_id' => $account->user_id,
-                'account_id' => $account->id,
-                'parent_id' => null,
-                'name' => $sourceTrackedItem->name,
-                'slug' => $sourceTrackedItem->slug,
-                'type' => $sourceTrackedItem->type,
+            $sharedTrackedItem = app(TrackedItemResolver::class)->resolve(
+                userId: $account->user_id,
+                accountId: $account->id,
+                name: $sourceTrackedItem->name,
+                attributes: [
+                    'slug' => $sourceTrackedItem->slug,
+                    'type' => $sourceTrackedItem->type,
+                    'website_identity_id' => $sourceTrackedItem->website_identity_id,
+                    'website_url' => $sourceTrackedItem->website_url,
+                    'settings' => $this->sharedTrackedItemSettings($account, $sourceTrackedItem, $mappedCategoryIds),
+                ],
+            );
+            $existingSettings = $sharedTrackedItem->settings ?? [];
+            $mappedSettings = $this->sharedTrackedItemSettings($account, $sourceTrackedItem, $mappedCategoryIds);
+            $mergedSettings = [...$mappedSettings, ...$existingSettings];
+            foreach (['transaction_group_keys', 'transaction_category_uuids'] as $field) {
+                $mergedSettings[$field] = array_values(array_unique([...($existingSettings[$field] ?? []), ...($mappedSettings[$field] ?? [])]));
+            }
+
+            $sharedTrackedItem->forceFill([
+                'settings' => $mergedSettings,
+                'is_active' => $sourceTrackedItem->is_active,
                 'website_identity_id' => $sourceTrackedItem->website_identity_id,
                 'website_url' => $sourceTrackedItem->website_url,
-                'is_active' => $sourceTrackedItem->is_active,
-                'settings' => $this->sharedTrackedItemSettings($account, $sourceTrackedItem, $mappedCategoryIds),
-            ]);
+            ])->save();
 
-        $sharedTrackedItem->forceFill([
-            'settings' => $this->sharedTrackedItemSettings($account, $sourceTrackedItem, $mappedCategoryIds),
-            'is_active' => $sourceTrackedItem->is_active,
-            'website_identity_id' => $sourceTrackedItem->website_identity_id,
-            'website_url' => $sourceTrackedItem->website_url,
-        ])->save();
+            $existingCategoryIds = $sharedTrackedItem->compatibleCategories()
+                ->pluck('categories.id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
 
-        $existingCategoryIds = $sharedTrackedItem->compatibleCategories()
-            ->pluck('categories.id')
-            ->map(fn ($id): int => (int) $id)
-            ->all();
+            $sharedTrackedItem->compatibleCategories()->sync(
+                array_values(array_unique([...$existingCategoryIds, ...$mappedCategoryIds]))
+            );
 
-        $sharedTrackedItem->compatibleCategories()->sync(
-            array_values(array_unique([...$existingCategoryIds, ...$mappedCategoryIds]))
-        );
-
-        return $sharedTrackedItem->fresh(['compatibleCategories']);
+            return $sharedTrackedItem->fresh(['compatibleCategories']);
+        });
     }
 
     /**
@@ -195,7 +207,7 @@ class SharedAccountTrackedItemCatalogService
             ->filter(fn (Category $category): bool => $category->is_active)
             ->map(fn (Category $category): ?Category => $allowMaterialization
                 ? $this->sharedAccountCategoryTaxonomyService->findCategoryForAccount($account, $category->id)
-                : $this->sharedAccountCategoryTaxonomyService->findExistingCategoryForSourceCategory($account, $category))
+                : $this->sharedAccountCategoryTaxonomyService->findExistingCategoryForSourceCategory($account, $category, materialize: false))
             ->filter(fn (?Category $category): bool => $category instanceof Category)
             ->map(fn (Category $category): int => (int) $category->id)
             ->unique()

@@ -70,6 +70,7 @@ import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import { fetchWithNotifications } from '@/lib/notifications';
 import { emptySalarySetup } from '@/lib/salary-presets';
+import { prioritizeReferenceOptions } from '@/lib/tracked-item-options';
 import { cn } from '@/lib/utils';
 import type {
     Auth,
@@ -722,20 +723,24 @@ function filterTrackedItemOptions(
         return options.filter((option) => option.value === selectedValue);
     }
 
-    const selectedOption =
-        options.find((option) => option.value === selectedValue) ?? null;
-    const matchingOptions = options.filter((option) =>
-        trackedItemMatchesContext(option, accountUuid, direction, categoryUuid),
+    const contributorUserIds =
+        resolveAccountTrackedItemContributorUserIds(accountUuid);
+
+    return prioritizeReferenceOptions(
+        options,
+        (option) =>
+            trackedItemMatchesContext(
+                option,
+                accountUuid,
+                direction,
+                categoryUuid,
+            ),
+        (option) =>
+            (isEditing.value && option.value === selectedValue) ||
+            (option.is_selectable !== false &&
+                (contributorUserIds.length === 0 ||
+                    contributorUserIds.includes(option.owner_user_id ?? -1))),
     );
-
-    if (
-        selectedOption &&
-        !matchingOptions.some((option) => option.value === selectedOption.value)
-    ) {
-        return [selectedOption, ...matchingOptions];
-    }
-
-    return matchingOptions;
 }
 
 const trackedItemOptions = computed(() =>
@@ -749,6 +754,8 @@ const trackedItemOptions = computed(() =>
         value: String(option.value),
         label: option.label,
         logo_url: option.logo_url,
+        is_selectable: option.is_selectable,
+        search_terms: option.search_terms,
     })),
 );
 const scopeOptions = computed(() =>
@@ -2189,6 +2196,24 @@ function fieldErrorClass(hasError: boolean): string {
         : 'border-slate-200 dark:border-slate-800';
 }
 
+function handleReferenceSelection(value: string): void {
+    const option = trackedItemsForSelectedAccount(form.account_uuid).find(
+        (item) => item.value === value,
+    );
+
+    if (
+        option &&
+        !trackedItemMatchesContext(
+            option,
+            form.account_uuid,
+            form.direction,
+            form.category_uuid,
+        )
+    ) {
+        void createTrackedItemFromContext(option.label, value);
+    }
+}
+
 function createTrackedItemPayload(name: string): Record<string, unknown> {
     return {
         name,
@@ -2198,7 +2223,10 @@ function createTrackedItemPayload(name: string): Record<string, unknown> {
     };
 }
 
-async function createTrackedItemFromContext(name: string): Promise<void> {
+async function createTrackedItemFromContext(
+    name: string,
+    trackedItemUuid?: string,
+): Promise<void> {
     if (form.account_uuid === '') {
         form.setError(
             'tracked_item_uuid',
@@ -2217,6 +2245,11 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
         return;
     }
 
+    const requestContext = [
+        form.account_uuid,
+        form.category_uuid,
+        form.direction,
+    ].join(':');
     creatingTrackedItem.value = true;
 
     try {
@@ -2236,16 +2269,29 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                     isMobile.value
                         ? {
                               ...createTrackedItemPayload(name),
+                              name: trackedItemUuid ? undefined : name,
+                              tracked_item_uuid: trackedItemUuid,
                               type_key:
                                   form.direction === 'income'
                                       ? 'income'
                                       : 'expense',
                               website_url: newReferenceWebsite.value || null,
                           }
-                        : createTrackedItemPayload(name),
+                        : {
+                              ...createTrackedItemPayload(name),
+                              name: trackedItemUuid ? undefined : name,
+                              tracked_item_uuid: trackedItemUuid,
+                          },
                 ),
             },
         );
+
+        if (
+            requestContext !==
+            [form.account_uuid, form.category_uuid, form.direction].join(':')
+        ) {
+            return;
+        }
 
         if (!response.ok) {
             const payload = await response.json().catch(() => null);
@@ -2484,6 +2530,10 @@ function resolveRecurrenceConfig(): {
 }
 
 function submit(confirmInstallmentRecalculation = false): void {
+    if (creatingTrackedItem.value) {
+        return;
+    }
+
     const primaryDescription = normalizedPrimaryDescription();
 
     form.clearErrors();
@@ -2828,6 +2878,7 @@ const firstTrialBillingDate = computed(() => {
                     <MobileQuickChoices
                         v-if="quickReferences.length"
                         v-model="form.tracked_item_uuid"
+                        @update:model-value="handleReferenceSelection"
                         :options="quickReferences"
                         appearance="reference"
                     />
@@ -2835,6 +2886,7 @@ const firstTrialBillingDate = computed(() => {
                         <MobileSearchableSelect
                             v-if="trackedItemOptions.length"
                             v-model="form.tracked_item_uuid"
+                            @update:model-value="handleReferenceSelection"
                             :options="trackedItemOptions"
                             :placeholder="ui('Tutti · Cerca')"
                             :search-placeholder="ui('Cerca riferimento')"
@@ -2892,6 +2944,7 @@ const firstTrialBillingDate = computed(() => {
                 <MobileSearchableSelect
                     v-else
                     v-model="form.tracked_item_uuid"
+                    @update:model-value="handleReferenceSelection"
                     :options="[
                         {
                             value: NONE_VALUE,
@@ -3812,7 +3865,10 @@ const firstTrialBillingDate = computed(() => {
                                         :mobile-title="primaryAmountLabel"
                                         :format-locale="formatLocale"
                                         :currency-code="selectedAccountCurrency"
-                                        :disabled="form.processing"
+                                        :disabled="
+                                            form.processing ||
+                                            creatingTrackedItem
+                                        "
                                         :placeholder="
                                             t(
                                                 'transactions.recurring.form.placeholders.amount',
@@ -5253,7 +5309,9 @@ const firstTrialBillingDate = computed(() => {
                             <Button
                                 type="button"
                                 class="rounded-2xl"
-                                :disabled="form.processing"
+                                :disabled="
+                                    form.processing || creatingTrackedItem
+                                "
                                 @click="submit()"
                             >
                                 {{

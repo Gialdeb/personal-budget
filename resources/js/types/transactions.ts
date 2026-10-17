@@ -62,6 +62,8 @@ export type MonthlyTransactionSheetSummaryCard = {
 };
 
 export type MonthlyTransactionSheetOption = {
+    is_selectable?: boolean;
+    search_terms?: string[];
     value: string;
     uuid?: string | null;
     label: string;
@@ -78,6 +80,7 @@ export type MonthlyTransactionSheetOption = {
 export type MonthlyTransactionSheetTrackedItemOption =
     MonthlyTransactionSheetOption & {
         name?: string;
+        available_account_uuids?: string[];
         owner_user_id?: number;
         group_keys?: string[];
         category_uuids?: string[];
@@ -572,6 +575,7 @@ export type RecurringFormOption = {
     icon?: string | null;
     color?: string | null;
     is_selectable?: boolean;
+    search_terms?: string[];
     sort_order?: number | null;
     category_contributor_user_ids?: number[];
     scope_contributor_user_ids?: number[];

@@ -19,7 +19,7 @@ test('reimbursement form receives the existing reference catalog and category ap
             ->has('settlementOptions.references.'.$account->uuid));
 });
 
-test('transaction and recurring forms expose active shared expense counterparties in name order', function () {
+test('transaction and recurring forms expose all active personal references as shared choices in name order', function () {
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
     UserYear::query()->create([
@@ -34,7 +34,7 @@ test('transaction and recurring forms expose active shared expense counterpartie
     sharedExpenseFormCounterparty($user, 'Disattivata', false);
     sharedExpenseFormCounterparty($otherUser, 'Non mia');
     $amazon = TrackedItem::query()->create(['user_id' => $user->id, 'name' => 'Amazon', 'slug' => 'amazon', 'is_active' => true, 'is_shared_expense_counterpart' => false]);
-    TrackedItem::query()->create(['user_id' => $user->id, 'name' => 'Legacy disabilitata', 'slug' => 'legacy', 'type' => 'shared_expense_counterparty', 'is_active' => true, 'is_shared_expense_counterpart' => false]);
+    $legacy = TrackedItem::query()->create(['user_id' => $user->id, 'name' => 'Legacy disabilitata', 'slug' => 'legacy', 'type' => 'shared_expense_counterparty', 'is_active' => true, 'is_shared_expense_counterpart' => false]);
 
     $this->actingAs($user)
         ->get(route('transactions.show', ['year' => 2026, 'month' => 3]))
@@ -42,7 +42,9 @@ test('transaction and recurring forms expose active shared expense counterpartie
             ->where('monthlySheet.editor.tracked_items', fn ($options): bool => collect($options)->contains('value', $amazon->uuid))
             ->where('monthlySheet.editor.shared_expense_counterparties', [
                 ['value' => $alice->uuid, 'label' => 'Alice'],
+                ['value' => $amazon->uuid, 'label' => 'Amazon'],
                 ['value' => $emanuela->uuid, 'label' => 'Emanuela'],
+                ['value' => $legacy->uuid, 'label' => 'Legacy disabilitata'],
             ]));
 
     $this->actingAs($user)
@@ -50,7 +52,9 @@ test('transaction and recurring forms expose active shared expense counterpartie
         ->assertInertia(fn (Assert $page) => $page
             ->where('formOptions.shared_expense_counterparties', [
                 ['value' => $alice->uuid, 'label' => 'Alice'],
+                ['value' => $amazon->uuid, 'label' => 'Amazon'],
                 ['value' => $emanuela->uuid, 'label' => 'Emanuela'],
+                ['value' => $legacy->uuid, 'label' => 'Legacy disabilitata'],
             ]));
 });
 

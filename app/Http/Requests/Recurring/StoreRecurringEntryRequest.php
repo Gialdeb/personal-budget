@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Recurring;
 
+use App\Concerns\CanonicalTrackedItemInputs;
 use App\Enums\RecurringEndModeEnum;
 use App\Enums\RecurringEntryRecurrenceTypeEnum;
 use App\Enums\RecurringEntryStatusEnum;
@@ -9,9 +10,11 @@ use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Models\Category;
 use App\Models\Merchant;
+use App\Models\RecurringEntry;
 use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\FormRequest;
@@ -20,6 +23,8 @@ use Illuminate\Validation\Rule;
 
 class StoreRecurringEntryRequest extends FormRequest
 {
+    use CanonicalTrackedItemInputs;
+
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -189,6 +194,14 @@ class StoreRecurringEntryRequest extends FormRequest
                 ->all(),
             'end_mode' => $this->filled('end_mode') ? (string) $this->input('end_mode') : RecurringEndModeEnum::NEVER->value,
         ]);
+        if ($this->isMethod('POST') && ! $this->route('recurringEntry') instanceof RecurringEntry) {
+            $account = app(AccessibleAccountsQuery::class)->editable($this->user())->where('accounts.id', $this->input('account_id'))->first();
+            if ($account !== null) {
+                $this->canonicalizeNewReference('tracked_item_uuid', 'tracked_item_id', app(OperationalTransactionCategoryResolver::class)->trackedItemCatalogForNewOperation($account));
+            }
+            $this->canonicalizeNewReference('shared_expense_counterparty_uuid', 'shared_expense_counterparty_id', TrackedItem::query()->ownedBy($this->user()->id));
+        }
+
     }
 
     /**

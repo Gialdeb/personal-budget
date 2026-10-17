@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
+use App\Services\TrackedItems\TrackedItemResolver;
 use App\Services\TrackedItems\WebsiteLogoService;
 use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
@@ -45,7 +46,10 @@ class TrackedItemController extends Controller
     {
         $validated = $this->withWebsiteIdentity($request->validated());
 
-        $trackedItem = DB::transaction(function () use ($request, $validated): TrackedItem {
+        $trackedItem = app(TrackedItemResolver::class)->inCatalog($request->user()->id, null, function () use ($request, $validated): TrackedItem {
+            if (app(TrackedItemResolver::class)->matchingName($request->user()->id, null, $validated['name'])->exists()) {
+                throw ValidationException::withMessages(['name' => __('ui.an_item_with_this_name_already_exists_in_this_catalog_a14e96ec')]);
+            }
             $categoryIds = $validated['category_ids'] ?? [];
             unset($validated['category_ids']);
 
@@ -73,7 +77,10 @@ class TrackedItemController extends Controller
         $trackedItem = $this->ownedTrackedItem($request, $trackedItem);
         $validated = $this->withWebsiteIdentity($request->validated());
 
-        DB::transaction(function () use ($validated, $trackedItem): void {
+        app(TrackedItemResolver::class)->inCatalog($request->user()->id, null, function () use ($validated, $trackedItem, $request): void {
+            if (app(TrackedItemResolver::class)->matchingName($request->user()->id, null, $validated['name'], $trackedItem->id)->exists()) {
+                throw ValidationException::withMessages(['name' => __('ui.an_item_with_this_name_already_exists_in_this_catalog_a14e96ec')]);
+            }
             $categoryIds = $validated['category_ids'] ?? [];
             unset($validated['category_ids']);
 
@@ -413,7 +420,7 @@ class TrackedItemController extends Controller
 
     protected function ownedTrackedItem(Request $request, TrackedItem $trackedItem): TrackedItem
     {
-        abort_unless($trackedItem->user_id === $request->user()->id, 404);
+        abort_unless($trackedItem->user_id === $request->user()->id && $trackedItem->account_id === null, 404);
 
         return $trackedItem;
     }

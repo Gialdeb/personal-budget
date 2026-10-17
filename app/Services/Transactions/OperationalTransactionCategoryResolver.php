@@ -10,9 +10,11 @@ use App\Models\AccountMembership;
 use App\Models\Category;
 use App\Models\Scope;
 use App\Models\TrackedItem;
+use App\Models\TrackedItemAlias;
 use App\Models\Transaction;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Supports\HierarchyOptionLabel;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Database\Eloquent\Builder;
@@ -65,7 +67,7 @@ class OperationalTransactionCategoryResolver
     public function categoriesForAccount(Account $account, array $usedCategoryIds = []): Collection
     {
         if ($this->sharedAccountCategoryTaxonomyService->usesAccountScopedCatalog($account)) {
-            return $this->sharedAccountCategoryTaxonomyService->categoriesForAccount($account, $usedCategoryIds);
+            return $this->sharedAccountCategoryTaxonomyService->categoriesForAccount($account, $usedCategoryIds, materialize: false);
         }
 
         return Category::query()
@@ -88,6 +90,7 @@ class OperationalTransactionCategoryResolver
             ->get([
                 'id',
                 'user_id',
+                'account_id',
                 'uuid',
                 'parent_id',
                 'name',
@@ -105,7 +108,7 @@ class OperationalTransactionCategoryResolver
     public function findCategoryForAccount(Account $account, int $categoryId): ?Category
     {
         if ($this->sharedAccountCategoryTaxonomyService->usesAccountScopedCatalog($account)) {
-            return $this->sharedAccountCategoryTaxonomyService->findCategoryForAccount($account, $categoryId);
+            return $this->sharedAccountCategoryTaxonomyService->findCategoryForAccount($account, $categoryId, materialize: false);
         }
 
         return Category::query()
@@ -190,10 +193,6 @@ class OperationalTransactionCategoryResolver
         $contributorUserIds = $this->contributorUserIdsForAccount($account);
         $usesAccountScopedCatalog = $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account);
 
-        if ($usesAccountScopedCatalog) {
-            $this->sharedAccountTrackedItemCatalogService->ensureForAccount($account);
-        }
-
         return TrackedItem::query()
             ->where(function (Builder $query) use (
                 $account,
@@ -233,6 +232,7 @@ class OperationalTransactionCategoryResolver
             ->get([
                 'id',
                 'user_id',
+                'account_id',
                 'uuid',
                 'parent_id',
                 'name',
@@ -249,14 +249,17 @@ class OperationalTransactionCategoryResolver
             ));
     }
 
+    public function trackedItemCatalogForNewOperation(Account $account): Builder
+    {
+        return $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account)
+            ? TrackedItem::query()->sharedForAccount($account->id)
+            : TrackedItem::query()->whereNull('account_id')->whereIn('user_id', $this->contributorUserIdsForAccount($account));
+    }
+
     public function findTrackedItemForAccount(Account $account, int $trackedItemId): ?TrackedItem
     {
         $contributorUserIds = $this->contributorUserIdsForAccount($account);
         $usesAccountScopedCatalog = $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account);
-
-        if ($usesAccountScopedCatalog) {
-            $this->sharedAccountTrackedItemCatalogService->ensureForAccount($account);
-        }
 
         $trackedItem = TrackedItem::query()
             ->where(function (Builder $query) use (
@@ -301,13 +304,16 @@ class OperationalTransactionCategoryResolver
      * @param  Collection<int, TrackedItem>  $trackedItems
      * @return array<int, array<string, mixed>>
      */
-    public function trackedItemOptionsFromCollection(Collection $trackedItems): array
+    public function trackedItemOptionsFromCollection(Collection $trackedItems, ?Account $account = null): array
     {
+        $accountScoped = $account !== null && $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account);
         $trackedItemsById = $trackedItems->keyBy('id');
+        $secondaryIds = TrackedItemAlias::query()->whereIn('source_tracked_item_id', $trackedItemsById->keys())->pluck('source_tracked_item_id')->flip();
+        $searchTerms = app(TrackedItemIdentityService::class)->searchTermsFor($trackedItems);
 
         return HierarchyOptionLabel::withDisambiguatedLabels(
             collect(TrackedItemHierarchy::buildFlat($trackedItems))
-                ->map(function (array $trackedItem) use ($trackedItemsById): array {
+                ->map(function (array $trackedItem) use ($trackedItemsById, $secondaryIds, $searchTerms, $accountScoped, $account): array {
                     $sourceTrackedItem = $trackedItemsById->get($trackedItem['id']);
 
                     return [
@@ -315,6 +321,8 @@ class OperationalTransactionCategoryResolver
                         'value' => $trackedItem['uuid'],
                         'uuid' => $trackedItem['uuid'],
                         'name' => $trackedItem['name'],
+                        'is_selectable' => $sourceTrackedItem?->is_active && ! $secondaryIds->has($trackedItem['id']) && (! $accountScoped || $sourceTrackedItem->account_id === $account->id),
+                        'search_terms' => $searchTerms[$trackedItem['id']] ?? [],
                         'full_path' => $trackedItem['full_path'],
                         'slug' => $trackedItem['slug'],
                         'logo_url' => $trackedItem['logo_url'] ?? null,
@@ -354,6 +362,7 @@ class OperationalTransactionCategoryResolver
             ->map(fn (Category $category): ?Category => $this->sharedAccountCategoryTaxonomyService->findCategoryForAccount(
                 $account,
                 $category->id,
+                materialize: false,
             ))
             ->filter(fn (?Category $category): bool => $category instanceof Category)
             ->unique('id')
