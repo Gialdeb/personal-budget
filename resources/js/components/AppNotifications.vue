@@ -11,11 +11,9 @@ import {
 } from 'notivue';
 import type { NotivueTheme } from 'notivue';
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
+import PendingCategoryConfirmation from '@/components/categories/PendingCategoryConfirmation.vue';
 import { useUiCopy } from '@/i18n/ui-copy';
-import {
-    bindNotificationFeedback,
-    notificationFlash,
-} from '@/lib/notification-feedback.js';
+import { bindNotificationFeedback } from '@/lib/notification-feedback.js';
 import {
     configureNotifications,
     delayedNotification,
@@ -45,33 +43,9 @@ const mobile = () =>
     (config.position.value = window.matchMedia('(max-width: 639px)').matches
         ? 'top-center'
         : 'top-right');
-function invalidField(event: Event): void {
-    const field = event.target;
-
-    if (
-        !(
-            field instanceof HTMLInputElement ||
-            field instanceof HTMLSelectElement ||
-            field instanceof HTMLTextAreaElement
-        )
-    ) {
-        return;
-    }
-
-    const label =
-        field.labels?.[0]?.textContent?.trim() ||
-        field.getAttribute('aria-label') ||
-        '';
-    notifyValidation(
-        label
-            ? `${label}: ${field.validationMessage}`
-            : field.validationMessage,
-    );
-}
 onMounted(() => {
     mobile();
     window.addEventListener('resize', mobile);
-    document.addEventListener('invalid', invalidField, true);
     const theme = () => {
         isDark.value = document.documentElement.classList.contains('dark');
     };
@@ -95,39 +69,37 @@ onMounted(() => {
         validation: notifyValidation,
         message: notify,
     });
-    notificationFlash(page.props.flash).forEach((item) =>
-        notify(item.type, item.message),
-    );
-    notifyValidation(page.props.errors);
 });
 onBeforeUnmount(() => {
     stop?.();
     themeObserver?.disconnect();
     window.removeEventListener('resize', mobile);
-    document.removeEventListener('invalid', invalidField, true);
 });
 </script>
 
 <template>
-    <Notivue
-        v-slot="item"
-        class="soamco-notifications"
-        :list-aria-label="ui('Notifiche')"
-        :styles="{
-            list: { zIndex: 10000 },
-            itemContainer: { width: 'min(100%, 30rem)' },
-        }"
-    >
-        <NotivueSwipe :item="item">
-            <Notification
-                :item="item"
-                :theme="notificationTheme"
-                :close-aria-label="ui('Chiudi notifica')"
-            >
-                <NotificationProgress :item="item" />
-            </Notification>
-        </NotivueSwipe>
-    </Notivue>
+    <div>
+        <PendingCategoryConfirmation />
+        <Notivue
+            v-slot="item"
+            class="soamco-notifications"
+            :list-aria-label="ui('Notifiche')"
+            :styles="{
+                list: { zIndex: 10000 },
+                itemContainer: { width: 'min(100%, 30rem)' },
+            }"
+        >
+            <NotivueSwipe :item="item">
+                <Notification
+                    :item="item"
+                    :theme="notificationTheme"
+                    :close-aria-label="ui('Chiudi notifica')"
+                >
+                    <NotificationProgress :item="item" />
+                </Notification>
+            </NotivueSwipe>
+        </Notivue>
+    </div>
 </template>
 
 <style>

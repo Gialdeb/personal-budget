@@ -11,6 +11,8 @@ use App\Models\Import;
 use App\Models\ImportRow;
 use App\Models\Merchant;
 use App\Models\TrackedItem;
+use App\Services\TrackedItems\TrackedItemIdentityService;
+use App\Services\TrackedItems\TrackedItemResolver;
 use App\Services\Transactions\TransactionMutationService;
 use App\Supports\CategoryHierarchy;
 use Illuminate\Support\Facades\DB;
@@ -320,27 +322,17 @@ class ImportReadyRowsService
 
     protected function resolveTrackedItemId(int $userId, array $normalizedPayload): ?int
     {
-        $trackedItemId = $normalizedPayload['tracked_item_id'] ?? null;
-
-        if (is_numeric($trackedItemId)) {
-            return TrackedItem::query()
-                ->ownedBy($userId)
-                ->where('is_active', true)
-                ->whereKey((int) $trackedItemId)
-                ->value('id');
-        }
-
-        $trackedItemUuid = $normalizedPayload['tracked_item_uuid'] ?? null;
-
-        if (! is_string($trackedItemUuid) || $trackedItemUuid === '') {
+        $id = $normalizedPayload['tracked_item_id'] ?? null;
+        $uuid = $normalizedPayload['tracked_item_uuid'] ?? null;
+        if (! is_numeric($id) && (! is_string($uuid) || $uuid === '')) {
             return null;
         }
 
-        return TrackedItem::query()
-            ->ownedBy($userId)
-            ->where('is_active', true)
-            ->where('uuid', $trackedItemUuid)
-            ->value('id');
+        return app(TrackedItemResolver::class)->inCatalog($userId, null, fn (): ?int => app(TrackedItemIdentityService::class)->forNewOperation(
+            TrackedItem::query()->ownedBy($userId),
+            uuid: is_string($uuid) && $uuid !== '' ? $uuid : null,
+            id: is_numeric($id) ? (int) $id : null,
+        )?->id);
     }
 
     protected function typeKeyFromNormalizedType(string $type): string

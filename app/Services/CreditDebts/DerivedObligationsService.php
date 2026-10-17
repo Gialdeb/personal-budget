@@ -10,6 +10,7 @@ use App\Models\RecurringEntryOccurrence;
 use App\Models\TrackedItem;
 use App\Models\User;
 use App\Services\Recurring\RecurringOccurrenceReadService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Support\MoneyAmount;
 use Illuminate\Support\Collection;
 
@@ -102,7 +103,7 @@ class DerivedObligationsService
                     $counterparty->name, MoneyAmount::decimal(abs($balance['shared_cents'])), $balance['currency'], null,
                     route('shared-expenses.index', ['counterparty' => $counterparty->uuid]), $counterparty,
                 );
-                $position['counterparty'] = ['uuid' => $counterparty->uuid, 'name' => $counterparty->name];
+                $position['counterparty'] = ['uuid' => $counterparty->uuid, 'name' => app(TrackedItemIdentityService::class)->presentation($counterparty)['label']];
 
                 return $position;
             })->values()->all();
@@ -119,7 +120,7 @@ class DerivedObligationsService
             'type' => $type, 'description' => $description, 'total_amount' => $amount,
             'remaining_amount' => $amount, 'paid_amount' => '0.00', 'currency_code' => $currency,
             'status' => 'open', 'due_date' => $date, 'note' => null,
-            'reference' => $reference ? ['uuid' => $reference->uuid, 'name' => $reference->name, 'label' => $reference->name] : null,
+            'reference' => $reference ? ['uuid' => $reference->uuid, 'name' => app(TrackedItemIdentityService::class)->presentation($reference)['label'], 'label' => app(TrackedItemIdentityService::class)->presentation($reference)['label']] : null,
             'account' => $account ? ['uuid' => $account->uuid, 'value' => $account->uuid, 'name' => $account->name, 'label' => $account->name] : null,
             'category' => $category ? ['uuid' => $category->uuid, 'value' => $category->uuid, 'name' => $category->name, 'label' => $category->name] : null,
             'payments_count' => 0, 'payments' => [],

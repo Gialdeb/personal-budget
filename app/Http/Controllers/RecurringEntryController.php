@@ -36,6 +36,7 @@ use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryPeriodService;
 use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Services\Salary\SalaryEmploymentService;
+use App\Services\TrackedItems\PendingTrackedItemService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Services\TrackedItems\TrackedItemResolver;
@@ -245,6 +246,7 @@ class RecurringEntryController extends Controller
     public function storeTrackedItemOption(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'draft' => ['sometimes', 'boolean'],
             'name' => ['required_without:tracked_item_uuid', 'nullable', 'string', 'max:150'],
             'tracked_item_uuid' => ['nullable', 'uuid'],
             'account_uuid' => ['required', 'uuid'],
@@ -280,6 +282,10 @@ class RecurringEntryController extends Controller
             throw ValidationException::withMessages([
                 'direction' => __('ui.the_plan_direction_must_match_the_selected_category_ac9d9e1c'),
             ]);
+        }
+
+        if ($request->boolean('draft')) {
+            return response()->json(['item' => app(PendingTrackedItemService::class)->preview($request->user(), $validated, $account, $category)]);
         }
 
         $trackedItem = app(TrackedItemResolver::class)->forAccount(

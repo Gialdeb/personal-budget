@@ -169,16 +169,21 @@ test('canonical resolution cannot cross catalog boundaries', function () {
     $this->actingAs($this->actor)->postJson(route('transactions.tracked-items.store'), ['tracked_item_uuid' => $this->source->uuid, 'account_uuid' => $shared->uuid, 'category_uuid' => $this->category->uuid, 'type_key' => 'expense'])->assertUnprocessable();
 });
 
-test('failed validation resolves inputs without writing to the database', function () {
+test('failed validation rolls back reference materialization and preserves persisted data', function () {
     canonicalFlowAlias($this);
-    $writes = [];
-    DB::listen(function (QueryExecuted $query) use (&$writes): void {
-        if (preg_match('/^\s*(insert|update|delete|replace)\b/i', $query->sql)) {
-            $writes[] = $query->sql;
-        }
-    });
+    $before = [
+        TrackedItem::query()->orderBy('id')->get()->map->getRawOriginal()->all(),
+        DB::table('tracked_item_categories')->orderBy('category_id')->orderBy('tracked_item_id')->get()->toArray(),
+        DB::table('activity_log')->count(),
+        $this->account->fresh()->getRawOriginal(),
+    ];
     $this->actingAs($this->actor)->postJson(route('transactions.store', ['year' => 2026, 'month' => 10]), canonicalFlowTransaction($this, ['amount' => -1]))->assertUnprocessable();
-    expect($writes)->toBe([])->and(Transaction::count())->toBe(0);
+    expect([
+        TrackedItem::query()->orderBy('id')->get()->map->getRawOriginal()->all(),
+        DB::table('tracked_item_categories')->orderBy('category_id')->orderBy('tracked_item_id')->get()->toArray(),
+        DB::table('activity_log')->count(),
+        $this->account->fresh()->getRawOriginal(),
+    ])->toEqual($before)->and(Transaction::count())->toBe(0);
 });
 
 test('shared catalog insertions resolve account aliases without touching historical personal references', function () {

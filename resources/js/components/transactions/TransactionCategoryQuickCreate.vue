@@ -307,6 +307,8 @@ function selectCreatedCategory(category: Record<string, unknown>): void {
         :require-parent="categoryQuickCreateKind === 'subcategory'"
         :store-url="quickCreateStoreUrl"
         json-store
+        defer-store
+        :inline-account-uuid="accountUuid"
         @update:open="updateCategoryQuickCreateOpen"
         @created="selectCreatedCategory"
     />

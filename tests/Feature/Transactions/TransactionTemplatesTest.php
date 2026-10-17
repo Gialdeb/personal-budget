@@ -11,6 +11,7 @@ use App\Models\UserSetting;
 use App\Models\UserYear;
 use App\Models\WebsiteIdentity;
 use App\Services\SharedExpenses\SharedExpenseSettlementService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Validation\ValidationException;
@@ -265,12 +266,15 @@ test('inactive and foreign template references cannot silently fall back', funct
     $this->get(route('transactions.show', ['year' => 2026, 'month' => 10, 'template' => $template->uuid]))->assertNotFound();
 });
 
-test('incompatible category and reference combinations are rejected by template validation', function () {
+test('global references gain category compatibility only when a valid template is submitted', function () {
     [$user, $account, $category, $reference, $data] = quickTemplateFixture();
     $reference->update(['settings' => ['transaction_group_keys' => ['income']]]);
-    $this->actingAs($user)->post(route('transaction-templates.store'), $data)->assertSessionHasErrors('tracked_item_uuid');
+    $this->actingAs($user)->post(route('transaction-templates.store'), $data)->assertSessionHasNoErrors();
+    expect($reference->fresh()->settings['transaction_group_keys'])->toContain('income', 'expense');
+    expect($reference->fresh()->compatibleCategories->modelKeys())->toContain($category->id);
+    $before = $reference->fresh()->getRawOriginal();
     $this->post(route('transaction-templates.store'), [...$data, 'direction' => 'income'])->assertSessionHasErrors('category_uuid');
-    expect(TransactionTemplate::count())->toBe(0);
+    expect(TransactionTemplate::count())->toBe(1)->and($reference->fresh()->getRawOriginal())->toBe($before);
 });
 
 test('quick actions keep sort order on create and persist drag and drop reordering', function () {
@@ -295,4 +299,17 @@ test('a posting failure never counts template usage', function () {
     });
     $this->post(route('transactions.store', ['year' => 2026, 'month' => 10]), ['transaction_template_uuid' => $template->uuid, 'transaction_day' => 9, 'type_key' => 'expense', 'account_uuid' => $account->uuid, 'category_uuid' => $category->uuid, 'amount' => '25.00'])->assertRedirect();
     expect($template->fresh()->usage_count)->toBe(0)->and($template->fresh()->last_used_at)->toBeNull()->and(Transaction::count())->toBe(0)->and($account->fresh()->current_balance)->toEqual(1000);
+});
+
+test('an existing template starts a canonical transaction after merge while retaining its original reference', function () {
+    [$user, $account, $category, $reference, $data] = quickTemplateFixture();
+    $this->actingAs($user)->post(route('transaction-templates.store'), $data)->assertSessionHasNoErrors();
+    $template = TransactionTemplate::sole();
+    $canonical = TrackedItem::create(['user_id' => $user->id, 'name' => 'Q8 canonico', 'slug' => 'q8-canonical', 'is_active' => true]);
+    app(TrackedItemIdentityService::class)->register($user, $reference, $canonical);
+    $prefill = $template->fresh()->prefill();
+    expect($prefill['tracked_item_uuid'])->toBe($canonical->uuid);
+    $this->post(route('transactions.store', ['year' => 2026, 'month' => 10]), ['transaction_template_uuid' => $template->uuid, 'account_uuid' => $account->uuid, 'category_uuid' => $category->uuid, 'tracked_item_uuid' => $prefill['tracked_item_uuid'], 'transaction_day' => 17, 'type_key' => 'expense', 'amount' => 20, 'description' => 'Nuovo uso template'])->assertSessionHasNoErrors();
+    expect(Transaction::where('description', 'Nuovo uso template')->sole()->tracked_item_id)->toBe($canonical->id)
+        ->and($template->fresh()->tracked_item_id)->toBe($reference->id);
 });

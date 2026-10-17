@@ -24,7 +24,7 @@ test('web 5xx shows safe soamco page and correlated reference', function () {
     expect(Str::isUuid($id))->toBeTrue();
     $response->assertSee('Si è verificato un problema')
         ->assertSee('L’operazione non è stata completata. Riprova tra poco.')
-        ->assertSee(strtoupper(substr($id, 0, 8)))
+        ->assertDontSee($id)
         ->assertSee('Riprova')->assertSee('Torna indietro')->assertSee('Dashboard')
         ->assertDontSee('never-expose')->assertDontSee('RuntimeException');
 });
@@ -34,8 +34,6 @@ test('json 5xx returns only generic message and correlation identifiers', functi
     $id = $response->headers->get('X-Request-ID');
     $response->assertExactJson([
         'message' => 'L’operazione non è stata completata. Riprova tra poco.',
-        'request_id' => $id,
-        'error_code' => strtoupper(substr($id, 0, 8)),
     ])->assertDontSee('never-expose');
 });
 
@@ -44,7 +42,7 @@ test('inertia 5xx renders a page instead of the technical html modal', function 
         ->assertHeader('X-Inertia', 'true')
         ->assertJsonPath('component', 'Error')
         ->assertJsonPath('props.title', 'Si è verificato un problema')
-        ->assertJsonPath('props.requestId', fn ($id) => Str::isUuid($id))
+        ->assertJsonMissingPath('props.requestId')
         ->assertJsonPath('props.dashboardUrl', route('dashboard'))
         ->assertDontSee('never-expose');
 });
@@ -69,7 +67,7 @@ test('other server status codes retain their status', function () {
 
 test('debug environment keeps technical diagnostics available', function () {
     config(['app.debug' => true]);
-    $this->getJson('/__test/server-error')->assertStatus(500)->assertJsonPath('exception', RuntimeException::class);
+    $this->getJson('/__test/server-error')->assertStatus(500)->assertJsonMissingPath('exception')->assertDontSee('never-expose');
 });
 
 test('log viewer and data endpoints allow only authenticated administrators', function (string $role) {
@@ -151,4 +149,12 @@ test('maintenance page refreshes automatically even without deployment refresh o
     $this->get('/__test/server-error')->assertStatus(503)
         ->assertHeader('Refresh', '10')
         ->assertSee('Stiamo aggiornando Soamco');
+});
+
+test('debug client errors hide model identifiers and stack traces', function () {
+    config(['app.debug' => true]);
+    Route::get('/__test/private-client-error', fn () => abort(404, 'No query results for model [App\\Models\\Category] 12345678-1234-1234-1234-123456789abc'));
+    $this->getJson('/__test/private-client-error')->assertNotFound()
+        ->assertJsonMissingPath('exception')->assertJsonMissingPath('trace')->assertJsonMissingPath('file')
+        ->assertDontSee('App\\Models')->assertDontSee('12345678-1234-1234-1234-123456789abc');
 });

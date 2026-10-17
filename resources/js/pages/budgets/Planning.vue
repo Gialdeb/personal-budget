@@ -251,7 +251,7 @@ async function saveCell(payload: {
 
     try {
         const response = await fetchWithNotifications(updateCell.url(), {
-            notification: 'Dati salvati correttamente.',
+            notification: 'silent',
             method: 'PATCH',
             headers: {
                 Accept: 'application/json',

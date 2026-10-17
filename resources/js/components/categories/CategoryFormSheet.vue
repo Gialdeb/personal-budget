@@ -47,6 +47,8 @@ const props = defineProps<{
     showSlugField?: boolean;
     lockClassificationToParent?: boolean;
     jsonStore?: boolean;
+    deferStore?: boolean;
+    inlineAccountUuid?: string;
     initialDirectionType?: string;
     initialGroupType?: string;
     requireParent?: boolean;
@@ -342,7 +344,9 @@ async function submit(): Promise<void> {
             const response = await fetchWithNotifications(
                 props.storeUrl ?? store.url(),
                 {
-                    notification: 'Categoria creata correttamente.',
+                    notification: props.deferStore
+                        ? 'silent'
+                        : 'Categoria creata correttamente.',
                     method: 'POST',
                     headers: {
                         Accept: 'application/json',
@@ -351,7 +355,15 @@ async function submit(): Promise<void> {
                         'X-Requested-With': 'XMLHttpRequest',
                     },
                     credentials: 'same-origin',
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify({
+                        ...payload,
+                        ...(props.deferStore
+                            ? {
+                                  defer_category: true,
+                                  inline_account_uuid: props.inlineAccountUuid,
+                              }
+                            : {}),
+                    }),
                 },
             );
             const result = await response.json().catch(() => null);
@@ -375,11 +387,14 @@ async function submit(): Promise<void> {
                 emit('created', result.category as Record<string, unknown>);
             }
 
-            emit(
-                'saved',
-                props.createSuccessMessage ??
-                    t('categories.feedback.createSuccess'),
-            );
+            if (!props.deferStore) {
+                emit(
+                    'saved',
+                    props.createSuccessMessage ??
+                        t('categories.feedback.createSuccess'),
+                );
+            }
+
             closeSheet();
         } finally {
             jsonSubmitting.value = false;

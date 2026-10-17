@@ -101,11 +101,11 @@ class StoreCreditDebtItemRequest extends FormRequest
             }
             $uuid = $this->input($field.'_uuid');
             if ($uuid !== null && $uuid !== '' && (! is_string($uuid) || ! Str::isUuid($uuid))) {
-                throw ValidationException::withMessages([$field.'_uuid' => 'UUID non valido.']);
+                throw ValidationException::withMessages([$field.'_uuid' => 'La selezione non è valida. Cerca e seleziona nuovamente il riferimento.']);
             }
             $id = $uuid === null || $uuid === '' ? null : TrackedItem::query()->where('uuid', $uuid)->value('id');
             if (($uuid !== null && $uuid !== '' && $id === null) || ($this->exists($field.'_id') && (string) $this->input($field.'_id') !== (string) $id)) {
-                throw ValidationException::withMessages([$field.'_id' => 'Identificativo del soggetto non valido o discordante.']);
+                throw ValidationException::withMessages([$field.'_id' => 'Il riferimento selezionato non è disponibile. Cercalo e selezionalo nuovamente.']);
             }
             $prepared[$field.'_id'] = $id;
         }

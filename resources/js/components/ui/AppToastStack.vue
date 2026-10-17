@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CircleAlert, CircleCheckBig } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { userErrorMessage } from '@/lib/notification-feedback.js';
 import type { ToastFeedback } from '@/composables/useToastFeedback';
 
 const props = defineProps<{
@@ -51,7 +52,7 @@ const visibleItems = computed(() =>
                             {{ item.title }}
                         </p>
                         <p class="mt-1 text-sm text-white/90">
-                            {{ item.message }}
+                            {{ userErrorMessage(item.message) }}
                         </p>
                     </div>
                 </div>

@@ -15,16 +15,7 @@ class TrackedItemLogoController extends Controller
         PreviewTrackedItemLogoRequest $request,
         WebsiteLogoService $websiteLogoService,
     ): JsonResponse {
-        $websiteUrl = $request->string('website_url')->toString();
-        $normalizedUrl = $websiteLogoService->normalizeUrl($websiteUrl);
-        $identity = $websiteLogoService->resolve($websiteUrl, retryUnavailable: true);
-
-        return response()->json([
-            'website_url' => $normalizedUrl,
-            'domain' => $identity->domain,
-            'logo_url' => $identity->logoUrl(),
-            'status' => $identity->status,
-        ]);
+        return response()->json($websiteLogoService->preview($request->string('website_url')->toString()));
     }
 
     public function show(WebsiteIdentity $websiteIdentity): StreamedResponse

@@ -6,9 +6,6 @@ import { Button } from '@/components/ui/button';
 const props = defineProps<{
     title: string;
     message: string;
-    codeLabel: string;
-    errorCode: string;
-    requestId: string;
     retryLabel: string;
     backLabel: string;
     dashboardLabel: string;
@@ -43,12 +40,6 @@ function back() {
             </div>
             <h1 class="text-2xl font-semibold tracking-tight">{{ title }}</h1>
             <p class="mt-3 text-muted-foreground">{{ message }}</p>
-            <p class="mt-4 text-sm text-muted-foreground">
-                {{ codeLabel }}:
-                <strong class="font-mono text-foreground">{{
-                    errorCode
-                }}</strong>
-            </p>
             <nav class="mt-6 flex flex-wrap gap-3" :aria-label="title">
                 <Button class="min-h-11" @click="retry">{{
                     retryLabel

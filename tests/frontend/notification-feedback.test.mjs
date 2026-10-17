@@ -197,3 +197,180 @@ test('foreground navigation failures are visible while background failures stay 
     );
     assert.deepEqual(f.calls, []);
 });
+
+test('local errors and previews stay quiet until a form is actually submitted', async () => {
+    const { readFileSync } = await import('node:fs');
+    const inputError = readFileSync(
+        new URL(
+            '../../resources/js/components/InputError.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const form = readFileSync(
+        new URL(
+            '../../resources/js/composables/useNotifiedForm.ts',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.doesNotMatch(inputError, /notifyValidation|watch\(/);
+    assert.doesNotMatch(form, /notifyValidation|setError\s*=/);
+    const f = fixture();
+    const preview = {
+        method: 'post',
+        url: '/transactions/2026/10/exchange-preview',
+        async: true,
+    };
+    f.emit('start', { visit: preview });
+    f.emit('error', { errors: { amount: 'Invalid' } });
+    f.emit('success', {
+        page: { props: { flash: { success: 'Unexpected' } } },
+    });
+    assert.deepEqual(f.calls, []);
+});
+
+test('reference helpers prepare drafts silently rather than persisting from a selection', async () => {
+    const { isReferenceDraftRequest } =
+        await import('../../resources/js/lib/notification-feedback.js');
+    assert.equal(isReferenceDraftRequest('/transactions/tracked-items'), true);
+    assert.equal(
+        isReferenceDraftRequest('/recurring-entries/tracked-items'),
+        true,
+    );
+    assert.equal(
+        isReferenceDraftRequest('/shared-expenses/counterparties'),
+        true,
+    );
+    assert.equal(isReferenceDraftRequest('/settings/tracked-items'), false);
+    const { readFileSync } = await import('node:fs');
+    const requests = readFileSync(
+        new URL('../../resources/js/lib/notifications.ts', import.meta.url),
+        'utf8',
+    );
+    assert.match(requests, /draft: true/);
+    assert.match(requests, /notification === 'silent' \|\| preview/);
+    const counterparties = readFileSync(
+        new URL(
+            '../../resources/js/components/shared-expenses/CounterpartySelect.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const selection = counterparties.slice(
+        counterparties.indexOf('function selectCounterparty'),
+    );
+    assert.doesNotMatch(
+        selection.split('</script>')[0],
+        /createCounterparty\(/,
+    );
+});
+
+test('technical identifiers are replaced while meaningful field errors remain specific', async () => {
+    const { userErrorMessage } =
+        await import('../../resources/js/lib/notification-feedback.js');
+    assert.equal(
+        userErrorMessage(
+            'Il campo tracked_item_uuid deve essere un UUID valido.',
+        ),
+        'La selezione per riferimento non è valida. Seleziona nuovamente l’elemento.',
+    );
+    assert.match(
+        userErrorMessage('category_uuid non disponibile'),
+        /categoria non disponibile/,
+    );
+    assert.doesNotMatch(
+        userErrorMessage('SQLSTATE[23000] transactions.tracked_item_id'),
+        /SQLSTATE|tracked_item_id/,
+    );
+    assert.equal(
+        userErrorMessage('L’importo deve essere maggiore di zero.'),
+        'L’importo deve essere maggiore di zero.',
+    );
+    assert.doesNotMatch(
+        userErrorMessage(
+            'Riferimento 7341f423-87e2-484c-9a12-821f0e8cbdef non disponibile',
+        ),
+        /7341f423/,
+    );
+});
+
+test('fetch helper sends read only draft requests and keeps previews quiet but acknowledges a submitted form', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { default: typescript } = await import('typescript');
+    const { transpileModule, ModuleKind } = typescript;
+    const feedbackUrl = new URL(
+        '../../resources/js/lib/notification-feedback.js',
+        import.meta.url,
+    ).href;
+    const source = readFileSync(
+        new URL('../../resources/js/lib/notifications.ts', import.meta.url),
+        'utf8',
+    );
+    let code = transpileModule(source, {
+        compilerOptions: { module: ModuleKind.ESNext },
+    }).outputText;
+    const notices = [];
+    const requests = [];
+    globalThis.__formFeedbackPush = Object.fromEntries(
+        ['success', 'warning', 'error', 'info', 'promise'].map((type) => [
+            type,
+            (item) => {
+                notices.push([type, item]);
+
+                return { clear() {} };
+            },
+        ]),
+    );
+    code = code
+        .replace(
+            "import { push } from 'notivue';",
+            'const push = globalThis.__formFeedbackPush;',
+        )
+        .replaceAll(
+            "'./notification-feedback.js'",
+            JSON.stringify(feedbackUrl),
+        );
+    const module = await import(
+        'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
+    );
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+        requests.push([url, init]);
+
+        return new Response(
+            JSON.stringify(
+                url.includes('preview')
+                    ? { errors: { amount: ['Importo non valido'] } }
+                    : { message: 'Salvato' },
+            ),
+            {
+                status: url.includes('preview') ? 422 : 200,
+                headers: { 'Content-Type': 'application/json' },
+            },
+        );
+    };
+
+    try {
+        module.configureNotifications((text) => text);
+        await module.fetchWithNotifications('/transactions/tracked-items', {
+            method: 'POST',
+            body: JSON.stringify({ name: 'Provvisorio' }),
+        });
+        assert.equal(JSON.parse(requests[0][1].body).draft, true);
+        assert.deepEqual(notices, []);
+        await module.fetchWithNotifications(
+            '/transactions/2026/10/exchange-preview',
+            { method: 'POST' },
+        );
+        assert.deepEqual(notices, []);
+        await module.fetchWithNotifications('/transactions/2026/10', {
+            method: 'POST',
+        });
+        assert.equal(notices.length, 1);
+        assert.equal(notices[0][0], 'success');
+    } finally {
+        globalThis.fetch = previousFetch;
+        delete globalThis.__formFeedbackPush;
+    }
+});

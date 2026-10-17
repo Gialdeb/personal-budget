@@ -2,11 +2,13 @@
 
 namespace App\Services\TrackedItems;
 
+use App\Models\TrackedItem;
 use App\Models\WebsiteIdentity;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -45,6 +47,43 @@ class WebsiteLogoService
         'image/x-icon' => 'ico',
         'image/vnd.microsoft.icon' => 'ico',
     ];
+
+    /** @return array{website_url: string, domain: string, logo_url: ?string, status: string} */
+    public function preview(string $input): array
+    {
+        $url = $this->normalizeUrl($input);
+        $domain = $this->identityDomain($url);
+        $identity = WebsiteIdentity::query()->where('domain', $domain)->first();
+        $logo = $identity?->hasStoredLogo() ? null : $this->discoverLogo($url);
+
+        return [
+            'website_url' => $url,
+            'domain' => $domain,
+            'logo_url' => $identity?->hasStoredLogo() ? $identity->logoUrl() : ($logo === null ? null : 'data:'.$logo['mime_type'].';base64,'.base64_encode($logo['bytes'])),
+            'status' => $identity?->hasStoredLogo() || $logo !== null ? 'ready' : 'unavailable',
+        ];
+    }
+
+    public function afterReferenceSaved(TrackedItem $item): void
+    {
+        $url = $item->website_url;
+        if (! filled($url)) {
+            return;
+        }
+        $id = $item->id;
+        DB::afterCommit(function () use ($id, $url): void {
+            try {
+                $current = TrackedItem::query()->find($id);
+                if ($current === null || $current->website_url !== $url) {
+                    return;
+                }
+                $identity = $this->resolve($url, retryUnavailable: true);
+                TrackedItem::query()->whereKey($id)->where('website_url', $url)->update(['website_identity_id' => $identity->id]);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        });
+    }
 
     public function resolve(string $input, bool $retryUnavailable = false): WebsiteIdentity
     {

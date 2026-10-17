@@ -181,7 +181,7 @@ class CreditDebtController extends Controller
         }
 
         if ($this->filledFilter($request, 'reference_uuid')) {
-            $query->whereHas('reference', fn (Builder $query): Builder => $query->where('uuid', $request->string('reference_uuid')->toString()));
+            $query->whereHas('reference', fn (Builder $query): Builder => $query->whereIn('uuid', $this->referenceFamilyUuids($request)));
         }
 
         $periodStart = CarbonImmutable::create($this->selectedYear($request), $this->selectedMonth($request) ?? 1, 1)->startOfDay();
@@ -250,6 +250,18 @@ class CreditDebtController extends Controller
         });
     }
 
+    /** @return array<int, string> */
+    protected function referenceFamilyUuids(Request $request): array
+    {
+        $key = self::class.':family:'.$request->input('reference_uuid');
+        if (! $request->attributes->has($key)) {
+            $reference = TrackedItem::query()->ownedBy($request->user()->id)->where('uuid', $request->input('reference_uuid'))->first();
+            $request->attributes->set($key, $reference === null ? [] : app(TrackedItemIdentityService::class)->familyMembers($reference)->pluck('uuid')->all());
+        }
+
+        return $request->attributes->get($key);
+    }
+
     protected function filledFilter(Request $request, string $key): bool
     {
         return $request->filled($key) && $request->string($key)->toString() !== 'all';
@@ -264,7 +276,10 @@ class CreditDebtController extends Controller
                     return false;
                 }
             }
-            foreach (['account', 'category', 'reference'] as $relation) {
+            if ($this->filledFilter($request, 'reference_uuid') && ! in_array($item['reference']['uuid'] ?? null, $this->referenceFamilyUuids($request), true)) {
+                return false;
+            }
+            foreach (['account', 'category'] as $relation) {
                 if ($this->filledFilter($request, $relation.'_uuid') && ($item[$relation]['uuid'] ?? null) !== $request->input($relation.'_uuid')) {
                     return false;
                 }

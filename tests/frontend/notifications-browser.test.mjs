@@ -266,9 +266,16 @@ test(
                 await page
                     .getByRole('button', { name: 'Errore server', exact: true })
                     .click();
-                await page
-                    .getByText('Controlla i dati inseriti', { exact: true })
-                    .waitFor();
+                assert.equal(
+                    await page.locator('input[name="name"]:invalid').count(),
+                    1,
+                );
+                assert.equal(
+                    await toasts
+                        .getByText('Controlla i dati inseriti', { exact: true })
+                        .count(),
+                    0,
+                );
                 assert.match(
                     await toasts.innerText(),
                     /Compila il titolo inglese/,
@@ -282,14 +289,27 @@ test(
                         exact: true,
                     })
                     .click();
-                await toasts.getByText(/Controlla il campo nascosto/).waitFor();
+                await page.getByText(/Controlla il campo nascosto/).waitFor();
+                assert.equal(
+                    await toasts
+                        .getByText(/Controlla il campo nascosto/)
+                        .count(),
+                    0,
+                );
                 await clear();
                 await page
                     .getByRole('button', { name: 'Invia nativo', exact: true })
                     .click();
-                await page
-                    .getByText('Controlla i dati inseriti', { exact: true })
-                    .waitFor();
+                assert.equal(
+                    await page.locator('input[name="name"]:invalid').count(),
+                    1,
+                );
+                assert.equal(
+                    await toasts
+                        .getByText('Controlla i dati inseriti', { exact: true })
+                        .count(),
+                    0,
+                );
                 await clear();
                 await page
                     .getByRole('button', { name: 'Salva JSON', exact: true })

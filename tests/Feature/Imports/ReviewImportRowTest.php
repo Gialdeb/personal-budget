@@ -16,7 +16,10 @@ use App\Models\ImportRow;
 use App\Models\TrackedItem;
 use App\Models\User;
 use App\Models\UserYear;
+use App\Services\Imports\ImportReadyRowsService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Supports\Imports\ImportFingerprintGenerator;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -381,4 +384,40 @@ it('updates import counters after skipping a row', function () {
 
     expect($this->import->review_rows_count)->toBeGreaterThanOrEqual(0)
         ->and($this->import->rows_count)->toBeGreaterThanOrEqual(1);
+});
+
+it('resolves an alias selected during import review to its canonical without reactivating it', function () {
+    $canonical = TrackedItem::create(['user_id' => $this->user->id, 'name' => 'Canonico ticket', 'slug' => 'canonical-ticket', 'is_active' => true]);
+    app(TrackedItemIdentityService::class)->register($this->user, $this->trackedItem, $canonical);
+    $row = ImportRow::create(['import_id' => $this->import->id, 'row_index' => 1, 'status' => ImportRowStatusEnum::NEEDS_REVIEW, 'raw_payload' => [], 'normalized_payload' => [], 'errors' => [], 'warnings' => [], 'parse_status' => ImportRowParseStatusEnum::cases()[0]]);
+    $this->actingAs($this->user)->patch(route('imports.rows.update-review', ['import' => $this->import->uuid, 'row' => $row->uuid]), ['account_id' => $this->account->id, 'date' => '31/03/2026', 'type' => 'Spesa', 'amount' => '12,50', 'detail' => 'Pranzo operativo', 'category_uuid' => $this->category->uuid, 'tracked_item_uuid' => $this->trackedItem->uuid])->assertSessionHasNoErrors();
+    expect($row->fresh()->normalized_payload['tracked_item_id'])->toBe($canonical->id)
+        ->and($this->trackedItem->fresh()->is_active)->toBeFalse();
+});
+
+it('resolves a queued import alias at insertion time without rewriting its original payload', function () {
+    $this->account->update(['opening_balance' => 1000, 'current_balance' => 1000]);
+    $canonical = TrackedItem::create(['user_id' => $this->user->id, 'name' => 'Canonico ticket', 'slug' => 'canonical-ticket', 'is_active' => true]);
+    $payload = ['date' => '2026-03-31', 'type' => 'expense', 'amount' => '12.50', 'detail' => 'Nuova importazione canonica', 'category' => $this->category->displayName(), 'account_id' => $this->account->id, 'tracked_item_id' => $this->trackedItem->id, 'tracked_item_uuid' => $this->trackedItem->uuid];
+    $row = ImportRow::create(['import_id' => $this->import->id, 'row_index' => 1, 'status' => ImportRowStatusEnum::READY, 'raw_payload' => [], 'normalized_payload' => $payload, 'errors' => [], 'warnings' => [], 'parse_status' => ImportRowParseStatusEnum::cases()[0]]);
+    app(TrackedItemIdentityService::class)->register($this->user, $this->trackedItem, $canonical);
+    app(ImportReadyRowsService::class)->execute($this->import->fresh());
+    expect($row->fresh()->transaction->tracked_item_id)->toBe($canonical->id)
+        ->and($row->fresh()->normalized_payload)->toEqual($payload)->and($this->trackedItem->fresh()->is_active)->toBeFalse();
+});
+
+it('keeps inline references provisional until the import review is submitted', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+    $this->actingAs($this->user);
+    $token = $this->postJson(route('transactions.tracked-items.store'), [
+        'draft' => true, 'name' => 'Riferimento provvisorio import', 'account_uuid' => $this->account->uuid,
+        'category_uuid' => $this->category->uuid, 'type_key' => 'expense',
+    ])->assertOk()->json('item.value');
+    expect(TrackedItem::where('name', 'Riferimento provvisorio import')->exists())->toBeFalse();
+    $row = ImportRow::create(['import_id' => $this->import->id, 'row_index' => 1, 'status' => ImportRowStatusEnum::NEEDS_REVIEW, 'raw_payload' => [], 'normalized_payload' => [], 'errors' => [], 'warnings' => [], 'parse_status' => ImportRowParseStatusEnum::cases()[0]]);
+    $this->patch(route('imports.rows.update-review', ['import' => $this->import->uuid, 'row' => $row->uuid]), [
+        'account_id' => $this->account->id, 'date' => '31/03/2026', 'type' => 'Spesa', 'amount' => '12,50',
+        'detail' => 'Riga con riferimento provvisorio', 'category_uuid' => $this->category->uuid, 'tracked_item_uuid' => $token,
+    ])->assertSessionHasNoErrors();
+    expect($row->fresh()->normalized_payload['tracked_item_id'])->toBe(TrackedItem::where('name', 'Riferimento provvisorio import')->sole()->id);
 });

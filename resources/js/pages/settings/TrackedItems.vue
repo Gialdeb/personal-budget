@@ -12,8 +12,10 @@ import {
 } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import MoveTrackedItemMovementsDialog from '@/components/tracked-items/MoveTrackedItemMovementsDialog.vue';
 import TrackedItemFilters from '@/components/tracked-items/TrackedItemFilters.vue';
 import TrackedItemFormSheet from '@/components/tracked-items/TrackedItemFormSheet.vue';
+import TrackedItemMovementHistory from '@/components/tracked-items/TrackedItemMovementHistory.vue';
 import TrackedItemsTreeList from '@/components/tracked-items/TrackedItemsTreeList.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +75,31 @@ const selectedBridgeAccountUuid = ref<string | null>(
 );
 const selectedBridgeTrackedItemUuid = ref('');
 const formOpen = ref(false);
+const movementsDialogOpen = ref(false);
+const movementsSource = ref<TrackedItemItem | null>(null);
+function openMoveMovements(item: TrackedItemItem): void {
+    movementsSource.value = item;
+    movementsDialogOpen.value = true;
+}
+const movementHistoryRevision = ref(0);
+const movementRestoresAvailable = ref(false);
+function scrollToMovementHistory(): void {
+    const history = document.getElementById('tracked-item-movement-history');
+    history?.focus({ preventScroll: true });
+    history?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
+        block: 'start',
+    });
+}
+function reloadMovements(): void {
+    movementHistoryRevision.value++;
+    reloadTrackedItemUsage();
+}
+function reloadTrackedItemUsage(): void {
+    router.reload({ only: ['trackedItems', 'sharedBridge'] });
+}
 const editingTrackedItem = ref<TrackedItemItem | null>(null);
 const deletingTrackedItem = ref<TrackedItemItem | null>(null);
 const feedback = ref<FeedbackState | null>(null);
@@ -443,6 +470,11 @@ onMounted(() => {
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head :title="t('trackedItems.pageTitle')" />
+        <MoveTrackedItemMovementsDialog
+            v-model:open="movementsDialogOpen"
+            :source="movementsSource"
+            @moved="reloadMovements"
+        />
 
         <SettingsLayout>
             <section
@@ -487,6 +519,23 @@ onMounted(() => {
                 </div>
 
                 <div class="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
+                    <div
+                        v-if="movementRestoresAvailable"
+                        role="status"
+                        class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100"
+                    >
+                        <p>
+                            Hai spostamenti che puoi ripristinare entro 30
+                            giorni.
+                        </p>
+                        <a
+                            href="#tracked-item-movement-history"
+                            @click.prevent="scrollToMovementHistory"
+                            class="rounded-sm font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
+                        >
+                            Vai allo storico e ai ripristini
+                        </a>
+                    </div>
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <article
                             v-for="card in summaryCards"
@@ -782,6 +831,7 @@ onMounted(() => {
                                 :empty-message="emptyMessage"
                                 :category-labels-by-uuid="categoryLabelsByUuid"
                                 @edit="openEditTrackedItem"
+                                @move-movements="openMoveMovements"
                                 @toggle-active="toggleTrackedItem"
                                 @delete="requestDelete"
                             />
@@ -905,6 +955,14 @@ onMounted(() => {
                             </section>
                         </aside>
                     </div>
+                    <TrackedItemMovementHistory
+                        id="tracked-item-movement-history"
+                        class="scroll-mt-6"
+                        tabindex="-1"
+                        :refresh-key="movementHistoryRevision"
+                        @availability="movementRestoresAvailable = $event"
+                        @restored="reloadTrackedItemUsage"
+                    />
                 </div>
             </section>
 

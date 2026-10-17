@@ -11,6 +11,8 @@ use Illuminate\Validation\ValidationException;
 
 class SharedExpenseOccurrencePostingService
 {
+    public function __construct(private readonly SharedOccurrenceCounterpartyResolver $counterparties) {}
+
     public function post(RecurringEntryOccurrence $occurrence, ?User $actor = null, array $metadata = []): SharedExpenseLedgerEntry
     {
         return DB::transaction(function () use ($occurrence, $actor, $metadata): SharedExpenseLedgerEntry {
@@ -18,14 +20,16 @@ class SharedExpenseOccurrencePostingService
                 ->with(['recurringEntry.sharedExpenseCounterparty', 'sharedExpenseLedgerEntry'])
                 ->lockForUpdate()
                 ->findOrFail($occurrence->getKey());
-            $entry = $occurrence->recurringEntry;
+            $entry = $occurrence->recurringEntry()->lockForUpdate()->firstOrFail();
+            $occurrence->setRelation('recurringEntry', $entry);
 
             abort_if($actor !== null && $entry->user_id !== $actor->id, 404);
             if ($occurrence->sharedExpenseLedgerEntry instanceof SharedExpenseLedgerEntry && ! isset($metadata['amount'])) {
                 return $occurrence->sharedExpenseLedgerEntry;
             }
 
-            if ($entry->shared_expense_counterparty_id === null || ($metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by) !== SharedExpenseAllocation::PAID_BY_COUNTERPARTY) {
+            $counterparty = $this->counterparties->forPosting($occurrence);
+            if ($counterparty === null || ($metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by) !== SharedExpenseAllocation::PAID_BY_COUNTERPARTY) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_is_not_a_shared_expense_paid_by_the_counterparty_1dbd4015')]);
             }
 
@@ -40,7 +44,7 @@ class SharedExpenseOccurrencePostingService
             $ledgerEntry = $occurrence->sharedExpenseLedgerEntry ?? new SharedExpenseLedgerEntry;
             $ledgerEntry->fill([
                 'user_id' => $entry->user_id,
-                'counterparty_id' => $entry->shared_expense_counterparty_id,
+                'counterparty_id' => $counterparty->id,
                 'recurring_entry_occurrence_id' => $occurrence->id,
                 'entry_date' => $metadata['transaction_date'] ?? $occurrence->due_date ?? $occurrence->expected_date,
                 'title' => $entry->title,
@@ -53,6 +57,6 @@ class SharedExpenseOccurrencePostingService
             ])->save();
 
             return $ledgerEntry;
-        });
+        }, 5);
     }
 }

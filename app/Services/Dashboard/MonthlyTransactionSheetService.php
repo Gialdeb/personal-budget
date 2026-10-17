@@ -20,6 +20,7 @@ use App\Models\UserYear;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\CreditCards\CreditCardAutopayService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Services\TrackedItems\TrackedItemResolver;
 use App\Services\Transactions\OperationalLedgerAnalyticsService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
@@ -1004,10 +1005,10 @@ class MonthlyTransactionSheetService
             'scope_uuid' => $transaction->scope?->uuid,
             'scope_label' => $transaction->scope?->name,
             'tracked_item_uuid' => $transaction->trackedItem?->uuid,
-            'tracked_item_label' => $transaction->trackedItem?->name,
+            'tracked_item_label' => $transaction->trackedItem === null ? null : app(TrackedItemIdentityService::class)->presentation($transaction->trackedItem)['label'],
             'tracked_item_logo_url' => $transaction->trackedItem?->logoUrl(),
             'shared_expense_counterparty_uuid' => $transaction->sharedExpenseCounterparty?->uuid,
-            'shared_expense_counterparty_label' => $transaction->sharedExpenseCounterparty?->name,
+            'shared_expense_counterparty_label' => $transaction->sharedExpenseCounterparty === null ? null : app(TrackedItemIdentityService::class)->presentation($transaction->sharedExpenseCounterparty)['label'],
             'shared_expense_paid_by' => $transaction->shared_expense_paid_by,
             'shared_expense_my_share' => $transaction->shared_expense_my_share_cents === null ? null : number_format($transaction->shared_expense_my_share_cents / 100, 2, '.', ''),
             'shared_expense_counterparty_share' => $transaction->shared_expense_counterparty_share_cents === null ? null : number_format($transaction->shared_expense_counterparty_share_cents / 100, 2, '.', ''),
@@ -1192,7 +1193,7 @@ class MonthlyTransactionSheetService
                 'related_account_uuid' => null,
                 'related_account_label' => null,
                 'tracked_item_uuid' => $entry?->trackedItem?->uuid,
-                'tracked_item_label' => $entry?->trackedItem?->name,
+                'tracked_item_label' => $entry?->trackedItem === null ? null : app(TrackedItemIdentityService::class)->presentation($entry->trackedItem)['label'],
                 'tracked_item_logo_url' => $entry?->trackedItem?->logoUrl(),
                 'recurring_occurrence_uuid' => $occurrence->uuid,
                 'recurring_entry_uuid' => $entry?->uuid,

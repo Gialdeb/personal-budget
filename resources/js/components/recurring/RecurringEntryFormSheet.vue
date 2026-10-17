@@ -2197,21 +2197,8 @@ function fieldErrorClass(hasError: boolean): string {
 }
 
 function handleReferenceSelection(value: string): void {
-    const option = trackedItemsForSelectedAccount(form.account_uuid).find(
-        (item) => item.value === value,
-    );
-
-    if (
-        option &&
-        !trackedItemMatchesContext(
-            option,
-            form.account_uuid,
-            form.direction,
-            form.category_uuid,
-        )
-    ) {
-        void createTrackedItemFromContext(option.label, value);
-    }
+    form.tracked_item_uuid = value;
+    form.clearErrors('tracked_item_uuid');
 }
 
 function createTrackedItemPayload(name: string): Record<string, unknown> {
@@ -2318,6 +2305,7 @@ async function createTrackedItemFromContext(
 
         const payload = await response.json();
         const option = payload.item as {
+            source_uuid?: string | null;
             value?: string;
             label: string;
             uuid?: string;
@@ -2349,7 +2337,8 @@ async function createTrackedItemFromContext(
             [accountUuid]: [
                 ...currentCatalog.filter(
                     (trackedItem: RecurringFormOption) =>
-                        trackedItem.value !== optionValue,
+                        trackedItem.value !== optionValue &&
+                        trackedItem.value !== option.source_uuid,
                 ),
                 {
                     value: optionValue,

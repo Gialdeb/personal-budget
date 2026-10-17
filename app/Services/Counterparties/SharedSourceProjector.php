@@ -13,6 +13,7 @@ use App\Models\SharedExpenseSettlement;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\SharedExpenses\SharedOccurrenceCounterpartyResolver;
 use App\Support\CurrencyMinorUnits;
 use App\Support\MoneyAmount;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +21,10 @@ use Illuminate\Validation\ValidationException;
 /** Read-only normalization of actual legacy effects. */
 class SharedSourceProjector
 {
-    public function __construct(private readonly AccessibleAccountsQuery $accounts) {}
+    public function __construct(
+        private readonly AccessibleAccountsQuery $accounts,
+        private readonly SharedOccurrenceCounterpartyResolver $counterparties,
+    ) {}
 
     public function sourceType(Transaction|SharedExpenseLedgerEntry $source): string
     {
@@ -89,6 +93,12 @@ class SharedSourceProjector
         $occurrences = $occurrences->unique('id');
         if ($occurrences->count() > 1) {
             throw ValidationException::withMessages(['identity' => 'One shared document is attached to multiple occurrences.']);
+        }
+        foreach ($occurrences as $occurrence) {
+            $historical = $this->counterparties->historicalIdentity($occurrence);
+            if ($currency !== $occurrence->recurringEntry->currency || ($historical !== null && ($historical['counterparty_id'] !== $party->id || $historical['currency'] !== $currency))) {
+                throw ValidationException::withMessages(['identity' => 'The source conflicts with the economic identity of its occurrence.']);
+            }
         }
         $occurrenceIdentity = $occurrences->isEmpty() ? null : 'shared-occurrence:'.$occurrences->first()->uuid;
         if ($occurrences->isNotEmpty() && $occurrences->first()->recurringEntry->user_id !== $party->user_id) {

@@ -89,6 +89,10 @@ class AccessibleAccountsQuery
      */
     public function ids(User|int $user, string $scope = 'all', ?string $accountUuid = null): array
     {
+        if (request()->isMethod('GET') && request()->route() !== null) {
+            return $this->get($user, $scope, $accountUuid)->pluck('id')->unique()->map(fn ($id): int => (int) $id)->values()->all();
+        }
+
         return $this->query($user, $scope, $accountUuid)
             ->pluck('accounts.id')
             ->unique()

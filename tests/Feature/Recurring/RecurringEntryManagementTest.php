@@ -27,6 +27,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
 use App\Services\Accounts\AccountOpeningBalanceService;
+use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\RecurringEntryLifecycleService;
@@ -126,6 +127,7 @@ test('recurring and installment forms receive the authenticated users active sha
             ->assertInertia(fn (Assert $page) => $page
                 ->where('formOptions.shared_expense_counterparties', [
                     ['value' => $counterparty->uuid, 'label' => 'Emanuela'],
+                    ['value' => $context['trackedItem']->uuid, 'label' => $context['trackedItem']->name],
                 ]));
     }
 });
@@ -1109,6 +1111,9 @@ test('editor can create and mutate recurring entries on shared accounts with own
 
     shareRecurringAccount($ownerContext['account'], $editorContext['user'], AccountMembershipRoleEnum::EDITOR);
 
+    $taxonomy = app(SharedAccountCategoryTaxonomyService::class);
+    $taxonomy->materializeSourceCategoryForAccount($ownerContext['account'], $ownerContext['category']);
+
     $this->actingAs($editorContext['user'])
         ->post(route('recurring-entries.store'), recurringManagementPayload($ownerContext, [
             'title' => 'Shared editor recurring',
@@ -1160,6 +1165,9 @@ test('owner sees recurring entries created by an invitee on a shared account', f
 
     shareRecurringAccount($ownerContext['account'], $editorContext['user'], AccountMembershipRoleEnum::EDITOR);
 
+    $taxonomy = app(SharedAccountCategoryTaxonomyService::class);
+    $taxonomy->materializeSourceCategoryForAccount($ownerContext['account'], $ownerContext['category']);
+
     $this->actingAs($editorContext['user'])
         ->post(route('recurring-entries.store'), recurringManagementPayload($ownerContext, [
             'title' => 'Invitee shared recurring visible to owner',
@@ -1190,6 +1198,9 @@ test('invitee sees recurring entries created by the owner on a shared account', 
     $ownerContext = recurringManagementContext();
 
     shareRecurringAccount($ownerContext['account'], $editorContext['user'], AccountMembershipRoleEnum::EDITOR);
+
+    $taxonomy = app(SharedAccountCategoryTaxonomyService::class);
+    $taxonomy->materializeSourceCategoryForAccount($ownerContext['account'], $ownerContext['category']);
 
     $entry = createManagedRecurringEntry($ownerContext, [
         'title' => 'Owner shared recurring visible to invitee',
@@ -1294,6 +1305,9 @@ test('recurring editor can create a new tracked item option on a shared account 
     $ownerContext = recurringManagementContext();
 
     shareRecurringAccount($ownerContext['account'], $editorContext['user'], AccountMembershipRoleEnum::EDITOR);
+
+    $taxonomy = app(SharedAccountCategoryTaxonomyService::class);
+    $taxonomy->materializeSourceCategoryForAccount($ownerContext['account'], $ownerContext['category']);
 
     $this->actingAs($editorContext['user'])
         ->postJson(route('recurring-entries.tracked-items.store'), [

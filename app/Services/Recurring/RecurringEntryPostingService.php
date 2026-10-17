@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Salary\SalaryOccurrenceService;
+use App\Services\SharedExpenses\SharedOccurrenceCounterpartyResolver;
 use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\Transactions\TransactionMutationService;
 use App\Services\UserYearService;
@@ -22,6 +23,7 @@ class RecurringEntryPostingService
     public function __construct(
         protected TransactionMutationService $transactionMutationService,
         protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
+        protected SharedOccurrenceCounterpartyResolver $counterparties,
     ) {}
 
     /**
@@ -39,7 +41,8 @@ class RecurringEntryPostingService
                 return $occurrence->convertedTransaction;
             }
 
-            $entry = $occurrence->recurringEntry;
+            $entry = $occurrence->recurringEntry()->lockForUpdate()->firstOrFail();
+            $occurrence->setRelation('recurringEntry', $entry);
             if ($occurrence->isRetiredRefundedHistory()) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);
             }
@@ -89,8 +92,12 @@ class RecurringEntryPostingService
                     throw ValidationException::withMessages(['account_uuid' => 'Seleziona un conto modificabile nella valuta del piano.']);
                 }
             }
+            $counterparty = $this->counterparties->forPosting($occurrence);
+            if ($counterparty !== null && $account->currency !== $entry->currency) {
+                throw ValidationException::withMessages(['occurrence' => 'La valuta del conto non corrisponde all’identità economica della scadenza.']);
+            }
             $expectedCents = (int) round((float) $occurrence->expected_amount * 100);
-            $myShareCents = $entry->shared_expense_counterparty_id === null ? null : intdiv($paymentCents * ($occurrence->shared_expense_my_share_cents ?? $entry->shared_expense_my_share_cents ?? intdiv($expectedCents, 2)), $expectedCents);
+            $myShareCents = $counterparty === null ? null : intdiv($paymentCents * ($occurrence->shared_expense_my_share_cents ?? $entry->shared_expense_my_share_cents ?? intdiv($expectedCents, 2)), $expectedCents);
             $snapshot = $this->transactionExchangeSnapshotService->buildForAccount(
                 $account,
                 $paymentAmount,
@@ -106,8 +113,8 @@ class RecurringEntryPostingService
                 'category_id' => $entry->category_id,
                 'merchant_id' => $entry->merchant_id,
                 'tracked_item_id' => $entry->tracked_item_id,
-                'shared_expense_counterparty_id' => $entry->shared_expense_counterparty_id,
-                'shared_expense_paid_by' => $entry->shared_expense_counterparty_id === null ? null : ($metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by),
+                'shared_expense_counterparty_id' => $counterparty?->id,
+                'shared_expense_paid_by' => $counterparty === null ? null : ($metadata['shared_expense_paid_by'] ?? $occurrence->shared_expense_paid_by ?? $entry->shared_expense_paid_by),
                 'shared_expense_my_share_cents' => $myShareCents,
                 'shared_expense_counterparty_share_cents' => $myShareCents === null ? null : $paymentCents - $myShareCents,
                 'transaction_date' => $effectiveTransactionDate,
@@ -135,6 +142,6 @@ class RecurringEntryPostingService
             $this->transactionMutationService->recalculateAccount($transaction->account);
 
             return $transaction->fresh(['recurringOccurrence', 'account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
-        });
+        }, 5);
     }
 }

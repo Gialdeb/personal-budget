@@ -39,7 +39,6 @@ import {
 import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { fetchWithNotifications } from '@/lib/notifications';
 import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { index as sharedExpensesIndex } from '@/routes/shared-expenses';
 import { store as storeSettlement } from '@/routes/shared-expenses/settlements';
@@ -47,7 +46,6 @@ import {
     destroy as destroySettlement,
     update as updateSettlement,
 } from '@/routes/shared-expenses/settlements';
-import { store as storeTrackedItem } from '@/routes/transactions/tracked-items';
 import type { TransactionsNavigation } from '@/types';
 
 const cancelLedgerEntry = ref<Entry | null>(null);
@@ -568,7 +566,7 @@ const accountChoices = computed(() =>
         label: `${item.name} (${item.currency})`,
     })),
 );
-async function createSettlementReference() {
+function createSettlementReference(): void {
     if (!newReferenceName.value.trim() || !settlementForm.category_uuid) {
         settlementForm.setError(
             'reference',
@@ -578,66 +576,13 @@ async function createSettlementReference() {
         return;
     }
 
-    creatingReference.value = true;
-
-    try {
-        const response = await fetchWithNotifications(storeTrackedItem().url, {
-            notification: 'Riferimento creato correttamente.',
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN':
-                    document.querySelector<HTMLMetaElement>(
-                        'meta[name="csrf-token"]',
-                    )?.content ?? '',
-            },
-            body: JSON.stringify({
-                name: newReferenceName.value.trim(),
-                account_uuid: settlementForm.account_uuid,
-                category_uuid: settlementForm.category_uuid,
-                type_key:
-                    settlementCounterparty.value &&
-                    settlementCounterparty.value.balance > 0
-                        ? 'income'
-                        : 'debt',
-                website_url: newReferenceWebsite.value || null,
-            }),
-        });
-        const payload = await response.json();
-
-        if (!response.ok) {
-            settlementForm.setError(
-                'reference',
-                Object.values(payload.errors ?? {})
-                    .flat()
-                    .join(' ') || ui('Impossibile creare il riferimento.'),
-            );
-
-            return;
-        }
-
-        const option = payload.item as ReferenceOption;
-        localReferences.value[settlementForm.account_uuid] = [
-            ...(localReferences.value[settlementForm.account_uuid] ?? []),
-            option,
-        ];
-        settlementForm.reference =
-            option.name ?? option.label ?? newReferenceName.value.trim();
-        newReferenceOpen.value = false;
-        newReferenceName.value = '';
-        newReferenceWebsite.value = '';
-        settlementForm.clearErrors('reference');
-    } catch {
-        settlementForm.setError(
-            'reference',
-            ui('Impossibile creare il riferimento.'),
-        );
-    } finally {
-        creatingReference.value = false;
-    }
+    settlementForm.reference = newReferenceName.value.trim();
+    newReferenceOpen.value = false;
+    newReferenceName.value = '';
+    newReferenceWebsite.value = '';
+    settlementForm.clearErrors('reference');
 }
+
 function openSettlement(counterpartyItem: {
     uuid: string;
     name: string;

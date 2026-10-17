@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { BadgeCheck, CircleOff, Pencil, Trash2 } from 'lucide-vue-next';
+import {
+    ArrowRightLeft,
+    BadgeCheck,
+    CircleOff,
+    Pencil,
+    Trash2,
+} from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +25,7 @@ const { t } = useI18n();
 
 const emit = defineEmits<{
     edit: [item: TrackedItemItem];
+    moveMovements: [item: TrackedItemItem];
     toggleActive: [item: TrackedItemItem];
     delete: [item: TrackedItemItem];
 }>();
@@ -115,6 +122,9 @@ const emit = defineEmits<{
                         </Badge>
                     </div>
 
+                    <Badge v-if="item.canonical_uuid" variant="outline"
+                        >Alias permanente di {{ item.canonical_name }}</Badge
+                    >
                     <div class="space-y-2">
                         <p
                             class="text-xs font-medium text-slate-500 dark:text-slate-400"
@@ -194,6 +204,16 @@ const emit = defineEmits<{
                     class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end"
                 >
                     <Button
+                        v-if="item.is_active && !item.canonical_uuid"
+                        variant="outline"
+                        class="h-10 rounded-2xl border-sky-200 bg-sky-50/70 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/20"
+                        :aria-label="'Sposta movimenti da ' + item.name"
+                        @click="emit('moveMovements', item)"
+                    >
+                        <ArrowRightLeft class="h-4 w-4" />
+                        Sposta movimenti
+                    </Button>
+                    <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
                         @click="emit('edit', item)"
@@ -204,6 +224,7 @@ const emit = defineEmits<{
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
+                        :disabled="!!item.canonical_uuid"
                         @click="emit('toggleActive', item)"
                     >
                         <component

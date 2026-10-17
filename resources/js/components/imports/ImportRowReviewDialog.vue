@@ -416,7 +416,12 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
 
         const payload = await response.json();
         const option = payload.item;
-        trackedItemCatalog.value = [...trackedItemCatalog.value, option].filter(
+        trackedItemCatalog.value = [
+            ...trackedItemCatalog.value.filter(
+                (item) => item.uuid !== option.source_uuid,
+            ),
+            option,
+        ].filter(
             (trackedItem, index, collection) =>
                 collection.findIndex(
                     (candidate) => candidate.uuid === trackedItem.uuid,

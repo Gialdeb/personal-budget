@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Services\TrackedItems\TrackedItemResolver;
 use App\Services\TrackedItems\WebsiteLogoService;
 use App\Supports\CategoryHierarchy;
@@ -25,6 +26,9 @@ use Inertia\Response;
 
 class TrackedItemController extends Controller
 {
+    /** @var array<int, array<string, mixed>> */
+    private array $identityPayload = [];
+
     public function __construct(
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
@@ -59,6 +63,7 @@ class TrackedItemController extends Controller
             ]);
 
             $trackedItem->compatibleCategories()->sync($categoryIds);
+            $this->websiteLogoService->afterReferenceSaved($trackedItem);
 
             return $trackedItem->fresh(['compatibleCategories']);
         });
@@ -87,6 +92,7 @@ class TrackedItemController extends Controller
             $trackedItem->fill($validated);
             $trackedItem->save();
             $trackedItem->compatibleCategories()->sync($categoryIds);
+            $this->websiteLogoService->afterReferenceSaved($trackedItem);
         });
 
         if (! $trackedItem->is_active) {
@@ -110,6 +116,9 @@ class TrackedItemController extends Controller
     public function toggleActive(Request $request, TrackedItem $trackedItem): RedirectResponse
     {
         $trackedItem = $this->ownedTrackedItem($request, $trackedItem);
+        if ($trackedItem->identityAlias()->exists()) {
+            throw ValidationException::withMessages(['toggle' => 'Un alias permanente non può essere riattivato.']);
+        }
         $desiredState = ! $trackedItem->is_active;
 
         $trackedItems = TrackedItem::query()
@@ -150,6 +159,9 @@ class TrackedItemController extends Controller
     public function destroy(Request $request, TrackedItem $trackedItem): RedirectResponse
     {
         $trackedItem = $this->ownedTrackedItem($request, $trackedItem);
+        if ($trackedItem->identityAlias()->exists() || $trackedItem->incomingIdentityAliases()->exists()) {
+            throw ValidationException::withMessages(['delete' => 'Il riferimento appartiene a un’identità canonica permanente e deve essere conservato.']);
+        }
         $blockingReasons = $this->blockingReasons($trackedItem);
 
         if ($blockingReasons !== []) {
@@ -218,7 +230,7 @@ class TrackedItemController extends Controller
     {
         $trackedItems = TrackedItem::query()
             ->ownedBy($userId)
-            ->with(['compatibleCategories:id,uuid', 'websiteIdentity'])
+            ->with(['compatibleCategories:id,uuid', 'websiteIdentity', 'identityAlias'])->withCount('incomingIdentityAliases')
             ->withCount([
                 'children',
                 'transactions' => fn ($query) => $query->withTrashed(),
@@ -229,6 +241,8 @@ class TrackedItemController extends Controller
             ->orderBy('name')
             ->get([
                 'id',
+                'user_id',
+                'account_id',
                 'uuid',
                 'parent_id',
                 'name',
@@ -239,6 +253,12 @@ class TrackedItemController extends Controller
                 'is_active',
                 'is_shared_expense_counterpart',
             ]);
+
+        $this->identityPayload = $trackedItems->mapWithKeys(function (TrackedItem $item): array {
+            $presentation = app(TrackedItemIdentityService::class)->presentation($item);
+
+            return [$item->id => ['canonical_uuid' => $item->identityAlias === null ? null : $presentation['uuid'], 'canonical_name' => $item->identityAlias === null ? null : $presentation['name'], 'has_identity_links' => $item->identityAlias !== null || $item->incoming_identity_aliases_count > 0]];
+        })->all();
 
         $flatTrackedItems = collect(TrackedItemHierarchy::buildFlat($trackedItems))
             ->map(fn (array $trackedItem): array => $this->publicTrackedItemPayload($trackedItem))
@@ -442,12 +462,11 @@ class TrackedItemController extends Controller
         }
 
         $normalizedUrl = $this->websiteLogoService->normalizeUrl($websiteUrl);
-        $identity = $this->websiteLogoService->resolve($normalizedUrl, retryUnavailable: true);
 
         return [
             ...$validated,
             'website_url' => $normalizedUrl,
-            'website_identity_id' => $identity->id,
+            'website_identity_id' => null,
         ];
     }
 
@@ -510,6 +529,13 @@ class TrackedItemController extends Controller
      */
     protected function publicTrackedItemPayload(array $trackedItem): array
     {
+        $identity = $this->identityPayload[$trackedItem['id']] ?? null;
+        if ($identity !== null) {
+            $trackedItem = [...$trackedItem, ...$identity];
+            if ($identity['has_identity_links']) {
+                $trackedItem['is_deletable'] = false;
+            }
+        }
         unset($trackedItem['id'], $trackedItem['ancestor_ids'], $trackedItem['compatible_category_ids']);
 
         if (isset($trackedItem['children']) && is_array($trackedItem['children'])) {

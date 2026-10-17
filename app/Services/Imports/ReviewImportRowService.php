@@ -9,6 +9,7 @@ use App\Models\Import;
 use App\Models\ImportRow;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Supports\Imports\GenericCsvRowNormalizer;
 use App\Supports\Imports\ImportRowStatusResolver;
 use Illuminate\Support\Facades\DB;
@@ -210,10 +211,6 @@ class ReviewImportRowService
             return null;
         }
 
-        return TrackedItem::query()
-            ->ownedBy($userId)
-            ->where('is_active', true)
-            ->where('uuid', $trackedItemUuid)
-            ->first();
+        return app(TrackedItemIdentityService::class)->forNewOperation(TrackedItem::query()->ownedBy($userId), uuid: $trackedItemUuid);
     }
 }

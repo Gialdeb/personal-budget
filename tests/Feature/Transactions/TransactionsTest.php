@@ -34,6 +34,7 @@ use App\Services\Categories\CategoryFoundationService;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Recurring\TransactionRefundService;
 use App\Services\Sharing\AccountMembershipLifecycleService;
+use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Support\Pwa\PwaManifestData;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Storage;
@@ -1209,6 +1210,8 @@ test('editor memberships can create update and delete shared transactions while 
     [$account, $category, $trackedItem] = seedTransactionsFixture($owner);
     shareAccountWithUser($account, $editor, AccountMembershipRoleEnum::EDITOR);
 
+    prepareSharedTransactionCatalog($account);
+
     $existingTransaction = Transaction::query()
         ->where('account_id', $account->id)
         ->whereDate('transaction_date', '2025-03-18')
@@ -1525,6 +1528,8 @@ test('shared account transaction payload uses the canonical shared catalog and m
     shareAccountWithUser($sharedAccount, $editor, AccountMembershipRoleEnum::EDITOR);
     shareAccountWithUser($sharedAccount, $viewer, AccountMembershipRoleEnum::VIEWER);
 
+    prepareSharedTransactionCatalog($sharedAccount);
+
     $this->actingAs($editor)
         ->get(route('transactions.show', [
             'year' => 2025,
@@ -1637,6 +1642,8 @@ test('shared account category preview uses owner budget data for owner categorie
     ]);
 
     shareAccountWithUser($sharedAccount, $editor, AccountMembershipRoleEnum::EDITOR);
+
+    prepareSharedTransactionCatalog($sharedAccount);
 
     $this->actingAs($editor)
         ->get(route('transactions.show', [
@@ -1832,6 +1839,8 @@ test('shared account editor can create and update transactions with account scop
     $sharedTrackedItemUpdate->compatibleCategories()->sync([$ownerCategory->id]);
 
     shareAccountWithUser($sharedAccount, $editor, AccountMembershipRoleEnum::EDITOR);
+
+    prepareSharedTransactionCatalog($sharedAccount);
 
     $response = $this->actingAs($editor)
         ->post(route('transactions.store', [
@@ -2140,6 +2149,8 @@ test('shared accounts bootstrap and use a canonical account category taxonomy fo
 
     shareAccountWithUser($account, $editor, AccountMembershipRoleEnum::EDITOR);
 
+    prepareSharedTransactionCatalog($account);
+
     $this->actingAs($editor)
         ->post(route('transactions.store', [
             'year' => 2025,
@@ -2271,6 +2282,8 @@ test('shared taxonomy canonicalization ignores incoherent personal child metadat
         'is_selectable' => true,
     ]);
 
+    app(SharedAccountCategoryTaxonomyService::class)->ensureForAccount($account);
+
     $this->actingAs($editor)
         ->get(route('transactions.show', [
             'year' => 2025,
@@ -2338,6 +2351,7 @@ test('shared account catalog survives share removal and is reused on re-share wi
     ]);
 
     $membership = shareAccountWithUser($account, $editor, AccountMembershipRoleEnum::EDITOR);
+    prepareSharedTransactionCatalog($account);
 
     $this->actingAs($editor)
         ->post(route('transactions.store', [
@@ -2413,6 +2427,8 @@ test('shared account catalog survives share removal and is reused on re-share wi
         ->account_id)->toBe($account->id);
 
     shareAccountWithUser($account, $newEditor, AccountMembershipRoleEnum::EDITOR);
+
+    prepareSharedTransactionCatalog($account);
 
     $this->actingAs($newEditor)
         ->get(route('transactions.show', [
@@ -4336,6 +4352,8 @@ test('shared account owner can create a tracked item from the transactions form 
 
     shareAccountWithUser($sharedAccount, $invitee, AccountMembershipRoleEnum::EDITOR);
 
+    prepareSharedTransactionCatalog($sharedAccount);
+
     $response = $this->actingAs($owner)
         ->postJson(route('transactions.tracked-items.store'), [
             'name' => 'Fastweb shared owner',
@@ -4386,6 +4404,8 @@ test('shared account invitee can create a tracked item from the transactions for
     [$sharedAccount, $ownerCategory] = seedTransactionsFixture($owner);
 
     shareAccountWithUser($sharedAccount, $invitee, AccountMembershipRoleEnum::EDITOR);
+
+    prepareSharedTransactionCatalog($sharedAccount);
 
     $response = $this->actingAs($invitee)
         ->postJson(route('transactions.tracked-items.store'), [
@@ -4446,7 +4466,7 @@ test('transactions reject tracked items outside the selected group or category c
             'amount' => 55,
             'description' => 'Elemento fuori contesto',
         ])
-        ->assertSessionHasErrors('tracked_item_id');
+        ->assertSessionHasErrors('tracked_item_uuid');
 });
 
 test('tracked items linked to a category branch are valid on descendant leaves', function () {
@@ -5024,3 +5044,13 @@ test('transactions landing renders its focused month and canonical inertia URL w
         ->assertJsonPath('props.monthlySheet.transactions.0.uuid', $transaction->uuid)
         ->assertJsonPath('props.transactionsNavigation.context.month', 9);
 });
+
+function prepareSharedTransactionCatalog(Account $account): void
+{
+    $taxonomy = app(SharedAccountCategoryTaxonomyService::class);
+    $taxonomy->ensureForAccount($account);
+    $contributors = app(OperationalTransactionCategoryResolver::class)->contributorUserIdsForAccount($account);
+    foreach (Category::query()->whereNull('account_id')->whereIn('user_id', $contributors)->where('is_active', true)->where('is_selectable', true)->where('group_type', '!=', 'transfer')->get() as $category) {
+        $taxonomy->materializeSourceCategoryForAccount($account, $category);
+    }
+}

@@ -6,6 +6,8 @@ use App\Http\Controllers\Settings\CategoryController;
 use App\Http\Controllers\Settings\ExchangeRateController;
 use App\Http\Controllers\Settings\ExportController;
 use App\Http\Controllers\Settings\ImpersonationConsentController;
+use App\Http\Controllers\Settings\MoveTrackedItemMovementsController;
+use App\Http\Controllers\Settings\PendingCategoryController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\SharedCategoryController;
@@ -94,6 +96,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::delete('settings/years/{userYear:uuid}', [UserYearController::class, 'destroy'])->whereUuid('userYear')->name('years.destroy');
     // SETTINGS CATEGORIES
     Route::get('settings/categories', [CategoryController::class, 'index'])->name('categories.edit');
+    Route::post('settings/categories/inline-effects', [PendingCategoryController::class, 'effects'])->name('categories.inline-effects');
     Route::post('settings/categories', [CategoryController::class, 'store'])->name('categories.store');
     Route::patch('settings/categories/reorder', [CategoryController::class, 'reorder'])->name('categories.reorder');
     Route::patch('settings/categories/{category:uuid}', [CategoryController::class, 'update'])->whereUuid('category')->name('categories.update');
@@ -108,6 +111,11 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->whereUuid('category')->whereUuid('account')->name('shared-categories.toggle-active');
     Route::delete('settings/shared-categories/{account:uuid}/{category:uuid}', [SharedCategoryController::class, 'destroy'])->whereUuid('category')->whereUuid('account')->name('shared-categories.destroy');
     // SETTINGS TRACKED ITEMS
+    Route::get('settings/tracked-items/movements/history', [MoveTrackedItemMovementsController::class, 'history'])->name('tracked-items.movements.history');
+    Route::post('settings/tracked-items/movements/{uuid}/restore', [MoveTrackedItemMovementsController::class, 'restore'])->whereUuid('uuid')->name('tracked-items.movements.restore');
+    Route::get('settings/tracked-items/movements/options', [MoveTrackedItemMovementsController::class, 'options'])->name('tracked-items.movements.options');
+    Route::get('settings/tracked-items/movements/preview', [MoveTrackedItemMovementsController::class, 'preview'])->name('tracked-items.movements.preview');
+    Route::post('settings/tracked-items/movements', [MoveTrackedItemMovementsController::class, 'store'])->name('tracked-items.movements.store');
     Route::get('settings/tracked-items', [TrackedItemController::class, 'index'])->name('tracked-items.edit');
     Route::post('settings/tracked-items/logo-preview', [TrackedItemLogoController::class, 'preview'])
         ->middleware('throttle:20,1')

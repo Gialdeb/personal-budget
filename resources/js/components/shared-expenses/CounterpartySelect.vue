@@ -140,7 +140,8 @@ function selectCounterparty(uuid: string): void {
     const option = counterparties.value.find((item) => item.value === uuid);
 
     if (option) {
-        void createCounterparty(option.label, uuid);
+        counterparty.value = uuid;
+        counterpartyCreationError.value = null;
     }
 }
 </script>

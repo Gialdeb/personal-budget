@@ -81,7 +81,7 @@ class TransactionTemplateController extends Controller
                     'color' => $template->category->color,
                 ] : null,
                 'reference' => $template->trackedItem ? [
-                    'name' => $template->trackedItem->name,
+                    'name' => app(TrackedItemIdentityService::class)->presentation($template->trackedItem)['label'],
                     'logo_url' => $template->trackedItem->logoUrl(),
                 ] : null,
             ]));

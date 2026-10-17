@@ -7,6 +7,8 @@ export type TrackedItemCounts = {
 };
 
 export type TrackedItemItem = {
+    canonical_uuid?: string | null;
+    canonical_name?: string | null;
     uuid: string;
     parent_uuid: string | null;
     name: string;

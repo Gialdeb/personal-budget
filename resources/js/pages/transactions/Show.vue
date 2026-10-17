@@ -2083,7 +2083,9 @@ function pushTrackedItemOption(
     }
 
     sheet.value.editor.tracked_items = [
-        ...sheet.value.editor.tracked_items,
+        ...sheet.value.editor.tracked_items.filter(
+            (item) => item.value !== option.source_uuid,
+        ),
         option,
     ].sort((first, second) => first.label.localeCompare(second.label, 'it'));
 }

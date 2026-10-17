@@ -24,7 +24,6 @@
         <span class="brand">Soamco</span>
         <h1>{{ $title }}</h1>
         <p>{{ $message }}</p>
-        <p class="code">{{ $codeLabel }}: <strong>{{ $errorCode }}</strong></p>
         <nav aria-label="{{ $title }}">
             <button type="button" onclick="window.location.reload()">{{ $retryLabel }}</button>
             <button type="button" onclick="window.history.length > 1 ? window.history.back() : window.location.assign(@js($dashboardUrl))">{{ $backLabel }}</button>

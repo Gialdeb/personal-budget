@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPublicUuid;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use Database\Factories\TransactionTemplateFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -56,6 +57,9 @@ class TransactionTemplate extends Model
         $issues = [];
         $references = [];
         foreach (['account' => $this->account, 'category' => $this->category, 'tracked_item' => $this->trackedItem, 'shared_counterparty' => $this->sharedCounterparty] as $key => $record) {
+            if ($record instanceof TrackedItem) {
+                $record = app(TrackedItemIdentityService::class)->canonicalFor($record);
+            }
             $valid = $record && $record->user_id === $this->user_id && $record->is_active;
             if ($key === 'shared_counterparty') {
                 $valid = $valid && $record->is_shared_expense_counterpart;

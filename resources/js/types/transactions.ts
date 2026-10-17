@@ -80,6 +80,7 @@ export type MonthlyTransactionSheetOption = {
 export type MonthlyTransactionSheetTrackedItemOption =
     MonthlyTransactionSheetOption & {
         name?: string;
+        source_uuid?: string | null;
         available_account_uuids?: string[];
         owner_user_id?: number;
         group_keys?: string[];

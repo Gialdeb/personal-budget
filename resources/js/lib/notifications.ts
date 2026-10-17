@@ -4,6 +4,8 @@ import {
     isNotificationPreview,
     mutationSuccessCopy,
     validationMessages,
+    userErrorMessage,
+    isReferenceDraftRequest,
 } from './notification-feedback.js';
 
 type NoticeType = 'success' | 'error' | 'warning' | 'info';
@@ -39,6 +41,8 @@ export function notify(type: NoticeType, message: string): void {
     if (statusCopy[message]) {
         message = translate(statusCopy[message]);
     }
+
+    message = userErrorMessage(message);
 
     if (!enabled || !message.trim()) {
         return;
@@ -150,6 +154,17 @@ export async function fetchWithNotifications(
     options: NotificationRequestInit = {},
 ): Promise<Response> {
     const { notification, ...init } = options;
+    const url = input instanceof Request ? input.url : String(input);
+
+    if (isReferenceDraftRequest(url) && typeof init.body === 'string') {
+        const payload = JSON.parse(init.body);
+
+        return fetch(input, {
+            ...init,
+            body: JSON.stringify({ ...payload, draft: true }),
+        });
+    }
+
     const method = (
         init.method ?? (input instanceof Request ? input.method : 'GET')
     ).toLowerCase();
@@ -158,11 +173,11 @@ export async function fetchWithNotifications(
         notification === 'preview' ||
         isNotificationPreview(input instanceof Request ? input.url : input);
 
-    if (!writes || notification === 'silent') {
+    if (!writes || notification === 'silent' || preview) {
         return fetch(input, init);
     }
 
-    const finish = preview ? () => {} : delayedNotification();
+    const finish = delayedNotification();
 
     try {
         const response = await fetch(input, init);
@@ -188,7 +203,7 @@ export async function fetchWithNotifications(
             );
         } else if (!response.ok) {
             notifyFailure(response.status);
-        } else if (!preview) {
+        } else {
             if (
                 typeof payload?.message === 'string' &&
                 payload.message.trim()

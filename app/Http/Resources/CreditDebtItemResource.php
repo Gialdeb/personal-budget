@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Services\Counterparties\CounterpartyAuthority;
 use App\Services\Counterparties\CounterpartyProjectionService;
 use App\Services\CreditDebts\ManualEconomicSubjectResolver;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Support\CurrencyMinorUnits;
 use App\Support\MoneyAmount;
 use Illuminate\Http\Request;
@@ -68,11 +69,11 @@ class CreditDebtItemResource extends JsonResource
             'status' => $status,
             'due_date' => $this->due_date?->toDateString(),
             'note' => $this->note,
-            'counterparty' => $this->whenLoaded('counterparty', fn () => $this->counterparty === null ? null : ['uuid' => $this->counterparty->uuid, 'name' => $this->counterparty->name]),
+            'counterparty' => $this->whenLoaded('counterparty', fn () => $this->counterparty === null ? null : ['uuid' => $this->counterparty->uuid, 'name' => app(TrackedItemIdentityService::class)->presentation($this->counterparty)['label']]),
             'reference' => $this->whenLoaded('reference', fn () => $this->reference === null ? null : [
                 'uuid' => $this->reference->uuid,
-                'name' => $this->reference->name,
-                'label' => $this->reference->name,
+                'name' => app(TrackedItemIdentityService::class)->presentation($this->reference)['label'],
+                'label' => app(TrackedItemIdentityService::class)->presentation($this->reference)['label'],
             ], $this->reference_id === null ? null : ['id' => $this->reference_id]),
             'account' => $this->whenLoaded('account', fn () => $this->account === null ? null : [
                 'value' => $this->account->uuid,

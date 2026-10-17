@@ -212,7 +212,11 @@ const newReferenceName = ref('');
 const newReferenceWebsite = ref('');
 watch(
     () => props.open,
-    () => {
+    (open) => {
+        if (!open) {
+            form.cancel();
+        }
+
         newReferenceOpen.value = false;
         newReferenceName.value = '';
         newReferenceWebsite.value = '';
@@ -1014,7 +1018,9 @@ async function createTrackedItemFromContext(
 
         trackedItemCatalog.value = [
             ...trackedItemCatalog.value.filter(
-                (trackedItem) => trackedItem.value !== option.value,
+                (trackedItem) =>
+                    trackedItem.value !== option.value &&
+                    trackedItem.value !== option.source_uuid,
             ),
             option,
         ].sort((first, second) =>
@@ -1038,32 +1044,6 @@ async function createTrackedItemFromContext(
 
 function handleReferenceSelection(value: string): void {
     selectedReferenceValue.value = value;
-
-    if (!value.startsWith('tracked_item:')) {
-        return;
-    }
-
-    const trackedItemUuid = value.slice('tracked_item:'.length);
-    const trackedItem = trackedItemCatalog.value.find(
-        (option) => option.value === trackedItemUuid,
-    );
-
-    if (
-        !trackedItem ||
-        trackedItemMatchesContext(
-            trackedItem,
-            form.account_uuid,
-            form.type_key,
-            form.category_uuid,
-        )
-    ) {
-        return;
-    }
-
-    void createTrackedItemFromContext(
-        trackedItem.name ?? trackedItem.label,
-        trackedItemUuid,
-    );
 }
 
 function normalizeAmountField(): number | null {
@@ -1346,6 +1326,8 @@ watch(
     () => [props.open, props.transaction, props.template?.uuid] as const,
     async ([open, transaction]) => {
         if (!open) {
+            trackedItemCatalog.value = [...props.sheet.editor.tracked_items];
+
             return;
         }
 
@@ -1776,6 +1758,7 @@ async function focusSharedOrTemplate(): Promise<void> {
 }
 const sharedFieldsElement = ref<HTMLElement | null>(null);
 function closeSheet(): void {
+    form.cancel();
     emit('update:open', false);
 }
 

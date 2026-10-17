@@ -293,7 +293,9 @@ async function createReference() {
         const uuid = item.uuid ?? item.value;
         referenceCatalog.value = [
             ...referenceCatalog.value.filter(
-                (reference) => reference.uuid !== uuid,
+                (reference) =>
+                    reference.uuid !== uuid &&
+                    reference.uuid !== item.source_uuid,
             ),
             {
                 uuid,

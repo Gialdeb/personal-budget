@@ -16,7 +16,9 @@ use App\Services\Counterparties\CounterpartyProjectionService;
 use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Services\TrackedItems\TrackedItemResolver;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -267,4 +269,31 @@ test('empty identity schema can be rolled back and reapplied without changing fi
         $migration->up();
     }
     expect(identityEconomicSnapshot())->toBe($before)->and(TrackedItemAlias::count())->toBe(0);
+});
+
+test('catalog alias reads are shared within a GET request and isolated between catalogs and requests', function () {
+    $owner = User::factory()->create();
+    $other = User::factory()->create();
+    $source = identityReference($owner, ['name' => 'Nome precedente']);
+    $target = identityReference($owner, ['name' => 'Nome corrente']);
+    $foreign = identityReference($other, ['name' => 'Nome corrente']);
+    $service = app(TrackedItemIdentityService::class);
+    $service->register($owner, $source, $target);
+    app()->instance('request', Request::create('/', 'GET'));
+    $queries = [];
+    DB::listen(function (QueryExecuted $event) use (&$queries): void {
+        if (str_contains($event->sql, 'tracked_item_aliases')) {
+            $queries[] = $event->sql;
+        }
+    });
+    expect($service->searchTermsFor(collect([$target]))[$target->id])->toContain('Nome precedente');
+    expect($service->presentation($source)['uuid'])->toBe($target->uuid);
+    $service->searchTermsFor(collect([$target]));
+    expect($queries)->toHaveCount(1);
+    expect($service->searchTermsFor(collect([$foreign])))->toBe([]);
+    expect($service->presentation($foreign)['uuid'])->toBe($foreign->uuid);
+    expect($queries)->toHaveCount(2);
+    app()->instance('request', Request::create('/', 'GET'));
+    $service->searchTermsFor(collect([$target]));
+    expect($queries)->toHaveCount(3);
 });

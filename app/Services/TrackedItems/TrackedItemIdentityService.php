@@ -89,14 +89,7 @@ class TrackedItemIdentityService
         if ($references->isEmpty()) {
             return [];
         }
-        $catalogs = $references->unique(fn (TrackedItem $item): string => $item->account_id === null ? 'user:'.$item->user_id : 'account:'.$item->account_id);
-        $aliases = TrackedItemAlias::query()->whereHas('source', function (Builder $query) use ($catalogs): void {
-            $query->where(function (Builder $query) use ($catalogs): void {
-                foreach ($catalogs as $reference) {
-                    $query->orWhere(fn (Builder $scope) => $scope->inCatalog($reference->user_id, $reference->account_id));
-                }
-            });
-        })->with('source:id,uuid,name,slug')->get();
+        $aliases = $this->catalogAliases($references);
         $targets = $aliases->pluck('canonical_tracked_item_id', 'source_tracked_item_id');
         $available = $references->keyBy('id');
         $terms = [];
@@ -113,6 +106,91 @@ class TrackedItemIdentityService
         }
 
         return $terms;
+    }
+
+    /** @return Collection<int, TrackedItem> */
+    public function familyMembers(TrackedItem $reference): Collection
+    {
+        $canonical = $this->canonicalFor($reference);
+        $ids = [$canonical->id];
+        do {
+            $before = count($ids);
+            $sources = TrackedItemAlias::query()->whereIn('canonical_tracked_item_id', $ids)
+                ->whereHas('source', fn (Builder $query) => $query->inCatalog($canonical->user_id, $canonical->account_id))
+                ->pluck('source_tracked_item_id')->all();
+            $ids = array_values(array_unique([...$ids, ...$sources]));
+        } while (count($ids) !== $before);
+
+        return TrackedItem::query()->inCatalog($canonical->user_id, $canonical->account_id)->whereIn('id', $ids)->orderBy('id')->get();
+    }
+
+    /** @return array{uuid: string, name: string, original_uuid: string, original_name: string, label: string} */
+    public function presentation(TrackedItem $reference): array
+    {
+        if ($reference->user_id === null) {
+            $key = self::class.':reference:'.$reference->id;
+            $request = request();
+            $reference = $request->isMethod('GET') && $request->attributes->has($key)
+                ? $request->attributes->get($key) : TrackedItem::query()->findOrFail($reference->id);
+            if ($request->isMethod('GET')) {
+                $request->attributes->set($key, $reference);
+            }
+        }
+        $key = self::class.':presentation:'.($reference->account_id === null ? 'user:'.$reference->user_id : 'account:'.$reference->account_id);
+        $request = request();
+        if (! $request->attributes->has($key)) {
+            $edges = $this->catalogAliases(collect([$reference]))->pluck('canonical_tracked_item_id', 'source_tracked_item_id');
+            $targets = $edges->isEmpty() ? collect() : TrackedItem::query()->inCatalog($reference->user_id, $reference->account_id)->whereIn('id', $edges->values())->get()->keyBy('id');
+            $request->attributes->set($key, [$edges, $targets]);
+        }
+        [$edges, $targets] = $request->attributes->get($key);
+        $id = $reference->id;
+        $visited = [];
+        while ($edges->has($id)) {
+            if (isset($visited[$id])) {
+                throw ValidationException::withMessages(['identity' => 'Ciclo nelle identità dei riferimenti.']);
+            }
+            $visited[$id] = true;
+            $id = $edges[$id];
+        }
+        $canonical = $id === $reference->id ? $reference : $targets->get($id);
+        if ($canonical === null) {
+            throw ValidationException::withMessages(['identity' => 'Identità canonica non disponibile nel catalogo.']);
+        }
+
+        return ['uuid' => $canonical->uuid, 'name' => $canonical->name, 'original_uuid' => $reference->uuid, 'original_name' => $reference->name,
+            'label' => $canonical->id === $reference->id ? $reference->name : $canonical->name.' (origine: '.$reference->name.($canonical->name === $reference->name ? ' · '.substr($reference->uuid, 0, 8) : '').')'];
+    }
+
+    /**
+     * @param  Collection<int, TrackedItem>  $references
+     * @return Collection<int, TrackedItemAlias>
+     */
+    private function catalogAliases(Collection $references): Collection
+    {
+        $catalogKey = fn (TrackedItem $item): string => $item->account_id === null ? 'user:'.$item->user_id : 'account:'.$item->account_id;
+        $key = self::class.':catalog-aliases';
+        $request = request();
+        $cache = $request->isMethod('GET') ? $request->attributes->get($key, []) : [];
+        $catalogs = $references->unique($catalogKey);
+        $missing = $catalogs->reject(fn (TrackedItem $item): bool => array_key_exists($catalogKey($item), $cache));
+        if ($missing->isNotEmpty()) {
+            $aliases = TrackedItemAlias::query()->whereHas('source', function (Builder $query) use ($missing): void {
+                $query->where(function (Builder $query) use ($missing): void {
+                    foreach ($missing as $reference) {
+                        $query->orWhere(fn (Builder $scope) => $scope->inCatalog($reference->user_id, $reference->account_id));
+                    }
+                });
+            })->with('source:id,user_id,account_id,uuid,name,slug')->get();
+            foreach ($missing as $reference) {
+                $cache[$catalogKey($reference)] = $aliases->filter(fn (TrackedItemAlias $alias): bool => $alias->source !== null && $catalogKey($alias->source) === $catalogKey($reference));
+            }
+            if ($request->isMethod('GET')) {
+                $request->attributes->set($key, $cache);
+            }
+        }
+
+        return $catalogs->flatMap(fn (TrackedItem $item): Collection => $cache[$catalogKey($item)])->values();
     }
 
     public function register(User $actor, TrackedItem $source, TrackedItem $destination): TrackedItemAlias
@@ -162,11 +240,14 @@ class TrackedItemIdentityService
 
             $source->update(['is_active' => false]);
 
-            return TrackedItemAlias::query()->create([
+            $alias = TrackedItemAlias::query()->create([
                 'source_tracked_item_id' => $source->id,
                 'canonical_tracked_item_id' => $canonical->id,
                 'created_by_user_id' => $actor->id,
             ]);
+            request()->attributes->remove(self::class.':presentation:'.($source->account_id === null ? 'user:'.$source->user_id : 'account:'.$source->account_id));
+
+            return $alias;
         });
     }
 

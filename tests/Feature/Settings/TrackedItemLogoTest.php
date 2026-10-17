@@ -5,6 +5,7 @@ use App\Models\User;
 use App\Models\WebsiteIdentity;
 use App\Services\TrackedItems\WebsiteLogoService;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -186,9 +187,8 @@ test('logo preview returns a locally cached website identity', function () {
         'status' => 'ready',
     ]);
 
-    $service = $this->mock(WebsiteLogoService::class);
-    $service->shouldReceive('normalizeUrl')->once()->with('amazon.it')->andReturn('https://amazon.it/');
-    $service->shouldReceive('resolve')->once()->with('amazon.it', true)->andReturn($identity);
+    $service = $this->partialMock(WebsiteLogoService::class);
+    $service->shouldReceive('preview')->once()->with('amazon.it')->andReturn(['website_url' => 'https://amazon.it/', 'domain' => 'amazon.it', 'logo_url' => route('tracked-item-logos.show', $identity->uuid), 'status' => 'ready']);
 
     $this->actingAs($user)
         ->postJson(route('tracked-items.logo-preview'), ['website_url' => 'amazon.it'])
@@ -209,7 +209,7 @@ test('different users reuse the same cached website identity', function () {
         'canonical_url' => 'https://amazon.it',
     ]);
 
-    $service = $this->mock(WebsiteLogoService::class);
+    $service = $this->partialMock(WebsiteLogoService::class);
     $service->shouldReceive('normalizeUrl')->twice()->andReturn('https://amazon.it/');
     $service->shouldReceive('resolve')->twice()->andReturn($identity);
 
@@ -275,4 +275,29 @@ test('cached logo endpoint serves only the known local file with immutable heade
         ->assertHeader('Cache-Control', 'immutable, max-age=31536000, public')
         ->assertHeader('X-Content-Type-Options', 'nosniff')
         ->assertStreamedContent('logo-bytes');
+});
+
+test('uncached logo previews never persist identities or files', function () {
+    Storage::fake('public');
+    $service = new class extends WebsiteLogoService
+    {
+        protected function discoverLogo(string $websiteUrl): ?array
+        {
+            return ['bytes' => 'preview-image', 'mime_type' => 'image/png', 'source_url' => 'https://example.com/logo.png'];
+        }
+    };
+    $preview = $service->preview('example.com');
+    expect($preview['logo_url'])->toBe('data:image/png;base64,'.base64_encode('preview-image'))
+        ->and(WebsiteIdentity::count())->toBe(0)->and(Storage::disk('public')->allFiles())->toBe([]);
+});
+
+test('rolling back a reference discards its deferred logo association', function () {
+    Storage::fake('public');
+    $service = $this->partialMock(WebsiteLogoService::class);
+    $service->shouldNotReceive('resolve');
+    DB::beginTransaction();
+    $item = TrackedItem::create(['user_id' => verifiedTrackedItemLogoUser()->id, 'name' => 'Provvisorio', 'slug' => 'provvisorio', 'website_url' => 'https://example.com/']);
+    $service->afterReferenceSaved($item);
+    DB::rollBack();
+    expect(WebsiteIdentity::count())->toBe(0)->and(Storage::disk('public')->allFiles())->toBe([])->and(TrackedItem::where('name', 'Provvisorio')->exists())->toBeFalse();
 });

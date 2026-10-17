@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
 use App\Services\Recurring\RecurringOccurrenceReadService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -86,7 +87,7 @@ class RecurringEntryIndexResource extends JsonResource
             ],
             'tracked_item' => $this->trackedItem === null ? null : [
                 'uuid' => $this->trackedItem->uuid,
-                'name' => $this->trackedItem->name,
+                'name' => app(TrackedItemIdentityService::class)->presentation($this->trackedItem)['label'],
                 'logo_url' => $this->trackedItem->logoUrl(),
             ],
             'shared_expense_counterparty' => $this->sharedExpenseCounterparty === null ? null : [

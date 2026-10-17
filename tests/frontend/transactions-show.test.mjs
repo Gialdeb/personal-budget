@@ -912,24 +912,14 @@ test('transaction form sheet keeps validation and reference errors visible in th
     assert.match(formSheetSource, /payload\?\.errors\?\.slug/);
 });
 
-test('transaction form suggests existing tracked items and links a selected suggestion to the category', () => {
-    assert.match(
-        formSheetSource,
-        /const suggestedOptions\s*=\s*searchQuery\.trim\(\) === ''/,
-    );
-    assert.match(formSheetSource, /searchQuery\.trim\(\) === ''/);
+test('transaction form prepares an existing suggestion without duplicating it in the local catalog', () => {
+    assert.match(formSheetSource, /return prioritizeReferenceOptions\(/);
     assert.match(
         formSheetSource,
         /function handleReferenceSelection\(value: string\)/,
     );
-    assert.match(
-        formSheetSource,
-        /createTrackedItemFromContext\(trackedItem\.name \?\? trackedItem\.label\)/,
-    );
-    assert.match(
-        formSheetSource,
-        /@search-query="\s*trackedItemSearchQuery = \$event\s*"/,
-    );
+    assert.match(formSheetSource, /tracked_item_uuid: trackedItemUuid/);
+    assert.match(formSheetSource, /trackedItem.value !== option.source_uuid/);
     assert.match(
         formSheetSource,
         /@update:model-value="\s*handleReferenceSelection\s*"/,

@@ -23,6 +23,7 @@ class StoreSharedExpenseCounterpartyRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'draft' => ['sometimes', 'boolean'],
             'name' => ['required_without:tracked_item_uuid', 'nullable', 'string', 'max:150'],
             'tracked_item_uuid' => ['nullable', 'uuid'],
         ];

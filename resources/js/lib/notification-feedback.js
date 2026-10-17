@@ -1,9 +1,75 @@
+/** Auxiliary reference choices are provisional until the containing form is submitted. */
+export function isReferenceDraftRequest(url) {
+    const path = new URL(String(url), 'https://notifications.local').pathname;
+
+    return (
+        /\/(?:transactions|recurring-entries)\/tracked-items\/?$/.test(path) ||
+        /\/shared-expenses\/counterparties\/?$/.test(path)
+    );
+}
+
+/** Keep useful validation details while replacing implementation-only identifiers. */
+export function userErrorMessage(message) {
+    if (typeof message !== 'string') {
+        return '';
+    }
+
+    if (/fetch failed|Failed to fetch|NetworkError/i.test(message)) {
+        return 'Connessione non disponibile. Verifica la rete e riprova.';
+    }
+
+    if (
+        /SQLSTATE|(?:PDO|Query|Type|Reference)Exception|Stack trace|\bat [\w/.-]+\.php:\d+|TypeError|ReferenceError|SyntaxError|Cannot read properties|Unexpected token/i.test(
+            message,
+        )
+    ) {
+        return 'Non è stato possibile completare l’operazione. Riprova; se il problema continua, contatta l’assistenza.';
+    }
+
+    const labels = {
+        shared_expense_counterparty: 'controparte della spesa condivisa',
+        shared_counterparty: 'controparte',
+        destination_account: 'conto di destinazione',
+        destination: 'destinazione',
+        source: 'origine',
+        tracked_item: 'riferimento',
+        reference: 'riferimento',
+        counterparty: 'controparte',
+        account: 'conto',
+        category: 'categoria',
+        scope: 'ambito',
+        parent: 'riferimento superiore',
+        transaction: 'movimento',
+        recurring_entry: 'ricorrenza',
+        import_format: 'formato di importazione',
+    };
+    let copy = message.replace(
+        /\b([a-z_]+)_(?:uuid|id)\b/gi,
+        (_, name) => labels[name.toLowerCase()] ?? 'elemento selezionato',
+    );
+    copy = copy.replace(
+        /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+        'elemento selezionato',
+    );
+
+    copy = copy.replace(
+        /Il campo (.+?) deve essere un UUID valido\./gi,
+        'La selezione per $1 non è valida. Seleziona nuovamente l’elemento.',
+    );
+
+    if (/\buuid\b/i.test(copy)) {
+        return 'La selezione non è valida. Cerca e seleziona nuovamente l’elemento prima di salvare.';
+    }
+
+    return copy;
+}
+
 /** Validation payloads can contain error bags, nested fields and arrays. */
 export function validationMessages(errors) {
     const messages = [];
     const visit = (value) => {
         if (typeof value === 'string' && value.trim()) {
-            messages.push(value.trim());
+            messages.push(userErrorMessage(value.trim()));
         } else if (Array.isArray(value)) {
             value.forEach(visit);
         } else if (value && typeof value === 'object') {
@@ -30,6 +96,16 @@ export function notificationFlash(flash) {
         }));
 }
 
+export function isSilentNotificationRequest(url) {
+    return (
+        isNotificationPreview(url) ||
+        isReferenceDraftRequest(url) ||
+        /\/(?:toggle-active|reorder|mark-read|read-all)(?:[/?#]|$)/i.test(
+            String(url),
+        )
+    );
+}
+
 export function isNotificationPreview(url) {
     return /(?:preview|exchange-preview)(?:[/?#]|$)/i.test(String(url));
 }
@@ -40,14 +116,18 @@ export function bindNotificationFeedback(router, feedback) {
     const foreground = new Set();
     let method = 'post';
     let mutationUrl = '';
-    let lastFlash = JSON.stringify(notificationFlash(feedback.initialFlash));
     const stops = [
         router.on('start', ({ detail: { visit } }) => {
             if (!visit.async && !visit.prefetch) {
                 foreground.add(visit);
             }
 
-            if (visit.method === 'get' || visit.prefetch) {
+            if (
+                visit.method === 'get' ||
+                visit.prefetch ||
+                visit.async ||
+                isSilentNotificationRequest(visit.url ?? '')
+            ) {
                 return;
             }
 
@@ -64,21 +144,20 @@ export function bindNotificationFeedback(router, feedback) {
             }
 
             const flash = notificationFlash(page.props.flash);
-            const fingerprint = JSON.stringify(flash);
 
-            if (flash.length && (mutations.size || fingerprint !== lastFlash)) {
+            if (flash.length && mutations.size) {
                 flash.forEach((item) =>
                     feedback.message(item.type, item.message),
                 );
             } else if (!flash.length && mutations.size) {
                 feedback.success(method, mutationUrl);
             }
-
-            lastFlash = fingerprint;
         }),
-        router.on('error', ({ detail: { errors } }) =>
-            feedback.validation(errors),
-        ),
+        router.on('error', ({ detail: { errors } }) => {
+            if (mutations.size) {
+                feedback.validation(errors);
+            }
+        }),
         router.on('invalid', (event) => {
             if (mutations.size || foreground.size) {
                 event.preventDefault();

@@ -16,6 +16,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\CreditDebts\CounterpartyBalanceService;
+use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Support\CurrencyMinorUnits;
 use App\Support\MoneyAmount;
 use Carbon\CarbonImmutable;
@@ -190,7 +191,7 @@ class CounterpartyViewService
         }
         $readiness = $this->reconciliation->inspect($relation)['readiness'];
 
-        return ['uuid' => $relation->uuid, 'counterparty_uuid' => $relation->counterparty->uuid, 'name' => $relation->counterparty->name, 'currency' => $relation->currency_code, 'precision' => $relation->minor_unit,
+        return ['uuid' => $relation->uuid, 'counterparty_uuid' => $relation->counterparty->uuid, 'name' => app(TrackedItemIdentityService::class)->presentation($relation->counterparty)['label'], 'currency' => $relation->currency_code, 'precision' => $relation->minor_unit,
             'amounts_available' => $amountsAvailable, 'active' => $relation->activated_at !== null, 'readiness' => $readiness, 'can_activate' => config('counterparty_ledger.public_enabled') && $relation->activated_at === null && $readiness === 'reconciled' && $relation->minor_unit <= 2,
             'can_manage' => config('counterparty_ledger.public_enabled') && $relation->activated_at !== null && $readiness === 'reconciled',
             ...collect($summary)->map(fn (int $minor): string => (string) $minor)->all()];

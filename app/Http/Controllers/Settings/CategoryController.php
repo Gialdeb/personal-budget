@@ -8,8 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ReorderCategoriesRequest;
 use App\Http\Requests\Settings\StoreCategoryRequest;
 use App\Http\Requests\Settings\UpdateCategoryRequest;
-use App\Models\Budget;
 use App\Models\Category;
+use App\Services\Categories\CategoryBudgetTransferService;
 use App\Services\Categories\CategoryFoundationService;
 use App\Supports\CategoryHierarchy;
 use Illuminate\Http\JsonResponse;
@@ -37,6 +37,9 @@ class CategoryController extends Controller
     {
         $category = DB::transaction(function () use ($request): Category {
             $validated = $request->validated();
+            if ($validated['parent_id'] !== null) {
+                Category::query()->ownedBy($request->user()->id)->whereKey($validated['parent_id'])->lockForUpdate()->firstOrFail();
+            }
             $nextSortOrder = ((int) Category::query()
                 ->ownedBy($request->user()->id)
                 ->when(
@@ -505,39 +508,7 @@ class CategoryController extends Controller
 
     protected function moveBudgets(Category $from, Category $to): void
     {
-        if ($from->id === $to->id) {
-            return;
-        }
-
-        $budgets = Budget::query()
-            ->where('category_id', $from->id)
-            ->get();
-
-        foreach ($budgets as $budget) {
-            $existingBudget = Budget::query()
-                ->where('user_id', $budget->user_id)
-                ->where('scope_id', $budget->scope_id)
-                ->where('tracked_item_id', $budget->tracked_item_id)
-                ->where('category_id', $to->id)
-                ->where('year', $budget->year)
-                ->where('month', $budget->month)
-                ->where('budget_type', $budget->budget_type)
-                ->first();
-
-            if ($existingBudget !== null) {
-                $existingBudget->update([
-                    'amount' => round((float) $existingBudget->amount + (float) $budget->amount, 2),
-                ]);
-
-                $budget->delete();
-
-                continue;
-            }
-
-            $budget->update([
-                'category_id' => $to->id,
-            ]);
-        }
+        app(CategoryBudgetTransferService::class)->transfer($from, $to);
     }
 
     /**

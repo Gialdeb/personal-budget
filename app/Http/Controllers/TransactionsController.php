@@ -18,6 +18,7 @@ use App\Models\TransactionTemplate;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\TransactionRefundService;
+use App\Services\TrackedItems\PendingTrackedItemService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Services\TrackedItems\TrackedItemResolver;
@@ -231,6 +232,7 @@ class TransactionsController extends Controller
     public function storeTrackedItemOption(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'draft' => ['sometimes', 'boolean'],
             'name' => ['required_without:tracked_item_uuid', 'nullable', 'string', 'max:150'],
             'tracked_item_uuid' => ['nullable', 'uuid'],
             'account_uuid' => ['required', 'uuid'],
@@ -268,14 +270,16 @@ class TransactionsController extends Controller
             ]);
         }
 
+        if ($request->boolean('draft')) {
+            return response()->json(['item' => app(PendingTrackedItemService::class)->preview($request->user(), $validated, $account, $category)]);
+        }
+
         $websiteAttributes = [];
 
         if (filled($validated['website_url'] ?? null)) {
             $websiteUrl = $this->websiteLogoService->normalizeUrl($validated['website_url']);
-            $websiteIdentity = $this->websiteLogoService->resolve($websiteUrl, retryUnavailable: true);
             $websiteAttributes = [
                 'website_url' => $websiteUrl,
-                'website_identity_id' => $websiteIdentity->id,
             ];
         }
 
@@ -289,6 +293,8 @@ class TransactionsController extends Controller
             attributes: [...$websiteAttributes, 'settings' => ['economic_subject' => ($validated['context'] ?? null) === 'credit_debt']],
             personalCatalog: ($validated['context'] ?? null) === 'credit_debt',
         );
+
+        $this->websiteLogoService->afterReferenceSaved($trackedItem);
 
         $option = ($validated['context'] ?? null) === 'credit_debt'
             ? $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(
