@@ -75,10 +75,24 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
         };
     }
 
+    if (occurrence.status === 'cancelled') {
+        return {
+            label: ui('Annullata'),
+            tone: 'bg-muted text-muted-foreground',
+        };
+    }
+
     if (occurrence.status === 'skipped') {
         return {
             label: t('transactions.recurring.enums.occurrenceStatus.skipped'),
             tone: 'bg-slate-900/6 text-slate-700 dark:bg-white/8 dark:text-slate-300',
+        };
+    }
+
+    if (occurrence.is_settled) {
+        return {
+            label: t('transactions.recurring.table.convertedBadge'),
+            tone: 'bg-sky-500/12 text-sky-700 dark:text-sky-300',
         };
     }
 
@@ -243,6 +257,21 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                             >
                                 {{ directionLabel(occurrence.direction) }}
                             </Badge>
+                            <Badge
+                                v-if="
+                                    ['cancelled', 'paused'].includes(
+                                        occurrence.recurring_entry?.status ??
+                                            '',
+                                    )
+                                "
+                                variant="outline"
+                                >{{
+                                    occurrence.recurring_entry?.status ===
+                                    'cancelled'
+                                        ? ui('Piano annullato')
+                                        : ui('Interruzione')
+                                }}</Badge
+                            >
                             <Badge
                                 class="rounded-full"
                                 :class="occurrenceState(occurrence).tone"

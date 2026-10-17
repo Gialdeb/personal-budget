@@ -32,6 +32,7 @@ import {
     destroy,
     pause,
     resume,
+    interrupt,
     updateInstallmentDistribution,
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import {
@@ -287,6 +288,20 @@ const page = usePage();
 const { t, locale } = useI18n();
 
 const formOpen = ref(false);
+const reactivationMode = ref(false);
+function openReactivation(): void {
+    reactivationMode.value = true;
+    formOpen.value = true;
+}
+
+if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('reactivate') === '1' &&
+    props.recurringEntry.actions.can_reactivate
+) {
+    openReactivation();
+}
+
 const paymentFormOpen = ref(false);
 const paymentLoading = ref(false);
 const paymentOccurrence = ref<{
@@ -504,11 +519,13 @@ const highlightedOccurrenceUuid = computed(() => {
         new URLSearchParams(query).get('highlight')
     );
 });
-const planProgress = computed(() =>
-    recurringPlanProgress(
-        entry.value,
+const progressSettled = computed(
+    () =>
+        props.recurringEntry.summary.current_period_settled_occurrences ??
         props.recurringEntry.summary.settled_occurrences,
-    ),
+);
+const planProgress = computed(() =>
+    recurringPlanProgress(entry.value, progressSettled.value),
 );
 const progressTotal = computed(() => planProgress.value.total);
 const automaticNotePreferences = useStorage<Record<string, boolean>>(
@@ -686,14 +703,16 @@ const summaryCards = computed(() => {
         },
         {
             key: 'progress',
-            label: t('recurringDetail.progress'),
+            label: entry.value.has_activity_periods
+                ? ui('Avanzamento del periodo attuale')
+                : t('recurringDetail.progress'),
             value: planProgress.value.value,
             money: false,
             description: planProgress.value.openEnded
                 ? t('recurringDetail.openEnded')
                 : progressTotal.value !== null
                   ? t('recurringDetail.finiteProgress', {
-                        count: summary.settled_occurrences,
+                        count: progressSettled.value,
                         total: progressTotal.value,
                     })
                   : entry.value.end_date
@@ -701,9 +720,13 @@ const summaryCards = computed(() => {
                           date: summaryDate(entry.value.end_date),
                       })
                     : '',
-            detail: planProgress.value.openEnded
-                ? t('recurringDetail.ongoing')
-                : t('recurringDetail.allTime'),
+            detail: !entry.value.is_active
+                ? ui(
+                      'Generazione interrotta; le scadenze già dovute restano da gestire.',
+                  )
+                : planProgress.value.openEnded
+                  ? t('recurringDetail.ongoing')
+                  : t('recurringDetail.allTime'),
             tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
             icon: planProgress.value.openEnded ? InfinityIcon : ShieldCheck,
         },
@@ -726,6 +749,12 @@ const summaryCards = computed(() => {
         },
     ];
 });
+
+function frequencyLabel(type: string, interval: number): string {
+    return interval === 1
+        ? t(`transactions.recurring.form.repeatPresets.${type}`)
+        : `${interval} ${t(`transactions.recurring.pauseUnits.${type}`)}`;
+}
 
 function formatMoney(value: number, currency?: string | null): string {
     return formatCurrency(
@@ -1222,6 +1251,20 @@ function isFutureOccurrence(
                                 {{ directionLabel(entry.direction) }}
                             </Badge>
                             <Badge
+                                v-if="
+                                    ['cancelled', 'paused'].includes(
+                                        entry.status ?? '',
+                                    )
+                                "
+                                variant="outline"
+                                class="rounded-full px-3 py-1"
+                                >{{
+                                    entry.status === 'cancelled'
+                                        ? ui('Piano annullato')
+                                        : ui('Interruzione')
+                                }}</Badge
+                            >
+                            <Badge
                                 data-testid="plan-posting-mode"
                                 class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
                             >
@@ -1273,7 +1316,10 @@ function isFutureOccurrence(
                             <Button
                                 v-if="entry.can_edit"
                                 class="rounded-2xl"
-                                @click="formOpen = true"
+                                @click="
+                                    reactivationMode = false;
+                                    formOpen = true;
+                                "
                             >
                                 <Pencil class="mr-2 size-4" />
                                 {{ t('transactions.recurring.actions.edit') }}
@@ -1291,22 +1337,59 @@ function isFutureOccurrence(
                                 {{ ui('Modifica importi rate') }}
                             </Button>
                             <Button
+                                v-if="
+                                    props.recurringEntry.actions.can_reactivate
+                                "
+                                variant="outline"
+                                class="rounded-2xl"
+                                @click="openReactivation"
+                                ><Play class="mr-2 size-4" />{{
+                                    ui('Riattiva dalla data scelta')
+                                }}</Button
+                            >
+                            <Button
+                                v-if="
+                                    props.recurringEntry.actions.can_interrupt
+                                "
+                                variant="outline"
+                                class="rounded-2xl"
+                                @click="
+                                    router.patch(
+                                        interrupt.url(entry.uuid),
+                                        {},
+                                        { preserveScroll: true },
+                                    )
+                                "
+                                >{{
+                                    ui('Interrompi fino alla riattivazione')
+                                }}</Button
+                            >
+                            <Button
                                 v-if="props.recurringEntry.actions.can_pause"
                                 variant="outline"
                                 class="rounded-2xl"
                                 @click="handlePause"
                             >
                                 <Pause class="mr-2 size-4" />
-                                {{ t('transactions.recurring.actions.pause') }}
+                                {{
+                                    entry.entry_type === 'recurring'
+                                        ? ui('Salta prossime scadenze')
+                                        : t(
+                                              'transactions.recurring.actions.pause',
+                                          )
+                                }}
                             </Button>
                             <Button
-                                v-if="props.recurringEntry.actions.can_resume"
+                                v-if="
+                                    props.recurringEntry.actions
+                                        .can_recover_arrears
+                                "
                                 variant="outline"
                                 class="rounded-2xl"
                                 @click="resumeDialogOpen = true"
                             >
                                 <Play class="mr-2 size-4" />
-                                {{ t('transactions.recurring.actions.resume') }}
+                                {{ ui('Recupera arretrati (legacy)') }}
                             </Button>
                             <Button
                                 v-if="props.recurringEntry.actions.can_cancel"
@@ -1387,9 +1470,7 @@ function isFutureOccurrence(
                                 class="mt-4 h-1.5 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-950"
                                 role="progressbar"
                                 :aria-label="card.label"
-                                :aria-valuenow="
-                                    recurringEntry.summary.settled_occurrences
-                                "
+                                :aria-valuenow="progressSettled"
                                 :aria-valuemin="0"
                                 :aria-valuemax="progressTotal ?? undefined"
                             >
@@ -1412,6 +1493,105 @@ function isFutureOccurrence(
             </section>
 
             <section
+                v-if="recurringEntry.activity_periods?.length"
+                class="space-y-3 rounded-2xl border p-4 sm:p-6"
+                aria-labelledby="plan-lifecycle-title"
+            >
+                <h2 id="plan-lifecycle-title" class="font-semibold">
+                    {{ ui('Cronologia del piano') }}
+                </h2>
+                <article
+                    v-for="(
+                        period, periodIndex
+                    ) in recurringEntry.activity_periods"
+                    :key="period.id"
+                    class="space-y-2 border-l-2 border-primary/30 pl-4 text-sm"
+                >
+                    <p
+                        v-if="period.starts_on"
+                        class="flex flex-wrap items-center gap-1.5"
+                    >
+                        <Badge variant="outline" class="bg-primary/5">{{
+                            period.kind === 'created'
+                                ? ui('Piano creato')
+                                : ui('Piano riattivato')
+                        }}</Badge>
+                        <time
+                            class="whitespace-nowrap"
+                            :datetime="period.starts_on"
+                            >{{ summaryDate(period.starts_on) }}</time
+                        >
+                        ·
+                        {{
+                            formatMoney(
+                                Number(period.terms.expected_amount),
+                                period.terms.currency,
+                            )
+                        }}
+                        ·
+                        {{
+                            frequencyLabel(
+                                period.terms.recurrence_type,
+                                period.terms.recurrence_interval,
+                            )
+                        }}
+                    </p>
+                    <p
+                        v-else-if="period.kind === 'recovered'"
+                        class="text-muted-foreground"
+                    >
+                        {{ ui('Recupera arretrati (legacy)') }} ·
+                        {{ period.recorded_on }}
+                    </p>
+                    <p v-else class="text-muted-foreground">
+                        {{
+                            ui(
+                                'Periodo precedente: decorrenza storica non ricostruita',
+                            )
+                        }}
+                    </p>
+                    <p
+                        v-if="period.ended_on"
+                        class="flex flex-wrap items-center gap-1.5"
+                    >
+                        <Badge variant="outline">{{
+                            period.ended_reason === 'cancelled'
+                                ? ui('Piano annullato')
+                                : ui('Interruzione')
+                        }}</Badge>
+                        <time
+                            class="whitespace-nowrap"
+                            :datetime="period.ended_on"
+                            >{{ summaryDate(period.ended_on) }}</time
+                        >
+                        ·
+                        {{ ui('Periodo di interruzione') }}
+                        <span class="whitespace-nowrap">{{
+                            summaryDate(period.ended_on)
+                        }}</span>
+                        →
+                        {{
+                            recurringEntry.activity_periods?.[periodIndex + 1]
+                                ?.starts_on
+                                ? summaryDate(
+                                      recurringEntry.activity_periods[
+                                          periodIndex + 1
+                                      ].starts_on!,
+                                  )
+                                : ui('In corso')
+                        }}
+                    </p>
+                </article>
+                <p class="text-xs text-muted-foreground">
+                    {{
+                        ui(
+                            'Le scadenze già dovute e i pagamenti precedenti restano nello storico.',
+                        )
+                    }}
+                </p>
+            </section>
+
+            <section
                 v-if="recurringEntry.amount_history?.length"
                 data-testid="plan-amount-history"
                 class="space-y-3 rounded-2xl border bg-muted/30 p-4"
@@ -1428,7 +1608,11 @@ function isFutureOccurrence(
                             t('transactions.recurring.detail.amountHistory')
                         }}</span>
                         <span class="block text-sm"
-                            >{{ ui('Importo corrente') }}
+                            >{{
+                                entry.is_active
+                                    ? ui('Importo corrente')
+                                    : ui('Ultimo prezzo conosciuto')
+                            }}
                             <SensitiveValue
                                 class="font-semibold"
                                 :value="formatMoney(entry.expected_amount ?? 0)"
@@ -1445,7 +1629,7 @@ function isFutureOccurrence(
                             class="block text-xs text-muted-foreground"
                             >{{ ui('Ultima variazione') }}:
                             <SensitiveValue
-                                :value="`${latestAmountChange.difference > 0 ? '+' : ''}${formatCurrency(latestAmountChange.difference, latestAmountChange.currency)}`"
+                                :value="`${latestAmountChange.difference > 0 ? '+' : ''}${formatMoney(latestAmountChange.difference, latestAmountChange.currency)}`"
                             />
                             ·
                             {{
@@ -1479,7 +1663,7 @@ function isFutureOccurrence(
                             >
                                 <SensitiveValue
                                     :value="
-                                        formatCurrency(
+                                        formatMoney(
                                             change.previous_amount,
                                             change.currency,
                                         )
@@ -1487,12 +1671,42 @@ function isFutureOccurrence(
                                 /><span aria-hidden="true">→</span
                                 ><SensitiveValue
                                     :value="
-                                        formatCurrency(
+                                        formatMoney(
                                             change.new_amount,
                                             change.currency,
                                         )
                                     "
                                 />
+                            </p>
+                            <p
+                                v-if="
+                                    change.recurrence_comparison &&
+                                    !change.recurrence_comparison.comparable
+                                "
+                                class="text-xs text-muted-foreground"
+                            >
+                                {{
+                                    frequencyLabel(
+                                        change.recurrence_comparison
+                                            .previous_type,
+                                        change.recurrence_comparison
+                                            .previous_interval,
+                                    )
+                                }}
+                                →
+                                {{
+                                    frequencyLabel(
+                                        change.recurrence_comparison.new_type,
+                                        change.recurrence_comparison
+                                            .new_interval,
+                                    )
+                                }}
+                                ·
+                                {{
+                                    ui(
+                                        'Periodicità diverse: percentuale non confrontabile',
+                                    )
+                                }}
                             </p>
                             <time
                                 class="text-xs text-muted-foreground"
@@ -1520,7 +1734,7 @@ function isFutureOccurrence(
                                       : '→'
                             }}</span>
                             <SensitiveValue
-                                :value="`${change.difference > 0 ? '+' : ''}${formatCurrency(change.difference, change.currency)}`"
+                                :value="`${change.difference > 0 ? '+' : ''}${formatMoney(change.difference, change.currency)}`"
                             />
                             <SensitiveValue
                                 v-if="
@@ -2798,6 +3012,7 @@ function isFutureOccurrence(
         <RecurringEntryFormSheet
             v-model:open="formOpen"
             :entry="entry"
+            :reactivation="reactivationMode"
             :form-options="props.formOptions"
             :date-options="props.dateOptions"
             :default-start-date="
@@ -2926,7 +3141,9 @@ function isFutureOccurrence(
                         t('transactions.recurring.dialogs.resumeTitle')
                     }}</DialogTitle
                     ><DialogDescription>{{
-                        t('transactions.recurring.dialogs.resumeDescription')
+                        ui(
+                            'Recupera anche le scadenze trascorse durante l’interruzione. Le date passate richiedono registrazione manuale. Per ripartire senza arretrati usa Riattiva dalla data scelta.',
+                        )
                     }}</DialogDescription></DialogHeader
                 >
                 <DialogFooter

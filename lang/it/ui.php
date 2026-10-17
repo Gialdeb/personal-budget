@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'use_the_explicit_restart_date' => 'Usa la riattivazione con una data di ripartenza esplicita.',
+    'restart_only_regular_recurring_plans' => 'Questa ripartenza è disponibile solo per ricorrenze ordinarie, non per rate o stipendi.',
+    'restart_must_follow_interruption' => 'La ripartenza deve essere da oggi in poi e successiva all’interruzione.',
+    'plan_reactivated_from_selected_date' => 'Piano riattivato dalla data scelta.',
+
     'shared_expense' => 'Spesa condivisa',
     'occurrence_already_converted' => 'L’occorrenza non può essere :state perché è già convertita.',
     'occurrence_invalid_state' => 'L’occorrenza non può essere :state nello stato corrente.',

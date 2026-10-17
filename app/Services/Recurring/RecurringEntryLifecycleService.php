@@ -32,6 +32,9 @@ class RecurringEntryLifecycleService
             $entry->load('occurrences.convertedTransaction');
 
             foreach ($entry->occurrences as $occurrence) {
+                if (! app(RecurringEntryPeriodService::class)->allowsAutomaticPosting($occurrence)) {
+                    continue;
+                }
                 if (app(SalaryOccurrenceService::class)->isBeyondEmployment($occurrence)) {
                     continue;
                 }

@@ -252,6 +252,25 @@ test(
                     true,
                     `detail overflow at ${width}`,
                 );
+
+                if (width >= 768) {
+                    assert.ok(
+                        await page
+                            .locator('[data-slot="sidebar"]')
+                            .first()
+                            .isVisible(),
+                        `desktop sidebar visible at ${width}`,
+                    );
+                    assert.ok(
+                        await page
+                            .getByRole('button', {
+                                name: 'Apri/chiudi menu laterale',
+                            })
+                            .isVisible(),
+                        `desktop header visible at ${width}`,
+                    );
+                }
+
                 await page.screenshot({
                     path: `${output}/detail-${width}.png`,
                 });

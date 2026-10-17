@@ -87,7 +87,7 @@ type CalendarCell = {
 
 type FilterDirection = 'all' | 'income' | 'expense';
 type FilterEntryType = 'all' | 'recurring' | 'installment';
-type FilterStatus = 'all' | 'active' | 'cancelled';
+type FilterStatus = 'all' | 'active' | 'paused' | 'cancelled';
 type FilterConversion = 'all' | 'converted' | 'unconverted';
 type FilterRefund = 'all' | 'refunded' | 'not_refunded';
 type FilterSharedExpense = 'all' | 'shared' | 'not_shared';
@@ -753,14 +753,6 @@ function entryTypeLabel(value: string | null): string {
     return t(`transactions.recurring.enums.entryType.${value}`);
 }
 
-function planStatusLabel(value: string | null): string {
-    if (!value) {
-        return t('app.common.notAvailable');
-    }
-
-    return t(`transactions.recurring.enums.planStatus.${value}`);
-}
-
 function directionLabel(value: string | null): string {
     if (!value) {
         return t('app.common.notAvailable');
@@ -780,10 +772,24 @@ function recurrenceState(occurrence: RecurringMonthlyOccurrence): {
         };
     }
 
+    if (occurrence.status === 'cancelled') {
+        return {
+            label: ui('Annullata'),
+            tone: 'bg-muted text-muted-foreground',
+        };
+    }
+
     if (occurrence.status === 'skipped') {
         return {
             label: t('transactions.recurring.enums.occurrenceStatus.skipped'),
             tone: 'bg-slate-900/6 text-slate-700 dark:bg-white/8 dark:text-slate-300',
+        };
+    }
+
+    if (occurrence.is_settled) {
+        return {
+            label: t('transactions.recurring.table.convertedBadge'),
+            tone: 'bg-sky-500/12 text-sky-700 dark:text-sky-300',
         };
     }
 
@@ -1907,6 +1913,9 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                 'transactions.recurring.filters.activeStatus',
                                             )
                                         }}</SelectItem>
+                                        <SelectItem value="paused">{{
+                                            ui('Interruzione')
+                                        }}</SelectItem>
                                         <SelectItem value="cancelled">{{
                                             t(
                                                 'transactions.recurring.filters.cancelledStatus',
@@ -2368,15 +2377,27 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                     v-if="
                                                         occurrence
                                                             .recurring_entry
-                                                            ?.status ===
-                                                        'cancelled'
+                                                            ?.status &&
+                                                        [
+                                                            'cancelled',
+                                                            'paused',
+                                                        ].includes(
+                                                            occurrence
+                                                                .recurring_entry
+                                                                .status,
+                                                        )
                                                     "
                                                     class="rounded-full bg-slate-900/8 text-slate-700 dark:bg-white/10 dark:text-slate-200"
                                                 >
                                                     {{
-                                                        planStatusLabel(
-                                                            'cancelled',
-                                                        )
+                                                        occurrence
+                                                            .recurring_entry
+                                                            ?.status ===
+                                                        'paused'
+                                                            ? ui('Interruzione')
+                                                            : ui(
+                                                                  'Piano annullato',
+                                                              )
                                                     }}
                                                 </Badge>
                                             </div>

@@ -18,7 +18,8 @@ class RecurringEntryDetailReadService
     /** @return array<string, mixed> */
     public function summary(RecurringEntry $entry): array
     {
-        $summary = ['total_occurrences' => 0, 'settled_occurrences' => 0, 'pending_occurrences' => 0,
+        $progressOffset = $entry->periods()->where('kind', 'reactivated')->reorder('id', 'desc')->first()?->sequence_offset;
+        $summary = ['current_period_settled_occurrences' => $progressOffset === null ? null : 0, 'total_occurrences' => 0, 'settled_occurrences' => 0, 'pending_occurrences' => 0,
             'converted_occurrences' => 0, 'converted_amount' => 0, 'remaining_amount' => 0,
             'paid_count' => 0, 'paid_amount' => 0, 'paid_year' => $entry->entry_type?->value === 'installment' ? null : today()->year,
             'nearest_occurrence' => null, 'next_date' => null, 'next_amount' => null, 'generated_until' => null, 'overdue_count' => 0,
@@ -27,7 +28,7 @@ class RecurringEntryDetailReadService
         $nearestRank = null;
         $this->visibleOccurrences($entry)->orderByRaw('COALESCE(due_date, expected_date)')->orderBy('sequence_number')->orderBy('id')
             ->with(['convertedTransaction.refundTransaction', 'paymentAllocations.transaction.refundTransaction', 'sharedExpenseLedgerEntry'])
-            ->chunk(200, function (Collection $rows) use ($entry, &$summary, &$seen, &$nearestRank): void {
+            ->chunk(200, function (Collection $rows) use ($entry, $progressOffset, &$summary, &$seen, &$nearestRank): void {
                 $rows->each(fn ($row) => $row->setRelation('recurringEntry', $entry));
                 $this->payments->prepare($rows);
                 foreach ($rows as $row) {
@@ -45,6 +46,9 @@ class RecurringEntryDetailReadService
                     }
                     if (($row->externalPaymentCents() > 0 || $row->converted_transaction_id !== null || $row->matched_transaction_id !== null || $this->payments->allocated($row) > 0) && $remaining === 0) {
                         $summary['settled_occurrences']++;
+                        if ($progressOffset !== null && $row->sequence_number > $progressOffset) {
+                            $summary['current_period_settled_occurrences']++;
+                        }
                     }
                     if (in_array($row->status?->value, ['pending', 'generated', 'refunded'], true) && $remaining > 0 && ! $row->isRetiredRefundedHistory()) {
                         $summary['pending_occurrences']++;

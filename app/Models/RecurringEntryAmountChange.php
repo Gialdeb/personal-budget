@@ -12,11 +12,11 @@ class RecurringEntryAmountChange extends Model
     /** @use HasFactory<RecurringEntryAmountChangeFactory> */
     use HasFactory;
 
-    protected $fillable = ['previous_amount', 'new_amount', 'effective_from', 'currency'];
+    protected $fillable = ['previous_amount', 'new_amount', 'effective_from', 'currency', 'recurrence_comparison'];
 
     protected function casts(): array
     {
-        return ['previous_amount' => 'decimal:2', 'new_amount' => 'decimal:2', 'effective_from' => 'date'];
+        return ['recurrence_comparison' => 'array', 'previous_amount' => 'decimal:2', 'new_amount' => 'decimal:2', 'effective_from' => 'date'];
     }
 
     public function recurringEntry(): BelongsTo
@@ -31,6 +31,9 @@ class RecurringEntryAmountChange extends Model
 
     public function percentage(): ?float
     {
+        if ($this->recurrence_comparison !== null && ! $this->recurrence_comparison['comparable']) {
+            return null;
+        }
         $previousCents = (int) round((float) $this->previous_amount * 100);
 
         return $previousCents === 0 ? null : round((int) round($this->difference() * 100) / $previousCents * 100, 2);

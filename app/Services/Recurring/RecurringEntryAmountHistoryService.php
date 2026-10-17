@@ -24,6 +24,11 @@ class RecurringEntryAmountHistoryService
             'new_amount' => $newCents / 100,
             'effective_from' => $effectiveFrom ?? CarbonImmutable::tomorrow()->toDateString(),
             'currency' => $entry->currency,
+            'recurrence_comparison' => [
+                'previous_type' => $original->recurrence_type?->value, 'previous_interval' => $original->recurrence_interval,
+                'new_type' => $entry->recurrence_type?->value, 'new_interval' => $entry->recurrence_interval,
+                'comparable' => $original->recurrence_type === $entry->recurrence_type && $original->recurrence_interval === $entry->recurrence_interval,
+            ],
         ]);
     }
 

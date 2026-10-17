@@ -18,6 +18,7 @@ import {
     storeTrackedItemOption,
     store,
     update,
+    reactivate,
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import { storeTrackedItemOption as storeTransactionReference } from '@/actions/App/Http/Controllers/TransactionsController';
 import AlertError from '@/components/AlertError.vue';
@@ -26,6 +27,7 @@ import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
+import ExistingRecurringPlans from '@/components/recurring/ExistingRecurringPlans.vue';
 import InstallmentPlanSummary from '@/components/recurring/InstallmentPlanSummary.vue';
 import RecurringPostingMode from '@/components/recurring/RecurringPostingMode.vue';
 import SalarySetupFields from '@/components/recurring/SalarySetupFields.vue';
@@ -121,6 +123,7 @@ const props = defineProps<{
     defaultStartDate: string;
     showStartMonthSelector?: boolean;
     returnToIndex?: boolean;
+    reactivation?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -429,6 +432,9 @@ const yearlyMode = ref<'month_day' | 'ordinal_weekday'>('month_day');
 const yearlyMonth = ref('1');
 const yearlyDay = ref('1');
 const formScrollContainer = ref<HTMLElement | null>(null);
+const existingPlansPreview = ref<InstanceType<
+    typeof ExistingRecurringPlans
+> | null>(null);
 
 const auth = computed(() => page.props.auth as Auth);
 const formatLocale = computed(() =>
@@ -442,11 +448,26 @@ const isEditing = computed(
 );
 const structuralLocked = computed(
     () =>
+        !!props.reactivation ||
         (props.entry?.stats.converted_occurrences ?? 0) > 0 ||
-        !!props.entry?.trial_locked,
+        !!props.entry?.trial_locked ||
+        !!props.entry?.has_activity_periods,
 );
+const scheduleLocked = computed(
+    () => structuralLocked.value && !props.reactivation,
+);
+const existingPlanCandidates = computed(() =>
+    isEditing.value
+        ? []
+        : (props.formOptions.existing_plan_candidates ?? []).filter(
+              (candidate) =>
+                  candidate.reference_uuid === form.tracked_item_uuid,
+          ),
+);
+
 const startDateLocked = computed(
     () =>
+        !props.reactivation &&
         structuralLocked.value &&
         !props.entry?.stats.can_realign_refunded_schedule,
 );
@@ -933,9 +954,11 @@ const sheetTitle = computed(() =>
         : t('transactions.recurring.form.titleCreate'),
 );
 const sheetDescription = computed(() =>
-    isEditing.value
-        ? t('transactions.recurring.form.descriptionEdit')
-        : t('transactions.recurring.form.descriptionCreate'),
+    props.reactivation
+        ? ui('Stesso piano, nuove condizioni dalla data scelta.')
+        : isEditing.value
+          ? t('transactions.recurring.form.descriptionEdit')
+          : t('transactions.recurring.form.descriptionCreate'),
 );
 const longWeekdayFormatter = computed(
     () =>
@@ -1317,6 +1340,15 @@ watch(
                     entry.start_date ?? props.defaultStartDate,
                 ),
             );
+
+            if (props.reactivation) {
+                form.start_date = '';
+                form.trial_enabled = false;
+                form.end_mode = 'never';
+                form.end_date = '';
+                form.occurrences_limit = '';
+            }
+
             void refreshExchangePreview();
 
             return;
@@ -2695,6 +2727,19 @@ function submit(confirmInstallmentRecalculation = false): void {
         return;
     }
 
+    if (props.reactivation && props.entry) {
+        form.transform(() => payload).patch(reactivate.url(props.entry.uuid), {
+            preserveScroll: true,
+            onSuccess: () => {
+                emit('saved', ui('Piano riattivato'));
+                closeSheet();
+            },
+            onError: revealFormErrors,
+        });
+
+        return;
+    }
+
     if (isEditing.value && props.entry) {
         form.transform(() => payload).patch(update.url(props.entry.uuid), {
             preserveScroll: true,
@@ -2912,6 +2957,31 @@ const firstTrialBillingDate = computed(() => {
                     :message="formError('tracked_item_uuid', 'tracked_item_id')"
                 />
                 <div
+                    v-if="existingPlanCandidates.length"
+                    role="status"
+                    class="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sky-200/70 bg-sky-50/60 px-3 py-2 text-xs dark:border-sky-800/60 dark:bg-sky-950/20"
+                >
+                    <p
+                        class="min-w-0 break-words text-sky-900 dark:text-sky-100"
+                    >
+                        {{ ui('Abbiamo trovato') }}
+                        {{ existingPlanCandidates.length }}
+                        {{
+                            existingPlanCandidates.length === 1
+                                ? ui('piano associato a')
+                                : ui('piani associati a')
+                        }}
+                        {{ existingPlanCandidates[0].reference_name }}
+                    </p>
+                    <Button
+                        type="button"
+                        variant="link"
+                        class="h-auto min-h-9 shrink-0 px-0 text-xs"
+                        @click="existingPlansPreview?.scrollToPreview()"
+                        >{{ ui('Visualizza piani') }}</Button
+                    >
+                </div>
+                <div
                     v-if="
                         isEditing &&
                         salaryMode &&
@@ -2963,6 +3033,7 @@ const firstTrialBillingDate = computed(() => {
                 <Input
                     v-else
                     id="recurring-description"
+                    :disabled="reactivation"
                     v-model="form.description"
                     :placeholder="
                         selectedPlanType === 'installment'
@@ -3112,7 +3183,7 @@ const firstTrialBillingDate = computed(() => {
             </section>
 
             <Collapsible
-                v-if="!salaryMode"
+                v-if="!salaryMode && !reactivation"
                 v-model:open="advancedOpen"
                 class="rounded-[28px] border border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/30"
             >
@@ -3243,7 +3314,11 @@ const firstTrialBillingDate = computed(() => {
                     <SheetHeader
                         class="shrink-0 border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
                     >
-                        <SheetTitle>{{ sheetTitle }}</SheetTitle>
+                        <SheetTitle>{{
+                            reactivation
+                                ? ui('Riattiva piano esistente')
+                                : sheetTitle
+                        }}</SheetTitle>
                         <SheetDescription>
                             {{ sheetDescription }}
                         </SheetDescription>
@@ -3263,6 +3338,17 @@ const firstTrialBillingDate = computed(() => {
                             @focusin.capture="handleFocusIn"
                             @submit.prevent="submit()"
                         >
+                            <section
+                                v-if="reactivation"
+                                class="rounded-2xl border bg-muted/30 p-4 text-sm"
+                            >
+                                {{
+                                    ui(
+                                        'Scegli la data di ripartenza, il prezzo e la periodicità. Nessuna scadenza verrà creata per il periodo di interruzione.',
+                                    )
+                                }}
+                            </section>
+
                             <AlertError
                                 v-if="formErrorMessages.length > 0"
                                 :title="
@@ -3274,7 +3360,7 @@ const firstTrialBillingDate = computed(() => {
                             />
 
                             <div
-                                v-if="structuralLocked"
+                                v-if="structuralLocked && !reactivation"
                                 class="rounded-[24px] border border-amber-200 bg-amber-50/80 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100"
                             >
                                 <p class="font-semibold">
@@ -3921,6 +4007,13 @@ const firstTrialBillingDate = computed(() => {
                                 }}
                             </p>
 
+                            <ExistingRecurringPlans
+                                ref="existingPlansPreview"
+                                v-if="existingPlanCandidates.length"
+                                :candidates="existingPlanCandidates"
+                                :locale="formatLocale"
+                                :scroll-container="formScrollContainer"
+                            />
                             <SharedExpenseFields
                                 v-if="!isSalary && !props.entry?.salary_url"
                                 decorated
@@ -4109,9 +4202,11 @@ const firstTrialBillingDate = computed(() => {
                             <section class="grid gap-5 md:grid-cols-2">
                                 <div class="grid gap-2">
                                     <Label for="recurring-start-date">{{
-                                        t(
-                                            'transactions.recurring.form.labels.startDate',
-                                        )
+                                        reactivation
+                                            ? ui('Data di ripartenza')
+                                            : t(
+                                                  'transactions.recurring.form.labels.startDate',
+                                              )
                                     }}</Label>
                                     <div
                                         :class="
@@ -4127,6 +4222,13 @@ const firstTrialBillingDate = computed(() => {
                                     >
                                         <AppDatePicker
                                             id="recurring-start-date"
+                                            :placeholder="
+                                                reactivation
+                                                    ? ui(
+                                                          'Scegli la data di ripartenza',
+                                                      )
+                                                    : undefined
+                                            "
                                             v-model="form.start_date"
                                             :min="recurringDateMin || undefined"
                                             :disabled="startDateLocked"
@@ -4193,7 +4295,7 @@ const firstTrialBillingDate = computed(() => {
                                             <input
                                                 v-model="form.trial_enabled"
                                                 type="checkbox"
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 class="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
                                             />
                                             <span
@@ -4220,7 +4322,7 @@ const firstTrialBillingDate = computed(() => {
                                                     type="number"
                                                     min="1"
                                                     max="3650"
-                                                    :disabled="structuralLocked"
+                                                    :disabled="scheduleLocked"
                                                     class="h-11 min-w-0 text-base"
                                                 />
                                             </div>
@@ -4228,7 +4330,7 @@ const firstTrialBillingDate = computed(() => {
                                                 <Label>{{ ui('Unità') }}</Label
                                                 ><Select
                                                     v-model="form.trial_unit"
-                                                    :disabled="structuralLocked"
+                                                    :disabled="scheduleLocked"
                                                     ><SelectTrigger class="h-11"
                                                         ><SelectValue /></SelectTrigger
                                                     ><SelectContent
@@ -4291,7 +4393,7 @@ const firstTrialBillingDate = computed(() => {
                                     }}</Label>
                                     <Select
                                         :model-value="selectedStartMonth"
-                                        :disabled="structuralLocked"
+                                        :disabled="scheduleLocked"
                                         @update:model-value="
                                             updateStartDateMonth
                                         "
@@ -4375,7 +4477,7 @@ const firstTrialBillingDate = computed(() => {
                                                 ? 'border-sky-300 bg-white text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                 : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                         "
-                                        :disabled="structuralLocked"
+                                        :disabled="scheduleLocked"
                                         @click="setRepeatPreset(option.value)"
                                     >
                                         {{ option.label }}
@@ -4396,7 +4498,7 @@ const firstTrialBillingDate = computed(() => {
                                             v-model="customRecurrenceInterval"
                                             type="number"
                                             min="1"
-                                            :disabled="structuralLocked"
+                                            :disabled="scheduleLocked"
                                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                         />
                                     </div>
@@ -4409,7 +4511,7 @@ const firstTrialBillingDate = computed(() => {
                                         }}</Label>
                                         <Select
                                             :model-value="customRecurrenceType"
-                                            :disabled="structuralLocked"
+                                            :disabled="scheduleLocked"
                                             @update:model-value="
                                                 updateCustomRecurrenceType(
                                                     String($event),
@@ -4483,7 +4585,7 @@ const firstTrialBillingDate = computed(() => {
                                                         ? 'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200'
                                                         : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300'
                                                 "
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 @click="toggleWeekday(weekday)"
                                             >
                                                 {{
@@ -4546,7 +4648,7 @@ const firstTrialBillingDate = computed(() => {
                                                             ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                             : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                                     "
-                                                    :disabled="structuralLocked"
+                                                    :disabled="scheduleLocked"
                                                     @click="
                                                         blurCurrentTarget(
                                                             $event,
@@ -4585,7 +4687,7 @@ const firstTrialBillingDate = computed(() => {
                                                             ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                             : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                                     "
-                                                    :disabled="structuralLocked"
+                                                    :disabled="scheduleLocked"
                                                     @click="
                                                         blurCurrentTarget(
                                                             $event,
@@ -4633,7 +4735,7 @@ const firstTrialBillingDate = computed(() => {
                                                 type="number"
                                                 min="1"
                                                 max="31"
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                             />
                                             <p
@@ -4656,7 +4758,7 @@ const firstTrialBillingDate = computed(() => {
                                                 }}</Label>
                                                 <Select
                                                     :model-value="ordinal"
-                                                    :disabled="structuralLocked"
+                                                    :disabled="scheduleLocked"
                                                     @update:model-value="
                                                         updateOrdinal(
                                                             String($event),
@@ -4702,7 +4804,7 @@ const firstTrialBillingDate = computed(() => {
                                                     :model-value="
                                                         ordinalWeekday
                                                     "
-                                                    :disabled="structuralLocked"
+                                                    :disabled="scheduleLocked"
                                                     @update:model-value="
                                                         updateOrdinalWeekday(
                                                             String($event),
@@ -4743,7 +4845,7 @@ const firstTrialBillingDate = computed(() => {
                                             }}</Label>
                                             <Select
                                                 :model-value="yearlyMode"
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 @update:model-value="
                                                     updateYearlyMode(
                                                         String($event),
@@ -4802,7 +4904,7 @@ const firstTrialBillingDate = computed(() => {
                                                 type="number"
                                                 min="1"
                                                 max="12"
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                             />
                                         </div>
@@ -4821,7 +4923,7 @@ const firstTrialBillingDate = computed(() => {
                                                 type="number"
                                                 min="1"
                                                 max="31"
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                             />
                                             <p
@@ -4844,7 +4946,7 @@ const firstTrialBillingDate = computed(() => {
                                                 }}</Label>
                                                 <Select
                                                     :model-value="ordinal"
-                                                    :disabled="structuralLocked"
+                                                    :disabled="scheduleLocked"
                                                     @update:model-value="
                                                         updateOrdinal(
                                                             String($event),
@@ -4890,7 +4992,7 @@ const firstTrialBillingDate = computed(() => {
                                                     :model-value="
                                                         ordinalWeekday
                                                     "
-                                                    :disabled="structuralLocked"
+                                                    :disabled="scheduleLocked"
                                                     @update:model-value="
                                                         updateOrdinalWeekday(
                                                             String($event),
@@ -4948,7 +5050,7 @@ const firstTrialBillingDate = computed(() => {
                                                         ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                         : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                                 "
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 @click="setEndMode('never')"
                                             >
                                                 {{
@@ -4966,7 +5068,7 @@ const firstTrialBillingDate = computed(() => {
                                                         ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                         : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                                 "
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 @click="
                                                     setEndMode(
                                                         'after_occurrences',
@@ -4988,7 +5090,7 @@ const firstTrialBillingDate = computed(() => {
                                                         ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                         : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                                 "
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 @click="
                                                     setEndMode('until_date')
                                                 "
@@ -5018,7 +5120,7 @@ const firstTrialBillingDate = computed(() => {
                                             :model-value="
                                                 form.occurrences_limit
                                             "
-                                            :disabled="structuralLocked"
+                                            :disabled="scheduleLocked"
                                             @update:model-value="
                                                 form.occurrences_limit =
                                                     String($event)
@@ -5089,7 +5191,7 @@ const firstTrialBillingDate = computed(() => {
                                                 id="recurring-end-date"
                                                 v-model="form.end_date"
                                                 :min="recurringEndDateMin"
-                                                :disabled="structuralLocked"
+                                                :disabled="scheduleLocked"
                                                 class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
                                             />
                                         </div>
@@ -5155,13 +5257,15 @@ const firstTrialBillingDate = computed(() => {
                                 @click="submit()"
                             >
                                 {{
-                                    isEditing
-                                        ? t(
-                                              'transactions.recurring.form.actions.save',
-                                          )
-                                        : t(
-                                              'transactions.recurring.form.actions.create',
-                                          )
+                                    reactivation
+                                        ? ui('Riattiva piano esistente')
+                                        : isEditing
+                                          ? t(
+                                                'transactions.recurring.form.actions.save',
+                                            )
+                                          : t(
+                                                'transactions.recurring.form.actions.create',
+                                            )
                                 }}
                             </Button>
                         </div>

@@ -371,6 +371,7 @@ export type MonthlyTransactionSheetPageProps = {
 };
 
 export type RecurringEntryIndexCard = {
+    has_activity_periods?: boolean;
     salary_url?: string | null;
     uuid: string;
     show_url: string;
@@ -459,6 +460,7 @@ export type RecurringLinkedTransaction = {
 };
 
 export type RecurringMonthlyOccurrence = {
+    is_settled?: boolean;
     remaining_amount?: number;
     external_payment?: RecurringEntryShowPayload['occurrences'][number]['external_payment'];
     uuid: string;
@@ -578,6 +580,30 @@ export type RecurringFormOption = {
 };
 
 export type RecurringEntryFormOptions = {
+    existing_plan_candidates?: Array<{
+        uuid: string;
+        title: string;
+        reference_uuid: string;
+        reference_name: string;
+        reference_logo_url: string | null;
+        installment_amount: number | null;
+        installment_remaining_amount?: number | null;
+        account_uuid: string;
+        account_name: string;
+        currency: string;
+        amount: number | null;
+        total_amount: number | null;
+        status: string;
+        recurrence_type: string;
+        recurrence_interval: number;
+        next_due_on: string | null;
+        activated_on: string | null;
+        can_reactivate: boolean;
+        reactivation_url: string;
+        cancelled_on: string | null;
+        url: string;
+    }>;
+
     default_account_uuid: string | null;
     accounts: RecurringFormOption[];
     filter_accounts: RecurringFormOption[];
@@ -626,6 +652,21 @@ export type RecurringEntryShowPayload = {
     };
 
     entry: RecurringEntryIndexCard;
+    activity_periods?: Array<{
+        id: number;
+        kind: 'created' | 'reactivated' | 'legacy' | 'recovered';
+        recorded_on: string | null;
+        starts_on: string | null;
+        ends_on: string | null;
+        ended_on: string | null;
+        ended_reason: string | null;
+        terms: {
+            expected_amount: string;
+            currency: string;
+            recurrence_type: string;
+            recurrence_interval: number;
+        };
+    }>;
     amount_history: Array<{
         id: number;
         previous_amount: number;
@@ -633,6 +674,13 @@ export type RecurringEntryShowPayload = {
         currency: string;
         effective_from: string;
         previous_until: string;
+        recurrence_comparison?: {
+            previous_type: string;
+            previous_interval: number;
+            new_type: string;
+            new_interval: number;
+            comparable: boolean;
+        } | null;
         changed_at: string;
         difference: number;
         percentage: number | null;
@@ -703,6 +751,7 @@ export type RecurringEntryShowPayload = {
         pending_occurrences: number;
         converted_occurrences: number;
         settled_occurrences: number;
+        current_period_settled_occurrences?: number | null;
         converted_amount: number;
         remaining_amount: number;
         paid_count: number;
@@ -715,6 +764,9 @@ export type RecurringEntryShowPayload = {
         overdue_count: number;
     };
     actions: {
+        can_reactivate?: boolean;
+        can_interrupt?: boolean;
+        can_recover_arrears?: boolean;
         can_pause: boolean;
         can_resume: boolean;
         can_cancel: boolean;

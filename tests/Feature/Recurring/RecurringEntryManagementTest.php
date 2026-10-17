@@ -3175,3 +3175,55 @@ function recurringConversionDestination(RecurringEntryOccurrence $occurrence): s
         ? route('recurring-entries.show', $occurrence->recurringEntry->uuid)
         : route('transactions.show', ['year' => $transaction->transaction_date->year, 'month' => $transaction->transaction_date->month, 'highlight' => $transaction->uuid]);
 }
+
+test('installment cancellation preserves protected occurrences and only cancels unlinked siblings', function (string $protection): void {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'entry_type' => 'installment', 'total_amount' => 150, 'installments_count' => 3,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value, 'occurrences_limit' => 3,
+    ]);
+    $row = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $transaction = null;
+    if (in_array($protection, ['converted', 'matched', 'allocation', 'archived allocation', 'settlement', 'archived settlement'], true)) {
+        $transaction = Transaction::create([
+            'user_id' => $context['user']->id, 'account_id' => $context['account']->id,
+            'direction' => 'expense', 'amount' => 5, 'currency' => 'EUR',
+            'transaction_date' => '2026-01-01', 'kind' => 'manual', 'source_type' => 'manual', 'status' => 'confirmed',
+            'recurring_entry_occurrence_id' => in_array($protection, ['settlement', 'archived settlement'], true) ? $row->id : null,
+        ]);
+        if (in_array($protection, ['converted', 'matched'], true)) {
+            $row->update([$protection.'_transaction_id' => $transaction->id]);
+        } elseif (in_array($protection, ['allocation', 'archived allocation'], true)) {
+            $row->paymentAllocations()->create(['transaction_id' => $transaction->id, 'amount_cents' => 500]);
+        }
+        if (str_starts_with($protection, 'archived')) {
+            $transaction->delete();
+        }
+    } elseif ($protection === 'ledger') {
+        $counterparty = TrackedItem::create(['user_id' => $context['user']->id, 'name' => 'Person', 'slug' => 'person', 'type' => 'person', 'is_active' => true, 'is_shared_expense_counterpart' => true]);
+        $row->sharedExpenseLedgerEntry()->create([
+            'user_id' => $context['user']->id, 'counterparty_id' => $counterparty->id,
+            'entry_date' => '2026-01-01', 'title' => 'Shared installment', 'currency' => 'EUR',
+            'total_cents' => 500, 'paid_by' => 'counterparty', 'my_share_cents' => 250,
+            'counterparty_share_cents' => 250, 'status' => 'recorded',
+        ]);
+    } else {
+        $row->update(['status' => $protection]);
+    }
+    $before = $row->fresh()->getAttributes();
+    $allocationBefore = $row->paymentAllocations()->get()->map->getAttributes()->all();
+    $ledgerBefore = $row->sharedExpenseLedgerEntry()->first()?->getAttributes();
+    $transactionBefore = $transaction?->fresh()->getAttributes();
+    $balance = $context['account']->fresh()->current_balance;
+
+    $this->actingAs($context['user'])->patch(route('recurring-entries.cancel', $entry->uuid))->assertSessionHasNoErrors();
+    expect($row->fresh()->getAttributes())->toBe($before)
+        ->and($entry->occurrences()->whereKeyNot($row->id)->pluck('status')->map->value->all())->toBe(['cancelled', 'cancelled'])
+        ->and($row->paymentAllocations()->get()->map->getAttributes()->all())->toBe($allocationBefore)
+        ->and($row->sharedExpenseLedgerEntry()->first()?->getAttributes())->toBe($ledgerBefore)
+        ->and($transaction?->fresh()->getAttributes())->toBe($transactionBefore)
+        ->and($context['account']->fresh()->current_balance)->toBe($balance);
+    $after = $entry->occurrences()->orderBy('id')->get()->map->getAttributes()->all();
+    $this->patch(route('recurring-entries.cancel', $entry->uuid))->assertSessionHasNoErrors();
+    expect($entry->occurrences()->orderBy('id')->get()->map->getAttributes()->all())->toBe($after);
+})->with(['converted', 'matched', 'allocation', 'archived allocation', 'settlement', 'archived settlement', 'ledger', 'skipped', 'completed']);

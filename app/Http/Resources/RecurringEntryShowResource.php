@@ -20,6 +20,10 @@ class RecurringEntryShowResource extends JsonResource
 
         return [
             'entry' => (new RecurringEntryIndexResource($this->resource))->resolve(),
+            'activity_periods' => $this->periods->map(fn ($period): array => [
+                'id' => $period->id, 'kind' => $period->kind, 'recorded_on' => $period->created_at?->toDateString(), 'starts_on' => $period->starts_on?->toDateString(), 'ends_on' => $period->ends_on?->toDateString(),
+                'ended_on' => $period->ended_at?->toDateString(), 'ended_reason' => $period->ended_reason, 'terms' => $period->terms,
+            ])->values()->all(),
             'amount_history' => $this->amountChanges->map(fn ($change): array => [
                 'id' => $change->id,
                 'previous_amount' => (float) $change->previous_amount,
@@ -30,12 +34,16 @@ class RecurringEntryShowResource extends JsonResource
                 'changed_at' => $change->created_at->toJSON(),
                 'difference' => $change->difference(),
                 'percentage' => $change->percentage(),
+                'recurrence_comparison' => $change->recurrence_comparison,
             ])->values()->all(),
             'occurrences' => RecurringEntryOccurrenceResource::collection($occurrences)->resolve(),
             'occurrence_years' => $this->detail_summary !== null ? $this->occurrence_years : [],
             'occurrence_page' => $this->occurrence_page,
             'summary' => $this->detail_summary,
             'actions' => [
+                'can_reactivate' => $canEdit && $this->entry_type?->value === 'recurring' && $this->salarySchedule === null && in_array($this->status?->value, ['paused', 'cancelled'], true),
+                'can_interrupt' => $canEdit && $this->entry_type?->value === 'recurring' && $this->salarySchedule === null && $this->status?->value === 'active',
+                'can_recover_arrears' => $canEdit && in_array($this->status?->value, ['paused', 'cancelled'], true) && ! $this->periods->contains(fn ($period) => $period->kind === 'reactivated'),
                 'can_pause' => $canEdit && $this->status?->value === 'active',
                 'can_resume' => $canEdit && in_array($this->status?->value, ['paused', 'cancelled'], true),
                 'can_cancel' => $canEdit && $this->status?->value !== 'cancelled',

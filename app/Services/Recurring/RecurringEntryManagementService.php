@@ -62,6 +62,9 @@ class RecurringEntryManagementService
             $normalized['updated_by_user_id'] = $user->id;
             $entry = RecurringEntry::query()->create($normalized);
             $beforeGeneration?->__invoke($entry);
+            if ($entry->entry_type === RecurringEntryTypeEnum::RECURRING && $entry->salarySchedule === null && $entry->status === RecurringEntryStatusEnum::ACTIVE && $entry->is_active) {
+                $entry->periods()->create(['kind' => 'created', 'starts_on' => $entry->firstBillingDate()->toDateString(), 'terms' => app(RecurringEntryPeriodService::class)->terms($entry)]);
+            }
 
             if ($entry->status === RecurringEntryStatusEnum::ACTIVE && $entry->is_active) {
                 $this->primeEntryLifecycle($entry);
@@ -87,10 +90,19 @@ class RecurringEntryManagementService
         return DB::transaction(function () use ($user, $entry, $validated): RecurringEntry {
             $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->getKey());
             $entry->load('occurrences');
+            if ($entry->status !== RecurringEntryStatusEnum::ACTIVE && (($validated['status'] ?? null) === 'active' || ($validated['is_active'] ?? false))) {
+                throw ValidationException::withMessages(['entry' => __('ui.use_the_explicit_restart_date')]);
+            }
             if ($entry->salarySchedule && array_key_exists('auto_create_transaction', $validated)) {
                 $this->synchronizeSalaryRegistration($user, $entry, (bool) $validated['auto_create_transaction']);
             }
             $originalEntry = clone $entry;
+            if ($entry->status !== RecurringEntryStatusEnum::ACTIVE && array_key_exists('expected_amount', $validated) && $this->amountChanged((float) $entry->expected_amount, $validated['expected_amount'])) {
+                throw ValidationException::withMessages(['expected_amount' => __('ui.use_the_explicit_restart_date')]);
+            }
+            if ($entry->periods()->where('kind', 'reactivated')->exists() && collect($this->structuralFields)->contains(fn (string $field): bool => array_key_exists($field, $validated) && $this->fieldChanged($entry, $field, $validated))) {
+                throw ValidationException::withMessages(['entry' => __('ui.use_the_explicit_restart_date')]);
+            }
             if ($entry->salarySchedule && (($validated['direction'] ?? 'income') !== 'income' || ($validated['entry_type'] ?? 'recurring') !== 'recurring' || ! ($validated['is_amount_variable'] ?? true) || ($validated['is_shared_expense'] ?? false))) {
                 throw ValidationException::withMessages(['entry' => __('salary.must_be_variable_income')]);
             }
@@ -183,6 +195,7 @@ class RecurringEntryManagementService
                 }
                 $effectiveFrom = $this->generator->synchronizeFutureOccurrences($entry, $originalEntry);
                 $this->amountHistory->record($entry, $originalEntry, $effectiveFrom);
+                app(RecurringEntryPeriodService::class)->refreshTerms($entry);
                 if (($entry->status === RecurringEntryStatusEnum::ACTIVE && $entry->is_active) || ($canRealignRefundedSchedule && $entry->start_date->ne($originalEntry->start_date))) {
                     $this->primeEntryLifecycle($entry);
                 }
@@ -211,6 +224,7 @@ class RecurringEntryManagementService
             $entry->save();
             $effectiveFrom = $this->generator->synchronizeFutureOccurrences($entry, $originalEntry);
             $this->amountHistory->record($entry, $originalEntry, $effectiveFrom);
+            app(RecurringEntryPeriodService::class)->refreshTerms($entry);
 
             if ($entry->status === RecurringEntryStatusEnum::ACTIVE && $entry->is_active) {
                 $this->primeEntryLifecycle($entry);
@@ -307,11 +321,17 @@ class RecurringEntryManagementService
             if (! in_array($entry->status, [RecurringEntryStatusEnum::PAUSED, RecurringEntryStatusEnum::CANCELLED], true)) {
                 return $entry->fresh(['occurrences']);
             }
+            if ($entry->periods()->where('kind', 'reactivated')->exists()) {
+                throw ValidationException::withMessages(['entry' => __('ui.use_the_explicit_restart_date')]);
+            }
+            $entry->periods()->whereNull('ended_at')->update(['ends_on' => today()->toDateString(), 'ended_at' => now(), 'ended_reason' => 'legacy_recovery']);
+            $entry->periods()->create(['kind' => 'recovered', 'terms' => app(RecurringEntryPeriodService::class)->terms($entry)]);
             $wasCancelled = $entry->status === RecurringEntryStatusEnum::CANCELLED;
             $entry->forceFill(['status' => RecurringEntryStatusEnum::ACTIVE, 'is_active' => true])->save();
             if ($wasCancelled) {
                 $entry->occurrences()->where('status', RecurringOccurrenceStatusEnum::CANCELLED)
                     ->whereNull('converted_transaction_id')->whereNull('matched_transaction_id')
+                    ->whereDoesntHave('paymentAllocations')->whereDoesntHave('settlementTransactions', fn ($transactions) => $transactions->withTrashed())->whereDoesntHave('sharedExpenseLedgerEntry')
                     ->update(['status' => RecurringOccurrenceStatusEnum::PENDING->value]);
             }
             $this->generator->generate($entry, CarbonImmutable::today(), updateNextOccurrenceDate: false);
@@ -327,27 +347,36 @@ class RecurringEntryManagementService
         });
     }
 
-    public function cancel(RecurringEntry $entry): RecurringEntry
+    public function cancel(RecurringEntry $entry, RecurringEntryStatusEnum $targetStatus = RecurringEntryStatusEnum::CANCELLED): RecurringEntry
     {
-        DB::transaction(function () use ($entry): void {
-            $entry->forceFill([
-                'status' => RecurringEntryStatusEnum::CANCELLED,
-                'is_active' => false,
-                'next_occurrence_date' => null,
-            ])->save();
+        return DB::transaction(function () use ($entry, $targetStatus): RecurringEntry {
+            $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->id);
+            if ($entry->status === $targetStatus) {
+                return $entry;
+            }
+            app(RecurringEntryPeriodService::class)->close($entry, $targetStatus->value);
+            if ($entry->entry_type === RecurringEntryTypeEnum::RECURRING && ! $entry->salarySchedule) {
+                foreach ($entry->occurrences()->lockForUpdate()->get() as $occurrence) {
+                    if (app(RecurringEntryPeriodService::class)->canRetire($occurrence, $entry)) {
+                        $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::CANCELLED])->save();
+                    }
+                }
+            } elseif ($entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT && $targetStatus === RecurringEntryStatusEnum::CANCELLED) {
+                $occurrences = $entry->occurrences()->lockForUpdate()
+                    ->whereIn('status', [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED])
+                    ->whereNull('converted_transaction_id')->whereNull('matched_transaction_id')
+                    ->whereDoesntHave('paymentAllocations')
+                    ->whereDoesntHave('settlementTransactions', fn ($transactions) => $transactions->withTrashed())
+                    ->whereDoesntHave('sharedExpenseLedgerEntry')->whereDoesntHave('salaryDetail')->get();
+                foreach ($occurrences as $occurrence) {
+                    $this->ensureOccurrenceMutable($occurrence, __('ui.canceled'));
+                    $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::CANCELLED])->save();
+                }
+            }
+            $entry->forceFill(['status' => $targetStatus, 'is_active' => false, 'next_occurrence_date' => null])->save();
 
-            $entry->occurrences()
-                ->whereNull('converted_transaction_id')
-                ->whereIn('status', [
-                    RecurringOccurrenceStatusEnum::PENDING->value,
-                    RecurringOccurrenceStatusEnum::GENERATED->value,
-                ])
-                ->update([
-                    'status' => RecurringOccurrenceStatusEnum::CANCELLED->value,
-                ]);
+            return $entry->fresh(['occurrences']);
         });
-
-        return $entry->fresh(['occurrences']);
     }
 
     public function skipOccurrence(RecurringEntryOccurrence $occurrence): RecurringEntryOccurrence
@@ -365,7 +394,7 @@ class RecurringEntryManagementService
     {
         return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
             $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->getKey());
-            if ($occurrence->status !== RecurringOccurrenceStatusEnum::SKIPPED || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->sharedExpenseLedgerEntry()->exists()) {
+            if ($occurrence->paymentAllocations()->exists() || $occurrence->settlementTransactions()->withTrashed()->exists() || $occurrence->status !== RecurringOccurrenceStatusEnum::SKIPPED || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->sharedExpenseLedgerEntry()->exists()) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_restored_30386567')]);
             }
             $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::PENDING])->save();
@@ -376,13 +405,16 @@ class RecurringEntryManagementService
 
     public function cancelOccurrence(RecurringEntryOccurrence $occurrence): RecurringEntryOccurrence
     {
-        $this->ensureOccurrenceMutable($occurrence, __('ui.canceled'));
+        return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
+            $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->id);
+            if ($occurrence->status === RecurringOccurrenceStatusEnum::CANCELLED) {
+                return $occurrence;
+            }
+            $this->ensureOccurrenceMutable($occurrence, __('ui.canceled'));
+            $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::CANCELLED])->save();
 
-        $occurrence->forceFill([
-            'status' => RecurringOccurrenceStatusEnum::CANCELLED,
-        ])->save();
-
-        return $occurrence->fresh(['convertedTransaction']);
+            return $occurrence->fresh(['convertedTransaction']);
+        });
     }
 
     /**
@@ -415,7 +447,7 @@ class RecurringEntryManagementService
 
     protected function ensureOccurrenceMutable(RecurringEntryOccurrence $occurrence, string $targetState): void
     {
-        if ($occurrence->paymentAllocations()->valid()->exists()) {
+        if ($occurrence->paymentAllocations()->exists() || $occurrence->settlementTransactions()->withTrashed()->exists()) {
             throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_has_allocated_payments_75cb9153')]);
         }
         if ($occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->sharedExpenseLedgerEntry()->exists()) {

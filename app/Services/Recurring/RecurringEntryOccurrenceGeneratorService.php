@@ -9,6 +9,7 @@ use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\RecurringEntryPeriod;
 use App\Services\Salary\SalaryOccurrenceService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
@@ -31,7 +32,15 @@ class RecurringEntryOccurrenceGeneratorService
         }
 
         return DB::transaction(function () use ($entry, $throughDate, $maxOccurrences, $updateNextOccurrenceDate): Collection {
-            $entry->refresh();
+            $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->id);
+            if ($entry->status !== RecurringEntryStatusEnum::ACTIVE || ! $entry->is_active) {
+                return collect();
+            }
+            $period = app(RecurringEntryPeriodService::class)->current($entry);
+            if ($period?->kind === 'reactivated') {
+                return $this->generatePeriod($entry, $period, $throughDate, $maxOccurrences, $updateNextOccurrenceDate);
+            }
+
             $schedule = $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT
                 ? $this->installmentSchedule($entry)
                 : $this->recurringSchedule($entry, $throughDate, $maxOccurrences);
@@ -63,13 +72,59 @@ class RecurringEntryOccurrenceGeneratorService
         });
     }
 
+    protected function generatePeriod(RecurringEntry $entry, RecurringEntryPeriod $period, ?CarbonImmutable $throughDate, ?int $maxOccurrences, bool $updateNextOccurrenceDate): Collection
+    {
+        $schedule = app(RecurringEntryPeriodService::class)->schedule($entry, $period);
+        $rows = $this->recurringSchedule($schedule, $throughDate, $maxOccurrences);
+        $existing = $entry->occurrences()->get();
+        $sequences = $existing->pluck('sequence_number')->all();
+        $protectedDates = $existing->where('status', '!=', RecurringOccurrenceStatusEnum::CANCELLED)->map(fn ($row): string => $row->expected_date->toDateString())->all();
+        $created = collect();
+        $changes = $entry->amountChanges()->reorder('effective_from')->orderBy('id')->get();
+        foreach ($rows as $row) {
+            $price = $changes->first()?->previous_amount ?? $schedule->expected_amount;
+            foreach ($changes as $change) {
+                if ($change->effective_from->toDateString() <= $row['expected_date']) {
+                    $price = $change->new_amount;
+                }
+            }
+            $row['expected_amount'] = $price;
+            $row = [...$row, ...$this->sharedExpenseAllocationForAmount($schedule, (string) $price)];
+            $row['sequence_number'] += $period->sequence_offset;
+            if (in_array($row['sequence_number'], $sequences, true) || in_array($row['expected_date'], $protectedDates, true)) {
+                continue;
+            }
+            if ($period->ends_on && $row['expected_date'] >= $period->ends_on->toDateString()) {
+                continue;
+            }
+            $created->push($entry->occurrences()->create($row));
+        }
+        if ($updateNextOccurrenceDate) {
+            $last = max(0, (int) $entry->occurrences()->max('sequence_number') - $period->sequence_offset);
+            $next = $this->resolveDateForSequence($schedule, $last + 1);
+            $finished = ($schedule->end_mode === RecurringEndModeEnum::AFTER_OCCURRENCES && $last >= (int) $schedule->occurrences_limit)
+                || ($schedule->end_mode === RecurringEndModeEnum::UNTIL_DATE && $next->gt($schedule->end_date));
+            $entry->update(['next_occurrence_date' => $finished ? null : $next->toDateString()]);
+        }
+
+        return $created;
+    }
+
     /**
      * Preserve occurrence overrides and history when the parent plan changes.
      */
     public function synchronizeFutureOccurrences(RecurringEntry $entry, RecurringEntry $original): ?string
     {
         $occurrences = $entry->occurrences()->with('salaryDetail.components')->lockForUpdate()->get();
-        $limit = max(1, (int) $occurrences->max('sequence_number'));
+        $period = app(RecurringEntryPeriodService::class)->current($entry);
+        $offset = $period?->kind === 'reactivated' ? $period->sequence_offset : 0;
+        if ($period?->kind === 'reactivated') {
+            $newAmount = $entry->expected_amount;
+            $entry = app(RecurringEntryPeriodService::class)->schedule($entry, $period);
+            $entry->expected_amount = $newAmount;
+            $original = app(RecurringEntryPeriodService::class)->schedule($original, $period);
+        }
+        $limit = max(1, (int) $occurrences->max('sequence_number') - $offset);
         $before = collect($original->entry_type === RecurringEntryTypeEnum::INSTALLMENT
             ? $this->installmentSchedule($original)
             : $this->recurringSchedule($original, null, $limit))->keyBy('sequence_number');
@@ -79,9 +134,9 @@ class RecurringEntryOccurrenceGeneratorService
 
         $mutable = collect();
         foreach ($occurrences as $occurrence) {
-            $baseline = $before->get($occurrence->sequence_number);
-            $replacement = $after->get($occurrence->sequence_number);
-            if ($baseline === null || $replacement === null
+            $baseline = $before->get($occurrence->sequence_number - $offset);
+            $replacement = $after->get($occurrence->sequence_number - $offset);
+            if ($occurrence->sequence_number <= $offset || $baseline === null || $replacement === null
                 || ! $occurrence->expected_date->isAfter(today())
                 || ! in_array($occurrence->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED], true)
                 || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null
@@ -102,7 +157,7 @@ class RecurringEntryOccurrenceGeneratorService
             ->map(fn (RecurringEntryOccurrence $occurrence): string => $occurrence->expected_date->toDateString());
         $firstChangedAmountDate = null;
         foreach ($mutable as $occurrence) {
-            $replacement = $after->get($occurrence->sequence_number);
+            $replacement = $after->get($occurrence->sequence_number - $offset);
             if ($protectedDates->contains($replacement['expected_date'])) {
                 $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::CANCELLED])->save();
 
@@ -133,6 +188,11 @@ class RecurringEntryOccurrenceGeneratorService
     ): Collection {
         if ($entry->status !== RecurringEntryStatusEnum::ACTIVE || ! $entry->is_active) {
             return collect();
+        }
+
+        $period = app(RecurringEntryPeriodService::class)->current($entry);
+        if ($period?->kind === 'reactivated') {
+            $entry = app(RecurringEntryPeriodService::class)->schedule($entry, $period);
         }
 
         return collect($this->buildRecurringDates($entry, $endDate, $maxOccurrences))
@@ -188,7 +248,7 @@ class RecurringEntryOccurrenceGeneratorService
 
     protected function refundedHistoryOffset(RecurringEntry $entry): int
     {
-        if ($entry->entry_type !== RecurringEntryTypeEnum::RECURRING) {
+        if ($entry->getAttribute('period_schedule') || $entry->entry_type !== RecurringEntryTypeEnum::RECURRING) {
             return 0;
         }
         $hasRefundedHistory = $entry->occurrences()
@@ -222,6 +282,10 @@ class RecurringEntryOccurrenceGeneratorService
      */
     public function nextDateOnOrAfter(RecurringEntry $entry, CarbonImmutable $date): CarbonImmutable
     {
+        $period = app(RecurringEntryPeriodService::class)->current($entry);
+        if ($period?->kind === 'reactivated') {
+            $entry = app(RecurringEntryPeriodService::class)->schedule($entry, $period);
+        }
         for ($sequence = 1; $sequence <= 10000; $sequence++) {
             $candidate = $this->resolveDateForSequence($entry, $sequence);
             if ($candidate->gte($date) && $candidate->gte($entry->firstBillingDate())) {

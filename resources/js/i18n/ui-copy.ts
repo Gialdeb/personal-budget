@@ -2,6 +2,61 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'Residuo rata': 'Installment outstanding',
+    'Visualizza piani': 'View plans',
+    'piani associati a': 'plans associated with',
+    'piano associato a': 'plan associated with',
+    'Abbiamo trovato': 'We found',
+    'Importo rata non disponibile': 'Installment amount unavailable',
+    Caricamento: 'Loading',
+    'Chiudi il dettaglio per tornare al form compilato.':
+        'Close the details to return to your filled-in form.',
+    'Puoi sempre creare un altro piano con lo stesso riferimento.':
+        'You can always create another plan with the same reference.',
+    'Prossima rata': 'Next installment',
+    'Visualizza dettagli': 'View details',
+    'Piano successivo': 'Next plan',
+    'Piano precedente': 'Previous plan',
+    'Piani esistenti': 'Existing plans',
+    'Avanzamento del periodo attuale': 'Current period progress',
+    'Generazione interrotta; le scadenze già dovute restano da gestire.':
+        'Generation paused; previously due occurrences still need to be settled.',
+    'Stesso piano, nuove condizioni dalla data scelta.':
+        'Same plan, new terms from the selected date.',
+    'Data di ripartenza': 'Restart date',
+    'Scegli la data di ripartenza': 'Choose the restart date',
+    'Ultimo prezzo conosciuto': 'Last known price',
+    'Salta prossime scadenze': 'Skip upcoming occurrences',
+    'Piano riattivato': 'Plan reactivated',
+    'Piano creato': 'Plan created',
+    'Riattiva piano esistente': 'Reactivate existing plan',
+    'Riattiva dalla data scelta': 'Reactivate from selected date',
+    'Interrompi fino alla riattivazione': 'Pause until reactivation',
+    'Recupera arretrati (legacy)': 'Recover past due occurrences (legacy)',
+    'Cronologia del piano': 'Plan history',
+    'Piano annullato': 'Plan cancelled',
+    Interruzione: 'Interruption',
+    'Periodo di interruzione': 'Inactive period',
+    'In corso': 'Ongoing',
+    'Periodo precedente: decorrenza storica non ricostruita':
+        'Previous period: historical start date unavailable',
+    'Le scadenze già dovute e i pagamenti precedenti restano nello storico.':
+        'Previously due occurrences and payments remain in history.',
+    'Periodicità diverse: percentuale non confrontabile':
+        'Different frequencies: percentage is not comparable',
+    'Scegli la data di ripartenza, il prezzo e la periodicità. Nessuna scadenza verrà creata per il periodo di interruzione.':
+        'Choose a restart date, price and frequency. No occurrences will be created for the inactive period.',
+    'Esistono già piani con questo riferimento. Puoi comunque crearne un altro.':
+        'Plans with this reference already exist. You can still create another one.',
+    'Prossima scadenza': 'Next due date',
+    'Visualizza piano': 'View plan',
+    'Importo variabile': 'Variable amount',
+    Decorrenza: 'Start date',
+    'Annullato il': 'Cancelled on',
+    'Crea nuovo piano': 'Create new plan',
+    'Recupera anche le scadenze trascorse durante l’interruzione. Le date passate richiedono registrazione manuale. Per ripartire senza arretrati usa Riattiva dalla data scelta.':
+        'Also recover occurrences during the interruption. Past dates require manual registration. To restart without arrears, choose Reactivate from selected date.',
+
     'Saldo netto · tutti i periodi': 'Net balance · all periods',
     'Posizioni aperte': 'Open positions',
     'Le posizioni aperte non rappresentano da sole il saldo netto: consulta anche i movimenti non collegati e lo storico.':

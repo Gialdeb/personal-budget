@@ -199,6 +199,11 @@ class RecurringEntry extends Model
         return $this->hasMany(RecurringEntryOccurrence::class);
     }
 
+    public function periods(): HasMany
+    {
+        return $this->hasMany(RecurringEntryPeriod::class)->orderBy('id');
+    }
+
     public function amountChanges(): HasMany
     {
         return $this->hasMany(RecurringEntryAmountChange::class)->orderBy('created_at')->orderBy('id');

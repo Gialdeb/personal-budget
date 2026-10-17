@@ -64,6 +64,7 @@ class RecurringEntryIndexResource extends JsonResource
             'occurrences_limit' => $this->occurrences_limit,
             'auto_generate_occurrences' => (bool) $this->auto_generate_occurrences,
             'auto_create_transaction' => (bool) $this->auto_create_transaction,
+            'has_activity_periods' => (bool) ($this->getAttribute('has_activity_periods') ?? $this->periods()->where('kind', 'reactivated')->exists()),
             'is_active' => (bool) $this->is_active,
             'reminder_days_before' => collect($this->reminder_days_before ?? [])
                 ->map(fn ($days): int => (int) $days)

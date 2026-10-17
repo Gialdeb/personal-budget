@@ -9,6 +9,7 @@ use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Http\Requests\Recurring\PauseRecurringEntryRequest;
 use App\Http\Requests\Recurring\PreviewRecurringEntryExchangeRequest;
+use App\Http\Requests\Recurring\ReactivateRecurringEntryRequest;
 use App\Http\Requests\Recurring\StoreRecurringEntryRequest;
 use App\Http\Requests\Recurring\UpdateInstallmentDistributionRequest;
 use App\Http\Requests\Recurring\UpdateRecurringEntryRequest;
@@ -32,6 +33,7 @@ use App\Services\Recurring\DeleteRecurringEntryService;
 use App\Services\Recurring\RecalculateInstallmentPlanAmountService;
 use App\Services\Recurring\RecurringEntryDetailReadService;
 use App\Services\Recurring\RecurringEntryManagementService;
+use App\Services\Recurring\RecurringEntryPeriodService;
 use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Services\Salary\SalaryEmploymentService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
@@ -43,6 +45,7 @@ use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
 use App\Supports\ManagementContextResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -94,6 +97,7 @@ class RecurringEntryController extends Controller
             'updatedByUser:id,uuid,name,email',
             'sharedExpenseCounterparty',
             'amountChanges',
+            'periods',
             'salarySchedule.employment',
         ]);
 
@@ -394,6 +398,25 @@ class RecurringEntryController extends Controller
             ->with('success', __('ui.scheduled_plan_suspended_7e6ce87a'));
     }
 
+    public function interrupt(Request $request, RecurringEntry $recurringEntry): RedirectResponse
+    {
+        $entry = $this->editableRecurringEntry($request, $recurringEntry);
+        if ($entry->entry_type !== RecurringEntryTypeEnum::RECURRING || $entry->salarySchedule !== null) {
+            throw ValidationException::withMessages(['entry' => __('ui.restart_only_regular_recurring_plans')]);
+        }
+        $this->managementService->cancel($entry, RecurringEntryStatusEnum::PAUSED);
+
+        return to_route('recurring-entries.show', $entry->uuid);
+    }
+
+    public function reactivate(ReactivateRecurringEntryRequest $request, RecurringEntry $recurringEntry): RedirectResponse
+    {
+        $entry = $this->editableRecurringEntry($request, $recurringEntry);
+        app(RecurringEntryPeriodService::class)->reactivate($request->user(), $entry, $request->validated());
+
+        return to_route('recurring-entries.show', $entry->uuid)->with('success', __('ui.plan_reactivated_from_selected_date'));
+    }
+
     public function resume(Request $request, RecurringEntry $recurringEntry): RedirectResponse
     {
         $entry = $this->managementService->resume(
@@ -432,6 +455,7 @@ class RecurringEntryController extends Controller
 
         $query = RecurringEntry::query()
             ->whereIn('account_id', $accessibleAccountIds)
+            ->withExists(['periods as has_activity_periods' => fn ($periods) => $periods->where('kind', 'reactivated')])
             ->with([
                 'account:id,uuid,name,currency',
                 'scope:id,uuid,name',
@@ -645,10 +669,12 @@ class RecurringEntryController extends Controller
                         $canEdit = $entry !== null
                             && in_array((int) $entry->account_id, $editableAccountIds, true);
 
-                        if ($direction === 'income') {
-                            $incomeTotal += $amount;
-                        } else {
-                            $expenseTotal += $amount;
+                        if (! in_array($status, ['skipped', 'cancelled'], true)) {
+                            if ($direction === 'income') {
+                                $incomeTotal += $amount;
+                            } else {
+                                $expenseTotal += $amount;
+                            }
                         }
 
                         if (in_array($status, ['pending', 'generated', 'refunded'], true) && app(RecurringOccurrenceReadService::class)->remaining($occurrence) > 0 && ! $occurrence->isRetiredRefundedHistory()) {
@@ -663,6 +689,7 @@ class RecurringEntryController extends Controller
                             'uuid' => $occurrence->uuid,
                             'sequence_number' => $occurrence->sequence_number,
                             'status' => $status,
+                            'is_settled' => ! in_array($status, ['skipped', 'cancelled'], true) && $amount > 0 && app(RecurringOccurrenceReadService::class)->remaining($occurrence) === 0,
                             'external_payment' => $occurrence->sharedExpenseLedgerEntry === null ? null : [
                                 'uuid' => $occurrence->sharedExpenseLedgerEntry->uuid,
                                 'payer' => $occurrence->sharedExpenseLedgerEntry->counterparty?->name,
@@ -851,7 +878,55 @@ class RecurringEntryController extends Controller
             ->defaultOwnedBy($user->id)
             ->value('uuid');
 
+        $existingPlans = RecurringEntry::query()->whereIn('account_id', $accessibleAccounts->modelKeys())
+            ->whereHas('trackedItem')->whereIn('status', ['active', 'paused', 'cancelled'])
+            ->where(function (Builder $plans): void {
+                $plans->where(fn (Builder $recurring) => $recurring->where('entry_type', 'recurring')->where('end_mode', 'never')->whereNull('end_date'))
+                    ->orWhere(fn (Builder $installments) => $installments->where('entry_type', 'installment')
+                        ->whereHas('occurrences', fn (Builder $rows) => $rows->whereIn('status', ['pending', 'generated', 'refunded'])->where('expected_amount', '>', 0)));
+            })
+            ->addSelect(['upcoming_due_date' => RecurringEntryOccurrence::query()
+                ->selectRaw('COALESCE(due_date, expected_date)')
+                ->whereColumn('recurring_entry_id', 'recurring_entries.id')
+                ->whereIn('status', ['pending', 'generated', 'refunded'])
+                ->whereRaw('COALESCE(due_date, expected_date) >= ?', [today()->toDateString()])
+                ->orderByRaw('COALESCE(due_date, expected_date)')->orderBy('sequence_number')->limit(1)])
+            ->with(['trackedItem.websiteIdentity', 'account', 'periods', 'salarySchedule'])->orderBy('title')->orderBy('id')->get();
+        $installmentRows = RecurringEntryOccurrence::query()
+            ->whereIn('recurring_entry_id', $existingPlans->where('entry_type', RecurringEntryTypeEnum::INSTALLMENT)->modelKeys())
+            ->whereIn('status', ['pending', 'generated', 'refunded'])->where('expected_amount', '>', 0)
+            ->orderByRaw('COALESCE(due_date, expected_date)')->orderBy('sequence_number')->get();
+        $occurrenceReader = app(RecurringOccurrenceReadService::class);
+        $occurrenceReader->prepare($installmentRows);
+        $openInstallments = $installmentRows->filter(fn (RecurringEntryOccurrence $row): bool => $occurrenceReader->remaining($row) > 0)->groupBy('recurring_entry_id');
+        $existingPlanCandidates = $existingPlans
+            ->filter(fn (RecurringEntry $entry): bool => $entry->entry_type !== RecurringEntryTypeEnum::INSTALLMENT || $openInstallments->has($entry->id))
+            ->map(function (RecurringEntry $entry) use ($editableAccounts, $openInstallments, $occurrenceReader): array {
+                $nextInstallment = $openInstallments->get($entry->id)?->first();
+
+                return [
+                    'uuid' => $entry->uuid, 'title' => $entry->title, 'reference_uuid' => $entry->trackedItem->uuid,
+                    'reference_logo_url' => $entry->trackedItem->logoUrl(),
+                    'installment_amount' => $nextInstallment ? (float) $nextInstallment->expected_amount : null,
+                    'installment_remaining_amount' => $nextInstallment ? $occurrenceReader->remaining($nextInstallment) / 100 : null,
+                    'reference_name' => $entry->trackedItem->name, 'account_uuid' => $entry->account->uuid, 'account_name' => $entry->account->name,
+                    'status' => $entry->status->value,
+                    'currency' => $entry->currency, 'amount' => $entry->expected_amount !== null ? (float) $entry->expected_amount : null,
+                    'total_amount' => $entry->total_amount !== null ? (float) $entry->total_amount : null,
+                    'recurrence_type' => $entry->recurrence_type->value, 'recurrence_interval' => $entry->recurrence_interval,
+                    'next_due_on' => $nextInstallment ? ($nextInstallment->due_date ?? $nextInstallment->expected_date)->toDateString() : ($entry->upcoming_due_date ? CarbonImmutable::parse($entry->upcoming_due_date)->toDateString() : null),
+                    'activated_on' => $entry->periods->last()?->starts_on?->toDateString() ?? $entry->start_date?->toDateString(),
+                    'cancelled_on' => $entry->periods->where('ended_reason', 'cancelled')->last()?->ended_at?->toDateString(),
+                    'can_reactivate' => $editableAccounts->contains('id', $entry->account_id)
+                        && in_array($entry->status, [RecurringEntryStatusEnum::CANCELLED, RecurringEntryStatusEnum::PAUSED], true)
+                        && $entry->entry_type === RecurringEntryTypeEnum::RECURRING && $entry->salarySchedule === null,
+                    'url' => route('recurring-entries.show', ['recurringEntry' => $entry->uuid]),
+                    'reactivation_url' => route('recurring-entries.show', ['recurringEntry' => $entry->uuid, 'reactivate' => 1]),
+                ];
+            })->values()->all();
+
         return [
+            'existing_plan_candidates' => $existingPlanCandidates,
             'default_account_uuid' => $defaultAccountUuid,
             'accounts' => $editableAccounts
                 ->map(fn (Account $account): array => [

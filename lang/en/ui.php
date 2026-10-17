@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'use_the_explicit_restart_date' => 'Choose an explicit restart date to reactivate this plan.',
+    'restart_only_regular_recurring_plans' => 'This restart is only available for regular recurring plans, not installments or salaries.',
+    'restart_must_follow_interruption' => 'The restart must be today or later and follow the interruption.',
+    'plan_reactivated_from_selected_date' => 'Plan reactivated from the selected date.',
+
     'shared_expense' => 'Shared expense',
     'occurrence_already_converted' => 'The occurrence cannot be :state because it has already been converted.',
     'occurrence_invalid_state' => 'The occurrence cannot be :state in its current state.',

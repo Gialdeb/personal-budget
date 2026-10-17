@@ -7,6 +7,7 @@ use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
+use App\Services\Recurring\RecurringEntryPeriodService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Salary\SalaryOccurrenceService;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
@@ -102,6 +103,9 @@ class RecurringEntryLifecycleService
             ->get()
             ->each(function (RecurringEntryOccurrence $occurrence) use (&$createdCount, &$warningCount, &$errorCount): void {
                 try {
+                    if (! app(RecurringEntryPeriodService::class)->allowsAutomaticPosting($occurrence)) {
+                        return;
+                    }
                     if (app(SalaryOccurrenceService::class)->isBeyondEmployment($occurrence)) {
                         return;
                     }

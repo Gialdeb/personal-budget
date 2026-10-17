@@ -161,6 +161,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::patch('recurring-entries/{recurringEntry:uuid}/installment-distribution', [RecurringEntryController::class, 'updateInstallmentDistribution'])->whereUuid('recurringEntry')->name('recurring-entries.installment-distribution.update');
     Route::delete('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'destroy'])->whereUuid('recurringEntry')->name('recurring-entries.destroy');
     Route::patch('recurring-entries/{recurringEntry:uuid}/pause', [RecurringEntryController::class, 'pause'])->whereUuid('recurringEntry')->name('recurring-entries.pause');
+    Route::patch('recurring-entries/{recurringEntry:uuid}/interrupt', [RecurringEntryController::class, 'interrupt'])->whereUuid('recurringEntry')->name('recurring-entries.interrupt');
+    Route::patch('recurring-entries/{recurringEntry:uuid}/reactivate', [RecurringEntryController::class, 'reactivate'])->whereUuid('recurringEntry')->name('recurring-entries.reactivate');
     Route::patch('recurring-entries/{recurringEntry:uuid}/resume', [RecurringEntryController::class, 'resume'])->whereUuid('recurringEntry')->name('recurring-entries.resume');
     Route::patch('recurring-entries/{recurringEntry:uuid}/cancel', [RecurringEntryController::class, 'cancel'])->whereUuid('recurringEntry')->name('recurring-entries.cancel');
     Route::post('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/convert', [RecurringEntryOccurrenceController::class, 'convert'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.convert');
