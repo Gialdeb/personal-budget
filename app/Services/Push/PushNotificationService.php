@@ -175,6 +175,16 @@ class PushNotificationService
                 ...$invalidTokens,
             ]));
 
+            foreach ($report->failures()->getItems() as $failure) {
+                Log::warning('Direct push rejected by Firebase.', [
+                    'user_id' => $user->getKey(),
+                    'notification_type' => $data['notification_type'] ?? null,
+                    'token_hash' => substr(hash('sha256', $failure->target()->value()), 0, 12),
+                    'error_type' => $failure->error() !== null ? $failure->error()::class : null,
+                    'error_code' => $failure->error()?->getCode(),
+                ]);
+            }
+
             $summary['sent_count'] += $report->successes()->count();
             $summary['failed_count'] += $report->failures()->count();
             $summary['invalidated_count'] += count($tokensToInvalidate);

@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Services\Push\DeviceTokenService;
 use App\Services\Push\PushNotificationService;
 use Carbon\CarbonImmutable;
-use DateTimeZone;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class DailyExpenseReminderService
@@ -19,24 +19,28 @@ class DailyExpenseReminderService
 
     public function run(): int
     {
-        if (! config('features.push_notifications.enabled')) {
+        $sent = 0;
+        $now = CarbonImmutable::now('UTC');
+        $localNow = $now->setTimezone('Europe/Rome');
+
+        if ($localNow->format('H:i') !== '21:00') {
             return 0;
         }
 
-        $sent = 0;
-        $now = CarbonImmutable::now('UTC');
-        $timezones = DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC);
+        if (! config('features.push_notifications.enabled')) {
+            Log::warning('Daily expense reminder skipped: push notifications feature disabled.');
+
+            return 0;
+        }
+
+        Log::info('Daily expense reminder run started.', ['date' => $localNow->toDateString(), 'timezone' => 'Europe/Rome']);
 
         foreach (User::query()->with('settings')->whereHas('deviceTokens', fn ($query) => $query->active()->forPlatform('web'))->lazyById(200) as $user) {
-            $timezone = data_get($user->settings?->settings, 'timezone');
-
-            if (! $user->pushNotificationsEnabled() || ! $user->dailyExpenseReminderEnabled() || ! in_array($timezone, $timezones, true)) {
+            if (! $user->pushNotificationsEnabled() || ! $user->dailyExpenseReminderEnabled()) {
                 continue;
             }
 
-            $localNow = $now->setTimezone($timezone);
-
-            if ($localNow->format('H:i') !== '21:00' || $this->deviceTokenService->activeBroadcastTokensForUser($user)->isEmpty()) {
+            if ($this->deviceTokenService->activeBroadcastTokensForUser($user)->isEmpty()) {
                 continue;
             }
 
@@ -67,14 +71,28 @@ class DailyExpenseReminderService
                     ['notification_type' => 'daily_expense_reminder', 'tag' => 'daily-expense:'.$user->getKey().':'.$localDate],
                 );
 
+                $context = ['user_id' => $user->getKey(), 'delivery_id' => $delivery->getKey(), 'date' => $localDate, ...$summary];
+                if (($summary['failed_count'] ?? 0) > 0 || $summary['sent_count'] === 0) {
+                    Log::warning('Daily expense reminder delivery failed or incomplete.', $context);
+                } else {
+                    Log::info('Daily expense reminder delivery completed.', $context);
+                }
+
                 if ($summary['sent_count'] > 0) {
                     $delivery->forceFill(['pushed_at' => $now])->save();
                     $sent++;
                 }
             } catch (Throwable $exception) {
+                Log::error('Daily expense reminder delivery uncertain; automatic retry suppressed.', [
+                    'user_id' => $user->getKey(),
+                    'delivery_id' => $delivery->getKey(),
+                    'date' => $localDate,
+                ]);
                 report($exception);
             }
         }
+
+        Log::info('Daily expense reminder run completed.', ['date' => $localNow->toDateString(), 'sent_users' => $sent]);
 
         return $sent;
     }

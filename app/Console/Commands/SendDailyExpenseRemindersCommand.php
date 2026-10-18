@@ -8,7 +8,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('reminders:daily-expenses')]
-#[Description('Send the daily expense push reminder at 21:00 in each user timezone.')]
+#[Description('Send the daily expense push reminder at 21:00 Europe/Rome.')]
 class SendDailyExpenseRemindersCommand extends Command
 {
     /**
