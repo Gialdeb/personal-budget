@@ -290,3 +290,16 @@ test('non restorable moves have a separate red tab and explain the block without
     assert.match(component, /entry.block_reason && !entry.restored_at/);
     assert.match(component, /adjacentTab\(-1\)/);
 });
+
+test('homonym disambiguation is conditional for both source and destination', () => {
+    const dialog = readFileSync(
+        new URL(
+            '../../resources/js/components/tracked-items/MoveTrackedItemMovementsDialog.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(dialog, /v-if="sourceOption\?\.disambiguation"/);
+    assert.match(dialog, /v-if="item.disambiguation"/);
+    assert.doesNotMatch(dialog, /item\.slug|source\?\.slug/);
+});

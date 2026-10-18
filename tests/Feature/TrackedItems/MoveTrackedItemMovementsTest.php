@@ -2,14 +2,21 @@
 
 use App\Models\AccountMembership;
 use App\Models\Category;
+use App\Models\CounterpartyPayment;
+use App\Models\CounterpartyRelation;
+use App\Models\CounterpartySyncIssue;
 use App\Models\CreditDebtItem;
 use App\Models\CreditDebtPayment;
 use App\Models\RecurringEntry;
 use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\TrackedItemAlias;
+use App\Models\Transaction;
+use App\Models\TransactionTemplate;
 use App\Models\User;
+use App\Services\Counterparties\CounterpartyBackfillService;
 use App\Services\Counterparties\CounterpartyLedgerService;
+use App\Services\Counterparties\CounterpartyPaymentService;
 use App\Services\TrackedItems\TrackedItemIdentityService;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\QueryException;
@@ -190,13 +197,109 @@ test('existing aliases block all movement without modifying the identity graph',
         ->and(DB::table('tracked_item_aliases')->get()->toArray())->toEqual($aliases)->and($this->source->fresh()->is_active)->toBeTrue();
 });
 
-test('payment bank documents cannot bypass existing mutation protections through descriptive references', function () {
+test('descriptive references on payment documents move without changing payment identity', function () {
     $ordinary = userTransaction($this->actor, $this->account, ['tracked_item_id' => $this->source->id]);
     $bank = userTransaction($this->actor, $this->account, ['tracked_item_id' => $this->source->id]);
     $debt = CreditDebtItem::factory()->forAccount($this->account)->create(['reference_id' => $this->target->id, 'counterparty_id' => $this->target->id]);
     CreditDebtPayment::create(['user_id' => $this->actor->id, 'credit_debt_item_id' => $debt->id, 'transaction_id' => $bank->id, 'account_id' => $this->account->id, 'currency_code' => 'EUR', 'amount' => 25, 'paid_at' => '2026-10-01']);
+    $payments = DB::table('credit_debt_payments')->get()->all();
+    $bankBefore = $bank->fresh()->getRawOriginal();
     $preview = movementPreview($this);
-    expect($preview['block_reason'])->not->toBeNull();
+    expect($preview['block_reason'])->toBeNull();
+    movementConfirm($this, $preview)->assertSuccessful();
+    $bankBefore['tracked_item_id'] = $this->target->id;
+    expect($ordinary->fresh()->tracked_item_id)->toBe($this->target->id)->and($bank->fresh()->getRawOriginal())->toBe($bankBefore)
+        ->and(DB::table('credit_debt_payments')->get()->all())->toEqual($payments);
+});
+
+test('Emanuela payment screenshot moves and restores its descriptive reference while every economic row remains unchanged', function () {
+    config(['counterparty_ledger.public_enabled' => true]);
+    $this->source->update(['name' => 'Emanuela Barbarulo']);
+    $this->target->update(['name' => 'Emanuela Barbarulo']);
+    CreditDebtItem::factory()->forAccount($this->account)->create(['reference_id' => $this->target->id, 'counterparty_id' => $this->target->id, 'type' => 'credit', 'total_amount' => '100.00']);
+    app(CounterpartyBackfillService::class)->run($this->actor, $this->target, 'EUR', true);
+    $relation = CounterpartyRelation::where('counterparty_id', $this->target->id)->sole();
+    $payments = app(CounterpartyPaymentService::class);
+    $payments->activate($this->actor, $relation, 'activate-move-case');
+    $result = $payments->create($this->actor, $relation, ['operation_key' => 'emanuela-payment', 'amount' => '10.00', 'date' => '2026-10-12', 'account_uuid' => $this->account->uuid, 'direction' => 'received', 'scope' => 'all', 'allow_unallocated' => false]);
+    $payment = CounterpartyPayment::where('uuid', $result['payment_uuid'])->sole();
+    DB::table('transactions')->where('id', $payment->transaction_id)->update(['tracked_item_id' => $this->source->id]);
+    $transaction = Transaction::findOrFail($payment->transaction_id);
+    $before = $transaction->getRawOriginal();
+    $economic = movementProtectedSnapshot();
+    $preview = movementPreview($this);
+    expect($preview['count'])->toBe(1)->and($preview['block_reason'])->toBeNull();
+    movementConfirm($this, $preview)->assertSuccessful();
+    $expected = $before;
+    $expected['tracked_item_id'] = $this->target->id;
+    expect($transaction->fresh()->getRawOriginal())->toBe($expected)->and(movementProtectedSnapshot())->toEqual($economic);
+    $move = DB::table('tracked_item_transaction_moves')->sole();
+    $this->postJson(route('tracked-items.movements.restore', $move->uuid), ['confirmed' => true])->assertSuccessful();
+    expect($transaction->fresh()->getRawOriginal())->toBe($before)->and(movementProtectedSnapshot())->toEqual($economic);
+});
+
+test('Emanuela screenshot with two protected relations blocks all twenty eight links with concrete details', function () {
+    $this->source->update(['name' => 'Emanuela Barbarulo']);
+    $this->target->update(['name' => 'Emanuela Barbarulo']);
+    foreach (['EUR', 'USD'] as $currency) {
+        app(CounterpartyLedgerService::class)->relation($this->actor, $this->source, $currency);
+    }
+    foreach (range(1, 20) as $index) {
+        SharedExpenseLedgerEntry::create(['user_id' => $this->actor->id, 'counterparty_id' => $this->source->id, 'entry_date' => '2026-10-14', 'title' => 'Spesa '.$index, 'currency' => 'EUR', 'total_cents' => 1000, 'my_share_cents' => 500, 'counterparty_share_cents' => 500, 'paid_by' => 'self', 'status' => 'recorded']);
+    }
+    foreach (['Telepedaggio', 'Pulizia Casa'] as $title) {
+        RecurringEntry::create(['user_id' => $this->actor->id, 'account_id' => $this->account->id, 'title' => $title, 'direction' => 'expense', 'currency' => 'EUR', 'entry_type' => 'recurring', 'status' => 'active', 'start_date' => '2026-10-01', 'recurrence_type' => 'monthly', 'expected_amount' => 100, 'shared_expense_counterparty_id' => $this->source->id]);
+    }
+    TransactionTemplate::factory()->count(4)->create(['user_id' => $this->actor->id, 'shared_counterparty_id' => $this->source->id]);
+    $before = movementProtectedSnapshot();
+    $preview = movementPreview($this);
+    expect($preview['count'])->toBe(28)->and($preview['block_reason'])->toContain('2 rapporti economici', 'storico economico');
+    $protected = collect($preview['groups'])->firstWhere('key', 'protected');
+    expect(array_column($protected['items'], 'title'))->toBe(['Rapporto economico · EUR', 'Rapporto economico · USD']);
     movementConfirm($this, $preview)->assertUnprocessable();
-    expect($ordinary->fresh()->tracked_item_id)->toBe($this->source->id)->and($bank->fresh()->tracked_item_id)->toBe($this->source->id);
+    expect(movementProtectedSnapshot())->toEqual($before)->and(DB::table('tracked_item_transaction_moves')->count())->toBe(0);
+});
+
+test('movement choices disclose slugs only for same catalog homonyms', function () {
+    $this->source->update(['name' => 'Emanuela Barbarulo']);
+    $this->target->update(['name' => 'Emanuela Barbarulo']);
+    $unique = TrackedItem::create(['user_id' => $this->actor->id, 'name' => 'Corso inglese', 'slug' => 'hide-this-slug', 'is_active' => true]);
+    $items = collect($this->getJson(route('tracked-items.movements.options'))->assertSuccessful()->json('items'))->keyBy('value');
+    expect($items[$this->source->uuid]['disambiguation'])->toBe('source')->and($items[$this->target->uuid]['disambiguation'])->toBe('target')
+        ->and($items[$unique->uuid])->not->toHaveKey('disambiguation');
+});
+
+function movementProtectedSnapshot(): array
+{
+    return collect(['accounts', 'tracked_items', 'tracked_item_aliases', 'credit_debt_items', 'credit_debt_payments', 'shared_expense_ledger_entries', 'shared_expense_settlements', 'recurring_entries', 'transaction_templates', 'counterparty_relations', 'counterparty_obligations', 'counterparty_source_links', 'counterparty_ledger_entries', 'counterparty_payments', 'counterparty_allocation_entries', 'counterparty_operations', 'counterparty_sync_issues'])->mapWithKeys(fn (string $table): array => [$table => DB::table($table)->orderBy('id')->get()->all()])->all();
+}
+
+test('resolved diagnostics do not block moves while unresolved diagnostics require review', function (bool $resolved) {
+    $transaction = userTransaction($this->actor, $this->account, ['tracked_item_id' => $this->source->id]);
+    $issue = CounterpartySyncIssue::create(['user_id' => $this->actor->id, 'counterparty_id' => $this->source->id, 'currency_code' => 'EUR', 'source_type' => 'shared_transaction_share', 'source_identity' => $transaction->uuid, 'message' => 'Diagnostica conservata', 'resolved_at' => $resolved ? now() : null]);
+    $before = $issue->fresh()->getRawOriginal();
+    $preview = movementPreview($this);
+    if ($resolved) {
+        expect($preview['block_reason'])->toBeNull();
+        movementConfirm($this, $preview)->assertSuccessful();
+        $before['counterparty_id'] = $this->target->id;
+        expect($issue->fresh()->getRawOriginal())->toBe($before);
+        $move = DB::table('tracked_item_transaction_moves')->sole();
+        $this->postJson(route('tracked-items.movements.restore', $move->uuid), ['confirmed' => true])->assertSuccessful();
+        expect($issue->fresh()->counterparty_id)->toBe($this->source->id);
+    } else {
+        expect($preview['block_reason'])->toContain('ancora aperta');
+        movementConfirm($this, $preview)->assertUnprocessable();
+        expect($issue->fresh()->getRawOriginal())->toBe($before)->and($transaction->fresh()->tracked_item_id)->toBe($this->source->id);
+    }
+})->with([true, false]);
+
+test('future plans may select a destination with an economic relation without moving that relation', function () {
+    $relation = app(CounterpartyLedgerService::class)->relation($this->actor, $this->target, 'EUR');
+    $plan = RecurringEntry::create(['user_id' => $this->actor->id, 'account_id' => $this->account->id, 'title' => 'Nuova scadenza indipendente', 'direction' => 'expense', 'currency' => 'EUR', 'entry_type' => 'recurring', 'status' => 'active', 'start_date' => '2026-11-01', 'recurrence_type' => 'monthly', 'expected_amount' => 100, 'shared_expense_counterparty_id' => $this->source->id]);
+    $economic = $relation->fresh()->getRawOriginal();
+    $preview = movementPreview($this);
+    expect($preview['block_reason'])->toBeNull();
+    movementConfirm($this, $preview)->assertSuccessful();
+    expect($plan->fresh()->shared_expense_counterparty_id)->toBe($this->target->id)->and($relation->fresh()->getRawOriginal())->toBe($economic);
 });

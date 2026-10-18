@@ -100,15 +100,11 @@ test('incompatible state changes block the entire restore', function (string $ch
     if ($change === 'inactive source') {
         $this->source->update(['is_active' => false]);
     }
-    if ($change === 'payment') {
-        $debt = CreditDebtItem::factory()->forAccount($this->account)->create(['reference_id' => $this->source->id, 'counterparty_id' => $this->source->id]);
-        CreditDebtPayment::create(['user_id' => $this->actor->id, 'credit_debt_item_id' => $debt->id, 'transaction_id' => $second->id, 'account_id' => $this->account->id, 'currency_code' => 'EUR', 'amount' => 10, 'paid_at' => '2026-10-01']);
-    }
     $before = DB::table('transactions')->orderBy('id')->get()->all();
     restoreTransactionMove($this, $move)->assertUnprocessable();
     expect(DB::table('transactions')->orderBy('id')->get()->all())->toEqual($before)->and(DB::table('tracked_item_transaction_moves')->first()->restored_at)->toBeNull();
     $this->getJson(route('tracked-items.movements.history'))->assertSuccessful()->assertJsonPath('data.0.can_restore', false);
-})->with(['amount', 'reference', 'deleted', 'missing', 'inactive source', 'payment']);
+})->with(['amount', 'reference', 'deleted', 'missing', 'inactive source']);
 
 test('restore requires explicit consent and enforces the exact thirty day deadline', function (int $days, bool $allowed) {
     $move = registerTransactionMove($this);
@@ -237,4 +233,13 @@ test('deleted references appear only among non restorable moves with an explicit
     expect($response->json('data.0.block_reason'))->toContain('origine', 'Origine', 'eliminato', 'entrambi i riferimenti originali');
     $this->getJson($url.'?status=restored')->assertOk()->assertJsonCount(0, 'data');
     expect($this->transaction->fresh()->tracked_item_id)->toBe($this->target->id);
+});
+
+test('restoring only descriptive references preserves payments linked after the move', function () {
+    $move = registerTransactionMove($this);
+    $debt = CreditDebtItem::factory()->forAccount($this->account)->create(['reference_id' => $this->target->id, 'counterparty_id' => $this->target->id]);
+    CreditDebtPayment::create(['user_id' => $this->actor->id, 'credit_debt_item_id' => $debt->id, 'transaction_id' => $this->transaction->id, 'account_id' => $this->account->id, 'currency_code' => 'EUR', 'amount' => 10, 'paid_at' => '2026-10-01']);
+    $before = referenceEconomicSnapshot();
+    restoreTransactionMove($this, $move)->assertSuccessful();
+    expect($this->transaction->fresh()->tracked_item_id)->toBe($this->source->id)->and(referenceEconomicSnapshot())->toEqual($before);
 });

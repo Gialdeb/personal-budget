@@ -6,11 +6,9 @@ use App\Models\Account;
 use App\Models\AccountMembership;
 use App\Models\Category;
 use App\Models\TrackedItem;
-use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
-use App\Services\Transactions\TransactionMutationService;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
@@ -50,12 +48,16 @@ class MoveTrackedItemMovementsService
             $query->ownedBy($actor->id)->orWhereIn('account_id', $this->accounts->editable($actor)->pluck('accounts.id'));
         })->get()->keyBy('id');
 
-        return $items->filter(fn (TrackedItem $item): bool => $item->is_active && $item->identityAlias === null)->values()->map(function (TrackedItem $item) use ($byId, $categories): array {
+        $available = $items->filter(fn (TrackedItem $item): bool => $item->is_active && $item->identityAlias === null)->values();
+        $names = $available->countBy(fn (TrackedItem $item): string => ($item->account_id ?? 'personal').':'.TrackedItemResolver::normalizeName($item->name));
+
+        return $available->map(function (TrackedItem $item) use ($byId, $categories, $names): array {
             return [
                 'value' => $item->uuid,
                 'label' => $item->name,
                 'full_path' => $this->hierarchyPath($item, $byId).' · '.($item->compatibleCategories->map(fn (Category $category): string => $this->hierarchyPath($category, $categories))->join(', ') ?: 'Senza categoria'),
                 'catalog' => $item->account_id === null ? 'personal' : (string) $item->account_id,
+                ...($names[($item->account_id ?? 'personal').':'.TrackedItemResolver::normalizeName($item->name)] > 1 ? ['disambiguation' => $item->slug] : []),
             ];
         })->all();
     }
@@ -306,11 +308,6 @@ class MoveTrackedItemMovementsService
             }
             if ($this->categories->findTrackedItemForAccount($accounts->get($row->account_id), $destination->id) === null) {
                 $this->invalid('Il riferimento di destinazione non è compatibile con uno dei conti interessati.');
-            }
-            $transaction = Transaction::withTrashed()->findOrFail($row->id);
-            app(TransactionMutationService::class)->ensureNoLinkedObligation($transaction);
-            if (DB::table('counterparty_payments')->where('transaction_id', $row->id)->exists()) {
-                $this->invalid('Un documento di pagamento è protetto. Nessuna transazione è stata modificata.');
             }
         }
     }

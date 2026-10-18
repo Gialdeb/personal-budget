@@ -109,10 +109,13 @@ class TrackedItemMovementGraph
     /** @param array<string, Collection<int, object>> $sets */
     public function blockReason(TrackedItem $source, TrackedItem $destination, array $sets, bool $lock = false): ?string
     {
-        foreach (['shared_expense_settlements', 'counterparty_relations', 'counterparty_sync_issues'] as $table) {
+        foreach (['shared_expense_settlements' => 'regolazioni già registrate', 'counterparty_relations' => 'rapporti economici con una controparte e una valuta proprie'] as $table => $description) {
             if ($sets[$table]->isNotEmpty()) {
-                return 'Il riferimento ha regolazioni, rapporti o segnalazioni economiche protette: non è possibile spostare tutti i collegamenti senza alterare lo storico economico.';
+                return 'Il riferimento di origine ha '.$sets[$table]->count().' '.$description.'. Spostarli cambierebbe la controparte dello storico economico, che deve restare invariata. L’intera operazione è bloccata per evitare uno spostamento parziale.';
             }
+        }
+        if ($sets['counterparty_sync_issues']->contains(fn (object $row): bool => $row->resolved_at === null)) {
+            return 'Una segnalazione di sincronizzazione è ancora aperta. Verifica il problema indicato nella gestione della controparte prima di spostare i collegamenti. Non è un blocco dello storico immutabile.';
         }
         if ($sets['tracked_item_aliases']->isNotEmpty() || $sets['tracked_items']->isNotEmpty()) {
             return 'Il riferimento ha alias permanenti o riferimenti figli: risolvi prima questi collegamenti. Nessuna modifica verrà applicata.';
@@ -125,7 +128,8 @@ class TrackedItemMovementGraph
             if ($shared && (! $destination->is_shared_expense_counterpart || $destination->account_id !== null)) {
                 return 'La destinazione deve essere una controparte personale abilitata alle spese condivise.';
             }
-            $economic = $shared || $sets['credit_debt_items']->isNotEmpty();
+            $economic = $sets['transactions']->contains('shared_expense_counterparty_id', $source->id)
+                || $sets['shared_expense_ledger_entries']->isNotEmpty() || $sets['credit_debt_items']->isNotEmpty();
             if ($economic && DB::table('counterparty_relations')->whereIn('counterparty_id', [$source->id, $destination->id])->exists()) {
                 return 'La destinazione ha un rapporto economico protetto: lo spostamento richiederebbe una rettifica del ledger.';
             }
@@ -153,9 +157,11 @@ class TrackedItemMovementGraph
             }
             foreach ($sets['transactions'] as $row) {
                 $transaction = Transaction::withTrashed()->findOrFail($row->id);
-                app(TransactionMutationService::class)->ensureNoLinkedObligation($transaction);
-                if (DB::table('counterparty_payments')->where('transaction_id', $row->id)->exists()) {
-                    return 'Un documento di pagamento è protetto: nessun collegamento verrà spostato.';
+                if ((int) $row->shared_expense_counterparty_id === $source->id) {
+                    app(TransactionMutationService::class)->ensureNoLinkedObligation($transaction);
+                    if (DB::table('counterparty_payments')->where('transaction_id', $row->id)->exists()) {
+                        return 'Questo pagamento conserva la controparte economica originale: non è possibile spostarla insieme agli altri collegamenti.';
+                    }
                 }
             }
             foreach ($sets['credit_debt_items'] as $row) {
@@ -195,7 +201,7 @@ class TrackedItemMovementGraph
      */
     public function groups(array $sets): array
     {
-        $labels = ['import_rows' => 'Importazioni in attesa', 'transactions' => 'Transazioni', 'recurring_entries' => 'Ricorrenze e piani', 'shared' => 'Spese condivise', 'scheduled_entries' => 'Movimenti pianificati', 'budgets' => 'Budget', 'transaction_templates' => 'Template', 'credit_debt_items' => 'Crediti e debiti', 'protected' => 'Collegamenti protetti'];
+        $labels = ['import_rows' => 'Importazioni in attesa', 'transactions' => 'Transazioni', 'recurring_entries' => 'Ricorrenze e piani', 'shared' => 'Spese condivise', 'scheduled_entries' => 'Movimenti pianificati', 'budgets' => 'Budget', 'transaction_templates' => 'Template', 'credit_debt_items' => 'Crediti e debiti', 'diagnostics' => 'Segnalazioni di sincronizzazione', 'protected' => 'Collegamenti protetti'];
         $groups = [];
         foreach ($labels as $key => $label) {
             $groups[$key] = ['key' => $key, 'label' => $label, 'count' => 0, 'items' => []];
@@ -205,10 +211,16 @@ class TrackedItemMovementGraph
                 $key = match ($table) {
                     'shared_expense_ledger_entries' => 'shared',
                     'transactions' => $row->shared_expense_counterparty_id !== null ? 'shared' : 'transactions',
-                    'shared_expense_settlements', 'counterparty_relations', 'counterparty_sync_issues', 'tracked_items', 'tracked_item_aliases' => 'protected',
+                    'shared_expense_settlements', 'counterparty_relations', 'tracked_items', 'tracked_item_aliases' => 'protected',
+                    'counterparty_sync_issues' => 'diagnostics',
                     default => $table,
                 };
-                $groups[$key]['items'][] = ['key' => $table.':'.$row->id, 'title' => $row->description ?? $row->title ?? $row->name ?? $row->raw_description ?? $labels[$key],
+                $groups[$key]['items'][] = ['key' => $table.':'.$row->id, 'title' => match ($table) {
+                    'counterparty_relations' => 'Rapporto economico · '.$row->currency_code,
+                    'shared_expense_settlements' => 'Regolazione registrata',
+                    'counterparty_sync_issues' => $row->resolved_at === null ? 'Segnalazione da verificare' : 'Segnalazione già risolta',
+                    default => $row->description ?? $row->title ?? $row->name ?? $row->raw_description ?? $labels[$key],
+                },
                     'date' => $row->transaction_date ?? $row->entry_date ?? $row->start_date ?? $row->scheduled_date ?? $row->due_date ?? null,
                     'archived' => ($row->deleted_at ?? null) !== null];
                 $groups[$key]['count']++;

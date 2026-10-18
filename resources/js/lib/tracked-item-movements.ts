@@ -4,6 +4,7 @@ export type MovementOption = {
     value: string;
     label: string;
     full_path: string;
+    disambiguation?: string;
     catalog: string;
 };
 export type MovementGroup = {

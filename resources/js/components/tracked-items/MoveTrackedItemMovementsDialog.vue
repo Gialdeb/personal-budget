@@ -50,6 +50,9 @@ const error = ref('');
 const result = ref('');
 let revision = 0;
 const sourceUuid = computed(() => props.source?.uuid ?? '');
+const sourceOption = computed(() =>
+    options.value.find((option) => option.value === sourceUuid.value),
+);
 const destinations = computed(() =>
     movementDestinations(options.value, sourceUuid.value),
 );
@@ -232,6 +235,12 @@ async function move(): Promise<void> {
                     >
                         {{ source.full_path }}
                     </p>
+                    <p
+                        v-if="sourceOption?.disambiguation"
+                        class="mt-1 text-xs break-words text-muted-foreground"
+                    >
+                        {{ sourceOption.disambiguation }}
+                    </p>
                 </div>
                 <template v-if="!result">
                     <ArrowDown
@@ -291,6 +300,11 @@ async function move(): Promise<void> {
                                         class="mt-0.5 block text-xs break-words text-muted-foreground"
                                         >{{ item.full_path }}</span
                                     >
+                                    <span
+                                        v-if="item.disambiguation"
+                                        class="mt-0.5 block text-xs break-words text-muted-foreground"
+                                        >{{ item.disambiguation }}</span
+                                    >
                                 </span>
                                 <Check
                                     v-if="destination === item.value"
@@ -337,9 +351,11 @@ async function move(): Promise<void> {
                             Cambiano soltanto i riferimenti. Nomi, descrizioni,
                             importi e date restano invariati. Le ricorrenze
                             useranno la destinazione anche per i prossimi
-                            movimenti. Il ripristino entro 30 giorni riguarda
-                            solo i record di questa operazione; quelli creati
-                            dopo restano invariati.
+                            movimenti. Il solo riferimento descrittivo di un
+                            pagamento può cambiare; la controparte del pagamento
+                            resta invariata. Il ripristino entro 30 giorni
+                            riguarda solo i record di questa operazione; quelli
+                            creati dopo restano invariati.
                         </p>
                         <section
                             v-for="group in preview.groups"
