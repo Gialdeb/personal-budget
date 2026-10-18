@@ -1,4 +1,5 @@
 import { onBeforeUnmount, onMounted, readonly, ref } from 'vue';
+import { startPwaNetwork } from '@/lib/pwa-network';
 
 const PWA_ENABLED_SELECTOR = 'meta[name="soamco-pwa-enabled"]';
 const PWA_DEBUG_SELECTOR = 'meta[name="soamco-pwa-debug"]';
@@ -9,6 +10,8 @@ const CACHE_PREFIX = 'soamco-budget-';
 
 const isEnabled = ref(false);
 const isOffline = ref(false);
+const connectionIssue = ref<'network' | 'server' | null>(null);
+let stopNetwork: (() => void) | null = null;
 const isUpdateReady = ref(false);
 const isApplyingUpdate = ref(false);
 const installPromptEvent = ref<BeforeInstallPromptEvent | null>(null);
@@ -24,7 +27,6 @@ let isInitialized = false;
 let mountedConsumers = 0;
 let updateCheckInterval: ReturnType<typeof window.setInterval> | null = null;
 let onlineHandler: (() => void) | null = null;
-let offlineHandler: (() => void) | null = null;
 let visibilityHandler: (() => void) | null = null;
 let controllerChangeHandler: (() => void) | null = null;
 let beforeInstallPromptHandler:
@@ -251,19 +253,10 @@ function attachGlobalListeners(): void {
 
     if (onlineHandler === null) {
         onlineHandler = () => {
-            isOffline.value = false;
             void checkForUpdates();
         };
 
         window.addEventListener('online', onlineHandler);
-    }
-
-    if (offlineHandler === null) {
-        offlineHandler = () => {
-            isOffline.value = true;
-        };
-
-        window.addEventListener('offline', offlineHandler);
     }
 
     if (visibilityHandler === null) {
@@ -316,11 +309,6 @@ function detachGlobalListeners(): void {
     if (onlineHandler) {
         window.removeEventListener('online', onlineHandler);
         onlineHandler = null;
-    }
-
-    if (offlineHandler) {
-        window.removeEventListener('offline', offlineHandler);
-        offlineHandler = null;
     }
 
     if (visibilityHandler) {
@@ -393,6 +381,14 @@ async function initializePwa(): Promise<void> {
         typeof navigator !== 'undefined' ? !navigator.onLine : false;
     refreshInstallState();
 
+    if (isEnabled.value && stopNetwork === null) {
+        stopNetwork = startPwaNetwork((state) => {
+            isOffline.value = state === 'offline';
+            connectionIssue.value =
+                state === 'server' || state === 'network' ? state : null;
+        });
+    }
+
     if (!supportsServiceWorker()) {
         return;
     }
@@ -433,7 +429,11 @@ export function usePwa() {
 
         if (!isInitialized) {
             isInitialized = true;
-            void initializePwa();
+            void initializePwa().catch(() => {
+                debugInstallFlow(
+                    'Service worker registration deferred until the next launch.',
+                );
+            });
         }
     });
 
@@ -442,6 +442,9 @@ export function usePwa() {
 
         if (mountedConsumers === 0) {
             detachGlobalListeners();
+            stopNetwork?.();
+            stopNetwork = null;
+            isInitialized = false;
         }
     });
 
@@ -525,6 +528,9 @@ export function usePwa() {
     return {
         isEnabled: readonly(isEnabled),
         isOffline: readonly(isOffline),
+        connectionIssue: readonly(connectionIssue),
+        retryNetwork: () =>
+            window.dispatchEvent(new Event('soamco:retry-network')),
         isUpdateReady: readonly(isUpdateReady),
         isApplyingUpdate: readonly(isApplyingUpdate),
         installState: readonly(installState),

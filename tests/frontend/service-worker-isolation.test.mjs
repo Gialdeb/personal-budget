@@ -33,23 +33,42 @@ const script = source
     .replace(/'{{ \$config\['version'\] }}'/g, "'security-test'")
     .replace(/'{{ \$config\['offline_url'\] }}'/g, "'/offline.html'");
 
-function worker(fetcher) {
+function worker(
+    fetcher,
+    { offline = false, sdkFailure = false, timeout = false } = {},
+) {
     const listeners = {};
     const cacheReads = [];
     const cacheWrites = [];
     const context = {
-        firebase: {
-            initializeApp() {},
-            messaging: () => ({ onBackgroundMessage() {} }),
-        },
+        firebase: sdkFailure
+            ? undefined
+            : {
+                  initializeApp() {},
+                  messaging: () => ({ onBackgroundMessage() {} }),
+              },
         URL,
+        AbortController,
+        setTimeout: timeout
+            ? (callback) => {
+                  queueMicrotask(callback);
+
+                  return 1;
+              }
+            : setTimeout,
+        clearTimeout,
         Request,
         Response,
         console,
         self: {
+            navigator: { onLine: !offline },
             location: new URL('https://security.test/service-worker.js'),
             registration: {},
-            importScripts() {},
+            importScripts() {
+                if (sdkFailure) {
+                    throw new Error('CDN unreachable');
+                }
+            },
             addEventListener: (name, callback) => {
                 listeners[name] = callback;
             },
@@ -72,7 +91,13 @@ function worker(fetcher) {
             }),
         },
     };
-    runInNewContext(script, context);
+    const workerScript = sdkFailure
+        ? script.replace(
+              '"firebase_messaging":null',
+              '"firebase_messaging":{"apiKey":"test","projectId":"test","appId":"test","messagingSenderId":"test"}',
+          )
+        : script;
+    runInNewContext(workerScript, context);
 
     return { context, listeners, cacheReads, cacheWrites };
 }
@@ -123,7 +148,7 @@ test('maintenance keeps its 503 response instead of falling back to cached accou
         request: new Request('https://security.test/dashboard'),
     });
     assert.equal(response.status, 503);
-    assert.equal(await response.text(), 'Maintenance');
+    assert.match(await response.text(), /data-network-state="server"/);
     assert.equal(h.cacheReads.length, 0);
 });
 
@@ -196,4 +221,61 @@ test('one unavailable precache asset does not abort worker installation', async 
     await installation;
     assert.equal(activated, true);
     assert.equal(h.cacheWrites.length, 0);
+});
+
+test('unavailable optional Firebase SDK cannot prevent offline navigation', async () => {
+    const h = worker(
+        async () => {
+            throw new Error('offline');
+        },
+        { sdkFailure: true },
+    );
+    assert.equal(typeof h.listeners.fetch, 'function');
+    const response = await h.context.handleNavigationRequest({
+        request: new Request('https://security.test/dashboard'),
+    });
+    assert.match(await response.text(), /data-network-state="network"/);
+    assert.deepEqual(h.cacheWrites, []);
+});
+
+test('known offline navigation is immediate and never attempts the network', async () => {
+    const h = worker(
+        () => {
+            assert.fail('Offline startup must not wait for a network request');
+        },
+        { offline: true, sdkFailure: true },
+    );
+    const response = await h.context.handleNavigationRequest({
+        request: new Request('https://security.test/dashboard'),
+    });
+    assert.match(await response.text(), /data-network-state="offline"/);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+});
+
+test('a stalled navigation is aborted and shows a neutral network fallback', async () => {
+    let signal;
+    const h = worker(
+        (request) => {
+            signal = request.signal;
+
+            return new Promise(() => {});
+        },
+        { timeout: true },
+    );
+    const response = await h.context.handleNavigationRequest({
+        request: new Request('https://security.test/dashboard'),
+    });
+    assert.equal(signal.aborted, true);
+    assert.match(await response.text(), /data-network-state="network"/);
+    assert.deepEqual(h.cacheReads, []);
+});
+
+test('server failures retain a different explanation from offline connectivity', async () => {
+    const h = worker(async () => new Response('', { status: 502 }));
+    const response = await h.context.handleNavigationRequest({
+        request: new Request('https://security.test/dashboard'),
+    });
+    assert.match(await response.text(), /data-network-state="server"/);
+    assert.deepEqual(h.cacheWrites, []);
+    assert.equal(h.context.hasValidFirebaseConfig({}), false);
 });

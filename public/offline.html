@@ -147,17 +147,63 @@
             </button>
         </main>
         <script>
-            if (!navigator.language.startsWith('it')) {
-                document.documentElement.lang = 'en';
-                document.querySelector('#title').textContent =
-                    'You are offline';
-                document.querySelector('#message').textContent =
-                    'We cannot verify your session until the connection returns.';
-                document.querySelector('#retry').textContent = 'Retry';
-            }
-            window.addEventListener('online', () =>
-                window.parent.location.reload(),
-            );
+            (() => {
+                const italian = navigator.language.startsWith('it');
+                const kind =
+                    document.documentElement.dataset.networkState || 'offline';
+                document.documentElement.lang = italian ? 'it' : 'en';
+                const server = kind === 'server';
+                document.querySelector('#title').textContent = server
+                    ? italian
+                        ? 'Servizio temporaneamente non disponibile'
+                        : 'Service temporarily unavailable'
+                    : italian
+                      ? 'Connessione non disponibile'
+                      : 'You are offline';
+                document.querySelector('#message').textContent = server
+                    ? italian
+                        ? 'Soamco non risponde correttamente. Riproveremo automaticamente tra poco.'
+                        : 'Soamco is not responding correctly. We will retry shortly.'
+                    : italian
+                      ? 'Controlla la connessione. Riapriremo la pagina appena sarà raggiungibile. Nessun dato viene salvato offline.'
+                      : 'Check your connection. The page will reopen when reachable. Nothing is saved offline.';
+                document.querySelector('#retry').textContent = italian
+                    ? 'Riprova'
+                    : 'Retry';
+                let checking = false;
+                async function retry() {
+                    if (checking || navigator.onLine === false) return;
+                    checking = true;
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 5000);
+                    try {
+                        const response = await fetch(
+                            window.parent.location.href,
+                            {
+                                cache: 'no-store',
+                                credentials: 'same-origin',
+                                signal: controller.signal,
+                                headers: { Accept: 'text/html' },
+                            },
+                        );
+                        if (response.ok) window.parent.location.reload();
+                    } catch {
+                        /* Keep the neutral screen visible until the next attempt. */
+                    } finally {
+                        clearTimeout(timer);
+                        checking = false;
+                    }
+                }
+                document.querySelector('#retry').onclick = () => {
+                    void retry();
+                };
+                window.addEventListener('online', () => {
+                    void retry();
+                });
+                setInterval(() => {
+                    if (!document.hidden) void retry();
+                }, 10000);
+            })();
         </script>
     </body>
 </html>

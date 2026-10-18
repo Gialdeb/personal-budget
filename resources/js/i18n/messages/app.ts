@@ -294,10 +294,21 @@ export const appMessages = {
             },
         },
         pwa: {
+            retry: 'Riprova',
+            network: {
+                title: 'Connessione instabile',
+                description:
+                    'Non riusciamo a raggiungere Soamco. La pagina resta visibile; verificheremo automaticamente la connessione.',
+            },
+            server: {
+                title: 'Servizio temporaneamente non disponibile',
+                description:
+                    'La rete è disponibile, ma Soamco non risponde correttamente. La pagina resta visibile; riproveremo automaticamente.',
+            },
             offline: {
                 title: 'Sei offline',
                 description:
-                    "L'interfaccia già caricata resta disponibile, ma per sincronizzare dati e novità serve di nuovo la connessione.",
+                    'La pagina già aperta resta visibile. Riconnettiti prima di salvare o caricare nuovi dati.',
             },
             update: {
                 title: 'Nuova versione disponibile',
@@ -603,10 +614,21 @@ export const appMessages = {
             },
         },
         pwa: {
+            retry: 'Retry',
+            network: {
+                title: 'Unstable connection',
+                description:
+                    'We cannot reach Soamco. The page stays visible; connectivity will be checked automatically.',
+            },
+            server: {
+                title: 'Service temporarily unavailable',
+                description:
+                    'Your network is available, but Soamco is not responding correctly. The page stays visible; we will retry automatically.',
+            },
             offline: {
                 title: 'You are offline',
                 description:
-                    'The loaded interface is still available, but reconnect to sync fresh data and new releases.',
+                    'The current page stays visible. Reconnect before saving or loading new data.',
             },
             update: {
                 title: 'A new version is ready',

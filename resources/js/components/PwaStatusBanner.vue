@@ -6,8 +6,15 @@ import { Button } from '@/components/ui/button';
 import { usePwa } from '@/composables/usePwa';
 
 const { t } = useI18n();
-const { isEnabled, isOffline, isUpdateReady, isApplyingUpdate, applyUpdate } =
-    usePwa();
+const {
+    isEnabled,
+    isOffline,
+    connectionIssue,
+    retryNetwork,
+    isUpdateReady,
+    isApplyingUpdate,
+    applyUpdate,
+} = usePwa();
 </script>
 
 <template>
@@ -41,13 +48,28 @@ const { isEnabled, isOffline, isUpdateReady, isApplyingUpdate, applyUpdate } =
         </Alert>
 
         <Alert
-            v-if="isOffline"
+            v-if="isOffline || connectionIssue"
             class="pointer-events-auto w-full max-w-2xl border-amber-200 bg-amber-50/95 text-amber-950 shadow-lg shadow-amber-900/10 backdrop-blur dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-50"
         >
             <WifiOff class="size-4" />
-            <AlertTitle>{{ t('app.pwa.offline.title') }}</AlertTitle>
+            <AlertTitle>{{
+                t(`app.pwa.${isOffline ? 'offline' : connectionIssue}.title`)
+            }}</AlertTitle>
             <AlertDescription>
-                {{ t('app.pwa.offline.description') }}
+                <p>
+                    {{
+                        t(
+                            `app.pwa.${isOffline ? 'offline' : connectionIssue}.description`,
+                        )
+                    }}
+                </p>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    class="mt-2"
+                    @click="retryNetwork"
+                    >{{ t('app.pwa.retry') }}</Button
+                >
             </AlertDescription>
         </Alert>
     </div>

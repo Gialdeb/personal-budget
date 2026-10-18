@@ -146,13 +146,15 @@ test('startup fallback appears only on failure, clears on mount, and does not re
         /<script>\s*(\(\(\) => \{\s*const shell =[\s\S]*?)<\/script>/,
     )[1];
 
-    for (const trigger of ['ready', 'error']) {
+    for (const trigger of ['ready', 'error', 'timeout', 'offline']) {
         const loading = { hidden: false };
         const error = { hidden: true };
         const listeners = new Map();
         let removed = false;
+        let timeout;
         runInNewContext(script, {
             document: {
+                documentElement: { lang: 'it' },
                 getElementById: () => ({
                     querySelector: (selector) =>
                         selector.includes('loading') ? loading : error,
@@ -161,8 +163,15 @@ test('startup fallback appears only on failure, clears on mount, and does not re
                     },
                 }),
             },
+            navigator: { onLine: trigger !== 'offline' },
             performance: { mark: () => {} },
             window: {
+                setTimeout: (callback) => {
+                    timeout = callback;
+
+                    return 1;
+                },
+                clearTimeout() {},
                 addEventListener: (name, fn) => listeners.set(name, fn),
                 removeEventListener: (name) => listeners.delete(name),
             },
@@ -170,15 +179,22 @@ test('startup fallback appears only on failure, clears on mount, and does not re
                 assert.fail('Slow loading is not a bootstrap failure'),
         });
         assert.equal(removed, false);
-        assert.equal(error.hidden, true);
+        assert.equal(error.hidden, trigger !== 'offline');
 
         if (trigger !== 'ready') {
-            listeners.get('soamco:startup-error')();
+            if (trigger === 'timeout') {
+                timeout();
+            } else {
+                listeners.get('soamco:startup-error')();
+            }
+
             assert.equal(error.hidden, false);
             assert.equal(loading.hidden, true);
         }
 
         listeners.get('soamco:ready')();
+        assert.equal(removed, true);
+        timeout();
         assert.equal(removed, true);
         assert.equal(listeners.has('soamco:startup-error'), false);
         assert.equal(listeners.has('visibilitychange'), false);
@@ -248,7 +264,7 @@ test('service worker registration keeps a stable path and controlled update flow
 });
 
 test('banner copy covers offline state and update refresh UX', () => {
-    assert.match(pwaBannerSource, /app\.pwa\.offline\.title/);
+    assert.match(pwaBannerSource, /isOffline \? 'offline' : connectionIssue/);
     assert.match(pwaBannerSource, /app\.pwa\.update\.title/);
     assert.match(pwaBannerSource, /applyUpdate/);
 });

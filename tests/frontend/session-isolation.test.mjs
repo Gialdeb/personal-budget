@@ -18,6 +18,7 @@ function harness(userUuid) {
     const state = { hidden: true, reloads: 0, uuid: userUuid, requests: [] };
     const scope = {
         AbortController,
+        Event,
         navigator: { onLine: true },
         document: {
             getElementById: () => null,
@@ -36,6 +37,9 @@ function harness(userUuid) {
             },
         },
         window: {
+            dispatchEvent: (event) => {
+                events[event.type]?.(event);
+            },
             addEventListener: (name, callback) => {
                 events[name] = callback;
             },
@@ -94,12 +98,13 @@ test('a cached admin payload is concealed when the real session belongs to A', a
     assert.equal(h.state.requests[0].options.cache, 'no-store');
 });
 
-test('offline and browser history conceal private data until session revalidation', async () => {
+test('offline retains the verified page but browser history still requires session revalidation', async () => {
     const h = harness('user-A');
     assert.equal(await h.initialize('user-A'), true);
     h.events.offline();
-    assert.equal(h.state.hidden, true);
+    assert.equal(h.state.hidden, false);
     h.events.pagehide();
+    assert.equal(h.state.hidden, true);
     h.state.uuid = 'user-B';
     h.events.pageshow({ persisted: true });
     await new Promise((resolve) => setImmediate(resolve));
@@ -177,10 +182,10 @@ test('offline aborts an ongoing check so it cannot reveal the UI later', async (
     h.events.offline();
     resolve({ ok: true, status: 200, json: async () => ({ user_uuid: 'A' }) });
     await new Promise((done) => setImmediate(done));
-    assert.equal(h.state.hidden, true);
+    assert.equal(h.state.hidden, false);
 });
 
-for (const status of [401, 419, 503]) {
+for (const status of [401, 419]) {
     test(`status ${status} reloads without revealing private content`, async () => {
         const h = harness('A');
         h.scope.fetch = async () => ({ ok: false, status });
@@ -220,7 +225,10 @@ test('an online server error shows a neutral retry instead of claiming offline',
     await h.initialize('A');
     assert.equal(h.state.hidden, true);
     assert.equal(nodes[2].textContent, 'Riprova');
-    assert.match(nodes[1].textContent, /caricare la pagina/);
+    assert.match(
+        nodes[1].textContent,
+        /servizio è temporaneamente non disponibile/,
+    );
     assert.doesNotMatch(nodes[1].textContent, /sessione/i);
     assert.equal(h.state.reloads, 0);
 });
@@ -292,4 +300,46 @@ test('guest login does not depend on identity fetch even offline or during ident
     await h.initialize(null);
     assert.equal(calls, 0);
     assert.equal(h.state.hidden, false);
+});
+
+test('a temporary server failure never reloads into a loop or reveals an unverified session', async () => {
+    const h = harness('A');
+    h.scope.fetch = async () => ({ ok: false, status: 503 });
+    await h.initialize('A');
+    assert.equal(h.state.hidden, true);
+    assert.equal(h.state.reloads, 0);
+    h.scope.fetch = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ user_uuid: 'A' }),
+    });
+    h.events['soamco:network-restored']();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.state.hidden, false);
+});
+
+test('network recovery cannot reveal an account changed while offline', async () => {
+    const h = harness('A');
+    await h.initialize('A');
+    h.events.offline();
+    assert.equal(h.state.hidden, false);
+    h.events.storage({ key: 'soamco-session-change' });
+    assert.equal(h.state.hidden, true);
+    h.state.uuid = 'B';
+    h.events['soamco:network-restored']();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.state.hidden, true);
+    assert.equal(h.state.reloads, 1);
+});
+
+test('reconnection revalidates even a retained foreground page before trusting an expired session', async () => {
+    const h = harness('A');
+    await h.initialize('A');
+    h.events.offline();
+    assert.equal(h.state.hidden, false);
+    h.scope.fetch = async () => ({ ok: false, status: 401 });
+    h.events['soamco:network-restored']();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.state.hidden, true);
+    assert.equal(h.state.reloads, 1);
 });

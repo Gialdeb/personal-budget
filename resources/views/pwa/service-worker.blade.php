@@ -49,12 +49,14 @@ function pushSwWarn(message, context) {
     console.warn(message, context);
 }
 
-self.importScripts(
-    'https://www.gstatic.com/firebasejs/12.12.0/firebase-app-compat.js',
-);
-self.importScripts(
-    'https://www.gstatic.com/firebasejs/12.12.0/firebase-messaging-compat.js',
-);
+try {
+    if (self.navigator?.onLine !== false && hasValidFirebaseConfig(FIREBASE_MESSAGING_CONFIG ?? {})) {
+    self.importScripts('https://www.gstatic.com/firebasejs/12.12.0/firebase-app-compat.js');
+    self.importScripts('https://www.gstatic.com/firebasejs/12.12.0/firebase-messaging-compat.js');
+    }
+} catch (error) {
+    pushSwWarn('[push-sw] optional SDK unavailable; offline navigation remains active', error);
+}
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
@@ -160,14 +162,37 @@ function isStableImageRequest(request, pathname) {
     );
 }
 
+function unavailableNavigation(kind) {
+    const html = {!! \Illuminate\Support\Js::from(file_get_contents(public_path('offline.html'))) !!};
+
+    return new Response(html.replace('<html lang="it">', `<html lang="it" data-network-state="${kind}">`), {
+        status: 503,
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
+}
+
 async function handleNavigationRequest(event) {
+    if (self.navigator?.onLine === false) {
+        return unavailableNavigation('offline');
+    }
+    const controller = new AbortController();
+    let timer;
     try {
-        return await fetch(new Request(event.request, { cache: 'no-store' }));
+        const response = await Promise.race([
+            fetch(new Request(event.request, { cache: 'no-store', signal: controller.signal })),
+            new Promise((_, reject) => {
+                timer = setTimeout(() => { controller.abort(); reject(new Error('Navigation timed out')); }, 8000);
+            }),
+        ]);
+        if (response.status >= 500 && !response.headers.has('Retry-After')) {
+            return unavailableNavigation('server');
+        }
+
+        return response;
     } catch {
-        return new Response({!! \Illuminate\Support\Js::from(file_get_contents(public_path('offline.html'))) !!}, {
-            status: 503,
-            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
-        });
+        return unavailableNavigation(self.navigator?.onLine === false ? 'offline' : 'network');
+    } finally {
+        clearTimeout(timer);
     }
 }
 
@@ -244,7 +269,7 @@ async function claimClientsWhenActive() {
 }
 
 function hasValidFirebaseConfig(config) {
-    return Object.values(config).every(
+    return Object.keys(config).length > 0 && Object.values(config).every(
         (value) => typeof value === 'string' && value !== '',
     );
 }
@@ -530,7 +555,7 @@ async function showNotificationFromPayload(payload, source) {
 }
 
 function initializeFirebaseMessaging(config) {
-    if (firebaseMessagingInitialized || !hasValidFirebaseConfig(config)) {
+    if (typeof firebase === 'undefined' || firebaseMessagingInitialized || !hasValidFirebaseConfig(config)) {
         pushSwInfo('[push-sw] firebase messaging init skipped', {
             firebaseMessagingInitialized,
             hasValidFirebaseConfig: hasValidFirebaseConfig(config),
@@ -616,4 +641,8 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-initializeFirebaseMessaging(FIREBASE_MESSAGING_CONFIG ?? {});
+try {
+    initializeFirebaseMessaging(FIREBASE_MESSAGING_CONFIG ?? {});
+} catch (error) {
+    pushSwWarn('[push-sw] optional messaging initialization skipped', error);
+}

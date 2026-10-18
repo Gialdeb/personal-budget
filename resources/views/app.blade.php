@@ -58,8 +58,8 @@
             }
 
             html[data-session-unverified] #app { visibility: hidden; }
-            html[data-session-unverified] body > :not(#session-state):not(template) { display: none !important; }
-            #session-state {position:fixed;inset:0;z-index:2147483647;display:grid;place-content:center;background:#faf9f7;color:#334155;text-align:center;font:16px system-ui;padding:24px;}
+            html[data-session-unverified] body > :not(#session-state):not(#soamco-startup):not(template) { display: none !important; }
+            #session-state {position:fixed;inset:0;z-index:2147483646;display:grid;place-content:center;background:#faf9f7;color:#334155;text-align:center;font:16px system-ui;padding:24px;}
             html.dark #session-state {background:#0f172a;color:#e2e8f0;}
             #session-state[hidden] {display:none;}
             .startup-indicator { width: 24px; height: 24px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; opacity: 0; animation: startup-appear 0s 180ms forwards, startup-spin 900ms linear infinite; }
@@ -76,7 +76,7 @@
             #soamco-startup {
                 position: fixed;
                 inset: 0;
-                z-index: 100;
+                z-index: 2147483647;
                 display: grid;
                 place-content: center;
                 justify-items: center;
@@ -88,6 +88,7 @@
                 text-align: center;
             }
             html.dark #soamco-startup { background: #0f172a; color: #e2e8f0; }
+            #soamco-startup [data-startup-brand] svg {width:64px;height:64px;}
             #soamco-startup img { width: 64px; height: 64px; border-radius: 16px; }
             #soamco-startup p { margin: 0; }
             #soamco-startup a { color: inherit; text-underline-offset: 4px; padding: 12px; }
@@ -151,6 +152,7 @@
     </head>
     <body class="font-sans antialiased">
         <div id="soamco-startup" role="status" aria-live="polite">
+            <div data-startup-brand aria-label="Soamco Budget">{!! file_get_contents(public_path('pwa/icon-source.svg')) !!}</div>
             <div data-startup-loading>
                 <span class="startup-indicator" style="display:block" aria-hidden="true"></span>
                 <span class="startup-label">{{ app()->getLocale() === 'it' ? 'Caricamento…' : 'Loading…' }}</span>
@@ -165,16 +167,35 @@
             (() => {
                 const shell = document.getElementById('soamco-startup');
                 performance.mark('soamco:shell');
+                let mounted = false;
                 const showFallback = () => {
+                    if (mounted) return;
+                    if (navigator.onLine === false) {
+                        shell.querySelector('[data-startup-error] p').textContent = document.documentElement.lang.startsWith('it')
+                            ? 'Connessione non disponibile. Controlla la rete e premi Riprova.'
+                            : 'You are offline. Check your connection and retry.';
+                    }
                     shell.querySelector('[data-startup-loading]').hidden = true;
                     shell.querySelector('[data-startup-error]').hidden = false;
                 };
+                const timeout = window.setTimeout(showFallback, 8000);
+                const online = () => { if (!mounted && !shell.querySelector('[data-startup-error]').hidden) window.location.reload(); };
+                const assetError = (event) => { if (event.target?.tagName === 'SCRIPT' || event.target?.tagName === 'LINK') showFallback(); };
                 const ready = () => {
+                    mounted = true;
+                    window.clearTimeout(timeout);
+                    window.removeEventListener('offline', showFallback);
+                    window.removeEventListener('online', online);
+                    window.removeEventListener('error', assetError, true);
                     window.removeEventListener('soamco:startup-error', showFallback);
                     shell.remove();
                 };
                 window.addEventListener('soamco:ready', ready, { once: true });
                 window.addEventListener('soamco:startup-error', showFallback);
+                window.addEventListener('offline', showFallback);
+                window.addEventListener('online', online);
+                window.addEventListener('error', assetError, true);
+                if (navigator.onLine === false) showFallback();
             })();
         </script>
         <div id="session-state" role="status" @if(!$requiresSessionVerification) hidden @endif><span class="startup-indicator" aria-hidden="true"></span><span class="startup-label">{{ app()->getLocale() === 'it' ? 'Caricamento…' : 'Loading…' }}</span></div>

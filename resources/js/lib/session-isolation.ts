@@ -11,9 +11,11 @@ export function initializeSessionIsolation(
     const root = document.documentElement;
     const state = document.getElementById('session-state');
     let generation = 0;
+    let verified = false;
     let controller: AbortController | null = null;
 
     const conceal = () => {
+        verified = false;
         root.setAttribute('data-session-unverified', '');
 
         if (state) {
@@ -21,6 +23,8 @@ export function initializeSessionIsolation(
         }
     };
     const reveal = () => {
+        verified = true;
+
         if (state) {
             state.hidden = true;
         }
@@ -48,7 +52,7 @@ export function initializeSessionIsolation(
             state.replaceChildren(frame);
         }
     };
-    const showRetry = () => {
+    const showRetry = (server = false) => {
         conceal();
 
         if (!state) {
@@ -59,9 +63,13 @@ export function initializeSessionIsolation(
         title.textContent = 'Soamco';
         const message = document.createElement('p');
         const italian = root.lang.startsWith('it');
-        message.textContent = italian
-            ? 'Non riusciamo a caricare la pagina. Riprova tra poco.'
-            : 'We cannot load the page. Please try again.';
+        message.textContent = server
+            ? italian
+                ? 'Il servizio è temporaneamente non disponibile. Riproveremo automaticamente tra poco.'
+                : 'The service is temporarily unavailable. We will retry shortly.'
+            : italian
+              ? 'Non riusciamo a caricare la pagina. Controlla la connessione e riprova.'
+              : 'We cannot load the page. Check your connection and retry.';
         const button = document.createElement('button');
         button.textContent = italian ? 'Riprova' : 'Retry';
         button.addEventListener('click', () => void validate());
@@ -79,12 +87,17 @@ export function initializeSessionIsolation(
         const current = generation;
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            showOffline();
+            if (!verified) {
+                showOffline();
+            }
 
             return;
         }
 
-        conceal();
+        if (!verified) {
+            conceal();
+        }
+
         const active = new AbortController();
         controller = active;
         const timeout = window.setTimeout(
@@ -107,14 +120,25 @@ export function initializeSessionIsolation(
                 return;
             }
 
-            if ([401, 419, 503].includes(response.status)) {
+            if ([401, 419].includes(response.status)) {
+                conceal();
                 window.location.reload();
 
                 return;
             }
 
             if (!response.ok) {
-                showRetry();
+                if (!verified) {
+                    showRetry(response.status >= 500);
+                }
+
+                window.dispatchEvent(
+                    new Event(
+                        response.status >= 500
+                            ? 'soamco:server-error'
+                            : 'soamco:network-error',
+                    ),
+                );
 
                 return;
             }
@@ -126,6 +150,7 @@ export function initializeSessionIsolation(
             }
 
             if (payload.user_uuid !== expectedUserUuid) {
+                conceal();
                 window.location.reload();
 
                 return;
@@ -137,11 +162,15 @@ export function initializeSessionIsolation(
                 return;
             }
 
-            if (typeof navigator !== 'undefined' && !navigator.onLine) {
-                showOffline();
-            } else {
-                showRetry();
+            if (!verified) {
+                if (typeof navigator !== 'undefined' && !navigator.onLine) {
+                    showOffline();
+                } else {
+                    showRetry();
+                }
             }
+
+            window.dispatchEvent(new Event('soamco:network-error'));
         } finally {
             window.clearTimeout(timeout);
 
@@ -198,14 +227,23 @@ export function initializeSessionIsolation(
     });
     window.addEventListener('pageshow', (event) => {
         if (event.persisted) {
+            conceal();
             void validate();
         }
     });
     window.addEventListener('offline', () => {
         invalidate();
-        showOffline();
+
+        if (!verified) {
+            showOffline();
+        }
     });
     window.addEventListener('online', () => void validate());
+    window.addEventListener('soamco:network-restored', () => {
+        if (!document.hidden) {
+            void validate();
+        }
+    });
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             invalidate();
@@ -216,6 +254,7 @@ export function initializeSessionIsolation(
     });
     window.addEventListener('storage', (event) => {
         if (event.key === SESSION_CHANGE_KEY) {
+            conceal();
             void validate();
         }
     });
