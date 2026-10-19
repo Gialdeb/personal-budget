@@ -475,7 +475,9 @@ function triggerNotificationBellAnimation(): void {
                 />
 
                 <div class="flex items-center gap-2">
-                    <AppShellEntrySearch compact />
+                    <div data-onboarding="chrome.search">
+                        <AppShellEntrySearch compact />
+                    </div>
 
                     <PrivacyModeToggle compact />
 
@@ -757,6 +759,7 @@ function triggerNotificationBellAnimation(): void {
                     </DropdownMenu>
 
                     <QuickActionsMenu
+                        data-onboarding="chrome.quickActions"
                         :year="
                             navigation?.context?.year ??
                             new Date().getFullYear()
@@ -846,7 +849,9 @@ function triggerNotificationBellAnimation(): void {
                         <div
                             class="ml-auto flex shrink-0 items-center gap-2 self-start sm:self-center"
                         >
-                            <AppShellEntrySearch />
+                            <div data-onboarding="chrome.search">
+                                <AppShellEntrySearch />
+                            </div>
 
                             <PrivacyModeToggle />
 
@@ -1165,6 +1170,7 @@ function triggerNotificationBellAnimation(): void {
                             </DropdownMenu>
 
                             <QuickActionsMenu
+                                data-onboarding="chrome.quickActions"
                                 :year="
                                     navigation?.context?.year ??
                                     new Date().getFullYear()

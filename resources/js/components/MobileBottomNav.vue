@@ -345,6 +345,7 @@ function handlePrimaryAction(): void {
 <template>
     <Teleport to="body">
         <div
+            data-onboarding="chrome.navigation"
             class="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.9rem)] md:hidden"
         >
             <div
@@ -611,6 +612,13 @@ function handlePrimaryAction(): void {
                         type="button"
                         size="icon"
                         class="mx-1 mb-3 h-14 w-14 shrink-0 rounded-[1.6rem] bg-slate-700 text-white shadow-[0_16px_32px_-18px_rgba(15,23,42,0.85)] hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+                        :data-onboarding="
+                            currentSection === 'transactions'
+                                ? 'transactions.create'
+                                : currentSection === 'recurring'
+                                  ? 'recurring.create'
+                                  : undefined
+                        "
                         :aria-label="t('app.shell.openQuickActions')"
                         @click="handlePrimaryAction"
                     >

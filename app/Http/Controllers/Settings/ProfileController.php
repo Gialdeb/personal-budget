@@ -15,12 +15,12 @@ use App\Models\DeviceToken;
 use App\Models\NotificationTopic;
 use App\Models\User;
 use App\Models\UserNotificationPreference;
-use App\Models\UserSetting;
 use App\Services\Auth\ActiveSessionService;
 use App\Services\Billing\ProfileSupportSummaryService;
 use App\Services\Communication\CommunicationPreferenceCatalog;
 use App\Services\Push\DeviceTokenService;
 use App\Services\Push\PushNotificationService;
+use App\Services\UserSettingsService;
 use App\Supports\Currency\CurrencySupport;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\JsonResponse;
@@ -540,29 +540,17 @@ class ProfileController extends Controller
 
     protected function storePushPreference(User $user, bool $enabled, ?bool $dailyExpenseReminderEnabled = null, ?string $timezone = null): void
     {
-        /** @var UserSetting $settings */
-        $settings = UserSetting::query()->firstOrNew([
-            'user_id' => $user->id,
-        ]);
-
-        $settings->active_year ??= $user->settings?->active_year;
-        $settings->base_currency ??= $user->settings?->base_currency ?? $user->base_currency_code;
-        $settings->settings ??= [];
-
-        $currentSettings = $settings->settings ?? [];
-        data_set($currentSettings, 'notifications.push.enabled', $enabled);
+        $changes = ['notifications.push.enabled' => $enabled];
 
         if ($dailyExpenseReminderEnabled !== null) {
-            data_set($currentSettings, 'notifications.push.daily_expense_reminder_enabled', $dailyExpenseReminderEnabled);
+            $changes['notifications.push.daily_expense_reminder_enabled'] = $dailyExpenseReminderEnabled;
         }
 
         if ($timezone !== null) {
-            data_set($currentSettings, 'timezone', $timezone);
+            $changes['timezone'] = $timezone;
         }
 
-        $settings->forceFill([
-            'settings' => $currentSettings,
-        ])->save();
+        app(UserSettingsService::class)->updateBranches($user, $changes);
     }
 
     protected function configurableCategories()

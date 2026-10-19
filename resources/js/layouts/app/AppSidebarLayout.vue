@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
+import OnboardingTour from '@/components/onboarding/OnboardingTour.vue';
 import SessionWarningDialog from '@/components/SessionWarningDialog.vue';
 import type { BreadcrumbItem } from '@/types';
 
@@ -31,5 +32,6 @@ withDefaults(defineProps<Props>(), {
         </AppContent>
         <SessionWarningDialog />
         <MobileBottomNav />
+        <OnboardingTour />
     </AppShell>
 </template>

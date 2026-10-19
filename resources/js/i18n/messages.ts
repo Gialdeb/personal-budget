@@ -12,6 +12,7 @@ import { exportMessages } from '@/i18n/messages/export';
 import { importsMessages } from '@/i18n/messages/imports';
 import { legalMessages } from '@/i18n/messages/legal';
 import { navMessages } from '@/i18n/messages/nav';
+import { onboardingMessages } from '@/i18n/messages/onboarding';
 import { planningMessages } from '@/i18n/messages/planning';
 import { recurringDetailMessages } from '@/i18n/messages/recurring-detail';
 import { reportsMessages } from '@/i18n/messages/reports';
@@ -24,6 +25,7 @@ import { supportTicketsMessages } from './messages/support-tickets';
 
 export const messages = {
     it: {
+        onboarding: onboardingMessages.it,
         recurringDetail: recurringDetailMessages.it,
         datePicker: datePickerMessages.it,
         adminInvitation: adminInvitationMessages.it,
@@ -49,6 +51,7 @@ export const messages = {
         settings: settingsMessages.it,
     },
     en: {
+        onboarding: onboardingMessages.en,
         recurringDetail: recurringDetailMessages.en,
         datePicker: datePickerMessages.en,
         adminInvitation: adminInvitationMessages.en,

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Communication\UserNotificationInboxService;
+use App\Services\OnboardingService;
 use App\Services\Transactions\TransactionNavigationService;
 use App\Support\ContextualHelp\CurrentContextualHelpResolver;
 use App\Support\Pwa\PwaManifestData;
@@ -133,6 +134,9 @@ class HandleInertiaRequests extends Middleware
         }
 
         if ($this->shouldShareContextualHelp($request)) {
+            $shared['onboarding'] = fn (): array => app(OnboardingService::class)->state(
+                $request->user()?->settings?->settings['onboarding'] ?? null,
+            );
             $shared['contextualHelp'] = fn (): ?array => $this->sharedContextualHelp($request);
         }
 

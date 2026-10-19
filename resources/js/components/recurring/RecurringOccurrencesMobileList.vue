@@ -175,6 +175,7 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                 <div class="divide-y divide-slate-200/80 dark:divide-white/10">
                     <article
                         v-for="occurrence in day.occurrences"
+                        data-onboarding="recurring.payments"
                         :key="occurrence.uuid"
                         :data-recurring-entry-row="
                             occurrence.recurring_entry?.uuid ?? occurrence.uuid

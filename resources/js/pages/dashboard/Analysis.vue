@@ -446,6 +446,7 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
         <Head :title="t('dashboard.analysis.title')" />
         <main class="flex w-full flex-col gap-4 py-4 sm:gap-5 sm:py-6">
             <header
+                data-onboarding="dashboard.welcome"
                 class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
             >
                 <div>
@@ -480,6 +481,7 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
 
             <section
                 ref="periodSelectorElement"
+                data-onboarding="dashboard.period"
                 class="rounded-2xl border bg-card p-3 shadow-sm sm:p-4"
             >
                 <div
@@ -570,7 +572,11 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                             {{ t('dashboard.analysis.currentMonth') }}
                         </button>
                     </div>
-                    <div ref="accountSelectorElement" class="min-w-0">
+                    <div
+                        ref="accountSelectorElement"
+                        data-onboarding="dashboard.accounts"
+                        class="min-w-0"
+                    >
                         <div
                             class="flex gap-2 overflow-x-auto pb-1 xl:justify-end"
                         >
@@ -669,6 +675,7 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                     class="min-w-0 rounded-2xl border bg-card p-5 shadow-sm sm:p-6"
                 >
                     <FinancialTimeline
+                        data-onboarding="dashboard.timeline"
                         v-model:mode="mode"
                         :points="dashboard.analysis.timeline"
                         :currency="currency"
@@ -712,6 +719,7 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                     </FinancialTimeline>
                 </div>
                 <SpendingCapacityCard
+                    data-onboarding="dashboard.capacity"
                     :capacity="dashboard.analysis.spending_capacity"
                     :currency="currency"
                     v-model:include-forecast="includeForecast"
@@ -721,6 +729,7 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
             </section>
 
             <section
+                data-onboarding="dashboard.metrics"
                 class="grid grid-cols-2 divide-x overflow-hidden rounded-2xl border bg-card shadow-sm sm:grid-cols-4"
             >
                 <div
@@ -1072,7 +1081,10 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                 </div>
             </section>
 
-            <section class="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+            <section
+                data-onboarding="dashboard.pending"
+                class="rounded-2xl border bg-card p-5 shadow-sm sm:p-6"
+            >
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h2 class="text-lg font-semibold">
@@ -1229,6 +1241,7 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                 class="grid gap-4 2xl:grid-cols-[minmax(18rem,0.8fr)_minmax(0,1.45fr)_minmax(20rem,0.95fr)]"
             >
                 <BudgetVsActual
+                    data-onboarding="dashboard.budget"
                     :items="dashboard.budget_vs_actual"
                     :currency="currency"
                 />
@@ -1237,6 +1250,7 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                     :currency="currency"
                 />
                 <FinancialAgenda
+                    data-onboarding="dashboard.agenda"
                     :notifications="dashboard.notifications"
                     :recurring="dashboard.recurring_summary"
                     :scheduled="dashboard.scheduled_summary"

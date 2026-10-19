@@ -7,6 +7,7 @@ use App\Http\Controllers\Settings\ExchangeRateController;
 use App\Http\Controllers\Settings\ExportController;
 use App\Http\Controllers\Settings\ImpersonationConsentController;
 use App\Http\Controllers\Settings\MoveTrackedItemMovementsController;
+use App\Http\Controllers\Settings\OnboardingController;
 use App\Http\Controllers\Settings\PendingCategoryController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -21,6 +22,8 @@ use Illuminate\Support\Facades\Route;
 
 // SETTINGS PROFILE
 Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {
+    Route::post('settings/onboarding', [OnboardingController::class, 'update'])->name('onboarding.update');
+
     Route::get('settings/quick-actions', [TransactionTemplateController::class, 'index'])->name('transaction-templates.index');
     Route::get('settings/quick-actions/active', [TransactionTemplateController::class, 'active'])->name('transaction-templates.active');
     Route::post('settings/quick-actions', [TransactionTemplateController::class, 'store'])->name('transaction-templates.store');

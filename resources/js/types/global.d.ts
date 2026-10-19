@@ -2,6 +2,7 @@ import type { Router, Page } from '@inertiajs/core';
 import type { createHeadManager } from '@inertiajs/vue3';
 import type Echo from 'laravel-echo';
 import type Pusher from 'pusher-js';
+import type { OnboardingState } from '@/onboarding/tours';
 import type { AnalyticsSharedData } from '@/types/analytics';
 import type { Auth } from '@/types/auth';
 import type { CurrentContextualHelpSharedData } from '@/types/contextual-help';
@@ -67,6 +68,7 @@ declare module '@inertiajs/core' {
             publicIntegrations?: PublicIntegrationsSharedData;
             settingsNavigation?: SettingsNavigationSharedData;
             features: FeatureFlagsSharedData;
+            onboarding?: OnboardingState;
             contextualHelp?: CurrentContextualHelpSharedData | null;
             [key: string]: unknown;
         };

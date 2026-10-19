@@ -998,6 +998,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                     <div class="space-y-4">
                         <div
                             ref="mobilePeriodAccountSelectorElement"
+                            data-onboarding="recurring.period"
                             class="flex items-center justify-between gap-2"
                         >
                             <div
@@ -1185,6 +1186,11 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                     <div class="grid gap-3 sm:grid-cols-2">
                         <article
                             v-for="card in summaryCards"
+                            :data-onboarding="
+                                card.key === 'installment-paid'
+                                    ? 'recurring.summary'
+                                    : undefined
+                            "
                             :key="`${card.key}-mobile`"
                             class="rounded-[24px] border border-white/70 bg-white/82 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                         >
@@ -1275,6 +1281,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
 
                             <Button
                                 class="hidden h-11 rounded-2xl px-4 md:inline-flex"
+                                data-onboarding="recurring.create"
                                 @click="openCreateForm"
                             >
                                 <Plus class="mr-2 size-4" />
@@ -1285,7 +1292,10 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         <div
                             class="flex flex-col items-start gap-4 xl:items-end"
                         >
-                            <div class="grid gap-3 sm:grid-cols-2">
+                            <div
+                                data-onboarding="recurring.period"
+                                class="grid gap-3 sm:grid-cols-2"
+                            >
                                 <div class="space-y-2">
                                     <p
                                         class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
@@ -1394,6 +1404,11 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                     >
                         <article
                             v-for="card in summaryCards"
+                            :data-onboarding="
+                                card.key === 'installment-paid'
+                                    ? 'recurring.summary'
+                                    : undefined
+                            "
                             :key="card.key"
                             class="rounded-[24px] border border-white/70 bg-white/82 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                         >
@@ -1525,6 +1540,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
             </Alert>
 
             <section
+                data-onboarding="recurring.calendar"
                 class="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 shadow-sm dark:border-white/10 dark:bg-slate-950/85"
             >
                 <div
@@ -1599,6 +1615,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                 class="overflow-hidden rounded-[28px] border border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
             >
                 <div
+                    data-onboarding="recurring.filters"
                     class="flex flex-col gap-4 border-b border-slate-200/70 bg-slate-50/70 p-4 sm:p-5 dark:border-white/10 dark:bg-slate-900/60"
                 >
                     <div
@@ -2232,6 +2249,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                             filterOccurrence,
                                         )"
                                         :key="occurrence.uuid"
+                                        data-onboarding="recurring.payments"
                                         :class="
                                             cn(
                                                 'border-t border-slate-200/70 align-top dark:border-white/10',

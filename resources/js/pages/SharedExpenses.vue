@@ -698,7 +698,10 @@ function deleteSettlement(entry: Entry): void {
                 </p>
             </div>
 
-            <section class="grid gap-3 sm:grid-cols-3">
+            <section
+                data-onboarding="shared.balances"
+                class="grid gap-3 sm:grid-cols-3"
+            >
                 <div
                     class="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/25 dark:bg-emerald-500/10"
                 >
@@ -781,6 +784,7 @@ function deleteSettlement(entry: Entry): void {
             >
                 <div
                     v-for="item in visibleCounterparties"
+                    data-onboarding="shared.people"
                     :key="item.uuid"
                     class="flex min-w-0 flex-col rounded-2xl border bg-card p-5 text-sm shadow-sm transition-shadow hover:shadow-md"
                     :class="
@@ -944,12 +948,14 @@ function deleteSettlement(entry: Entry): void {
                         variant="outline"
                         size="sm"
                         class="mt-4 w-full sm:w-auto"
+                        data-onboarding="shared.repayments"
                         @click="openSettlement(item)"
                         >{{ ui('Registra rimborso spese condivise') }}</Button
                     >
                 </div>
             </section>
             <div
+                data-onboarding="shared.filters"
                 class="grid gap-3 rounded-2xl border bg-card p-4 md:grid-cols-2 lg:grid-cols-4"
             >
                 <div class="grid gap-1.5">
@@ -1026,6 +1032,7 @@ function deleteSettlement(entry: Entry): void {
             </div>
             <div
                 class="grid grid-cols-3 gap-2 rounded-2xl bg-muted p-1"
+                data-onboarding="shared.status"
                 role="group"
                 :aria-label="ui('Situazione dei movimenti')"
             >
@@ -1107,7 +1114,10 @@ function deleteSettlement(entry: Entry): void {
                 </div>
             </section>
             <section class="overflow-hidden rounded-2xl border bg-card">
-                <div class="border-b px-4 py-3">
+                <div
+                    data-onboarding="shared.register"
+                    class="border-b px-4 py-3"
+                >
                     <h2 class="font-semibold">
                         {{ ui('Movimenti condivisi') }}
                     </h2>
@@ -1193,6 +1203,7 @@ function deleteSettlement(entry: Entry): void {
                                 </p>
                                 <dl
                                     v-if="entry.my_share_cents !== undefined"
+                                    data-onboarding="shared.shares"
                                     class="grid gap-2 rounded-xl bg-muted/40 p-3 text-sm sm:grid-cols-2"
                                 >
                                     <div>

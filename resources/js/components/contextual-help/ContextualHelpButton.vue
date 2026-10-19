@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import { CircleHelp, ArrowRight } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import PublicRichContentRenderer from '@/components/public/editorial/PublicRichContentRenderer.vue';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     Sheet,
     SheetContent,
@@ -11,12 +18,30 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import { useOnboarding } from '@/composables/useOnboarding';
 import { useUiCopy } from '@/i18n/ui-copy';
 import type { CurrentContextualHelpSharedData } from '@/types';
 
-const ui = useUiCopy();
-
 const page = usePage();
+const ui = useUiCopy();
+const { t } = useI18n();
+const onboarding = useOnboarding();
+const isOpen = ref(false);
+const trigger = ref<InstanceType<typeof Button> | null>(null);
+watch(onboarding.guideRequest, () => {
+    if (
+        onboarding.hasTour.value &&
+        trigger.value?.$el?.getClientRects().length > 0
+    ) {
+        isOpen.value = true;
+    }
+});
+watch(
+    () => page.url,
+    () => {
+        isOpen.value = false;
+    },
+);
 
 const contextualHelp = computed(
     () =>
@@ -27,8 +52,35 @@ const hasContextualHelp = computed(() => contextualHelp.value !== null);
 </script>
 
 <template>
-    <Sheet v-if="hasContextualHelp">
-        <SheetTrigger as-child>
+    <Sheet
+        v-if="hasContextualHelp || onboarding.hasTour.value"
+        v-model:open="isOpen"
+    >
+        <DropdownMenu v-if="onboarding.hasTour.value">
+            <DropdownMenuTrigger as-child>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    ref="trigger"
+                    data-onboarding="chrome.help"
+                    class="h-10 w-10 rounded-full border border-slate-200/80 bg-white/90 shadow-sm transition hover:bg-white dark:border-slate-800 dark:bg-slate-950/80 dark:hover:bg-slate-900"
+                    :aria-label="t('onboarding.help')"
+                >
+                    <CircleHelp class="size-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem @select="onboarding.replay">{{
+                    t('onboarding.replay')
+                }}</DropdownMenuItem>
+                <DropdownMenuItem
+                    v-if="hasContextualHelp"
+                    @select="isOpen = true"
+                    >{{ t('onboarding.guide') }}</DropdownMenuItem
+                >
+            </DropdownMenuContent>
+        </DropdownMenu>
+        <SheetTrigger v-else as-child>
             <Button
                 variant="ghost"
                 size="icon"
@@ -40,6 +92,7 @@ const hasContextualHelp = computed(() => contextualHelp.value !== null);
         </SheetTrigger>
 
         <SheetContent
+            v-if="hasContextualHelp"
             side="right"
             class="w-full overflow-y-auto border-l p-0 sm:max-w-2xl"
         >

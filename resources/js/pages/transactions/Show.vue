@@ -3891,6 +3891,7 @@ resetInlineEntry();
                 }}</AlertDescription>
             </Alert>
             <section
+                data-onboarding="transactions.period"
                 class="overflow-hidden rounded-[28px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.10),_transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.97),rgba(248,250,252,0.94))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_28%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.9))]"
             >
                 <div class="space-y-4 p-5 md:hidden">
@@ -4218,6 +4219,7 @@ resetInlineEntry();
                             variant="outline"
                             class="hidden h-11 rounded-2xl border-white/70 bg-white/90 md:inline-flex dark:border-white/10 dark:bg-slate-950/70"
                             :disabled="!canEdit"
+                            data-onboarding="transactions.create"
                             @click="openCreate"
                         >
                             <Lock v-if="!canEdit" class="mr-2 size-4" />
@@ -4334,6 +4336,9 @@ resetInlineEntry();
             <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <Card
                     v-for="card in summaryCards"
+                    :data-onboarding="
+                        card.key === 'net' ? 'transactions.summary' : undefined
+                    "
                     :key="card.key"
                     class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                 >
@@ -4497,6 +4502,7 @@ resetInlineEntry();
                     class="min-w-0 overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                 >
                     <CardHeader
+                        data-onboarding="transactions.register"
                         class="border-b border-slate-200/70 bg-slate-50/70 px-4 py-4 sm:px-5 dark:border-white/10 dark:bg-slate-900/60"
                     >
                         <div class="flex flex-col gap-3">
@@ -4949,6 +4955,7 @@ resetInlineEntry();
                                                 }}
                                             </th>
                                             <th
+                                                data-onboarding="transactions.references"
                                                 class="px-2 py-2 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
                                             >
                                                 {{
@@ -7018,6 +7025,7 @@ resetInlineEntry();
                                         <Button
                                             type="button"
                                             class="w-full rounded-2xl"
+                                            data-onboarding="transactions.create"
                                             @click="openCreate"
                                         >
                                             <Plus class="mr-2 size-4" />
@@ -7341,7 +7349,9 @@ resetInlineEntry();
                                                     }}</span
                                                 >
                                             </div>
-                                            <div>
+                                            <div
+                                                data-onboarding="transactions.references"
+                                            >
                                                 {{
                                                     transaction.is_transfer
                                                         ? t(
