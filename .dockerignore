@@ -11,6 +11,10 @@
 auth.json
 **/*.pem
 **/*.key
+**/*firebase-adminsdk*.json
+**/*service-account*.json
+**/*service_account*.json
+**/firebase-credentials.json
 node_modules
 vendor
 public/build

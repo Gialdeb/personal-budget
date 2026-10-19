@@ -33,6 +33,7 @@ COPY . .
 RUN mkdir -p bootstrap/cache storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/public storage/app/private \
     && composer dump-autoload --no-dev --optimize --no-interaction \
     && composer check-platform-reqs --no-dev
+# Credentials are runtime-only files in the private persistent volume (.dockerignore).
 
 FROM node:22-bookworm-slim AS node-binary
 
@@ -62,6 +63,7 @@ COPY --from=frontend --chown=www-data:www-data /var/www/html/public/build /var/w
 COPY --chmod=755 docker/php/production-entrypoint /usr/local/bin/production-entrypoint
 COPY --chmod=755 docker/php/healthcheck /usr/local/bin/application-healthcheck
 RUN test -f artisan && test -f vendor/autoload.php && test -s public/build/manifest.json \
+    && test -f docker/php/firebase-credentials-check.php \
     && ln -s /var/www/html/storage/app/public public/storage \
     && chmod -R ug+rwX storage bootstrap/cache
 USER www-data

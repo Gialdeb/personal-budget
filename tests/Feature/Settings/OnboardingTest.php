@@ -115,6 +115,7 @@ it('shares only onboarding state on app pages and preserves contextual help fall
 
 it('keeps onboarding when push preferences change and keeps push settings when the tour changes', function () {
     config()->set('features.push_notifications.enabled', true);
+    config()->set('features.push_notifications.profile_enabled', true);
     $user = User::factory()->create();
     app(UserSettingsService::class)->updateBranches($user, [
         'timezone' => 'Europe/Rome', 'notifications.push.daily_expense_reminder_enabled' => false,

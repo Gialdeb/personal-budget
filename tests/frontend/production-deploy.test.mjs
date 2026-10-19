@@ -40,7 +40,13 @@ test('production images package Laravel and share internally built assets while 
     assert.match(ignore, /^public\/build$/m);
 });
 
-for (const failure of ['build', 'migrate', 'health', 'success']) {
+for (const failure of [
+    'build',
+    'credentials',
+    'migrate',
+    'health',
+    'success',
+]) {
     test(`deployment ${failure} keeps build before maintenance and recovers maintenance on failure`, () => {
         const root = mkdtempSync(join(tmpdir(), 'soamco-deploy-mock-'));
         const log = join(root, 'calls');
@@ -53,6 +59,7 @@ for (const failure of ['build', 'migrate', 'health', 'success']) {
 echo "$*" >> "$MOCK_LOG"
 if [[ "$*" == *"exec -T proxy test -s"* ]]; then exit 1; fi
 if [[ "$*" == *"exec -T app application-healthcheck"* && "$MOCK_FAIL" == health ]]; then exit 1; fi
+if [[ "$*" == *"firebase-credentials-check.php"* && "$MOCK_FAIL" == credentials ]]; then exit 10; fi
 if [[ "$*" == *"build app web"* && "$MOCK_FAIL" == build ]]; then exit 7; fi
 if [[ "$*" == *"migrate --force"* && "$MOCK_FAIL" == migrate ]]; then exit 8; fi
 if [[ "$*" == *"force-recreate"* && "$MOCK_FAIL" == health ]]; then exit 9; fi
@@ -83,9 +90,11 @@ if [[ "$*" == *"ps --status running -q app"* ]]; then echo mock-app; fi
                     ? 0
                     : failure === 'build'
                       ? 7
-                      : failure === 'health'
-                        ? 9
-                        : 8,
+                      : failure === 'credentials'
+                        ? 10
+                        : failure === 'health'
+                          ? 9
+                          : 8,
                 result.stderr,
             );
             assert.match(
@@ -94,7 +103,7 @@ if [[ "$*" == *"ps --status running -q app"* ]]; then echo mock-app; fi
             );
             assert.doesNotMatch(calls, /down -v|volume rm|image prune/);
 
-            if (failure === 'build') {
+            if (['build', 'credentials'].includes(failure)) {
                 assert.doesNotMatch(
                     calls,
                     /artisan down|force-recreate| stop /,
@@ -195,4 +204,49 @@ test('frontend build receives all seven public Firebase values without private c
         /FIREBASE_CREDENTIALS|GOOGLE_APPLICATION_CREDENTIALS|PRIVATE_KEY/,
     );
     assert.match(read('.dockerignore'), /^\.env$/m);
+});
+
+test('Firebase credentials remain runtime-only and are checked as www-data before maintenance', () => {
+    const compose = read('docker-compose.production.yml');
+    assert.match(
+        compose,
+        /soamco_budget_private_storage:\/var\/www\/html\/storage\/app\/private/,
+    );
+    assert.match(compose, /volumes:[\s\S]*\n  soamco_budget_private_storage:/);
+    const deploy = read('bin/deploy-production');
+    const preflight =
+        'compose run --rm --no-deps --user www-data --entrypoint php app docker/php/firebase-credentials-check.php';
+    assert.ok(deploy.includes(preflight));
+    assert.ok(
+        deploy.indexOf('compose run --rm --no-deps logs-init') <
+            deploy.indexOf(preflight),
+    );
+    assert.ok(
+        deploy.indexOf(preflight) <
+            deploy.indexOf('wait-timeout 60 maintenance'),
+    );
+    assert.ok(
+        deploy.indexOf(preflight) < deploy.indexOf('php artisan migrate'),
+    );
+    assert.doesNotMatch(deploy, /(?:cp|install|mv) [^\n]*\.json[^\n]*private/);
+    const dockerfile = read('docker/php/Dockerfile');
+    assert.match(
+        dockerfile,
+        /test -f docker\/php\/firebase-credentials-check.php/,
+    );
+    assert.doesNotMatch(
+        dockerfile,
+        /(?:COPY|ADD|ARG|ENV) [^\n]*(?:FIREBASE_CREDENTIALS|GOOGLE_APPLICATION_CREDENTIALS|private_key|adminsdk)/,
+    );
+    const ignore = read('.dockerignore');
+
+    for (const entry of [
+        'storage',
+        '**/*firebase-adminsdk*.json',
+        '**/*service-account*.json',
+        '**/*service_account*.json',
+        '**/firebase-credentials.json',
+    ]) {
+        assert.ok(ignore.split('\n').includes(entry));
+    }
 });

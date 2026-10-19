@@ -57,6 +57,9 @@ compose build app web
 compose run --rm --no-deps --entrypoint sh app -c 'test -f artisan && test -f vendor/autoload.php && test -s public/build/manifest.json'
 # Initialize permissions only after every image (including frontend) has built successfully.
 compose run --rm --no-deps logs-init
+# Inspect the existing private volume as the runtime user before any downtime.
+# Never import host credentials, overwrite files or print credential contents.
+compose run --rm --no-deps --user www-data --entrypoint php app docker/php/firebase-credentials-check.php
 # Prepare the unchanged Soamco view and the proxy switch before entering maintenance.
 if compose exec -T proxy test -s /config/soamco-deploy-normal.json; then
     # A failed deploy may still be serving this container: do not recreate it.
