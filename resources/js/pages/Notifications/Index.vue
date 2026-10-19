@@ -285,6 +285,7 @@ function deleteNotification(): void {
                             </div>
                             <div>
                                 <h1
+                                    data-onboarding="notifications.step1"
                                     class="text-2xl font-semibold tracking-tight text-slate-950 dark:text-slate-50"
                                 >
                                     {{ t('app.shell.notificationsPage.title') }}
@@ -313,6 +314,7 @@ function deleteNotification(): void {
                                 }}
                             </Badge>
                             <Button
+                                data-onboarding="notifications.step2"
                                 variant="secondary"
                                 class="rounded-full"
                                 :disabled="
@@ -369,6 +371,7 @@ function deleteNotification(): void {
 
                     <div v-else class="space-y-4">
                         <article
+                            data-onboarding="notifications.step3"
                             v-for="notification in notifications"
                             :key="notification.uuid"
                             class="rounded-[1.5rem] border p-4 transition md:p-5"

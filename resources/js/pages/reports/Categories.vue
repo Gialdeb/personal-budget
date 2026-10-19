@@ -431,7 +431,11 @@ function updateExcludeInternal(value: boolean): void {
                         >
                             {{ t('reports.filters.reset') }}
                         </Button>
-                        <Button class="rounded-full" @click="applyFilters">
+                        <Button
+                            data-onboarding="report-categories.step1"
+                            class="rounded-full"
+                            @click="applyFilters"
+                        >
                             {{ t('reports.filters.apply') }}
                         </Button>
                     </div>
@@ -594,6 +598,7 @@ function updateExcludeInternal(value: boolean): void {
                 >
                     <CardHeader class="space-y-2">
                         <CardTitle
+                            data-onboarding="report-categories.step2"
                             class="text-base font-semibold text-slate-950 dark:text-slate-50"
                         >
                             {{
@@ -743,6 +748,7 @@ function updateExcludeInternal(value: boolean): void {
                     >
                         <div class="space-y-2">
                             <CardTitle
+                                data-onboarding="report-categories.step3"
                                 class="text-base font-semibold text-slate-950 dark:text-slate-50"
                             >
                                 {{

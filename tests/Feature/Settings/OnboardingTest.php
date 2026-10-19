@@ -176,3 +176,19 @@ it('defaults legacy reset requests to dashboard without clearing other sections'
     $this->actingAs($user)->postJson(route('onboarding.update'), ['action' => 'reset'])
         ->assertOk()->assertJsonMissingPath('tours.dashboard')->assertJsonPath('tours.transactions', 'skipped');
 });
+
+it('persists every additional tour independently without changing dashboard or push preferences', function (string $section) {
+    $user = User::factory()->create();
+    $original = ['onboarding' => ['enabled' => true, 'tours' => ['dashboard' => 'completed', 'transactions' => 'skipped'], 'legacy_imported' => true, 'quick_start_dismissed' => true], 'notifications' => ['push' => ['enabled' => false]], 'timezone' => 'Europe/Rome'];
+    $setting = $user->settings()->create(['locale' => 'it', 'base_currency' => 'EUR', 'settings' => $original]);
+    foreach (['skip' => 'skipped', 'complete' => 'completed'] as $action => $status) {
+        $this->actingAs($user)->postJson(route('onboarding.update'), ['action' => $action, 'section' => $section])
+            ->assertSuccessful()->assertJsonPath('tours.'.$section, $status)->assertJsonPath('tours.dashboard', 'completed')->assertJsonPath('tours.transactions', 'skipped');
+    }
+    $this->postJson(route('onboarding.update'), ['action' => 'reset', 'section' => $section])->assertSuccessful();
+    $settings = $setting->fresh()->settings;
+    expect($settings['onboarding']['tours'])->toBe($original['onboarding']['tours'])
+        ->and($settings['onboarding']['quick_start_dismissed'])->toBeTrue()
+        ->and($settings['notifications'])->toBe($original['notifications'])
+        ->and($settings['timezone'])->toBe('Europe/Rome');
+})->with(['accounts', 'categories', 'planning', 'credits-debts', 'salary', 'quick-actions', 'references', 'banks', 'years', 'shared-categories', 'profile', 'security', 'appearance', 'exchange-rates', 'exports', 'support', 'notifications', 'recurring-detail', 'counterparty', 'monthly-recap', 'imports', 'import-detail', 'report-overview', 'report-categories', 'report-category-analysis', 'report-accounts', 'settings-home', 'report-hub']);

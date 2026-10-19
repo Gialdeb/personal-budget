@@ -1296,6 +1296,7 @@ function isFutureOccurrence(
                                 >{{ t('salary.details') }}</Link
                             >
                             <h1
+                                data-onboarding="recurring-detail.step1"
                                 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
                             >
                                 {{ entry.title }}
@@ -1497,7 +1498,11 @@ function isFutureOccurrence(
                 class="space-y-3 rounded-2xl border p-4 sm:p-6"
                 aria-labelledby="plan-lifecycle-title"
             >
-                <h2 id="plan-lifecycle-title" class="font-semibold">
+                <h2
+                    data-onboarding="recurring-detail.step2"
+                    id="plan-lifecycle-title"
+                    class="font-semibold"
+                >
                     {{ ui('Cronologia del piano') }}
                 </h2>
                 <article
@@ -1803,6 +1808,7 @@ function isFutureOccurrence(
                     class="border-b border-slate-200/70 p-5 lg:p-6 dark:border-white/10"
                 >
                     <h2
+                        data-onboarding="recurring-detail.step3"
                         class="text-xl font-semibold text-slate-950 dark:text-white"
                     >
                         {{ t('recurringDetail.timeline') }}

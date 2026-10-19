@@ -343,6 +343,7 @@ function submitDeleteImport(): void {
                             </div>
                             <div class="space-y-2">
                                 <h1
+                                    data-onboarding="imports.step1"
                                     class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-50"
                                 >
                                     {{ t('imports.title') }}
@@ -562,7 +563,10 @@ function submitDeleteImport(): void {
                                     v-else
                                     v-model="form.import_format_uuid"
                                 >
-                                    <SelectTrigger id="import-format">
+                                    <SelectTrigger
+                                        data-onboarding="imports.step2"
+                                        id="import-format"
+                                    >
                                         <SelectValue
                                             :placeholder="
                                                 t(
@@ -732,6 +736,7 @@ function submitDeleteImport(): void {
                     <div class="flex items-center justify-between gap-3">
                         <div>
                             <h2
+                                data-onboarding="imports.step3"
                                 class="text-lg font-semibold text-slate-950 dark:text-slate-50"
                             >
                                 {{ t('imports.index.listSection.title') }}

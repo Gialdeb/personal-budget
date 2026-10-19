@@ -105,6 +105,7 @@ function sectionHeaderTone(sectionKey: string): string {
             "
         >
             <CardHeader
+                data-onboarding="planning.step4"
                 :class="cn('border-b pb-4', sectionHeaderTone(section.key))"
             >
                 <div class="flex items-start justify-between gap-4">

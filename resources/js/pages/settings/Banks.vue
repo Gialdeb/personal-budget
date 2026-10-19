@@ -297,6 +297,7 @@ watch(
 
                             <div class="space-y-2">
                                 <h1
+                                    data-onboarding="banks.step1"
                                     class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
                                 >
                                     {{ t('settings.banks.title') }}
@@ -310,6 +311,7 @@ watch(
                         </div>
 
                         <Button
+                            data-onboarding="banks.step3"
                             class="h-11 rounded-2xl px-5"
                             @click="openCreateBank"
                         >
@@ -430,6 +432,7 @@ watch(
                                         </div>
                                     </label>
                                     <Button
+                                        data-onboarding="banks.step2"
                                         class="h-11 rounded-2xl px-5"
                                         :disabled="
                                             catalogAvailable.length === 0

@@ -58,6 +58,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                     class="border-b border-slate-200/70 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 px-8 py-7 dark:border-slate-800"
                 >
                     <Heading
+                        data-onboarding="security.step1"
                         variant="small"
                         :title="t('settings.security.password.title')"
                         :description="
@@ -174,6 +175,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                     class="border-b border-slate-200/70 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 px-8 py-7 dark:border-slate-800"
                 >
                     <Heading
+                        data-onboarding="security.step2"
                         variant="small"
                         :title="t('settings.security.twoFactor.title')"
                         :description="

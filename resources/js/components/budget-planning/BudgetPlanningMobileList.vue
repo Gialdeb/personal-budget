@@ -52,6 +52,7 @@ function sectionTone(sectionKey: string): string {
             :class="cn('overflow-hidden shadow-sm', sectionTone(section.key))"
         >
             <CardHeader
+                data-onboarding="planning.step4"
                 class="border-b border-slate-200/70 bg-slate-50/90 dark:border-white/10 dark:bg-slate-900/70"
             >
                 <div class="flex items-start justify-between gap-4">

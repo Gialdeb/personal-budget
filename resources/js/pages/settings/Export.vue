@@ -242,6 +242,7 @@ function presetTranslationKey(preset: ExportPeriodPresetKey): string {
                     >
                         <div class="space-y-5">
                             <section
+                                data-onboarding="exports.step1"
                                 class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/40"
                             >
                                 <p
@@ -308,6 +309,7 @@ function presetTranslationKey(preset: ExportPeriodPresetKey): string {
                             </section>
 
                             <section
+                                data-onboarding="exports.step2"
                                 class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/40"
                             >
                                 <p
@@ -419,6 +421,7 @@ function presetTranslationKey(preset: ExportPeriodPresetKey): string {
                             </section>
 
                             <section
+                                data-onboarding="exports.step3"
                                 class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/40"
                             >
                                 <p
@@ -496,6 +499,7 @@ function presetTranslationKey(preset: ExportPeriodPresetKey): string {
                                 </p>
 
                                 <h2
+                                    data-onboarding="exports.step4"
                                     class="mt-3 text-lg font-semibold text-slate-950 dark:text-slate-50"
                                 >
                                     {{ t('export.summary.title') }}

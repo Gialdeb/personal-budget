@@ -190,6 +190,7 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                     {{ t('settings.accountArea') }}
                 </p>
                 <h1
+                    data-onboarding="settings.home"
                     class="mt-2 text-[1.65rem] leading-tight font-semibold tracking-[-0.03em] text-foreground"
                 >
                     {{ t('settings.title') }}
@@ -204,6 +205,7 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                 :aria-label="t('settings.navigationLabel')"
             >
                 <Link
+                    data-onboarding="settings.navigation"
                     v-for="item in sidebarNavItems"
                     :key="`mobile-${toUrl(item.href)}`"
                     :href="item.href"
@@ -267,7 +269,10 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                         >
                             {{ t('settings.accountArea') }}
                         </p>
-                        <h2 class="mt-3 text-lg font-semibold tracking-tight">
+                        <h2
+                            data-onboarding="settings.home"
+                            class="mt-3 text-lg font-semibold tracking-tight"
+                        >
                             {{ t('settings.accountAreaTitle') }}
                         </h2>
                         <p class="mt-2 text-sm leading-6 text-muted-foreground">
@@ -280,6 +285,7 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                         :aria-label="t('settings.navigationLabel')"
                     >
                         <Button
+                            data-onboarding="settings.navigation"
                             v-for="item in sidebarNavItems"
                             :key="toUrl(item.href)"
                             variant="ghost"

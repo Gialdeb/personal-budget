@@ -682,6 +682,7 @@ watch(
 
                             <div class="space-y-2">
                                 <h1
+                                    data-onboarding="accounts.step1"
                                     class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
                                 >
                                     {{ t('accounts.title') }}
@@ -695,6 +696,7 @@ watch(
                         </div>
 
                         <Button
+                            data-onboarding="accounts.step2"
                             class="h-11 rounded-2xl px-5"
                             @click="openCreateAccount"
                         >
@@ -727,6 +729,7 @@ watch(
                     </div>
 
                     <AccountFilters
+                        data-onboarding="accounts.step3"
                         v-model:search="search"
                         v-model:active-status="activeStatus"
                         v-model:account-type-uuid="accountTypeUuid"
@@ -930,6 +933,7 @@ watch(
                             </div>
 
                             <AccountsList
+                                data-onboarding="accounts.step4"
                                 :accounts="filteredAccounts"
                                 :selected-account-uuid="selectedAccountUuid"
                                 :empty-message="emptyMessage"

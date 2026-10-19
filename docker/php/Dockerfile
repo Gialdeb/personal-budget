@@ -42,6 +42,13 @@ COPY --from=node-binary /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 ARG VITE_APP_NAME="Soamco Budget"
+ARG VITE_FIREBASE_API_KEY
+ARG VITE_FIREBASE_AUTH_DOMAIN
+ARG VITE_FIREBASE_PROJECT_ID
+ARG VITE_FIREBASE_STORAGE_BUCKET
+ARG VITE_FIREBASE_MESSAGING_SENDER_ID
+ARG VITE_FIREBASE_APP_ID
+ARG VITE_FIREBASE_VAPID_PUBLIC_KEY
 ARG VITE_REVERB_APP_KEY
 ARG VITE_REVERB_HOST
 ARG VITE_REVERB_PORT=443

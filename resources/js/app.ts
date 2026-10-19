@@ -21,6 +21,7 @@ import { initializeSessionIsolation } from '@/lib/session-isolation';
 import {
     destroy as destroyPushTokenAction,
     store as storePushTokenAction,
+    status as pushTokenStatusAction,
 } from '@/routes/settings/profile/push-tokens';
 import type { CurrencyCatalogItem, LocaleSharedData } from '@/types';
 
@@ -134,7 +135,7 @@ async function initializePushAfterRender(pageProps: {
             initializeForegroundPushNotifications,
             synchronizeCurrentBrowserPushRegistration,
         } = await import('@/lib/push-notifications');
-        await Promise.allSettled([
+        const results = await Promise.allSettled([
             cleanupLegacyFirebaseMessagingServiceWorker(),
             initializeForegroundPushNotifications(),
             synchronizeCurrentBrowserPushRegistration({
@@ -143,13 +144,16 @@ async function initializePushAfterRender(pageProps: {
                     pageProps.features?.push_notifications_enabled === true,
                 locale: pageProps.auth?.user?.locale,
                 storeUrl: storePushTokenAction().url,
+                statusUrl: pushTokenStatusAction().url,
                 destroyUrl: destroyPushTokenAction().url,
             }),
         ]);
-    } catch (error) {
-        if (import.meta.env.DEV) {
-            console.warn('[push] post-render initialization skipped', error);
+
+        if (results.some((result) => result.status === 'rejected')) {
+            console.warn('[push] post-render initialization skipped');
         }
+    } catch {
+        console.warn('[push] post-render initialization skipped');
     }
 }
 

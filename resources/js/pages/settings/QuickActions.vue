@@ -639,7 +639,10 @@ onMounted(() => {
             <section class="min-w-0 space-y-5">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="min-w-0 flex-1 basis-48">
-                        <h2 class="text-xl font-semibold">
+                        <h2
+                            data-onboarding="quick-actions.step2"
+                            class="text-xl font-semibold"
+                        >
                             {{ ui('Azioni rapide') }}
                         </h2>
                         <p class="text-sm text-muted-foreground">
@@ -650,7 +653,9 @@ onMounted(() => {
                             }}
                         </p>
                     </div>
-                    <Button @click="edit()"
+                    <Button
+                        data-onboarding="quick-actions.step1"
+                        @click="edit()"
                         ><Plus class="size-4" /><span>{{
                             ui('Nuova')
                         }}</span></Button
@@ -764,6 +769,7 @@ onMounted(() => {
                                     : ui('Attiva azione')
                             }}</Button
                         ><Button
+                            data-onboarding="quick-actions.step3"
                             variant="ghost"
                             size="icon"
                             class="size-11 shrink-0"

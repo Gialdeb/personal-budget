@@ -1874,6 +1874,7 @@ const ListColumn = defineComponent({
                         />
                     </div>
                     <Button
+                        data-onboarding="credits-debts.step1"
                         variant="outline"
                         class="h-11 rounded-2xl"
                         @click="isFilterOpen = true"
@@ -1882,6 +1883,7 @@ const ListColumn = defineComponent({
                         {{ t('creditsDebts.filter') }}
                     </Button>
                     <Button
+                        data-onboarding="credits-debts.step2"
                         class="h-11 rounded-2xl bg-slate-950 text-white hover:bg-slate-800"
                         @click="openCreate('credit')"
                     >
@@ -2128,6 +2130,7 @@ const ListColumn = defineComponent({
                                     : 'text-slate-500',
                             )
                         "
+                        data-onboarding="credits-debts.step3"
                         @click="activeMobileType = type"
                     >
                         {{
@@ -2354,7 +2357,10 @@ const ListColumn = defineComponent({
 
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <h3 class="text-base font-bold">
+                                    <h3
+                                        data-onboarding="credits-debts.step3"
+                                        class="text-base font-bold"
+                                    >
                                         {{ t('creditsDebts.paymentsHistory') }}
                                     </h3>
                                     <p class="text-sm text-slate-500">
@@ -2732,7 +2738,10 @@ const ListColumn = defineComponent({
 
                     <section class="flex-1 px-5 pb-28">
                         <div class="mb-4 flex items-center justify-between">
-                            <h3 class="text-lg font-bold">
+                            <h3
+                                data-onboarding="credits-debts.step3"
+                                class="text-lg font-bold"
+                            >
                                 {{ t('creditsDebts.paymentsHistory') }}
                             </h3>
                             <Button

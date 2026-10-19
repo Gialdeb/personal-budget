@@ -167,3 +167,32 @@ test('production maintenance stays outside app/web recreation and preserves the 
         /view\('errors.503'\)->render\(\)/,
     );
 });
+
+test('frontend build receives all seven public Firebase values without private credentials', () => {
+    const dockerfile = read('docker/php/Dockerfile');
+    const compose = read('docker-compose.production.yml');
+    const frontend = dockerfile
+        .split('FROM dependencies AS frontend')[1]
+        .split('FROM runtime AS production')[0];
+    const args = compose.split('      args:')[1].split('    depends_on:')[0];
+
+    for (const suffix of [
+        'API_KEY',
+        'AUTH_DOMAIN',
+        'PROJECT_ID',
+        'STORAGE_BUCKET',
+        'MESSAGING_SENDER_ID',
+        'APP_ID',
+        'VAPID_PUBLIC_KEY',
+    ]) {
+        const key = `VITE_FIREBASE_${suffix}`;
+        assert.ok(frontend.includes(`ARG ${key}\n`));
+        assert.ok(args.includes(`${key}: \${${key}:-}`));
+    }
+
+    assert.doesNotMatch(
+        frontend + args,
+        /FIREBASE_CREDENTIALS|GOOGLE_APPLICATION_CREDENTIALS|PRIVATE_KEY/,
+    );
+    assert.match(read('.dockerignore'), /^\.env$/m);
+});

@@ -460,6 +460,7 @@ onMounted(() => {
 
                             <div class="space-y-2">
                                 <h1
+                                    data-onboarding="shared-categories.step1"
                                     class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
                                 >
                                     {{ t('categories.sharedPage.title') }}
@@ -595,6 +596,7 @@ onMounted(() => {
                                                 v-model="selectedAccountUuid"
                                             >
                                                 <SelectTrigger
+                                                    data-onboarding="shared-categories.step2"
                                                     class="h-12 w-full rounded-2xl"
                                                 >
                                                     <SelectValue
@@ -653,6 +655,7 @@ onMounted(() => {
                                                         }}
                                                     </p>
                                                     <h3
+                                                        data-onboarding="shared-categories.step3"
                                                         class="text-base font-semibold text-slate-950 dark:text-slate-50"
                                                     >
                                                         {{

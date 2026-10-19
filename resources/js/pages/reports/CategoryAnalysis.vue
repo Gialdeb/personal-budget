@@ -371,6 +371,7 @@ function deltaClass(value: number): string {
 
                     <div class="flex flex-wrap gap-2">
                         <Button
+                            data-onboarding="report-category-analysis.step3"
                             variant="outline"
                             class="rounded-full"
                             @click="exportWithCurrentFilters"
@@ -506,7 +507,11 @@ function deltaClass(value: number): string {
                     >
                         {{ t('reports.filters.reset') }}
                     </Button>
-                    <Button class="rounded-full" @click="applyFilters">
+                    <Button
+                        data-onboarding="report-category-analysis.step1"
+                        class="rounded-full"
+                        @click="applyFilters"
+                    >
                         {{ t('reports.filters.apply') }}
                     </Button>
                 </div>
@@ -775,7 +780,10 @@ function deltaClass(value: number): string {
                         class="rounded-[28px] border-white/70 bg-white/92 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                     >
                         <CardHeader>
-                            <CardTitle class="text-base">
+                            <CardTitle
+                                data-onboarding="report-category-analysis.step2"
+                                class="text-base"
+                            >
                                 {{
                                     t(
                                         'reports.categoryAnalysis.charts.trendTitle',

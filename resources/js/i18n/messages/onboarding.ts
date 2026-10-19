@@ -1,3 +1,5 @@
+import { additionalOnboardingMessages } from './additional-onboarding';
+
 const it = {
     progress: 'Passaggio {current} di {total}',
     next: 'Avanti',
@@ -13,6 +15,7 @@ const it = {
     unavailable:
         'Il tour non è disponibile in questo momento. Puoi consultare la guida e riprovare più tardi.',
     steps: {
+        ...additionalOnboardingMessages.it,
         dashboardPeriod: {
             title: 'Periodo e conti',
             body: 'Scegli mese, anno e conti da analizzare. Le sezioni sotto seguono questo perimetro.',
@@ -159,6 +162,7 @@ const en: typeof it = {
     unavailable:
         'The tour is not available right now. You can read the guide and try again later.',
     steps: {
+        ...additionalOnboardingMessages.en,
         dashboardPeriod: {
             title: 'Period and accounts',
             body: 'Choose the month, year and accounts to analyse. The sections below follow this scope.',

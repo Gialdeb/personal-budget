@@ -68,6 +68,7 @@ const history = computed(() => props.ticketHistory);
         <SettingsLayout>
             <div class="max-w-3xl space-y-6">
                 <Heading
+                    data-onboarding="support.step1"
                     :title="t('supportTickets.title')"
                     :description="t('supportTickets.intro')"
                 />
@@ -132,7 +133,11 @@ const history = computed(() => props.ticketHistory);
                     >
                         {{ t('supportTickets.empty') }}
                     </p>
-                    <form class="space-y-5" @submit.prevent="submit">
+                    <form
+                        data-onboarding="support.step2"
+                        class="space-y-5"
+                        @submit.prevent="submit"
+                    >
                         <fieldset>
                             <legend class="mb-2 text-sm font-semibold">
                                 {{ t('supportTickets.type') }}
@@ -204,7 +209,10 @@ const history = computed(() => props.ticketHistory);
                     </form>
                 </details>
                 <section class="space-y-3">
-                    <h2 class="text-sm font-semibold">
+                    <h2
+                        data-onboarding="support.step3"
+                        class="text-sm font-semibold"
+                    >
                         {{ t('supportTickets.allHistory') }}
                     </h2>
                     <p

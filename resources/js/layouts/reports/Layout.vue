@@ -113,6 +113,7 @@ const activeReportItem = computed<ReportNavItem | null>(
                 :aria-label="t('reports.navigationLabel')"
             >
                 <Link
+                    data-onboarding="reports.navigation"
                     v-for="item in sidebarNavItems"
                     :key="`mobile-${item.key}`"
                     :href="item.href"
@@ -192,6 +193,7 @@ const activeReportItem = computed<ReportNavItem | null>(
                         :aria-label="t('reports.navigationLabel')"
                     >
                         <Link
+                            data-onboarding="reports.navigation"
                             v-for="item in sidebarNavItems"
                             :key="toUrl(item.href)"
                             :href="item.href"

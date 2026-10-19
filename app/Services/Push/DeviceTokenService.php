@@ -290,6 +290,7 @@ class DeviceTokenService
         }
 
         return DeviceToken::query()
+            ->active()
             ->whereIn('token', $normalizedTokens->all())
             ->update([
                 'is_active' => false,
@@ -390,27 +391,25 @@ class DeviceTokenService
         ?string $deviceIdentifier,
         ?string $token = null,
         ?string $platform = null,
+        bool $includeInactive = false,
     ): ?DeviceToken {
         $normalizedDeviceIdentifier = $this->normalizeDeviceIdentifier($deviceIdentifier);
 
-        if ($normalizedDeviceIdentifier !== null) {
-            return DeviceToken::query()
-                ->forUser($user)
-                ->active()
-                ->when(
-                    $platform !== null,
-                    fn ($query) => $query->forPlatform($platform),
-                )
-                ->forDeviceIdentifier($normalizedDeviceIdentifier)
-                ->latest('id')
-                ->first();
-        }
-
-        if (! is_string($token) || $token === '') {
+        if ($normalizedDeviceIdentifier === null && (! is_string($token) || $token === '')) {
             return null;
         }
 
-        return $this->activeTokenForUser($user, $token, $platform);
+        return DeviceToken::query()
+            ->forUser($user)
+            ->when(! $includeInactive, fn ($query) => $query->active())
+            ->when($platform !== null, fn ($query) => $query->forPlatform($platform))
+            ->when(
+                $normalizedDeviceIdentifier !== null,
+                fn ($query) => $query->forDeviceIdentifier($normalizedDeviceIdentifier),
+                fn ($query) => $query->where('token', $token),
+            )
+            ->latest('id')
+            ->first();
     }
 
     protected function normalizeDeviceIdentifier(?string $deviceIdentifier): ?string

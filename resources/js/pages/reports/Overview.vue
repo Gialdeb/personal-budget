@@ -593,7 +593,11 @@ function resetFilters(): void {
                         >
                             {{ t('reports.filters.reset') }}
                         </Button>
-                        <Button class="rounded-full" @click="applyFilters">
+                        <Button
+                            data-onboarding="report-overview.step1"
+                            class="rounded-full"
+                            @click="applyFilters"
+                        >
                             {{ t('reports.filters.apply') }}
                         </Button>
                     </div>
@@ -697,6 +701,7 @@ function resetFilters(): void {
                 class="grid gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]"
             >
                 <ReportOverviewTrendChart
+                    data-onboarding="report-overview.step2"
                     :kpis="props.reportOverview.kpis"
                     :currency="props.reportOverview.currency"
                     :title="t('reports.overview.distribution.title')"
@@ -789,6 +794,7 @@ function resetFilters(): void {
             </section>
 
             <ReportOverviewComparisonChart
+                data-onboarding="report-overview.step3"
                 :chart="props.reportOverview.comparison"
                 :currency="props.reportOverview.currency"
                 :title="t('reports.overview.comparison.title')"

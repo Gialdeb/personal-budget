@@ -264,29 +264,52 @@ class ProfileController extends Controller
     ): JsonResponse {
         /** @var User $user */
         $user = $request->user();
-        $deviceRegistration = $deviceTokenService->registerCurrentDevice(
-            $user,
-            $request->string('token')->toString(),
-            $request->string('platform')->toString(),
-            $request->string('locale')->toString() ?: null,
-            $request->string('device_identifier')->toString() ?: null,
-            $request->string('service_worker_version')->toString() ?: null,
-        );
 
-        $request->session()->put('push_device_token_uuid', $deviceRegistration['device_token']->uuid);
+        return DB::transaction(function () use ($request, $deviceTokenService, $user): JsonResponse {
+            User::query()->whereKey($user->getKey())->lockForUpdate()->firstOrFail();
+            $user->unsetRelation('settings');
+            $storedDevice = $deviceTokenService->currentDeviceTokenForUser(
+                $user,
+                $request->string('device_identifier')->toString() ?: null,
+                $request->string('token')->toString(),
+                $request->string('platform')->toString(),
+                includeInactive: true,
+            );
 
-        $this->storePushPreference($user, true, timezone: $request->validated('timezone'));
+            if ($request->boolean('automatic') && (
+                ! $user->pushNotificationsEnabled()
+                || $storedDevice === null
+                || $storedDevice->invalidation_reason === 'user_disabled'
+            )) {
+                return response()->json(['push' => ['current_device_enabled' => false]]);
+            }
 
-        return response()->json([
-            'message' => __('settings.profile.push_web.flash.enabled'),
-            'push' => [
-                'enabled' => true,
-                'current_device_enabled' => true,
-                'active_tokens_count' => $deviceTokenService->activeBroadcastTokenCountForUser($user),
-                'device_lifecycle' => $deviceRegistration['lifecycle'],
-                'recovered_from_invalidation' => $deviceRegistration['recovered_from_invalidation'],
-            ],
-        ]);
+            $deviceRegistration = $deviceTokenService->registerCurrentDevice(
+                $user,
+                $request->string('token')->toString(),
+                $request->string('platform')->toString(),
+                $request->string('locale')->toString() ?: null,
+                $request->string('device_identifier')->toString() ?: null,
+                $request->string('service_worker_version')->toString() ?: null,
+            );
+
+            $request->session()->put('push_device_token_uuid', $deviceRegistration['device_token']->uuid);
+
+            if (! $request->boolean('automatic')) {
+                $this->storePushPreference($user, true, timezone: $request->validated('timezone'));
+            }
+
+            return response()->json([
+                'message' => __('settings.profile.push_web.flash.enabled'),
+                'push' => [
+                    'enabled' => true,
+                    'current_device_enabled' => true,
+                    'active_tokens_count' => $deviceTokenService->activeBroadcastTokenCountForUser($user),
+                    'device_lifecycle' => $deviceRegistration['lifecycle'],
+                    'recovered_from_invalidation' => $deviceRegistration['recovered_from_invalidation'],
+                ],
+            ]);
+        });
     }
 
     public function showPushDeviceStatus(
@@ -303,6 +326,9 @@ class ProfileController extends Controller
             $deviceIdentifier,
             $token,
             $platform,
+        );
+        $storedDevice = $deviceTokenService->currentDeviceTokenForUser(
+            $user, $deviceIdentifier, $token, $platform, includeInactive: true,
         );
         $tokenMismatch = $activeDeviceToken instanceof DeviceToken
             && $token !== ''
@@ -328,6 +354,8 @@ class ProfileController extends Controller
                     true,
                 ),
                 'current_device_enabled' => $activeDeviceToken !== null,
+                'current_device_registered' => $storedDevice !== null,
+                'current_device_disabled' => $storedDevice?->invalidation_reason === 'user_disabled',
                 'active_tokens_count' => $deviceTokenService->activeBroadcastTokenCountForUser($user),
                 'token_mismatch' => $tokenMismatch,
                 'device_lifecycle' => $activeDeviceToken?->invalidation_reason === null
@@ -395,14 +423,17 @@ class ProfileController extends Controller
         $token = $request->string('token')->toString();
         $deviceIdentifier = $request->string('device_identifier')->toString() ?: null;
 
-        if ($token !== '' || $deviceIdentifier !== null) {
-            $deviceTokenService->markInactiveCurrentDevice(
-                $user,
-                $deviceIdentifier,
-                $token,
-                $platform,
-            );
-        }
+        DB::transaction(function () use ($user, $deviceTokenService, $deviceIdentifier, $token, $platform): void {
+            User::query()->whereKey($user->getKey())->lockForUpdate()->firstOrFail();
+            if ($token !== '' || $deviceIdentifier !== null) {
+                $deviceTokenService->markInactiveCurrentDevice(
+                    $user,
+                    $deviceIdentifier,
+                    $token,
+                    $platform,
+                );
+            }
+        });
 
         return response()->json([
             'message' => __('settings.profile.push_web.flash.disabled'),

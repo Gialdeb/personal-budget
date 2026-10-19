@@ -31,12 +31,13 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     class="border-b border-border/70 bg-linear-to-r from-accent/80 via-muted/55 to-secondary/70 px-8 py-7"
                 >
                     <Heading
+                        data-onboarding="appearance.step1"
                         variant="small"
                         :title="t('settings.appearancePage.title')"
                         :description="t('settings.appearancePage.description')"
                     />
                 </div>
-                <div class="px-8 py-8">
+                <div data-onboarding="appearance.step2" class="px-8 py-8">
                     <ThemePreferenceControl variant="inline" />
                 </div>
             </section>

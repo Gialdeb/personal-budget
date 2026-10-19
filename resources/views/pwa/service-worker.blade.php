@@ -36,17 +36,8 @@ function pushSwInfo(message, context) {
 }
 
 function pushSwWarn(message, context) {
-    if (!DEBUG_LOGGING_ENABLED) {
-        return;
-    }
-
-    if (typeof context === 'undefined') {
-        console.warn(message);
-
-        return;
-    }
-
-    console.warn(message, context);
+    void context;
+    console.warn(message);
 }
 
 try {

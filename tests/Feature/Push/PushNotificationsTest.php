@@ -898,3 +898,80 @@ it('sends push broadcasts only to the latest active token for each browser devic
     ])
         ->and(DeviceToken::query()->where('token', 'stale-device-token')->firstOrFail()->fresh()->is_active)->toBeFalse();
 });
+
+it('keeps an explicitly disabled device off during automatic sync and allows manual reactivation', function () {
+    $user = User::factory()->create();
+    $device = DeviceToken::factory()->for($user)->create([
+        'token' => 'disabled-phone-token', 'device_identifier' => 'phone',
+        'is_active' => true,
+    ]);
+    $other = DeviceToken::factory()->for($user)->create(['token' => 'other-device-token', 'device_identifier' => 'desktop']);
+    $this->actingAs($user)->deleteJson(route('settings.profile.push-tokens.destroy'), [
+        'device_identifier' => 'phone', 'platform' => 'web',
+    ])->assertSuccessful();
+    $this->postJson(route('settings.profile.push-tokens.status'), [
+        'device_identifier' => 'phone', 'platform' => 'web',
+    ])->assertJsonPath('push.current_device_disabled', true)
+        ->assertJsonPath('push.current_device_registered', true);
+    $payload = ['token' => 'new-phone-token', 'device_identifier' => 'phone', 'platform' => 'web'];
+    $this->postJson(route('settings.profile.push-tokens.store'), [...$payload, 'automatic' => true])
+        ->assertSuccessful()->assertJsonPath('push.current_device_enabled', false);
+    expect($device->fresh()->is_active)->toBeFalse()
+        ->and($device->fresh()->token)->toBe('disabled-phone-token')
+        ->and($other->fresh()->is_active)->toBeTrue();
+    $this->postJson(route('settings.profile.push-tokens.store'), $payload)
+        ->assertSuccessful()->assertJsonPath('push.current_device_enabled', true);
+    expect($device->fresh()->is_active)->toBeTrue()
+        ->and($other->fresh()->token)->toBe('other-device-token');
+});
+
+it('never creates consent from an automatic registration and respects global opt out', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user)->postJson(route('settings.profile.push-tokens.store'), [
+        'token' => 'unknown-token', 'device_identifier' => 'unknown', 'platform' => 'web', 'automatic' => true,
+    ])->assertSuccessful()->assertJsonPath('push.current_device_enabled', false);
+    expect($user->deviceTokens()->count())->toBe(0);
+    $settings = $user->settings()->create(['locale' => 'it', 'base_currency' => 'EUR', 'settings' => [
+        'notifications' => ['push' => ['enabled' => false, 'daily_expense_reminder_enabled' => false]],
+        'timezone' => 'Europe/Rome', 'onboarding' => ['enabled' => false],
+    ]]);
+    $device = DeviceToken::factory()->for($user)->create(['token' => 'known-token', 'device_identifier' => 'phone']);
+    $before = $settings->settings;
+    $this->postJson(route('settings.profile.push-tokens.store'), [
+        'token' => 'rotated-token', 'device_identifier' => 'phone', 'platform' => 'web', 'automatic' => true,
+    ])->assertSuccessful()->assertJsonPath('push.current_device_enabled', false);
+    expect($settings->fresh()->settings)->toBe($before)
+        ->and($device->fresh()->token)->toBe('known-token');
+});
+
+it('rotates an automatically synchronized token without changing settings or other devices', function () {
+    $user = User::factory()->create();
+    $settings = $user->settings()->create(['locale' => 'it', 'base_currency' => 'EUR', 'settings' => [
+        'notifications' => ['push' => ['enabled' => true, 'daily_expense_reminder_enabled' => false]],
+        'timezone' => 'Europe/Rome', 'onboarding' => ['enabled' => false],
+    ]]);
+    $device = DeviceToken::factory()->for($user)->create([
+        'token' => 'expired-token', 'device_identifier' => 'phone', 'is_active' => false, 'invalidation_reason' => 'firebase_invalid',
+    ]);
+    $other = DeviceToken::factory()->for($user)->create(['token' => 'desktop-token', 'device_identifier' => 'desktop']);
+    $before = $settings->settings;
+    $this->actingAs($user)->postJson(route('settings.profile.push-tokens.store'), [
+        'token' => 'fresh-token', 'device_identifier' => 'phone', 'platform' => 'web', 'automatic' => true, 'timezone' => 'America/New_York',
+    ])->assertSuccessful()->assertJsonPath('push.current_device_enabled', true);
+    expect($settings->fresh()->settings)->toBe($before)
+        ->and($device->fresh()->token)->toBe('fresh-token')
+        ->and($device->fresh()->is_active)->toBeTrue()
+        ->and($other->fresh()->is_active)->toBeTrue();
+});
+
+it('preserves voluntary opt out when a delayed Firebase rejection arrives', function () {
+    $user = User::factory()->create();
+    $device = DeviceToken::factory()->for($user)->create([
+        'token' => 'phone-token', 'device_identifier' => 'phone',
+    ]);
+    $service = app(DeviceTokenService::class);
+    $service->markInactiveCurrentDevice($user, 'phone');
+    expect($service->invalidateTokens(['phone-token'], 'firebase_invalid_token'))->toBe(0)
+        ->and($device->fresh()->is_active)->toBeFalse()
+        ->and($device->fresh()->invalidation_reason)->toBe('user_disabled');
+});

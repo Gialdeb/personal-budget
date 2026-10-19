@@ -522,6 +522,7 @@ async function extractResponseErrorMessage(
                             @update:model-value="handleYearSelection"
                         >
                             <SelectTrigger
+                                data-onboarding="planning.step1"
                                 class="h-10 rounded-full border-white/70 bg-white/90 px-3 text-sm dark:border-white/10 dark:bg-slate-950/70"
                             >
                                 <SelectValue />
@@ -543,6 +544,7 @@ async function extractResponseErrorMessage(
                             @update:model-value="handleGroupSelection"
                         >
                             <SelectTrigger
+                                data-onboarding="planning.step1"
                                 class="h-10 rounded-full border-white/70 bg-white/90 px-3 text-sm dark:border-white/10 dark:bg-slate-950/70"
                             >
                                 <SelectValue />
@@ -561,6 +563,7 @@ async function extractResponseErrorMessage(
                     </div>
 
                     <Button
+                        data-onboarding="planning.step2"
                         type="button"
                         variant="outline"
                         class="h-10 rounded-full border-white/70 bg-white/90 text-sm dark:border-white/10 dark:bg-slate-950/70"
@@ -644,6 +647,7 @@ async function extractResponseErrorMessage(
                                 @update:model-value="handleYearSelection"
                             >
                                 <SelectTrigger
+                                    data-onboarding="planning.step1"
                                     class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
                                 >
                                     <SelectValue />
@@ -672,6 +676,7 @@ async function extractResponseErrorMessage(
                                 @update:model-value="handleGroupSelection"
                             >
                                 <SelectTrigger
+                                    data-onboarding="planning.step1"
                                     class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
                                 >
                                     <SelectValue />
@@ -690,6 +695,7 @@ async function extractResponseErrorMessage(
                         </div>
 
                         <Button
+                            data-onboarding="planning.step2"
                             type="button"
                             variant="outline"
                             class="h-11 rounded-2xl border-white/70 bg-white/90 sm:col-span-2 dark:border-white/10 dark:bg-slate-950/70"
@@ -816,6 +822,7 @@ async function extractResponseErrorMessage(
                                 {{ t('planning.overview.monthlyTotals') }}
                             </p>
                             <h2
+                                data-onboarding="planning.step3"
                                 class="text-lg font-semibold text-slate-950 dark:text-white"
                             >
                                 {{ t('planning.overview.yearlySummary') }}

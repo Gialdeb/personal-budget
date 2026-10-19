@@ -1,11 +1,34 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { compileScript, parse } from '@vue/compiler-sfc';
 import { transformSync } from 'esbuild';
 import * as vue from 'vue';
 import * as helpers from '../../resources/js/lib/onboarding-tour.js';
+
+function loadTourModule(path) {
+    const file = new URL(`../../resources/js/${path}`, import.meta.url);
+    const module = { exports: {} };
+    runInNewContext(
+        transformSync(readFileSync(file, 'utf8'), {
+            loader: 'ts',
+            format: 'cjs',
+        }).code,
+        {
+            module,
+            exports: module.exports,
+            require: (name) =>
+                loadTourModule(
+                    new URL(`${name}.ts`, file).pathname.split(
+                        '/resources/js/',
+                    )[1],
+                ),
+        },
+    );
+
+    return module.exports;
+}
 
 const source = readFileSync(
     new URL(
@@ -32,6 +55,7 @@ const definitionsModule = { exports: {} };
 runInNewContext(definitions, {
     module: definitionsModule,
     exports: definitionsModule.exports,
+    require: () => loadTourModule('onboarding/additional-tours.ts'),
 });
 
 function harness({
@@ -367,8 +391,8 @@ test('Inertia navigation interrupts without completion and never autostarts othe
     assert.equal(h.bindings.visible.value, true);
     h.listeners.start();
     assert.equal(h.bindings.visible.value, false);
-    h.page.component = 'settings/Support';
-    h.page.url = '/settings/support';
+    h.page.component = 'help-center/Index';
+    h.page.url = '/help-center';
     await h.flush();
     h.listeners.finish();
     assert.equal(await h.tick(), false);
@@ -395,11 +419,9 @@ test('automatic start respects saved completion and session verification', async
     unverified.hooks.unmount();
 });
 
-for (const component of [
-    'transactions/Show',
-    'transactions/recurring/Index',
-    'SharedExpenses',
-]) {
+for (const component of Object.keys(
+    definitionsModule.exports.screenForComponent,
+).filter((page) => page !== 'dashboard/Analysis')) {
     test(`${component}: uses its own completion, independent of dashboard, and can replay`, async () => {
         const h = harness({
             component,
@@ -458,7 +480,7 @@ test('an unavailable final dynamic target returns to the last usable step and al
     assert.deepEqual(h.recordedSections, ['shared-expenses']);
 });
 
-test('each section has 5–8 steps, existing targets and aligned Italian/English copy', () => {
+test('each section has a short tour, existing targets and aligned Italian/English copy', () => {
     const module = { exports: {} };
     const copy = readFileSync(
         new URL(
@@ -470,27 +492,35 @@ test('each section has 5–8 steps, existing targets and aligned Italian/English
     runInNewContext(transformSync(copy, { loader: 'ts', format: 'cjs' }).code, {
         module,
         exports: module.exports,
+        require: () => loadTourModule('i18n/messages/additional-onboarding.ts'),
     });
+    const vueSources = (directory) =>
+        readdirSync(
+            new URL(`../../resources/js/${directory}`, import.meta.url),
+            { withFileTypes: true },
+        ).flatMap((entry) =>
+            entry.isDirectory()
+                ? vueSources(`${directory}/${entry.name}`)
+                : entry.name.endsWith('.vue')
+                  ? [
+                        readFileSync(
+                            new URL(
+                                `../../resources/js/${directory}/${entry.name}`,
+                                import.meta.url,
+                            ),
+                            'utf8',
+                        ),
+                    ]
+                  : [],
+        );
     const targets = [
-        'pages/dashboard/Analysis.vue',
-        'pages/transactions/Show.vue',
-        'pages/transactions/recurring/Index.vue',
-        'pages/SharedExpenses.vue',
-        'components/AppSidebar.vue',
-        'components/AppSidebarHeader.vue',
-        'components/MobileBottomNav.vue',
-        'components/recurring/RecurringOccurrencesMobileList.vue',
-    ]
-        .map((path) =>
-            readFileSync(
-                new URL(`../../resources/js/${path}`, import.meta.url),
-                'utf8',
-            ),
-        )
-        .join('\n');
+        ...vueSources('pages'),
+        ...vueSources('components'),
+        ...vueSources('layouts'),
+    ].join('\n');
 
     for (const steps of Object.values(definitionsModule.exports.tours)) {
-        assert.ok(steps.length >= 5 && steps.length <= 8);
+        assert.ok(steps.length >= 1 && steps.length <= 8);
 
         for (const step of steps) {
             assert.ok(targets.includes(step.target), step.target);
@@ -509,4 +539,69 @@ test('each section has 5–8 steps, existing targets and aligned Italian/English
             }
         }
     }
+});
+
+test('every Vue page is covered or has a specific exclusion reason', () => {
+    const exclusions = loadTourModule(
+        'onboarding/coverage.ts',
+    ).excludedOnboardingPages;
+    const walk = (directory = '') =>
+        readdirSync(
+            new URL(`../../resources/js/pages/${directory}`, import.meta.url),
+            { withFileTypes: true },
+        ).flatMap((entry) =>
+            entry.isDirectory()
+                ? walk(`${directory}${entry.name}/`)
+                : entry.name.endsWith('.vue')
+                  ? [`${directory}${entry.name.slice(0, -4)}`]
+                  : [],
+        );
+
+    for (const page of walk()) {
+        const section = definitionsModule.exports.screenForComponent[page];
+        assert.ok(section || exclusions[page]?.length > 30, page);
+        assert.ok(!(section && exclusions[page]), page);
+    }
+});
+
+test('settings and reports launchers keep completion separate from their detail pages', () => {
+    const source = readFileSync(
+        new URL(
+            '../../resources/js/composables/useOnboarding.ts',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const start = source.indexOf('    const section = computed(');
+    const end = source.indexOf('    const hasTour = ', start);
+    const resolve = (component, url) => {
+        const binding = {
+            page: { component, url },
+            URL,
+            computed: (callback) => callback(),
+            screenForComponent: definitionsModule.exports.screenForComponent,
+        };
+        runInNewContext(
+            transformSync(source.slice(start, end) + '\nresult = section;', {
+                loader: 'ts',
+            }).code,
+            binding,
+        );
+
+        return binding.result;
+    };
+    assert.equal(resolve('settings/Profile', '/settings'), 'settings-home');
+    assert.equal(resolve('settings/Profile', '/settings/profile'), 'profile');
+    assert.equal(
+        resolve('settings/Accounts', '/settings/accounts?mobile=launcher'),
+        'settings-home',
+    );
+    assert.equal(
+        resolve('reports/Overview', '/reports/kpis?mobile=launcher'),
+        'report-hub',
+    );
+    assert.equal(
+        resolve('reports/Overview', '/reports/kpis'),
+        'report-overview',
+    );
 });

@@ -50,17 +50,15 @@ import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { formatCurrency } from '@/lib/currency';
 import { fetchWithNotifications, notify } from '@/lib/notifications';
 import {
-    cleanupCurrentBrowserPushRegistration,
-    clearMissingServiceWorkerCleanupDeadline,
     clearCurrentBrowserPushToken,
     clearPersistedCurrentPushToken,
     getOrCreatePushDeviceIdentifier,
+    reportPushFailure,
     readFirebaseMessagingConfig,
     readCurrentPushDeviceContext,
     readPersistedCurrentPushToken,
     registerCurrentBrowserPushToken,
     requestNotificationPermission,
-    shouldCleanupMissingServiceWorker,
     synchronizeCurrentBrowserPushRegistration,
     supportsWebPushRegistration,
 } from '@/lib/push-notifications';
@@ -336,6 +334,8 @@ const pushWebActiveTokensCount = ref(
     props.notification_preferences.push.active_tokens_count,
 );
 const pushWebInitialized = ref(false);
+const pushWebChecking = ref(false);
+const pushWebCheckFailed = ref(false);
 const displayedAvatar = computed(
     () => avatarPreviewUrl.value ?? user.value?.avatar ?? null,
 );
@@ -858,7 +858,11 @@ async function submitPushTokenRequest(
         );
     }
 
-    return data ?? {};
+    if (!data?.push) {
+        throw new Error('push-invalid-response');
+    }
+
+    return data;
 }
 
 function applyPushPreferenceState(
@@ -884,6 +888,7 @@ const isPushWebDeviceEnabled = computed(
 const isPushWebToggleDisabled = computed(
     () =>
         pushWebSubmitting.value ||
+        pushWebChecking.value ||
         pushWebDeviceState.value === 'unsupported' ||
         pushWebDeviceState.value === 'misconfigured',
 );
@@ -946,140 +951,109 @@ function translatePushWebError(error: unknown, fallbackKey: string): string {
 }
 
 async function fetchCurrentPushDeviceRegistrationStatus(
-    token: string,
+    token: string | null,
 ): Promise<PushTokenResponse> {
-    return submitPushTokenRequest(pushTokenStatusAction().url, 'POST', {
-        token,
-        platform: 'web',
-        device_identifier: getOrCreatePushDeviceIdentifier(),
-    });
+    const payload = await submitPushTokenRequest(
+        pushTokenStatusAction().url,
+        'POST',
+        {
+            token,
+            platform: 'web',
+            device_identifier: getOrCreatePushDeviceIdentifier(),
+        },
+    );
+
+    if (
+        typeof payload.push?.current_device_enabled !== 'boolean' ||
+        typeof payload.push?.global_enabled !== 'boolean' ||
+        typeof payload.push?.active_tokens_count !== 'number'
+    ) {
+        throw new Error('push-invalid-response');
+    }
+
+    return payload;
 }
 
 async function initializePushWebDeviceState(): Promise<void> {
-    if (!pushNotificationsFeatureEnabled.value) {
-        pushWebDeviceState.value = 'misconfigured';
-        pushWebInitialized.value = true;
-
+    if (pushWebChecking.value || pushWebSubmitting.value) {
         return;
     }
 
-    const deviceContext = await readCurrentPushDeviceContext();
-
-    if (!deviceContext.hasSupportedBrowser) {
-        pushWebDeviceState.value = 'unsupported';
-        pushWebInitialized.value = true;
-
-        return;
-    }
-
-    if (!deviceContext.hasValidConfig) {
-        pushWebDeviceState.value = 'misconfigured';
-        pushWebInitialized.value = true;
-
-        return;
-    }
-
-    if (deviceContext.permission === 'denied') {
-        await cleanupCurrentBrowserPushRegistration({
-            destroyUrl: destroyPushTokenAction().url,
-            reason: 'permission_revoked',
-        });
-        pushWebDeviceState.value = 'denied';
-        pushWebInitialized.value = true;
-
-        return;
-    }
-
-    if (!deviceContext.hasExplicitServiceWorkerRegistration) {
-        if (deviceContext.hasPendingServiceWorkerRegistration) {
-            clearMissingServiceWorkerCleanupDeadline();
-            pushWebDeviceState.value = 'disabled';
-            pushWebInitialized.value = true;
-
-            return;
-        }
-
-        if (!shouldCleanupMissingServiceWorker()) {
-            pushWebDeviceState.value = 'disabled';
-            pushWebInitialized.value = true;
-
-            return;
-        }
-
-        await cleanupCurrentBrowserPushRegistration({
-            destroyUrl: destroyPushTokenAction().url,
-            reason: 'service_worker_missing',
-        });
-
-        pushWebDeviceState.value = 'disabled';
-        pushWebInitialized.value = true;
-
-        return;
-    }
+    pushWebChecking.value = true;
+    pushWebCheckFailed.value = false;
 
     try {
+        if (!pushNotificationsFeatureEnabled.value) {
+            pushWebDeviceState.value = 'misconfigured';
+
+            return;
+        }
+
+        const deviceContext = await readCurrentPushDeviceContext();
+
+        if (!deviceContext.hasSupportedBrowser) {
+            pushWebDeviceState.value = 'unsupported';
+
+            return;
+        }
+
+        if (!deviceContext.hasValidConfig) {
+            pushWebDeviceState.value = 'misconfigured';
+
+            return;
+        }
+
         if (deviceContext.permission === 'granted') {
-            await synchronizeCurrentBrowserPushRegistration({
-                isAuthenticated: page.props.auth?.user !== null,
+            const result = await synchronizeCurrentBrowserPushRegistration({
+                isAuthenticated: page.props.auth?.user != null,
                 featureEnabled: pushNotificationsFeatureEnabled.value,
                 locale: props.preferences.locale,
                 storeUrl: storePushTokenAction().url,
+                statusUrl: pushTokenStatusAction().url,
                 destroyUrl: destroyPushTokenAction().url,
             });
+
+            if (result.status === 'failed') {
+                throw new Error('push-status-check-failed');
+            }
         }
 
-        clearMissingServiceWorkerCleanupDeadline();
-
-        const currentToken = readPersistedCurrentPushToken();
-
-        if (!currentToken) {
-            await cleanupCurrentBrowserPushRegistration({
-                destroyUrl: destroyPushTokenAction().url,
-                reason: 'browser_token_missing',
-            });
-            pushWebDeviceState.value = 'disabled';
-            pushWebInitialized.value = true;
-
-            return;
-        }
-
-        const payload =
-            await fetchCurrentPushDeviceRegistrationStatus(currentToken);
-
+        const payload = await fetchCurrentPushDeviceRegistrationStatus(
+            readPersistedCurrentPushToken(),
+        );
         applyPushPreferenceState(
             payload.push?.global_enabled ??
                 props.notification_preferences.push.enabled,
             payload.push?.active_tokens_count ??
                 props.notification_preferences.push.active_tokens_count,
         );
-
-        pushWebDeviceState.value = payload.push?.current_device_enabled
-            ? 'enabled'
-            : 'disabled';
-
-        if (!payload.push?.current_device_enabled) {
-            await cleanupCurrentBrowserPushRegistration({
-                destroyUrl: destroyPushTokenAction().url,
-                token: currentToken,
-                reason: 'backend_device_inactive',
-            });
-        }
+        pushWebFeedback.value = null;
+        pushWebDeviceState.value =
+            deviceContext.permission === 'denied'
+                ? 'denied'
+                : payload.push?.current_device_enabled &&
+                    deviceContext.permission === 'granted'
+                  ? 'enabled'
+                  : 'disabled';
     } catch {
-        await cleanupCurrentBrowserPushRegistration({
-            destroyUrl: destroyPushTokenAction().url,
-            reason: 'status_check_failed',
-        });
-        pushWebDeviceState.value = 'disabled';
+        pushWebCheckFailed.value = true;
+        reportPushFailure('status');
+        setPushWebFeedback(
+            'destructive',
+            t('settings.profile.notifications.push.status.verificationFailed'),
+        );
     } finally {
+        pushWebChecking.value = false;
         pushWebInitialized.value = true;
     }
 }
 
 async function togglePushWebPreference(): Promise<void> {
-    if (pushWebSubmitting.value) {
+    if (pushWebSubmitting.value || pushWebChecking.value) {
         return;
     }
 
+    const previousDeviceState = pushWebDeviceState.value;
     const nextEnabled = !isPushWebDeviceEnabled.value;
 
     pushWebSubmitting.value = true;
@@ -1105,6 +1079,15 @@ async function togglePushWebPreference(): Promise<void> {
                 validationError = 'firebase-config-missing';
             }
 
+            if (validationError === null && !('Notification' in window)) {
+                validationError = 'push-unsupported';
+            }
+
+            const permission =
+                validationError === null
+                    ? await requestNotificationPermission()
+                    : 'default';
+
             const supported =
                 validationError === null
                     ? await supportsWebPushRegistration()
@@ -1113,11 +1096,6 @@ async function togglePushWebPreference(): Promise<void> {
             if (validationError === null && !supported) {
                 validationError = 'push-unsupported';
             }
-
-            const permission =
-                validationError === null
-                    ? await requestNotificationPermission()
-                    : 'default';
 
             if (validationError === null && permission !== 'granted') {
                 validationError = 'push-permission-denied';
@@ -1205,14 +1183,8 @@ async function togglePushWebPreference(): Promise<void> {
                 t('settings.profile.notifications.push.status.disabledSuccess'),
         );
     } catch (error) {
-        applyPushPreferenceState(
-            notificationPreferencesForm.push.enabled,
-            props.notification_preferences.push.active_tokens_count,
-        );
-        pushWebDeviceState.value =
-            error instanceof Error && error.message === 'push-permission-denied'
-                ? 'denied'
-                : 'disabled';
+        reportPushFailure('toggle');
+        pushWebDeviceState.value = previousDeviceState;
         setPushWebFeedback(
             'destructive',
             translatePushWebError(
@@ -1347,6 +1319,7 @@ function formatSupportAmount(amount: string, currency: string): string {
                     class="border-b border-slate-200/70 bg-gradient-to-r from-sky-500/10 via-cyan-500/10 to-emerald-500/10 px-8 py-7 dark:border-slate-800"
                 >
                     <Heading
+                        data-onboarding="profile.step1"
                         variant="small"
                         :title="t('settings.profile.title')"
                         :description="t('settings.profile.description')"
@@ -1578,6 +1551,7 @@ function formatSupportAmount(amount: string, currency: string): string {
                     class="border-b border-slate-200/70 bg-gradient-to-r from-indigo-500/10 via-sky-500/10 to-emerald-500/10 px-8 py-7 dark:border-slate-800"
                 >
                     <Heading
+                        data-onboarding="profile.step2"
                         variant="small"
                         :title="t('settings.profile.regional.title')"
                         :description="
@@ -2201,6 +2175,7 @@ function formatSupportAmount(amount: string, currency: string): string {
                     class="border-b border-slate-200/70 bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-indigo-500/10 px-8 py-7 dark:border-slate-800"
                 >
                     <Heading
+                        data-onboarding="profile.step3"
                         variant="small"
                         :title="t('settings.profile.active_sessions.title')"
                         :description="
@@ -2548,7 +2523,7 @@ function formatSupportAmount(amount: string, currency: string): string {
                                 class="mt-4 text-xs leading-5 text-slate-500 dark:text-slate-400"
                             >
                                 {{
-                                    notificationPreferencesForm.push.enabled
+                                    isPushWebDeviceEnabled
                                         ? t(
                                               'settings.profile.notifications.push.enabledState',
                                           )
@@ -2557,6 +2532,19 @@ function formatSupportAmount(amount: string, currency: string): string {
                                           )
                                 }}
                             </p>
+                            <Button
+                                v-if="pushWebCheckFailed"
+                                type="button"
+                                variant="outline"
+                                :disabled="pushWebChecking || pushWebSubmitting"
+                                @click="initializePushWebDeviceState"
+                            >
+                                {{
+                                    t(
+                                        'settings.profile.notifications.push.status.retryVerification',
+                                    )
+                                }}
+                            </Button>
                             <Button
                                 type="button"
                                 variant="outline"

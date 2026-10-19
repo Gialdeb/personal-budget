@@ -185,7 +185,7 @@ test('supported pages register tours and the existing help remains available', (
         );
     const definitions = source('onboarding/tours.ts');
     assert.match(definitions, /'dashboard\/Analysis': 'dashboard'/);
-    assert.doesNotMatch(definitions, /'settings\//);
+    assert.match(definitions, /additionalScreenForComponent/);
     assert.match(definitions, /'transactions\/Show': 'transactions'/);
     assert.match(definitions, /'transactions\/recurring\/Index': 'recurring'/);
     assert.match(definitions, /SharedExpenses: 'shared-expenses'/);

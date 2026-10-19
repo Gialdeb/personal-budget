@@ -435,6 +435,7 @@ onMounted(() => {
                         </div>
 
                         <Button
+                            data-onboarding="categories.step1"
                             class="h-11 rounded-2xl px-5"
                             @click="openCreateCategory"
                         >
@@ -527,6 +528,7 @@ onMounted(() => {
                     </Transition>
 
                     <CategoryFilters
+                        data-onboarding="categories.step2"
                         v-model:search="search"
                         v-model:active-status="activeStatus"
                         v-model:selectable-status="selectableStatus"
@@ -582,6 +584,7 @@ onMounted(() => {
                             </div>
 
                             <CategoryTreeList
+                                data-onboarding="categories.step3"
                                 :items="filteredTree"
                                 :empty-message="emptyMessage"
                                 :max-parent-depth-for-children="1"

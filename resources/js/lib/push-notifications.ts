@@ -143,17 +143,15 @@ function pushInfo(message: string, context?: unknown): void {
 }
 
 function pushWarn(message: string, context?: unknown): void {
-    if (!pushDebugEnabled()) {
-        return;
-    }
+    // Error objects may contain subscription URLs or Firebase credentials.
+    void context;
+    console.warn(message);
+}
 
-    if (typeof context === 'undefined') {
-        console.warn(message);
-
-        return;
-    }
-
-    console.warn(message, context);
+export function reportPushFailure(
+    stage: 'initialization' | 'status' | 'toggle',
+): void {
+    console.warn(`[push] ${stage} failed; registration preserved`);
 }
 
 function isRecoverableChromeStorageError(error: unknown): boolean {
@@ -892,12 +890,13 @@ export async function synchronizeCurrentBrowserPushRegistration({
     featureEnabled,
     locale,
     storeUrl,
-    destroyUrl,
+    statusUrl,
 }: {
     isAuthenticated: boolean;
     featureEnabled: boolean;
     locale?: string | null;
     storeUrl: string;
+    statusUrl: string;
     destroyUrl?: string;
 }): Promise<PushRegistrationSyncResult> {
     if (!isAuthenticated || !featureEnabled) {
@@ -916,54 +915,43 @@ export async function synchronizeCurrentBrowserPushRegistration({
 
     const supported = await supportsWebPushRegistration();
 
-    if (!supported) {
-        await cleanupCurrentBrowserPushRegistration({
-            destroyUrl,
-            token: readPersistedCurrentPushToken(),
-            reason: 'browser_unsupported',
-        });
-
-        return {
-            status: 'skipped',
-            token: null,
-        };
-    }
-
-    if (Notification.permission !== 'granted') {
-        await cleanupCurrentBrowserPushRegistration({
-            destroyUrl,
-            token: readPersistedCurrentPushToken(),
-            reason:
-                Notification.permission === 'denied'
-                    ? 'permission_revoked'
-                    : 'permission_not_granted',
-        });
-
-        return {
-            status: 'skipped',
-            token: readPersistedCurrentPushToken(),
-        };
+    if (!supported || Notification.permission !== 'granted') {
+        return { status: 'skipped', token: readPersistedCurrentPushToken() };
     }
 
     const previousToken = readPersistedCurrentPushToken();
 
     try {
+        const deviceStatus = await submitPushTokenRequest(statusUrl, 'POST', {
+            token: previousToken ?? undefined,
+            platform: 'web',
+            device_identifier: getOrCreatePushDeviceIdentifier(),
+        });
+
+        if (
+            typeof deviceStatus.push?.global_enabled !== 'boolean' ||
+            typeof deviceStatus.push?.current_device_registered !== 'boolean' ||
+            typeof deviceStatus.push?.current_device_disabled !== 'boolean'
+        ) {
+            throw new Error('push-invalid-response');
+        }
+
+        if (
+            deviceStatus.push?.global_enabled !== true ||
+            deviceStatus.push?.current_device_registered !== true ||
+            deviceStatus.push?.current_device_disabled === true
+        ) {
+            return { status: 'skipped', token: previousToken };
+        }
+
         const token = await registerCurrentBrowserPushToken();
 
         if (token === null || token === '') {
-            await cleanupCurrentBrowserPushRegistration({
-                destroyUrl,
-                token: previousToken,
-                reason: 'browser_token_missing',
-            });
-
-            return {
-                status: 'skipped',
-                token: null,
-            };
+            throw new Error('firebase-token-missing');
         }
 
         const payload = await submitPushTokenRequest(storeUrl, 'POST', {
+            automatic: true,
             token,
             platform: 'web',
             locale: locale ?? undefined,
@@ -971,6 +959,11 @@ export async function synchronizeCurrentBrowserPushRegistration({
             device_identifier: getOrCreatePushDeviceIdentifier(),
             service_worker_version: readCurrentServiceWorkerVersion(),
         });
+
+        if (payload.push?.current_device_enabled === false) {
+            return { status: 'skipped', token: previousToken };
+        }
+
         const lifecycle =
             typeof payload.push?.device_lifecycle === 'string'
                 ? payload.push.device_lifecycle
@@ -995,14 +988,6 @@ export async function synchronizeCurrentBrowserPushRegistration({
     } catch (error) {
         const message =
             error instanceof Error ? error.message : 'push-sync-failed';
-
-        if (message === 'firebase-token-missing') {
-            await cleanupCurrentBrowserPushRegistration({
-                destroyUrl,
-                token: previousToken,
-                reason: 'browser_token_missing',
-            });
-        }
 
         pushWarn('[push] browser registration sync failed', {
             error: message,
@@ -1210,6 +1195,10 @@ async function submitPushTokenRequest(
     push?: {
         device_lifecycle?: string;
         recovered_from_invalidation?: boolean;
+        current_device_enabled?: boolean;
+        current_device_registered?: boolean;
+        current_device_disabled?: boolean;
+        global_enabled?: boolean;
     };
 }> {
     const csrfToken = document
@@ -1240,7 +1229,11 @@ async function submitPushTokenRequest(
         throw new Error(data?.message || `push-request-${response.status}`);
     }
 
-    return data ?? {};
+    if (!data?.push) {
+        throw new Error('push-invalid-response');
+    }
+
+    return data;
 }
 
 function isSupportedLifecycle(

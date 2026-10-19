@@ -153,6 +153,7 @@ const localizedPaginationLabel = (label: string): string => {
         <SettingsLayout>
             <div class="space-y-6">
                 <Heading
+                    data-onboarding="exchange-rates.step1"
                     :title="t('settings.exchangeRatesPage.title')"
                     :description="t('settings.exchangeRatesPage.description')"
                 />
@@ -167,7 +168,10 @@ const localizedPaginationLabel = (label: string): string => {
                     </AlertDescription>
                 </Alert>
 
-                <section class="rounded-3xl border bg-card p-5 shadow-sm">
+                <section
+                    data-onboarding="exchange-rates.step2"
+                    class="rounded-3xl border bg-card p-5 shadow-sm"
+                >
                     <div
                         class="grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto_auto]"
                     >
@@ -288,7 +292,10 @@ const localizedPaginationLabel = (label: string): string => {
                     </div>
                 </section>
 
-                <section class="rounded-3xl border bg-card shadow-sm">
+                <section
+                    data-onboarding="exchange-rates.step3"
+                    class="rounded-3xl border bg-card shadow-sm"
+                >
                     <div
                         v-if="exchangeRates.length === 0"
                         class="space-y-2 px-6 py-10 text-center"

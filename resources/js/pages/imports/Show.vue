@@ -508,6 +508,7 @@ function submitDeleteImport(): void {
                                         </span>
                                     </div>
                                     <CardTitle
+                                        data-onboarding="import-detail.step1"
                                         class="text-2xl text-slate-950 dark:text-slate-50"
                                     >
                                         {{
@@ -670,9 +671,13 @@ function submitDeleteImport(): void {
                         class="border-slate-200 shadow-sm dark:border-slate-800"
                     >
                         <CardHeader>
-                            <CardTitle class="text-lg">{{
-                                t('imports.show.infoCard.title')
-                            }}</CardTitle>
+                            <CardTitle
+                                data-onboarding="import-detail.step3"
+                                class="text-lg"
+                                >{{
+                                    t('imports.show.infoCard.title')
+                                }}</CardTitle
+                            >
                         </CardHeader>
                         <CardContent class="space-y-3 text-sm">
                             <div class="flex items-start justify-between gap-3">
@@ -845,6 +850,7 @@ function submitDeleteImport(): void {
                     >
                         <div>
                             <h2
+                                data-onboarding="import-detail.step2"
                                 class="text-lg font-semibold text-slate-950 dark:text-slate-50"
                             >
                                 {{ t('imports.show.rowsSection.title') }}

@@ -253,6 +253,7 @@ function deleteYear(): void {
                                 </Badge>
                                 <div class="space-y-2">
                                     <h1
+                                        data-onboarding="years.step1"
                                         class="text-2xl font-semibold tracking-tight"
                                     >
                                         {{ t('settings.yearsPage.title') }}
@@ -345,6 +346,7 @@ function deleteYear(): void {
                             </div>
 
                             <form
+                                data-onboarding="years.step2"
                                 class="flex flex-col gap-3 sm:flex-row"
                                 @submit.prevent="submitYear(Number(form.year))"
                             >
@@ -473,6 +475,7 @@ function deleteYear(): void {
                                             class="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950/70"
                                         >
                                             <tr
+                                                data-onboarding="years.step3"
                                                 v-for="item in props.years.data"
                                                 :key="item.uuid"
                                             >
@@ -700,6 +703,7 @@ function deleteYear(): void {
 
                             <div class="grid gap-3 lg:hidden">
                                 <article
+                                    data-onboarding="years.step3"
                                     v-for="item in props.years.data"
                                     :key="item.uuid"
                                     class="rounded-[1.5rem] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"

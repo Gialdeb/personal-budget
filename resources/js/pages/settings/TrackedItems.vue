@@ -496,6 +496,7 @@ onMounted(() => {
 
                             <div class="space-y-2">
                                 <h1
+                                    data-onboarding="references.step1"
                                     class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
                                 >
                                     {{ t('trackedItems.title') }}
@@ -509,6 +510,7 @@ onMounted(() => {
                         </div>
 
                         <Button
+                            data-onboarding="references.step2"
                             class="h-11 rounded-2xl px-5"
                             @click="openCreateTrackedItem"
                         >
@@ -773,6 +775,7 @@ onMounted(() => {
                     </Transition>
 
                     <TrackedItemFilters
+                        data-onboarding="references.step3"
                         v-model:search="search"
                         v-model:active-status="activeStatus"
                         v-model:usage-status="usageStatus"

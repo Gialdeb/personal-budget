@@ -335,6 +335,7 @@ function shareTrackWidth(share: number): string {
                             {{ t('reports.overview.accountsPage.addAccount') }}
                         </Button>
                         <Button
+                            data-onboarding="report-accounts.step3"
                             variant="outline"
                             class="rounded-2xl"
                             :disabled="
@@ -464,6 +465,7 @@ function shareTrackWidth(share: number): string {
 
                         <div class="flex gap-2">
                             <Button
+                                data-onboarding="report-accounts.step1"
                                 class="rounded-2xl"
                                 @click="visitWithCurrentFilters"
                             >
@@ -1030,7 +1032,7 @@ function shareTrackWidth(share: number): string {
                         class="rounded-[28px] border-white/70 bg-white/92 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                     >
                         <CardHeader>
-                            <CardTitle>
+                            <CardTitle data-onboarding="report-accounts.step2">
                                 {{
                                     t(
                                         'reports.overview.accountsPage.comparisonTable',

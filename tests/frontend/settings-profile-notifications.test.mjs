@@ -51,9 +51,11 @@ test('settings profile handles web push registration and deregistration from the
     assert.match(profileSource, /destroyPushTokenAction\(\)\.url/);
     assert.match(profileSource, /getOrCreatePushDeviceIdentifier/);
     assert.match(profileSource, /clearCurrentBrowserPushToken/);
-    assert.match(profileSource, /cleanupCurrentBrowserPushRegistration/);
+    assert.doesNotMatch(profileSource, /cleanupCurrentBrowserPushRegistration/);
+    assert.match(profileSource, /reportPushFailure/);
+    assert.match(profileSource, /retryVerification/);
     assert.match(profileSource, /readCurrentPushDeviceContext/);
-    assert.match(profileSource, /hasPendingServiceWorkerRegistration/);
+    assert.match(profileSource, /pushWebCheckFailed/);
     assert.match(profileSource, /pushWebActiveTokensCount/);
 });
 

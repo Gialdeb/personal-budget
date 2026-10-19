@@ -55,7 +55,26 @@ export function useOnboarding() {
         { immediate: true, flush: 'sync' },
     );
     const state = computed(() => snapshot.value ?? defaults);
-    const section = computed(() => screenForComponent[page.component] ?? null);
+    const section = computed(() => {
+        const url = new URL(page.url, 'https://onboarding.local');
+
+        if (
+            page.component.startsWith('settings/') &&
+            (url.pathname === '/settings' ||
+                url.searchParams.get('mobile') === 'launcher')
+        ) {
+            return 'settings-home' as const;
+        }
+
+        if (
+            page.component.startsWith('reports/') &&
+            url.searchParams.get('mobile') === 'launcher'
+        ) {
+            return 'report-hub' as const;
+        }
+
+        return screenForComponent[page.component] ?? null;
+    });
     const hasTour = computed(
         () => page.props.onboarding != null && section.value != null,
     );

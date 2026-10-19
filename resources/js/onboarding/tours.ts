@@ -1,3 +1,8 @@
+import {
+    additionalScreenForComponent,
+    additionalTours,
+} from './additional-tours';
+
 export type OnboardingState = {
     enabled: boolean;
     tours: Record<string, 'completed' | 'skipped'>;
@@ -16,9 +21,11 @@ export type OnboardingSection =
     | 'dashboard'
     | 'transactions'
     | 'recurring'
-    | 'shared-expenses';
+    | 'shared-expenses'
+    | keyof typeof additionalTours;
 
 export const screenForComponent: Record<string, OnboardingSection> = {
+    ...additionalScreenForComponent,
     'dashboard/Analysis': 'dashboard',
     'transactions/Show': 'transactions',
     'transactions/recurring/Index': 'recurring',
@@ -26,6 +33,7 @@ export const screenForComponent: Record<string, OnboardingSection> = {
 };
 
 export const tours: Record<OnboardingSection, OnboardingStep[]> = {
+    ...additionalTours,
     dashboard: [
         { id: 'setup', target: 'dashboard.welcome', setup: true },
         { id: 'navigation', target: 'chrome.navigation' },

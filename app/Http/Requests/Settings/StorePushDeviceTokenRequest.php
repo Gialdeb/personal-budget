@@ -18,6 +18,7 @@ class StorePushDeviceTokenRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'automatic' => ['sometimes', 'boolean'],
             'token' => ['required', 'string', 'max:4096'],
             'platform' => ['required', 'string', 'in:web'],
             'locale' => ['nullable', 'string', 'max:12'],

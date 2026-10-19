@@ -182,6 +182,7 @@ function formatSignedCurrency(value: number): string {
                     <div class="grid gap-5 md:grid-cols-[1fr_auto]">
                         <div>
                             <h1
+                                data-onboarding="monthly-recap.step1"
                                 class="text-4xl font-black tracking-tight md:text-5xl"
                             >
                                 {{ t('dashboard.monthlyRecap.eyebrow') }}
@@ -214,7 +215,11 @@ function formatSignedCurrency(value: number): string {
                                 {{ t('dashboard.title') }}
                             </Link>
                         </Button>
-                        <Button as-child class="rounded-none">
+                        <Button
+                            data-onboarding="monthly-recap.step3"
+                            as-child
+                            class="rounded-none"
+                        >
                             <a :href="pdfHref">
                                 <FileText class="size-4" />
                                 {{ t('dashboard.monthlyRecap.exportPdf') }}
@@ -249,6 +254,7 @@ function formatSignedCurrency(value: number): string {
                                 I.
                             </span>
                             <h2
+                                data-onboarding="monthly-recap.step2"
                                 class="font-mono text-sm font-bold tracking-[0.16em] uppercase"
                             >
                                 {{ t('dashboard.monthlyRecap.keyNumbers') }}

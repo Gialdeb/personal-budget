@@ -244,6 +244,9 @@ export const settingsMessages = {
                             'La configurazione push web non è disponibile in questo ambiente.',
                         permissionDenied:
                             'Il browser ha negato il permesso notifiche. Abilitalo dalle impostazioni del browser per continuare.',
+                        verificationFailed:
+                            'Verifica non riuscita. La registrazione non è stata modificata. Riprova.',
+                        retryVerification: 'Riprova la verifica',
                         registrationFailed:
                             'Non è stato possibile registrare il browser per le push web.',
                         disableFailed:
@@ -872,6 +875,9 @@ export const settingsMessages = {
                             'Web push configuration is not available in this environment.',
                         permissionDenied:
                             'The browser denied notification permission. Enable it in the browser settings to continue.',
+                        verificationFailed:
+                            'Verification failed. Your registration was not changed. Please retry.',
+                        retryVerification: 'Retry verification',
                         registrationFailed:
                             'The browser could not be registered for web push notifications.',
                         disableFailed:

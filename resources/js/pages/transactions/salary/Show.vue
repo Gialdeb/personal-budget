@@ -388,7 +388,10 @@ function changePeriod(year: string, month: string): void {
                                 t('salary.details')
                             }}
                         </p>
-                        <h1 class="text-2xl font-semibold break-words">
+                        <h1
+                            data-onboarding="salary.step1"
+                            class="text-2xl font-semibold break-words"
+                        >
                             {{ employment.name }}
                         </h1>
                         <p>{{ employment.employer ?? '—' }}</p>
@@ -518,6 +521,7 @@ function changePeriod(year: string, month: string): void {
                                 "
                             >
                                 <SelectTrigger
+                                    data-onboarding="salary.step2"
                                     id="salary-year"
                                     class="h-11 w-[168px] rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-white/5"
                                     ><SelectValue
@@ -607,7 +611,9 @@ function changePeriod(year: string, month: string): void {
             </section>
             <section class="space-y-4 rounded-2xl border bg-card p-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
-                    <h2 class="font-semibold">{{ t('salary.comparison') }}</h2>
+                    <h2 data-onboarding="salary.step3" class="font-semibold">
+                        {{ t('salary.comparison') }}
+                    </h2>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
@@ -674,7 +680,10 @@ function changePeriod(year: string, month: string): void {
                 </p>
             </section>
             <section ref="historyElement" class="scroll-mt-24 space-y-4">
-                <h2 class="text-lg font-semibold">
+                <h2
+                    data-onboarding="salary.step4"
+                    class="text-lg font-semibold"
+                >
                     {{ t('salary.history') }} · {{ comparison.period }}
                 </h2>
                 <div

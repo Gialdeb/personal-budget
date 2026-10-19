@@ -493,6 +493,7 @@ function visitHistory(url: string | null): void {
                             {{ ui('Situazione con') }}
                         </p>
                         <h1
+                            data-onboarding="counterparty.step1"
                             class="mt-1 text-3xl font-semibold tracking-tight break-words"
                         >
                             {{ relation.name }}
@@ -667,7 +668,10 @@ function visitHistory(url: string | null): void {
                 }}
             </p>
             <div v-if="relation.can_manage" class="flex justify-end">
-                <Button class="min-h-11 w-full sm:w-auto" @click="openPayment"
+                <Button
+                    data-onboarding="counterparty.step3"
+                    class="min-h-11 w-full sm:w-auto"
+                    @click="openPayment"
                     ><ArrowLeftRight class="size-4" aria-hidden="true" />{{
                         ui('Registra pagamento')
                     }}</Button
@@ -694,6 +698,7 @@ function visitHistory(url: string | null): void {
                     </p>
                 </div>
                 <form
+                    data-onboarding="counterparty.step2"
                     class="grid grid-cols-2 items-end gap-3 rounded-2xl border bg-card p-3 lg:grid-cols-4"
                     @submit.prevent="applyFilters"
                 >
