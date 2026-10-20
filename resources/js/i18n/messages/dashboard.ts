@@ -421,6 +421,7 @@ export const dashboardMessages = {
             empty: 'Nessuna categoria padre con figli disponibile per il periodo selezionato.',
         },
         agenda: {
+            sourceUnavailable: 'Dettaglio non disponibile',
             title: 'Agenda finanziaria',
             description:
                 'Scadenze vicine, ricorrenze rilevanti e beneficiari principali del periodo.',
@@ -866,6 +867,7 @@ export const dashboardMessages = {
             empty: 'No parent category with children available for this period.',
         },
         agenda: {
+            sourceUnavailable: 'Details unavailable',
             title: 'Financial agenda',
             description:
                 'Upcoming due items, relevant recurring entries, and top payees for the period.',

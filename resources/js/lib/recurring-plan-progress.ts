@@ -34,3 +34,33 @@ export function recurringPlanProgress(
                 : null,
     };
 }
+
+export function annualOccurrencesProgress(
+    occurrences: Array<{
+        uuid: string;
+        expected_date: string | null;
+        due_date: string | null;
+        status: string | null;
+        settlement_status?: string | null;
+    }>,
+    year: number,
+): { paid: number; total: number; value: string; percentage: number | null } {
+    const rows = [
+        ...new Map(occurrences.map((row) => [row.uuid, row])).values(),
+    ].filter(
+        (row) =>
+            Number((row.due_date ?? row.expected_date)?.slice(0, 4)) === year &&
+            row.status !== 'cancelled',
+    );
+    const paid = rows.filter(
+        (row) => row.settlement_status === 'settled',
+    ).length;
+    const total = rows.length;
+
+    return {
+        paid,
+        total,
+        value: `${paid} / ${total}`,
+        percentage: total > 0 ? (paid / total) * 100 : null,
+    };
+}

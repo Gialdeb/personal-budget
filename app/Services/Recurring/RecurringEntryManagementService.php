@@ -88,7 +88,46 @@ class RecurringEntryManagementService
     public function update(User $user, RecurringEntry $entry, array $validated): RecurringEntry
     {
         return DB::transaction(function () use ($user, $entry, $validated): RecurringEntry {
+            $component = $entry->compoundComponent;
+            $componentName = null;
+            if ($component !== null) {
+                $parent = $component->compoundRecurringEntry()->lockForUpdate()->firstOrFail();
+                $component = $parent->components()->whereKey($component->id)->lockForUpdate()->firstOrFail();
+                $component->setRelation('compoundRecurringEntry', $parent);
+            }
             $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->getKey());
+            if ($component !== null) {
+                foreach (['account_id', 'currency', 'direction', 'entry_type', 'recurrence_type', 'recurrence_interval', 'is_amount_variable'] as $field) {
+                    if (array_key_exists($field, $validated) && $this->fieldChanged($entry, $field, $validated)) {
+                        throw ValidationException::withMessages(['entry' => __('compound_recurring.protected_component')]);
+                    }
+                }
+                if (array_key_exists('title', $validated)) {
+                    $draft = clone $component;
+                    $draft->name = trim($validated['title']) === $entry->title ? $component->displayName() : trim($validated['title']);
+                    $componentName = $draft->displayName();
+                    $title = $parent->name.' · '.$componentName;
+                    if ($componentName === '' || mb_strlen($componentName) > 100 || mb_strlen($title) > 150) {
+                        throw ValidationException::withMessages(['title' => __('compound_recurring.name_invalid')]);
+                    }
+                    if ($parent->components()->whereKeyNot($component->id)->get()->contains(function ($other) use ($parent, $componentName): bool {
+                        $other->setRelation('compoundRecurringEntry', $parent);
+
+                        return mb_strtolower($other->displayName()) === mb_strtolower($componentName);
+                    })) {
+                        throw ValidationException::withMessages(['title' => __('compound_recurring.duplicate_component')]);
+                    }
+                    $validated['title'] = $componentName === $component->displayName() ? $entry->title : $title;
+                }
+                if ($entry->hasProtectedComponentPayments() && ($componentName !== null && $componentName !== $component->displayName()
+                    || collect($this->structuralFields)->contains(fn (string $field): bool => array_key_exists($field, $validated) && $this->fieldChanged($entry, $field, $validated)))) {
+                    throw ValidationException::withMessages(['entry' => __('compound_recurring.edit_protected')]);
+                }
+                if ($componentName !== null && $componentName !== $component->displayName()) {
+                    $component->update(['name' => $componentName]);
+                }
+            }
+            $entry->ensureComponentIsMutable();
             $entry->load('occurrences');
             if ($entry->status !== RecurringEntryStatusEnum::ACTIVE && (($validated['status'] ?? null) === 'active' || ($validated['is_active'] ?? false))) {
                 throw ValidationException::withMessages(['entry' => __('ui.use_the_explicit_restart_date')]);
@@ -271,6 +310,7 @@ class RecurringEntryManagementService
     {
         DB::transaction(function () use ($entry, $periods): void {
             $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->getKey());
+            $entry->ensureComponentIsMutable();
             if ($entry->entry_type !== RecurringEntryTypeEnum::RECURRING || $entry->status !== RecurringEntryStatusEnum::ACTIVE || ! $entry->is_active || $periods < 1 || $periods > 1000) {
                 throw ValidationException::withMessages(['periods' => __('ui.this_recurring_entry_cannot_be_temporarily_suspended_2a894c88')]);
             }
@@ -318,6 +358,7 @@ class RecurringEntryManagementService
     {
         return DB::transaction(function () use ($entry): RecurringEntry {
             $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->id);
+            $entry->ensureComponentIsMutable();
             if (! in_array($entry->status, [RecurringEntryStatusEnum::PAUSED, RecurringEntryStatusEnum::CANCELLED], true)) {
                 return $entry->fresh(['occurrences']);
             }
@@ -351,6 +392,7 @@ class RecurringEntryManagementService
     {
         return DB::transaction(function () use ($entry, $targetStatus): RecurringEntry {
             $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->id);
+            $entry->ensureComponentIsMutable();
             if ($entry->status === $targetStatus) {
                 return $entry;
             }
@@ -383,6 +425,7 @@ class RecurringEntryManagementService
     {
         return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
             $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->getKey());
+            $occurrence->recurringEntry->ensureComponentIsMutable();
             $this->ensureOccurrenceMutable($occurrence, __('ui.skipped'));
             $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::SKIPPED])->save();
 
@@ -394,6 +437,7 @@ class RecurringEntryManagementService
     {
         return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
             $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->getKey());
+            $occurrence->recurringEntry->ensureComponentIsMutable();
             if ($occurrence->paymentAllocations()->exists() || $occurrence->settlementTransactions()->withTrashed()->exists() || $occurrence->status !== RecurringOccurrenceStatusEnum::SKIPPED || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->sharedExpenseLedgerEntry()->exists()) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_restored_30386567')]);
             }
@@ -407,6 +451,7 @@ class RecurringEntryManagementService
     {
         return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
             $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->id);
+            $occurrence->recurringEntry->ensureComponentIsMutable();
             if ($occurrence->status === RecurringOccurrenceStatusEnum::CANCELLED) {
                 return $occurrence;
             }
@@ -468,6 +513,17 @@ class RecurringEntryManagementService
 
     protected function primeEntryLifecycle(RecurringEntry $entry): void
     {
+        if ($entry->usesRollingAnnualHorizon()) {
+            $today = CarbonImmutable::today(config('app.timezone'));
+            if ($entry->auto_create_transaction) {
+                $this->lifecycle->synchronize($entry, $today);
+                $entry->refresh();
+            }
+            $this->generator->generate($entry, $entry->generationHorizon($today));
+
+            return;
+        }
+
         if ($entry->auto_create_transaction) {
             $this->lifecycle->synchronize($entry, CarbonImmutable::today(config('app.timezone')));
 

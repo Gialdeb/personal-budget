@@ -14,12 +14,48 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 class RecurringEntry extends Model
 {
     use HasPublicUuid, LogsActivity, LogsDomainActivity;
+
+    public function hasProtectedComponentPayments(): bool
+    {
+        return $this->occurrences()->where(function ($occurrence): void {
+            $occurrence->whereNotNull('converted_transaction_id')->orWhereNotNull('matched_transaction_id')
+                ->orWhereIn('status', ['completed', 'refunded'])
+                ->orWhereHas('paymentAllocations')
+                ->orWhereHas('settlementTransactions', fn ($transactions) => $transactions->withTrashed())
+                ->orWhereHas('sharedExpenseLedgerEntry');
+        })->exists();
+    }
+
+    public function ensureComponentIsMutable(): void
+    {
+        if ($this->compoundComponent()->whereNotNull('archived_at')->exists()) {
+            throw ValidationException::withMessages(['occurrence' => __('compound_recurring.read_only')]);
+        }
+    }
+
+    public function isArchivedComponent(): bool
+    {
+        return $this->compoundComponent?->archived_at !== null;
+    }
+
+    public function usesRollingAnnualHorizon(): bool
+    {
+        return $this->entry_type === RecurringEntryTypeEnum::RECURRING
+            && $this->recurrence_type === RecurringEntryRecurrenceTypeEnum::YEARLY
+            && $this->salarySchedule === null;
+    }
+
+    public function generationHorizon(CarbonImmutable $referenceDate): CarbonImmutable
+    {
+        return $this->usesRollingAnnualHorizon() ? $referenceDate->addMonthsNoOverflow(12) : $referenceDate;
+    }
 
     public function firstBillingDate(): CarbonImmutable
     {
@@ -202,6 +238,16 @@ class RecurringEntry extends Model
     public function periods(): HasMany
     {
         return $this->hasMany(RecurringEntryPeriod::class)->orderBy('id');
+    }
+
+    public function compoundComponent(): HasOne
+    {
+        return $this->hasOne(CompoundRecurringComponent::class);
+    }
+
+    public function manualCosts(): HasMany
+    {
+        return $this->hasMany(RecurringEntryManualCost::class)->orderBy('date')->orderBy('id');
     }
 
     public function amountChanges(): HasMany

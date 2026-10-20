@@ -20,6 +20,7 @@ class RecurringEntryTransactionController extends Controller
         Transaction $transaction
     ): RedirectResponse {
         abort_unless($transaction->user_id === $request->user()->id, 404);
+        $transaction->recurringOccurrence?->recurringEntry?->ensureComponentIsMutable();
 
         if (! in_array($transaction->kind, [
             TransactionKindEnum::MANUAL,

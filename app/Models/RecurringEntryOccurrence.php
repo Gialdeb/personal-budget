@@ -87,6 +87,14 @@ class RecurringEntryOccurrence extends Model
         return $this->hasOne(SharedExpenseLedgerEntry::class);
     }
 
+    public function scopeWithoutArchivedFutureComponents(Builder $query): Builder
+    {
+        return $query->where(function (Builder $visible): void {
+            $visible->whereRaw('COALESCE(due_date, expected_date) < ?', [today()->toDateString()])
+                ->orWhereDoesntHave('recurringEntry.compoundComponent', fn (Builder $component) => $component->whereNotNull('archived_at'));
+        });
+    }
+
     public function scopeOpenObligations(Builder $query): Builder
     {
         $allocated = RecurringOccurrencePaymentAllocation::query()->valid()

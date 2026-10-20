@@ -22,6 +22,7 @@ class UpdateRecurringOccurrenceService
     {
         return DB::transaction(function () use ($occurrence, $actor, $dueDate, $accountUuid): RecurringEntryOccurrence {
             $lockedOccurrence = RecurringEntryOccurrence::query()->with('recurringEntry.user')->lockForUpdate()->findOrFail($occurrence->getKey());
+            $lockedOccurrence->recurringEntry->ensureComponentIsMutable();
 
             $this->ensureCanBeUpdated($lockedOccurrence);
 

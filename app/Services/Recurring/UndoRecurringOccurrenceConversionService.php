@@ -23,6 +23,7 @@ class UndoRecurringOccurrenceConversionService
         if ($occurrence->sharedExpenseLedgerEntry()->exists() && ($externalOnly || $occurrence->convertedTransaction === null || $occurrence->convertedTransaction->refundTransaction !== null)) {
             return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
                 $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->id);
+                $occurrence->recurringEntry->ensureComponentIsMutable();
                 $occurrence->sharedExpenseLedgerEntry()->firstOrFail()->delete();
                 $this->refreshEntryState($occurrence->recurringEntry, ($occurrence->due_date ?? $occurrence->expected_date)?->toDateString());
 
@@ -57,6 +58,7 @@ class UndoRecurringOccurrenceConversionService
 
         return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
             $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->id);
+            $occurrence->recurringEntry->ensureComponentIsMutable();
             $occurrence->loadMissing(
                 'recurringEntry',
                 'convertedTransaction.account',

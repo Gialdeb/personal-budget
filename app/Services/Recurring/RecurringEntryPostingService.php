@@ -42,6 +42,7 @@ class RecurringEntryPostingService
             }
 
             $entry = $occurrence->recurringEntry()->lockForUpdate()->firstOrFail();
+            $entry->ensureComponentIsMutable();
             $occurrence->setRelation('recurringEntry', $entry);
             if ($occurrence->isRetiredRefundedHistory()) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);

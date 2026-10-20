@@ -3,7 +3,6 @@ import { Link, usePage } from '@inertiajs/vue3';
 import { createReusableTemplate, useMediaQuery } from '@vueuse/core';
 import {
     Banknote,
-    BellRing,
     BriefcaseBusiness,
     Check,
     Calendar,
@@ -11,8 +10,9 @@ import {
     LoaderCircle,
     SlidersHorizontal,
 } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { store as storeCompound } from '@/actions/App/Http/Controllers/CompoundRecurringEntryController';
 import {
     previewExchangeSnapshot,
     storeTrackedItemOption,
@@ -27,9 +27,11 @@ import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
+import CompoundRecurringPaymentFields from '@/components/recurring/CompoundRecurringPaymentFields.vue';
 import ExistingRecurringPlans from '@/components/recurring/ExistingRecurringPlans.vue';
 import InstallmentPlanSummary from '@/components/recurring/InstallmentPlanSummary.vue';
 import RecurringPostingMode from '@/components/recurring/RecurringPostingMode.vue';
+import RecurringReminderFields from '@/components/recurring/RecurringReminderFields.vue';
 import SalarySetupFields from '@/components/recurring/SalarySetupFields.vue';
 import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
@@ -67,6 +69,11 @@ import {
 import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
 import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
+import {
+    canCreateCompoundRecurring,
+    compoundRecurringCreationPayload,
+    withFirstCompoundPayment,
+} from '@/lib/compound-recurring';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import { fetchWithNotifications } from '@/lib/notifications';
 import { emptySalarySetup } from '@/lib/salary-presets';
@@ -450,7 +457,8 @@ const isEditing = computed(
 const structuralLocked = computed(
     () =>
         !!props.reactivation ||
-        (props.entry?.stats.converted_occurrences ?? 0) > 0 ||
+        (props.entry?.component_edit_locked ??
+            (props.entry?.stats.converted_occurrences ?? 0) > 0) ||
         !!props.entry?.trial_locked ||
         !!props.entry?.has_activity_periods,
 );
@@ -512,36 +520,6 @@ const formErrorMessages = computed(() =>
             typeof message === 'string' && message.trim() !== '',
     ),
 );
-const reminderDayOptions = computed(() =>
-    Array.from(
-        { length: props.formOptions.reminders.max_days_before },
-        (_, index) => index + 1,
-    ),
-);
-const reminderLimitReached = computed(
-    () =>
-        form.reminder_days_before.length >=
-        props.formOptions.reminders.max_custom_alerts,
-);
-
-function toggleReminderDay(daysBefore: number): void {
-    if (form.reminder_days_before.includes(daysBefore)) {
-        form.reminder_days_before = form.reminder_days_before.filter(
-            (value) => value !== daysBefore,
-        );
-
-        return;
-    }
-
-    if (reminderLimitReached.value) {
-        return;
-    }
-
-    form.reminder_days_before = [...form.reminder_days_before, daysBefore].sort(
-        (left, right) => left - right,
-    );
-}
-
 function revealFormErrors(): void {
     requestAnimationFrame(() => {
         formScrollContainer.value?.scrollTo({
@@ -937,6 +915,71 @@ function ensureTrackedItemMatchesAccountContext(): void {
 }
 
 const selectedPlanType = computed(() => form.entry_type as PlanType);
+const compoundEnabled = ref(false);
+const compoundPaymentsId = `compound-payments-${useId()}`;
+const compoundPayments = ref([
+    { name: '', date: new Date().toLocaleDateString('sv-SE'), amount: '' },
+    { name: '', date: new Date().toLocaleDateString('sv-SE'), amount: '' },
+]);
+const canCreateCompound = computed(() =>
+    canCreateCompoundRecurring({
+        editing: isEditing.value,
+        reactivation: Boolean(props.reactivation),
+        salary: salaryMode.value,
+        planType: selectedPlanType.value,
+        recurrenceType:
+            repeatPreset.value === 'custom'
+                ? customRecurrenceType.value
+                : repeatPreset.value,
+        interval:
+            repeatPreset.value === 'custom'
+                ? customRecurrenceInterval.value
+                : 1,
+    }),
+);
+const compoundMode = computed(
+    () => compoundEnabled.value && canCreateCompound.value,
+);
+watch(canCreateCompound, (allowed) => {
+    if (!allowed && compoundEnabled.value) {
+        setCompoundMode(false);
+    }
+});
+function setCompoundMode(enabled: boolean): void {
+    if (enabled) {
+        compoundPayments.value = withFirstCompoundPayment(
+            compoundPayments.value,
+            form.start_date || new Date().toLocaleDateString('sv-SE'),
+            form.expected_amount,
+        );
+    } else if (compoundEnabled.value && compoundPayments.value[0]) {
+        form.start_date = compoundPayments.value[0].date;
+        form.expected_amount = compoundPayments.value[0].amount;
+    }
+
+    compoundEnabled.value = enabled;
+}
+watch(
+    () => props.open,
+    (open) => {
+        if (open) {
+            compoundEnabled.value = false;
+            compoundPayments.value = [
+                {
+                    name: '',
+                    date: new Date().toLocaleDateString('sv-SE'),
+                    amount: '',
+                },
+                {
+                    name: '',
+                    date: new Date().toLocaleDateString('sv-SE'),
+                    amount: '',
+                },
+            ];
+        }
+    },
+);
+
 const directionAccentClass = computed(() =>
     form.direction === 'income'
         ? '!border-emerald-300 focus:!border-emerald-400 focus:!shadow-[0_0_0_3px_rgba(16,185,129,0.12)] !text-emerald-900 dark:!border-emerald-500/40 dark:!text-emerald-100'
@@ -1284,7 +1327,9 @@ watch(
         if (entry) {
             initialInstallmentTotal.value =
                 entry.total_amount === null ? null : Number(entry.total_amount);
-            const primaryDescription = entry.description?.trim() || entry.title;
+            const primaryDescription =
+                entry.component_name ??
+                (entry.description?.trim() || entry.title);
 
             form.defaults({
                 title: entry.title,
@@ -2523,6 +2568,22 @@ function submit(confirmInstallmentRecalculation = false): void {
         return;
     }
 
+    if (compoundMode.value) {
+        form.clearErrors();
+        form.transform((data) =>
+            compoundRecurringCreationPayload(data, compoundPayments.value),
+        ).post(storeCompound.url(), {
+            preserveScroll: true,
+            onSuccess: () => {
+                emit('saved', t('transactions.recurring.feedback.created'));
+                closeSheet();
+            },
+            onError: revealFormErrors,
+        });
+
+        return;
+    }
+
     const primaryDescription = normalizedPrimaryDescription();
 
     form.clearErrors();
@@ -3093,6 +3154,8 @@ const firstTrialBillingDate = computed(() => {
                                 hasFieldError(
                                     form.errors.description,
                                     form.errors.title,
+                                    (form.errors as Record<string, string>)
+                                        .name,
                                 ),
                             ),
                         )
@@ -3108,12 +3171,16 @@ const firstTrialBillingDate = computed(() => {
                     }}
                 </p>
                 <InputError
-                    :message="form.errors.description || form.errors.title"
+                    :message="
+                        form.errors.description ||
+                        form.errors.title ||
+                        (form.errors as Record<string, string>).name
+                    "
                 />
             </div>
         </DefineDescription>
         <DefineExtraOptions>
-            <section class="grid gap-2">
+            <section v-if="!compoundMode" class="grid gap-2">
                 <MobileTextFieldEditor
                     v-if="isMobile"
                     v-model="form.notes"
@@ -3139,93 +3206,19 @@ const firstTrialBillingDate = computed(() => {
                 <InputError :message="form.errors.notes" />
             </section>
 
-            <section
-                class="space-y-4 rounded-[28px] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40"
-            >
-                <div class="flex items-start gap-3">
-                    <div
-                        class="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
-                    >
-                        <BellRing class="size-4" />
-                    </div>
-                    <div class="space-y-1">
-                        <p
-                            class="text-sm font-semibold text-slate-900 dark:text-slate-100"
-                        >
-                            {{
-                                t(
-                                    'transactions.recurring.form.sections.reminders',
-                                )
-                            }}
-                        </p>
-                        <p
-                            class="text-xs leading-5 text-slate-500 dark:text-slate-400"
-                        >
-                            {{
-                                t(
-                                    'transactions.recurring.form.helper.reminders',
-                                    {
-                                        count: props.formOptions.reminders
-                                            .max_custom_alerts,
-                                    },
-                                )
-                            }}
-                        </p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                    <button
-                        v-for="daysBefore in reminderDayOptions"
-                        :key="daysBefore"
-                        type="button"
-                        class="rounded-2xl border px-2 py-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45"
-                        :class="
-                            form.reminder_days_before.includes(daysBefore)
-                                ? 'border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-500/50 dark:bg-sky-500/15 dark:text-sky-100'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300 dark:hover:border-sky-500/40 dark:hover:text-sky-300'
-                        "
-                        :aria-pressed="
-                            form.reminder_days_before.includes(daysBefore)
-                        "
-                        :disabled="
-                            reminderLimitReached &&
-                            !form.reminder_days_before.includes(daysBefore)
-                        "
-                        @click="toggleReminderDay(daysBefore)"
-                    >
-                        {{
-                            t(
-                                daysBefore === 1
-                                    ? 'transactions.recurring.form.reminders.dayBefore'
-                                    : 'transactions.recurring.form.reminders.daysBefore',
-                                { count: daysBefore },
-                            )
-                        }}
-                    </button>
-                </div>
-
-                <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
-                    {{
-                        form.reminder_days_before.length > 0
-                            ? t(
-                                  'transactions.recurring.form.reminders.selected',
-                                  {
-                                      count: form.reminder_days_before.length,
-                                      max: props.formOptions.reminders
-                                          .max_custom_alerts,
-                                  },
-                              )
-                            : t(
-                                  'transactions.recurring.form.reminders.noneSelected',
-                              )
-                    }}
-                </p>
-                <InputError :message="form.errors.reminder_days_before" />
-            </section>
+            <RecurringReminderFields
+                v-model="form.reminder_days_before"
+                :options="formOptions.reminders"
+                :error="
+                    formError('reminder_days_before') ??
+                    Object.entries(form.errors).find(([field]) =>
+                        field.startsWith('reminder_days_before.'),
+                    )?.[1]
+                "
+            />
 
             <Collapsible
-                v-if="!salaryMode && !reactivation"
+                v-if="!compoundMode && !salaryMode && !reactivation"
                 v-model:open="advancedOpen"
                 class="rounded-[28px] border border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/30"
             >
@@ -3736,7 +3729,10 @@ const firstTrialBillingDate = computed(() => {
                                                 'transactions.recurring.form.placeholders.noSearchResults',
                                             )
                                         "
-                                        :disabled="structuralLocked"
+                                        :disabled="
+                                            structuralLocked ||
+                                            !!props.entry?.is_compound_component
+                                        "
                                         hierarchical
                                         :teleport="false"
                                         :mobile-title="
@@ -3793,6 +3789,7 @@ const firstTrialBillingDate = computed(() => {
                             </section>
 
                             <section
+                                v-if="!compoundMode"
                                 class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
                             >
                                 <div
@@ -4060,7 +4057,11 @@ const firstTrialBillingDate = computed(() => {
                                 :scroll-container="formScrollContainer"
                             />
                             <SharedExpenseFields
-                                v-if="!isSalary && !props.entry?.salary_url"
+                                v-if="
+                                    !compoundMode &&
+                                    !isSalary &&
+                                    !props.entry?.salary_url
+                                "
                                 decorated
                                 v-model:enabled="form.is_shared_expense"
                                 v-model:counterparty="
@@ -4090,6 +4091,7 @@ const firstTrialBillingDate = computed(() => {
 
                             <label
                                 v-if="
+                                    !compoundMode &&
                                     selectedPlanType === 'recurring' &&
                                     !isSalary &&
                                     !props.entry?.salary_url
@@ -4231,7 +4233,9 @@ const firstTrialBillingDate = computed(() => {
                                     />
                                 </div>
 
-                                <ReuseReference v-if="!salaryMode" />
+                                <ReuseReference
+                                    v-if="!compoundMode && !salaryMode"
+                                />
                             </section>
 
                             <SalarySetupFields
@@ -4244,7 +4248,10 @@ const firstTrialBillingDate = computed(() => {
                                     salaryFormOptions.salary_employments ?? []
                                 "
                             />
-                            <section class="grid gap-5 md:grid-cols-2">
+                            <section
+                                v-if="!compoundMode"
+                                class="grid gap-5 md:grid-cols-2"
+                            >
                                 <div class="grid gap-2">
                                     <Label for="recurring-start-date">{{
                                         reactivation
@@ -4529,8 +4536,104 @@ const firstTrialBillingDate = computed(() => {
                                     </button>
                                 </div>
 
+                                <div v-if="canCreateCompound" class="space-y-3">
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        :aria-checked="compoundMode"
+                                        :aria-controls="compoundPaymentsId"
+                                        :aria-labelledby="`${compoundPaymentsId}-label`"
+                                        :aria-describedby="`${compoundPaymentsId}-hint`"
+                                        :disabled="form.processing"
+                                        class="flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 motion-reduce:transition-none"
+                                        :class="
+                                            compoundMode
+                                                ? 'border-violet-300 bg-violet-50/80 dark:border-violet-500/50 dark:bg-violet-500/10'
+                                                : 'border-border bg-background hover:bg-muted/50'
+                                        "
+                                        @click="setCompoundMode(!compoundMode)"
+                                    >
+                                        <span
+                                            class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                                            aria-hidden="true"
+                                            ><Calendar class="size-4"
+                                        /></span>
+                                        <span class="min-w-0 flex-1 space-y-1">
+                                            <span
+                                                :id="`${compoundPaymentsId}-label`"
+                                                class="block text-sm font-semibold"
+                                                >{{
+                                                    t(
+                                                        'recurringDetail.compound.multipleAnnual',
+                                                    )
+                                                }}</span
+                                            >
+                                            <span
+                                                :id="`${compoundPaymentsId}-hint`"
+                                                class="block text-xs leading-relaxed text-muted-foreground"
+                                                >{{
+                                                    t(
+                                                        'recurringDetail.compound.modeHint',
+                                                    )
+                                                }}</span
+                                            >
+                                        </span>
+                                        <span
+                                            aria-hidden="true"
+                                            class="flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors motion-reduce:transition-none"
+                                            :class="
+                                                compoundMode
+                                                    ? 'bg-violet-600'
+                                                    : 'bg-muted-foreground/30'
+                                            "
+                                            ><span
+                                                class="size-5 rounded-full bg-white shadow-sm transition-transform duration-200 motion-reduce:transition-none"
+                                                :class="
+                                                    compoundMode
+                                                        ? 'translate-x-5'
+                                                        : 'translate-x-0'
+                                                "
+                                        /></span>
+                                    </button>
+                                    <Transition name="compound-fields">
+                                        <div
+                                            v-if="compoundMode"
+                                            :id="compoundPaymentsId"
+                                            class="grid"
+                                        >
+                                            <div
+                                                class="compound-fields-content min-h-0 space-y-3"
+                                            >
+                                                <CompoundRecurringPaymentFields
+                                                    v-model="compoundPayments"
+                                                    :currency="
+                                                        selectedAccountCurrency
+                                                    "
+                                                    :min-date="
+                                                        recurringDateMin ||
+                                                        undefined
+                                                    "
+                                                    :errors="form.errors"
+                                                />
+                                                <p
+                                                    class="text-xs text-muted-foreground"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'recurringDetail.compound.description',
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </Transition>
+                                </div>
+
                                 <div
-                                    v-if="repeatPreset === 'custom'"
+                                    v-if="
+                                        !compoundMode &&
+                                        repeatPreset === 'custom'
+                                    "
                                     class="grid gap-5 rounded-[24px] border border-slate-200/80 bg-white p-4 md:grid-cols-2 dark:border-slate-800 dark:bg-slate-950/50"
                                 >
                                     <div class="grid gap-2">
@@ -5070,6 +5173,7 @@ const firstTrialBillingDate = computed(() => {
 
                                 <template
                                     v-if="
+                                        !compoundMode &&
                                         selectedPlanType === 'recurring' &&
                                         !salaryMode
                                     "
@@ -5260,6 +5364,7 @@ const firstTrialBillingDate = computed(() => {
                                 </div>
 
                                 <InputError
+                                    v-if="!compoundMode"
                                     :message="recurrenceConfigurationError"
                                 />
                             </section>
@@ -5423,7 +5528,31 @@ const firstTrialBillingDate = computed(() => {
     pointer-events: none;
 }
 
+.compound-fields-enter-active,
+.compound-fields-leave-active {
+    grid-template-rows: 1fr;
+    transition:
+        grid-template-rows 280ms ease,
+        opacity 280ms ease;
+}
+.compound-fields-enter-from,
+.compound-fields-leave-to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+}
+.compound-fields-enter-active > .compound-fields-content,
+.compound-fields-leave-active > .compound-fields-content {
+    overflow: hidden;
+}
+.compound-fields-leave-active {
+    pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
+    .compound-fields-enter-active,
+    .compound-fields-leave-active {
+        transition: none;
+    }
     .salary-fields-enter-active,
     .salary-fields-leave-active {
         transition: none;

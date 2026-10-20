@@ -1131,7 +1131,7 @@ class MonthlyTransactionSheetService
         $periodStart = CarbonImmutable::create($year, $month, 1)->startOfMonth()->toDateString();
         $periodEnd = CarbonImmutable::create($year, $month, 1)->endOfMonth()->toDateString();
 
-        $occurrences = RecurringEntryOccurrence::query()
+        $occurrences = RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()
             ->whereNull('converted_transaction_id')
             ->whereIn('status', [
                 RecurringOccurrenceStatusEnum::PENDING->value,

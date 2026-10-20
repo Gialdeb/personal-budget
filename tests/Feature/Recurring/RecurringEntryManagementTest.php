@@ -3241,3 +3241,75 @@ test('installment cancellation preserves protected occurrences and only cancels 
     $this->patch(route('recurring-entries.cancel', $entry->uuid))->assertSessionHasNoErrors();
     expect($entry->occurrences()->orderBy('id')->get()->map->getAttributes()->all())->toBe($after);
 })->with(['converted', 'matched', 'allocation', 'archived allocation', 'settlement', 'archived settlement', 'ledger', 'skipped', 'completed']);
+
+test('annual creation and scheduler share a rolling twelve month horizon without posting future payments', function (bool $automatic, bool $variable, string $endMode) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-10'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'recurrence_type' => 'yearly', 'recurrence_rule' => ['mode' => 'month_day', 'month' => 1, 'day' => 15],
+        'auto_create_transaction' => $automatic, 'is_amount_variable' => $variable,
+        'end_mode' => $endMode, 'end_date' => $endMode === 'until_date' ? '2032-01-15' : null,
+        'occurrences_limit' => $endMode === 'after_occurrences' ? 12 : null,
+    ]);
+    expect($entry->occurrences()->pluck('expected_date')->map->toDateString()->all())->toBe(['2026-01-15'])
+        ->and(Transaction::count())->toBe(0);
+    $row = $entry->occurrences()->sole();
+    $before = $row->getAttributes();
+    $pipeline = app(App\Services\Transactions\RecurringEntryLifecycleService::class);
+    $pipeline->runAutomationPipeline();
+    expect($row->fresh()->getAttributes())->toBe($before)->and($entry->occurrences()->count())->toBe(1)
+        ->and(Transaction::count())->toBe(0);
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $pipeline->runAutomationPipeline();
+    expect($entry->occurrences()->orderBy('expected_date')->pluck('expected_date')->map->toDateString()->all())->toBe(['2026-01-15', '2027-01-15'])
+        ->and($entry->occurrences()->whereDate('expected_date', '2027-01-15')->value('converted_transaction_id'))->toBeNull()
+        ->and(Transaction::count())->toBe($automatic ? 1 : 0);
+    $preserved = $entry->occurrences()->orderBy('id')->get()->map->getAttributes()->all();
+    $transactions = Transaction::query()->orderBy('id')->get()->map->getAttributes()->all();
+    $pipeline->runAutomationPipeline();
+    expect($entry->occurrences()->orderBy('id')->get()->map->getAttributes()->all())->toBe($preserved)
+        ->and(Transaction::query()->orderBy('id')->get()->map->getAttributes()->all())->toBe($transactions);
+})->with([false, true])->with([false, true])->with(['never', 'after_occurrences', 'until_date']);
+
+test('rolling annual generation preserves existing paid partial skipped modified and distant historical rows', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-20'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, ['recurrence_type' => 'yearly', 'recurrence_rule' => ['mode' => 'month_day', 'month' => 1, 'day' => 15], 'is_amount_variable' => true]);
+    app(RecurringEntryOccurrenceGeneratorService::class)->generate($entry, null, 12);
+    $rows = $entry->occurrences()->orderBy('sequence_number')->get();
+    app(UpdateRecurringOccurrenceAmountService::class)->update($rows[0], $context['user'], 50);
+    app(RecurringEntryPostingService::class)->post($rows[0]->fresh(), $context['user']);
+    $rows[1]->forceFill(['status' => 'skipped'])->save();
+    $rows[2]->forceFill(['due_date' => '2028-01-18', 'expected_amount' => 77, 'notes' => 'Manual override'])->save();
+    $transaction = Transaction::query()->create(['user_id' => $context['user']->id, 'account_id' => $context['account']->id, 'category_id' => $context['category']->id, 'direction' => 'expense', 'amount' => 10, 'currency' => 'EUR', 'transaction_date' => '2026-01-20', 'kind' => 'manual', 'source_type' => 'manual', 'status' => 'confirmed']);
+    $rows[3]->paymentAllocations()->create(['transaction_id' => $transaction->id, 'amount_cents' => 1000]);
+    $before = $entry->occurrences()->orderBy('id')->get()->map->getAttributes()->all();
+    $allocations = $rows[3]->paymentAllocations()->get()->map->getAttributes()->all();
+    $transactions = Transaction::query()->orderBy('id')->get()->map->getAttributes()->all();
+    $this->travelTo(CarbonImmutable::parse('2027-01-20'));
+    app(App\Services\Transactions\RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    expect($entry->occurrences()->orderBy('id')->get()->map->getAttributes()->all())->toBe($before)
+        ->and($rows[3]->paymentAllocations()->get()->map->getAttributes()->all())->toBe($allocations)
+        ->and(Transaction::query()->orderBy('id')->get()->map->getAttributes()->all())->toBe($transactions);
+});
+
+test('annual rolling horizon still respects an earlier explicit plan end and handles leap years', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-10'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, ['recurrence_type' => 'yearly', 'recurrence_rule' => ['mode' => 'month_day', 'month' => 1, 'day' => 15], 'end_mode' => 'until_date', 'end_date' => '2026-12-31']);
+    expect($entry->occurrences()->pluck('expected_date')->map->toDateString()->all())->toBe(['2026-01-15'])
+        ->and($entry->generationHorizon(CarbonImmutable::parse('2028-02-29'))->toDateString())->toBe('2029-02-28');
+    $this->travelTo(CarbonImmutable::parse('2027-01-15'));
+    app(App\Services\Transactions\RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    expect($entry->occurrences()->pluck('expected_date')->map->toDateString()->all())->toBe(['2026-01-15']);
+});
+
+test('annual creation with automatic posting only registers already due payments', function (bool $variable) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-20'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, ['recurrence_type' => 'yearly', 'recurrence_rule' => ['mode' => 'month_day', 'month' => 1, 'day' => 15], 'auto_create_transaction' => true, 'is_amount_variable' => $variable]);
+    expect($entry->occurrences()->orderBy('expected_date')->pluck('expected_date')->map->toDateString()->all())->toBe(['2026-01-15', '2027-01-15'])
+        ->and(Transaction::count())->toBe(1)
+        ->and($entry->occurrences()->whereDate('expected_date', '2026-01-15')->value('converted_transaction_id'))->not->toBeNull()
+        ->and($entry->occurrences()->whereDate('expected_date', '2027-01-15')->value('converted_transaction_id'))->toBeNull();
+})->with([false, true]);

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AutomaticPaymentVerificationController;
 use App\Http\Controllers\BudgetPlanningController;
+use App\Http\Controllers\CompoundRecurringEntryController;
 use App\Http\Controllers\CounterpartyPaymentController;
 use App\Http\Controllers\CreditDebtController;
 use App\Http\Controllers\CreditDebtPaymentController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\MonthlyRecapController;
 use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\RecurringEntryController;
+use App\Http\Controllers\RecurringEntryManualCostController;
 use App\Http\Controllers\RecurringEntryOccurrenceController;
 use App\Http\Controllers\RecurringEntryTransactionController;
 use App\Http\Controllers\ReportController;
@@ -150,6 +152,10 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::post('salary-employments/{salaryEmployment:uuid}/occurrences/{detail}/explain', [SalaryEmploymentController::class, 'explain'])->whereUuid('salaryEmployment')->whereNumber('detail')->name('salary-employments.occurrences.explain');
     Route::patch('salary-employments/{salaryEmployment:uuid}/end', [SalaryEmploymentController::class, 'end'])->whereUuid('salaryEmployment')->name('salary-employments.end');
     Route::patch('salary-employments/{salaryEmployment:uuid}/occurrences/{detail}', [SalaryEmploymentController::class, 'updateOccurrence'])->whereUuid('salaryEmployment')->whereNumber('detail')->name('salary-employments.occurrences.update');
+    Route::post('compound-recurring-entries', [CompoundRecurringEntryController::class, 'store'])->name('compound-recurring-entries.store');
+    Route::get('compound-recurring-entries/{compoundRecurringEntry:uuid}', [CompoundRecurringEntryController::class, 'show'])->whereUuid('compoundRecurringEntry')->name('compound-recurring-entries.show');
+    Route::post('compound-recurring-entries/{compoundRecurringEntry:uuid}/components', [CompoundRecurringEntryController::class, 'add'])->whereUuid('compoundRecurringEntry')->name('compound-recurring-entries.components.store');
+    Route::patch('recurring-entries/{compoundRecurringEntry:uuid}/components/{component:uuid}/archive', [CompoundRecurringEntryController::class, 'archive'])->whereUuid('compoundRecurringEntry')->whereUuid('component')->name('recurring-entries.components.archive');
     Route::get('recurring-entries', [RecurringEntryController::class, 'index'])->name('recurring-entries.index');
     Route::post('recurring-entries', [RecurringEntryController::class, 'store'])->name('recurring-entries.store');
     Route::post('recurring-entries/exchange-preview', [RecurringEntryController::class, 'previewExchangeSnapshot'])
@@ -168,6 +174,9 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::post('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/convert', [RecurringEntryOccurrenceController::class, 'convert'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.convert');
     Route::get('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/payment-candidates', [RecurringEntryOccurrenceController::class, 'paymentCandidates'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.payment-candidates');
     Route::post('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/payments', [RecurringEntryOccurrenceController::class, 'allocatePayment'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.payments.store');
+    Route::post('recurring-entries/{recurringEntry:uuid}/manual-costs', [RecurringEntryManualCostController::class, 'store'])->whereUuid('recurringEntry')->name('recurring-entries.manual-costs.store');
+    Route::patch('recurring-entries/{recurringEntry:uuid}/manual-costs/{manualCost:uuid}', [RecurringEntryManualCostController::class, 'update'])->whereUuid('recurringEntry')->whereUuid('manualCost')->scopeBindings()->name('recurring-entries.manual-costs.update');
+    Route::delete('recurring-entries/{recurringEntry:uuid}/manual-costs/{manualCost:uuid}', [RecurringEntryManualCostController::class, 'destroy'])->whereUuid('recurringEntry')->whereUuid('manualCost')->scopeBindings()->name('recurring-entries.manual-costs.destroy');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/amount', [RecurringEntryOccurrenceController::class, 'updateAmount'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.amount.update');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/override', [RecurringEntryOccurrenceController::class, 'update'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.override.update');
     Route::delete('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/conversion', [RecurringEntryOccurrenceController::class, 'undoConversion'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.undo-conversion');

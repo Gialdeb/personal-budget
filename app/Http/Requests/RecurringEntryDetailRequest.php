@@ -26,6 +26,8 @@ class RecurringEntryDetailRequest extends FormRequest
             'occurrence_year' => ['nullable', 'integer', 'between:1,9998'],
             'occurrence_offset' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'highlight' => ['nullable', 'uuid'],
+            'show_cancelled' => ['nullable', 'boolean'],
+            'component' => ['nullable', 'uuid'],
         ];
     }
 }

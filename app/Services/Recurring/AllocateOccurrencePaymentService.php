@@ -18,6 +18,7 @@ class AllocateOccurrencePaymentService
             $transaction = Transaction::query()->lockForUpdate()->findOrFail($transaction->id);
             $occurrence = RecurringEntryOccurrence::query()->with('recurringEntry')->lockForUpdate()->findOrFail($occurrence->id);
             $entry = $occurrence->recurringEntry;
+            $entry->ensureComponentIsMutable();
             abort_unless($entry->user_id === $actor->id && $transaction->user_id === $actor->id, 404);
             $cents = (int) round((float) $amount * 100);
             if (! preg_match('/^\d+(\.\d{1,2})?$/', $amount) || $cents <= 0) {

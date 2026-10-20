@@ -440,54 +440,74 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                         </dl>
 
                         <div class="flex flex-wrap gap-2">
-                            <Button
-                                v-if="occurrence.can_convert"
-                                variant="outline"
-                                class="h-9 rounded-full px-3 text-xs"
-                                @click="emit('convert', occurrence)"
-                            >
-                                {{
-                                    t('transactions.recurring.actions.convert')
-                                }}
-                            </Button>
-                            <Button
-                                v-if="
-                                    occurrence.converted_transaction?.can_refund
-                                "
-                                variant="outline"
-                                class="h-9 rounded-full px-3 text-xs"
-                                @click="emit('refund', occurrence)"
-                            >
-                                {{ t('transactions.recurring.actions.refund') }}
-                            </Button>
-                            <Button
-                                v-if="occurrence.recurring_entry?.can_edit"
-                                variant="ghost"
-                                class="h-9 rounded-full px-3 text-xs"
-                                @click="
-                                    occurrence.recurring_entry?.uuid
-                                        ? emit(
-                                              'edit',
-                                              occurrence.recurring_entry.uuid,
-                                          )
-                                        : undefined
-                                "
-                            >
-                                {{ t('transactions.recurring.actions.edit') }}
-                            </Button>
-                            <Button
-                                v-if="occurrence.recurring_entry?.can_edit"
-                                variant="ghost"
-                                class="h-9 rounded-full px-3 text-xs text-destructive hover:text-destructive"
-                                @click="
-                                    emit(
-                                        'delete',
-                                        occurrence.recurring_entry.uuid,
-                                    )
-                                "
-                            >
-                                {{ t('transactions.recurring.actions.delete') }}
-                            </Button>
+                            <template v-if="occurrence.status !== 'cancelled'">
+                                <Button
+                                    v-if="occurrence.can_convert"
+                                    variant="outline"
+                                    class="h-9 rounded-full px-3 text-xs"
+                                    @click="emit('convert', occurrence)"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.actions.convert',
+                                        )
+                                    }}
+                                </Button>
+                                <Button
+                                    v-if="
+                                        occurrence.converted_transaction
+                                            ?.can_refund
+                                    "
+                                    variant="outline"
+                                    class="h-9 rounded-full px-3 text-xs"
+                                    @click="emit('refund', occurrence)"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.actions.refund',
+                                        )
+                                    }}
+                                </Button>
+                                <Button
+                                    v-if="occurrence.recurring_entry?.can_edit"
+                                    variant="ghost"
+                                    class="h-9 rounded-full px-3 text-xs"
+                                    @click="
+                                        occurrence.recurring_entry?.uuid
+                                            ? emit(
+                                                  'edit',
+                                                  occurrence.recurring_entry
+                                                      .uuid,
+                                              )
+                                            : undefined
+                                    "
+                                >
+                                    {{
+                                        t('transactions.recurring.actions.edit')
+                                    }}
+                                </Button>
+                                <Button
+                                    v-if="
+                                        occurrence.recurring_entry
+                                            ?.can_delete ??
+                                        occurrence.recurring_entry?.can_edit
+                                    "
+                                    variant="ghost"
+                                    class="h-9 rounded-full px-3 text-xs text-destructive hover:text-destructive"
+                                    @click="
+                                        emit(
+                                            'delete',
+                                            occurrence.recurring_entry.uuid,
+                                        )
+                                    "
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.actions.delete',
+                                        )
+                                    }}
+                                </Button>
+                            </template>
                             <Link
                                 v-if="occurrence.recurring_entry?.show_url"
                                 :href="occurrence.recurring_entry.show_url"

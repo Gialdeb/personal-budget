@@ -51,6 +51,12 @@ test('partial payment breakdown renders due paid and remaining on mobile and des
                     },
                     t: (key) => key,
                     ui: (text) => text,
+                    occurrenceAmountLabel: (label) =>
+                        ({
+                            amountDue: 'Totale',
+                            amountPaid: 'Già pagato',
+                            amountRemaining: 'Residuo',
+                        })[label],
                     formatMoney: (amount) => `${amount.toFixed(2)} EUR`,
                 }),
             }),
@@ -124,7 +130,11 @@ for (const change of [
                     entry: { expected_amount: history[0]?.new_amount ?? 0 },
                     historyOpen: true,
                     latestAmountChange: history[0] ?? null,
-                    formatMoney: (amount) => String(amount),
+                    formatMoney: (amount, currency = 'EUR') =>
+                        new Intl.NumberFormat('it-IT', {
+                            style: 'currency',
+                            currency,
+                        }).format(amount),
                     ui: (text) => text,
                     locale: 'it-IT',
                     t: (key, args) => `${key} ${args?.date ?? ''}`,
@@ -387,4 +397,80 @@ test('employer reference menus remain unclipped after salary mode finishes anima
         source,
         /\.salary-fields-enter-active > \.salary-reference-content,[\s\S]*?\.salary-fields-leave-active > \.salary-reference-content\s*\{\s*overflow: hidden;/,
     );
+});
+
+test('cancelled monthly rows only expose plan information on desktop and mobile', async () => {
+    for (const path of [
+        'resources/js/pages/transactions/recurring/Index.vue',
+        'resources/js/components/recurring/RecurringOccurrencesMobileList.vue',
+    ]) {
+        const source = readFileSync(
+            new URL(`../../${path}`, import.meta.url),
+            'utf8',
+        );
+        const actions = source.match(
+            /<template\s+v-if="\s*occurrence.status\s*!==\s*'cancelled'\s*"\s*>[\s\S]*?<\/Link>/,
+        )?.[0];
+        assert.ok(actions, path);
+        const compiled = compileTemplate({
+            source: `<div>${actions}</div>`,
+            filename: 'monthly-actions.vue',
+            id: 'monthly-actions',
+            compilerOptions: { mode: 'function' },
+        });
+        assert.deepEqual(compiled.errors, []);
+        const render = new Function('Vue', compiled.code)(Vue);
+
+        for (const status of ['cancelled', 'pending']) {
+            const app = Vue.createSSRApp({
+                render,
+                setup: () => ({
+                    occurrence: {
+                        status,
+                        can_convert: true,
+                        converted_transaction: { can_refund: true },
+                        recurring_entry: {
+                            uuid: 'child',
+                            can_edit: true,
+                            can_delete: true,
+                            show_url: '/recurring-entries/plan',
+                        },
+                    },
+                    linkedEntry: (occurrence) => occurrence.recurring_entry,
+                    t: (key) => key,
+                }),
+            });
+
+            for (const [componentName, tag] of [
+                ['Button', 'button'],
+                ['Link', 'a'],
+            ]) {
+                app.component(componentName, {
+                    render() {
+                        return Vue.h(
+                            tag,
+                            tag === 'a' ? { href: this.$attrs.href } : {},
+                            this.$slots.default?.(),
+                        );
+                    },
+                });
+            }
+
+            for (const icon of ['Pencil', 'Trash2']) {
+                app.component(icon, { render: () => null });
+            }
+
+            const html = await renderToString(app);
+            assert.ok(
+                html.includes('transactions.recurring.actions.openPlan'),
+                path,
+            );
+            assert.ok(html.includes('href="/recurring-entries/plan"'), path);
+            assert.equal(
+                (html.match(/<button/g) ?? []).length,
+                status === 'cancelled' ? 0 : 4,
+                `${path} ${status}`,
+            );
+        }
+    }
 });

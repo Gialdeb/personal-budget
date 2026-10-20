@@ -547,7 +547,7 @@ class DashboardService
 
         $occurrences = $query->get();
         [$referenceDate, $dueSoonLimit] = $this->resolveAgendaWindow($year, $month);
-        $upcomingRecurringOccurrences = RecurringEntryOccurrence::query()
+        $upcomingRecurringOccurrences = RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()
             ->whereHas('recurringEntry', function (Builder $query) use ($accountContext) {
                 $query->whereIn('account_id', $accountContext['account_ids'] !== [] ? $accountContext['account_ids'] : [0]);
 
@@ -623,7 +623,7 @@ class DashboardService
         $converted = $entries->where('status', ScheduledEntryStatusEnum::CONVERTED)->count();
         $cancelled = $entries->where('status', ScheduledEntryStatusEnum::CANCELLED)->count();
         $upcomingScheduledEntries = ScheduledEntry::query()
-            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name,name_is_custom,slug,foundation_key'])
+            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name,name_is_custom,slug,foundation_key', 'matchedTransaction:id,uuid,account_id,transaction_date'])
             ->whereIn('scheduled_entries.account_id', $accountContext['account_ids'] !== [] ? $accountContext['account_ids'] : [0])
             ->whereIn('scheduled_entries.status', [
                 ScheduledEntryStatusEnum::PLANNED->value,
@@ -636,6 +636,13 @@ class DashboardService
             ->map(function (ScheduledEntry $entry): array {
                 return [
                     'id' => 'scheduled-'.$entry->id,
+                    'source_url' => $entry->matchedTransaction?->transaction_date !== null
+                        && $entry->matchedTransaction->account_id === $entry->account_id
+                        ? route('transactions.show', [
+                            'year' => $entry->matchedTransaction->transaction_date->year,
+                            'month' => $entry->matchedTransaction->transaction_date->month,
+                            'highlight' => $entry->matchedTransaction->uuid,
+                        ]) : null,
                     'display_label' => $this->resolveAgendaScheduledLabel($entry),
                     'scheduled_date' => $entry->scheduled_date?->toDateString(),
                     'expected_amount' => round((float) ($entry->expected_amount ?? 0), 2),
@@ -644,7 +651,7 @@ class DashboardService
                 ];
             });
 
-        $upcomingRecurringOccurrences = RecurringEntryOccurrence::query()
+        $upcomingRecurringOccurrences = RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()
             ->with([
                 'recurringEntry.merchant:id,name',
                 'recurringEntry.trackedItem:id,name',
@@ -666,6 +673,11 @@ class DashboardService
             ->map(function (RecurringEntryOccurrence $occurrence): array {
                 return [
                     'id' => 'recurring-'.$occurrence->id,
+                    'source_url' => $occurrence->recurringEntry !== null
+                        ? route('recurring-entries.show', [
+                            'recurringEntry' => $occurrence->recurringEntry->uuid,
+                            'highlight' => $occurrence->uuid,
+                        ]) : null,
                     'display_label' => $this->resolveAgendaRecurringLabel($occurrence),
                     'scheduled_date' => $occurrence->expected_date?->toDateString(),
                     'expected_amount' => app(RecurringOccurrenceReadService::class)->remaining($occurrence) / 100,
@@ -913,7 +925,7 @@ class DashboardService
      */
     protected function baseRecurringOccurrencePeriodQuery(array $accountIds, array $ownerIds, int $year, ?int $month): Builder
     {
-        $query = RecurringEntryOccurrence::query()
+        $query = RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()
             ->whereHas('recurringEntry', function (Builder $query) use ($accountIds, $ownerIds) {
                 $query->whereIn('account_id', $accountIds !== [] ? $accountIds : [0]);
 
@@ -1080,7 +1092,7 @@ class DashboardService
 
     protected function baseRecurringOccurrenceYearsQuery(int $userId): Builder
     {
-        return RecurringEntryOccurrence::query()
+        return RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()
             ->whereHas('recurringEntry', function (Builder $query) use ($userId) {
                 $query->where('user_id', $userId);
 

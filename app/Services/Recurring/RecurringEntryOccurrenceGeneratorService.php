@@ -341,6 +341,10 @@ class RecurringEntryOccurrenceGeneratorService
 
     protected function resolveThroughDate(RecurringEntry $entry, ?CarbonImmutable $throughDate): ?CarbonImmutable
     {
+        if ($entry->usesRollingAnnualHorizon() && $entry->end_mode === RecurringEndModeEnum::UNTIL_DATE && $throughDate !== null) {
+            return CarbonImmutable::parse($entry->end_date)->min($throughDate);
+        }
+
         return match ($entry->end_mode) {
             RecurringEndModeEnum::UNTIL_DATE => CarbonImmutable::parse($entry->end_date),
             default => $throughDate,

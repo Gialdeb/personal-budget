@@ -15,7 +15,7 @@ class RecurringEntryShowResource extends JsonResource
     public function toArray(Request $request): array
     {
         $editableAccountIds = $request->attributes->get('recurring_editable_account_ids', []);
-        $canEdit = in_array((int) $this->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
+        $canEdit = ! $this->resource->isArchivedComponent() && in_array((int) $this->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
         $occurrences = $this->occurrences;
 
         return [
@@ -40,6 +40,13 @@ class RecurringEntryShowResource extends JsonResource
             'occurrence_years' => $this->detail_summary !== null ? $this->occurrence_years : [],
             'occurrence_page' => $this->occurrence_page,
             'summary' => $this->detail_summary,
+            'cost_trend' => $this->cost_trend ?? [],
+            'compound_cost_trend' => $this->compound_cost_trend,
+            'manual_costs' => $this->entry_type?->value === 'recurring'
+                ? $this->manualCosts->map(fn ($cost): array => [
+                    'uuid' => $cost->uuid, 'date' => $cost->date->toDateString(),
+                    'amount' => (float) $cost->amount, 'currency' => $cost->currency,
+                ])->values()->all() : [],
             'actions' => [
                 'can_reactivate' => $canEdit && $this->entry_type?->value === 'recurring' && $this->salarySchedule === null && in_array($this->status?->value, ['paused', 'cancelled'], true),
                 'can_interrupt' => $canEdit && $this->entry_type?->value === 'recurring' && $this->salarySchedule === null && $this->status?->value === 'active',
@@ -47,7 +54,7 @@ class RecurringEntryShowResource extends JsonResource
                 'can_pause' => $canEdit && $this->status?->value === 'active',
                 'can_resume' => $canEdit && in_array($this->status?->value, ['paused', 'cancelled'], true),
                 'can_cancel' => $canEdit && $this->status?->value !== 'cancelled',
-                'can_delete' => $canEdit && $this->salarySchedule === null,
+                'can_delete' => $canEdit && $this->salarySchedule === null && $this->compoundComponent === null,
                 'has_converted_occurrences' => $this->detail_summary['converted_occurrences'] > 0,
             ],
         ];

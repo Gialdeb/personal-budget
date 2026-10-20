@@ -242,3 +242,133 @@ test('analysis dashboard exposes timeline modes partial month navigation and res
     assert.match(monthlyRecap, /recap\.scope\.account_scope/);
     assert.match(monthlyRecap, /recap\.totals\.transactions_count/);
 });
+
+test('financial agenda links the entire row and keeps unavailable sources readable', async () => {
+    const agenda = await readFile(
+        new URL('resources/js/components/dashboard/FinancialAgenda.vue', root),
+        'utf8',
+    );
+    const row = agenda.match(/<component[\s\S]*?<\/component>/)?.[0];
+
+    assert.ok(row);
+    assert.match(row, /:is="entry\.source_url \? Link : 'article'"/);
+    assert.match(row, /:href="entry\.source_url \?\? undefined"/);
+    assert.match(row, /entry\.display_label/);
+    assert.match(row, /entry\.scheduled_date/);
+    assert.match(row, /entry\.expected_amount_raw/);
+    assert.match(row, /focus-visible:outline/);
+    assert.match(row, /v-if="!entry\.source_url"/);
+    assert.match(row, /dashboard\.agenda\.sourceUnavailable/);
+    assert.doesNotMatch(row, /@click|hidden|sm:|md:/);
+    assert.match(agenda, /props\.scheduled\.upcoming\.slice\(0, 4\)/);
+});
+
+test('the Dashboard route renders the Analysis page and its financial agenda', async () => {
+    const [controller, page] = await Promise.all([
+        readFile(
+            new URL('app/Http/Controllers/DashboardController.php', root),
+            'utf8',
+        ),
+        readFile(
+            new URL('resources/js/pages/dashboard/Analysis.vue', root),
+            'utf8',
+        ),
+    ]);
+
+    assert.match(controller, /Inertia::render\('dashboard\/Analysis'/);
+    assert.match(
+        page,
+        /import FinancialAgenda from '@\/components\/dashboard\/FinancialAgenda\.vue'/,
+    );
+    assert.match(
+        page,
+        /<FinancialAgenda[\s\S]*?:scheduled="dashboard\.scheduled_summary"/,
+    );
+});
+
+test('the rendered agenda exposes full row links for income and expense and no link for unavailable resources', async () => {
+    const { createServer } = await import('vite');
+    const { default: vue } = await import('@vitejs/plugin-vue');
+    const { createSSRApp, h } = await import('vue');
+    const { renderToString } = await import('vue/server-renderer');
+    const { createI18n } = await import('vue-i18n');
+    const server = await createServer({
+        configFile: false,
+        plugins: [vue()],
+        resolve: { alias: { '@': new URL('resources/js', root).pathname } },
+        server: { middlewareMode: true, hmr: false, ws: false, watch: null },
+        optimizeDeps: { noDiscovery: true, include: [] },
+        appType: 'custom',
+    });
+
+    try {
+        const { default: Agenda } = await server.ssrLoadModule(
+            '/resources/js/components/dashboard/FinancialAgenda.vue',
+        );
+        const upcoming = [
+            {
+                id: 'income',
+                display_label: 'Entrata pianificata',
+                source_url: '/recurring-entries/income?highlight=income-due',
+            },
+            {
+                id: 'expense',
+                display_label: 'Uscita pianificata',
+                source_url: '/recurring-entries/expense?highlight=expense-due',
+            },
+            {
+                id: 'unavailable',
+                display_label: 'Risorsa eliminata',
+                source_url: null,
+            },
+        ].map((entry) => ({
+            ...entry,
+            scheduled_date: '2026-10-25',
+            expected_amount_raw: 100,
+            entry_kind: 'recurring',
+        }));
+        const app = createSSRApp({
+            render: () =>
+                h(Agenda, {
+                    notifications: {},
+                    recurring: {},
+                    scheduled: { upcoming },
+                    merchants: [],
+                    currency: 'EUR',
+                }),
+        });
+        app.use(
+            createI18n({
+                legacy: false,
+                locale: 'it',
+                missingWarn: false,
+                fallbackWarn: false,
+                messages: {},
+            }),
+        );
+        const html = await renderToString(app);
+
+        for (const entry of upcoming.slice(0, 2)) {
+            const anchor = html.match(
+                new RegExp(
+                    `<a[^>]*href="${entry.source_url.replace('?', '\\?')}"[^>]*>[\\s\\S]*?<\\/a>`,
+                ),
+            )?.[0];
+            assert.ok(anchor, `Missing row link for ${entry.id}`);
+            assert.ok(anchor.includes(entry.display_label));
+            assert.ok(anchor.includes('25 ott'));
+            assert.ok(anchor.includes('100'));
+            assert.doesNotMatch(
+                anchor,
+                /sm:hidden|md:hidden|pointer-events-none/,
+            );
+        }
+
+        assert.match(
+            html,
+            /<article[^>]*>[\s\S]*?Risorsa eliminata[\s\S]*?sourceUnavailable[\s\S]*?<\/article>/,
+        );
+    } finally {
+        await server.close();
+    }
+});

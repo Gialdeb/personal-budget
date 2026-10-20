@@ -2305,11 +2305,9 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                         occurrence.recurring_entry
                                                     "
                                                     :href="
-                                                        showRecurringEntry(
-                                                            occurrence
-                                                                .recurring_entry
-                                                                .uuid,
-                                                        )
+                                                        occurrence
+                                                            .recurring_entry
+                                                            .show_url
                                                     "
                                                     class="font-semibold text-slate-950 underline-offset-4 hover:underline dark:text-white"
                                                 >
@@ -2554,100 +2552,114 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                             <div
                                                 class="flex flex-wrap justify-end gap-2"
                                             >
-                                                <Button
+                                                <template
                                                     v-if="
-                                                        occurrence.can_convert
-                                                    "
-                                                    variant="outline"
-                                                    class="h-9 rounded-full px-3 text-xs"
-                                                    @click="
-                                                        convertRow(occurrence)
+                                                        occurrence.status !==
+                                                        'cancelled'
                                                     "
                                                 >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.actions.convert',
-                                                        )
-                                                    }}
-                                                </Button>
-                                                <Button
-                                                    v-if="
-                                                        occurrence
-                                                            .converted_transaction
-                                                            ?.can_refund
-                                                    "
-                                                    variant="outline"
-                                                    class="h-9 rounded-full px-3 text-xs"
-                                                    @click="
-                                                        openRefundDialog(
-                                                            occurrence,
-                                                        )
-                                                    "
-                                                >
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.actions.refund',
-                                                        )
-                                                    }}
-                                                </Button>
-                                                <Button
-                                                    v-if="
-                                                        linkedEntry(occurrence)
-                                                            ?.can_edit
-                                                    "
-                                                    variant="ghost"
-                                                    class="h-9 rounded-full px-3 text-xs"
-                                                    @click="
-                                                        openEditForm(
+                                                    <Button
+                                                        v-if="
+                                                            occurrence.can_convert
+                                                        "
+                                                        variant="outline"
+                                                        class="h-9 rounded-full px-3 text-xs"
+                                                        @click="
+                                                            convertRow(
+                                                                occurrence,
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.actions.convert',
+                                                            )
+                                                        }}
+                                                    </Button>
+                                                    <Button
+                                                        v-if="
+                                                            occurrence
+                                                                .converted_transaction
+                                                                ?.can_refund
+                                                        "
+                                                        variant="outline"
+                                                        class="h-9 rounded-full px-3 text-xs"
+                                                        @click="
+                                                            openRefundDialog(
+                                                                occurrence,
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.actions.refund',
+                                                            )
+                                                        }}
+                                                    </Button>
+                                                    <Button
+                                                        v-if="
+                                                            linkedEntry(
+                                                                occurrence,
+                                                            )?.can_edit
+                                                        "
+                                                        variant="ghost"
+                                                        class="h-9 rounded-full px-3 text-xs"
+                                                        @click="
+                                                            openEditForm(
+                                                                occurrence
+                                                                    .recurring_entry
+                                                                    ?.uuid ??
+                                                                    '',
+                                                            )
+                                                        "
+                                                    >
+                                                        <Pencil
+                                                            class="mr-2 size-3.5"
+                                                        />
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.actions.edit',
+                                                            )
+                                                        }}
+                                                    </Button>
+                                                    <Button
+                                                        v-if="
                                                             occurrence
                                                                 .recurring_entry
-                                                                ?.uuid ?? '',
-                                                        )
-                                                    "
-                                                >
-                                                    <Pencil
-                                                        class="mr-2 size-3.5"
-                                                    />
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.actions.edit',
-                                                        )
-                                                    }}
-                                                </Button>
-                                                <Button
-                                                    v-if="
-                                                        linkedEntry(occurrence)
-                                                            ?.can_edit
-                                                    "
-                                                    variant="ghost"
-                                                    class="h-9 rounded-full px-3 text-xs text-destructive hover:text-destructive"
-                                                    @click="
-                                                        openDeleteDialog(
-                                                            occurrence
-                                                                .recurring_entry
-                                                                ?.uuid ?? '',
-                                                        )
-                                                    "
-                                                >
-                                                    <Trash2
-                                                        class="mr-2 size-3.5"
-                                                    />
-                                                    {{
-                                                        t(
-                                                            'transactions.recurring.actions.delete',
-                                                        )
-                                                    }}
-                                                </Button>
+                                                                ?.can_delete ??
+                                                            linkedEntry(
+                                                                occurrence,
+                                                            )?.can_edit
+                                                        "
+                                                        variant="ghost"
+                                                        class="h-9 rounded-full px-3 text-xs text-destructive hover:text-destructive"
+                                                        @click="
+                                                            openDeleteDialog(
+                                                                occurrence
+                                                                    .recurring_entry
+                                                                    ?.uuid ??
+                                                                    '',
+                                                            )
+                                                        "
+                                                    >
+                                                        <Trash2
+                                                            class="mr-2 size-3.5"
+                                                        />
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.actions.delete',
+                                                            )
+                                                        }}
+                                                    </Button>
+                                                </template>
                                                 <Link
                                                     v-if="
                                                         linkedEntry(occurrence)
                                                     "
                                                     :href="
-                                                        showRecurringEntry(
-                                                            occurrence
-                                                                .recurring_entry
-                                                                ?.uuid ?? '',
-                                                        )
+                                                        occurrence
+                                                            .recurring_entry
+                                                            ?.show_url ?? ''
                                                     "
                                                     class="inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
                                                 >

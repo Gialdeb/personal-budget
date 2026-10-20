@@ -6,6 +6,8 @@ import {
     ArrowDownLeft,
     ArrowUpRight,
     CalendarClock,
+    ChartNoAxesCombined,
+    ChevronDown,
     Infinity as InfinityIcon,
     Check,
     LoaderCircle,
@@ -26,6 +28,7 @@ import {
     watch,
 } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { archive as archiveComponent } from '@/actions/App/Http/Controllers/CompoundRecurringEntryController';
 import {
     show as showRecurringEntry,
     cancel,
@@ -49,7 +52,9 @@ import { refund as refundTransaction } from '@/actions/App/Http/Controllers/Recu
 import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
+import CompoundRecurringFormSheet from '@/components/recurring/CompoundRecurringFormSheet.vue';
 import OccurrencePayments from '@/components/recurring/OccurrencePayments.vue';
+import RecurringCostTrend from '@/components/recurring/RecurringCostTrend.vue';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
@@ -63,6 +68,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -74,8 +86,12 @@ import {
 import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { requestedOccurrenceAction } from '@/lib/compound-recurring';
 import { formatCurrency } from '@/lib/currency';
-import { recurringPlanProgress } from '@/lib/recurring-plan-progress';
+import {
+    annualOccurrencesProgress,
+    recurringPlanProgress,
+} from '@/lib/recurring-plan-progress';
 import type {
     Auth,
     BreadcrumbItem,
@@ -93,6 +109,7 @@ type YearChunk = {
     next_offset: number | null;
     occurrences: Occurrence[];
 };
+const showCancelledYears = ref<Record<number, boolean>>({});
 const yearRows = ref<Record<number, Occurrence[]>>({});
 const yearNext = ref<Record<number, number | null>>({});
 const yearFirst = ref<Record<number, number>>({});
@@ -103,12 +120,60 @@ const retryOffsets = ref<Record<number, number>>({});
 const distributionLoading = ref(false);
 const distributionRows = ref<Occurrence[]>([]);
 const historyOpen = ref(false);
+const componentsOpen = ref(true);
+const lifecycleOpen = ref(false);
+const costTrendPanel = ref<InstanceType<typeof RecurringCostTrend> | null>(
+    null,
+);
+const hasCostTrend = computed(() => entry.value.entry_type === 'recurring');
+const addComponentOpen = ref(false);
+const archiveComponentOpen = ref(false);
+const archiveComponentForm = useForm({});
+function removeSelectedComponent(): void {
+    if (!props.compound || props.compound.is_archived) {
+        return;
+    }
+
+    archiveComponentForm.patch(
+        archiveComponent.url([
+            props.compound.uuid,
+            props.compound.component_uuid,
+        ]),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                archiveComponentOpen.value = false;
+            },
+        },
+    );
+}
+async function toggleCancelled(year: number): Promise<void> {
+    showCancelledYears.value[year] = !showCancelledYears.value[year];
+    await loadYear(year, 0, true);
+}
+const pageTitle = computed(
+    () => props.compound?.name ?? props.recurringEntry.entry.title,
+);
+function occurrenceOwner(uuid: string): string {
+    const row = Object.values(yearRows.value)
+        .flat()
+        .find((occurrence) => occurrence.uuid === uuid);
+
+    if (props.compound && !row?.entry_uuid) {
+        throw new Error('Missing occurrence owner');
+    }
+
+    return row?.entry_uuid ?? props.recurringEntry.entry.uuid;
+}
 let loadGeneration = 0;
 watch(
     () => props.recurringEntry,
     (payload) => {
         loadGeneration++;
         const chunk = payload.occurrence_page;
+        showCancelledYears.value = {
+            [chunk.year]: chunk.show_cancelled ?? false,
+        };
         yearRows.value = { [chunk.year]: payload.occurrences };
         yearNext.value = { [chunk.year]: chunk.next_offset };
         yearFirst.value = { [chunk.year]: chunk.offset };
@@ -179,15 +244,20 @@ async function fetchYear(
     year: number,
     offset: number | null,
     highlight: string | null = null,
+    includeCancelled: boolean = showCancelledYears.value[year] ?? false,
 ): Promise<YearChunk> {
     const response = await fetch(
-        showRecurringEntry.url(props.recurringEntry.entry.uuid, {
-            query: {
-                occurrence_year: year,
-                ...(offset === null ? {} : { occurrence_offset: offset }),
-                ...(highlight === null ? {} : { highlight }),
+        showRecurringEntry.url(
+            props.compound?.uuid ?? props.recurringEntry.entry.uuid,
+            {
+                query: {
+                    occurrence_year: year,
+                    show_cancelled: includeCancelled ? 1 : 0,
+                    ...(offset === null ? {} : { occurrence_offset: offset }),
+                    ...(highlight === null ? {} : { highlight }),
+                },
             },
-        }),
+        ),
         {
             headers: {
                 Accept: 'application/json',
@@ -279,7 +349,7 @@ function toggleSkippedOccurrence(
 
     const action = occurrence.can_restore ? restoreOccurrence : skipOccurrence;
     router.patch(
-        action.url([props.recurringEntry.entry.uuid, occurrence.uuid]),
+        action.url([occurrenceOwner(occurrence.uuid), occurrence.uuid]),
         {},
         { preserveScroll: true },
     );
@@ -333,10 +403,17 @@ function registerPayment(
                     occurrence.resource?.uuid ??
                     entry.value.account?.uuid ??
                     '',
-                category_uuid: entry.value.category?.uuid ?? null,
-                tracked_item_uuid: entry.value.tracked_item?.uuid ?? null,
+                category_uuid: occurrence.payment_defaults
+                    ? occurrence.payment_defaults.category_uuid
+                    : (entry.value.category?.uuid ?? null),
+                tracked_item_uuid: occurrence.payment_defaults
+                    ? occurrence.payment_defaults.tracked_item_uuid
+                    : (entry.value.tracked_item?.uuid ?? null),
                 direction: entry.value.direction as 'income' | 'expense',
-                description: entry.value.title,
+                description:
+                    props.compound && occurrence.component_name
+                        ? `${props.compound.name} · ${occurrence.component_name}`
+                        : entry.value.title,
                 amount: String(
                     occurrence.remaining_amount ??
                         occurrence.expected_amount ??
@@ -349,6 +426,11 @@ function registerPayment(
             paymentLoading.value = false;
         },
     });
+}
+function occurrenceCounterparty(occurrence: Occurrence) {
+    return occurrence.payment_defaults
+        ? occurrence.payment_defaults.shared_expense_counterparty
+        : entry.value.shared_expense_counterparty;
 }
 const linkPaymentOpen = ref(false);
 const linkPaymentOccurrence = ref<Occurrence | null>(null);
@@ -379,7 +461,10 @@ async function loadPaymentCandidates(pageNumber = 1): Promise<void> {
     try {
         const response = await fetch(
             paymentCandidates.url(
-                [entry.value.uuid, linkPaymentOccurrence.value.uuid],
+                [
+                    occurrenceOwner(linkPaymentOccurrence.value.uuid),
+                    linkPaymentOccurrence.value.uuid,
+                ],
                 {
                     query: {
                         page: pageNumber,
@@ -437,7 +522,7 @@ function submitLinkPayment(): void {
 
     linkPaymentForm.post(
         allocatePayment.url([
-            entry.value.uuid,
+            occurrenceOwner(linkPaymentOccurrence.value.uuid),
             linkPaymentOccurrence.value.uuid,
         ]),
         {
@@ -461,6 +546,11 @@ const deleteDialogOpen = ref(false);
 const sharedPaymentOccurrence = ref<
     (typeof props.recurringEntry.occurrences)[number] | null
 >(null);
+const sharedPaymentCounterparty = computed(() =>
+    sharedPaymentOccurrence.value
+        ? occurrenceCounterparty(sharedPaymentOccurrence.value)
+        : null,
+);
 const sharedPaymentForm = useForm({
     shared_expense_paid_by: 'self',
     amount: '',
@@ -475,7 +565,7 @@ function submitSharedPayment(): void {
 
     sharedPaymentForm.post(
         convertOccurrence.url([
-            props.recurringEntry.entry.uuid,
+            occurrenceOwner(sharedPaymentOccurrence.value.uuid),
             sharedPaymentOccurrence.value.uuid,
         ]),
         {
@@ -510,6 +600,171 @@ const undoingExternalPayment = computed(() =>
     ),
 );
 const entry = computed(() => props.recurringEntry.entry);
+type AnnualComponent = NonNullable<
+    RecurringEntryShowPageProps['compound']
+>['components'][number];
+type ComponentDetail = RecurringEntryShowPageProps['recurringEntry'];
+type ComponentAction =
+    | 'edit'
+    | 'interrupt'
+    | 'reactivate'
+    | 'pause'
+    | 'recover'
+    | 'cancel'
+    | 'remove';
+const componentDetails = ref<Record<string, ComponentDetail>>({});
+const componentLoadFailed = ref<string[]>([]);
+const componentActionPending = ref<string | null>(null);
+let componentParentUuid: string | null = null;
+const componentRequests = new Set<string>();
+async function loadComponentDetails(component: AnnualComponent): Promise<void> {
+    if (componentRequests.has(component.entry_uuid)) {
+        return;
+    }
+
+    const parentUuid = props.compound?.uuid;
+    componentRequests.add(component.entry_uuid);
+    componentLoadFailed.value = componentLoadFailed.value.filter(
+        (uuid) => uuid !== component.entry_uuid,
+    );
+
+    try {
+        const response = await fetch(component.url, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Unable to load component');
+        }
+
+        const payload: RecurringEntryShowPageProps = await response.json();
+
+        if (
+            props.compound?.uuid === parentUuid &&
+            payload.recurringEntry.entry.uuid === component.entry_uuid
+        ) {
+            componentDetails.value[component.entry_uuid] =
+                payload.recurringEntry;
+        }
+    } catch {
+        if (props.compound?.uuid === parentUuid) {
+            componentLoadFailed.value.push(component.entry_uuid);
+        }
+    } finally {
+        componentRequests.delete(component.entry_uuid);
+    }
+}
+watch(
+    () => props.recurringEntry,
+    (payload) => {
+        const parentUuid = props.compound?.uuid ?? null;
+
+        if (parentUuid !== componentParentUuid) {
+            componentDetails.value = {};
+            componentLoadFailed.value = [];
+            componentParentUuid = parentUuid;
+        }
+
+        if (!props.compound) {
+            return;
+        }
+
+        componentDetails.value[payload.entry.uuid] = payload;
+
+        for (const component of props.compound.components) {
+            if (!componentDetails.value[component.entry_uuid]) {
+                void loadComponentDetails(component);
+            }
+        }
+    },
+    { immediate: true },
+);
+function annualComponentDate(component: ComponentDetail['entry']): string {
+    const rule = component.recurrence_rule as {
+        mode?: string;
+        month?: number;
+        day?: number;
+    } | null;
+
+    if (rule?.day && rule.month) {
+        return new Intl.DateTimeFormat(locale.value, {
+            day: 'numeric',
+            month: 'long',
+            timeZone: 'UTC',
+        }).format(new Date(Date.UTC(2000, rule.month - 1, rule.day)));
+    }
+
+    return component.start_date ?? '—';
+}
+function componentStatusLabel(status: string | null): string {
+    return (
+        props.formOptions.statuses.find((option) => option.value === status)
+            ?.label ??
+        status ??
+        '—'
+    );
+}
+function runComponentAction(
+    component: AnnualComponent,
+    action: ComponentAction,
+): void {
+    if (componentActionPending.value !== null) {
+        return;
+    }
+
+    const perform = (): void => {
+        if (
+            entry.value.uuid !== component.entry_uuid ||
+            !entry.value.can_edit ||
+            props.compound?.is_archived
+        ) {
+            return;
+        }
+
+        const permissions = props.recurringEntry.actions;
+
+        if (action === 'edit') {
+            reactivationMode.value = false;
+            formOpen.value = true;
+        } else if (action === 'interrupt' && permissions.can_interrupt) {
+            router.patch(
+                interrupt.url(entry.value.uuid),
+                {},
+                { preserveScroll: true },
+            );
+        } else if (action === 'reactivate' && permissions.can_reactivate) {
+            openReactivation();
+        } else if (action === 'pause' && permissions.can_pause) {
+            handlePause();
+        } else if (action === 'recover' && permissions.can_recover_arrears) {
+            resumeDialogOpen.value = true;
+        } else if (action === 'cancel' && permissions.can_cancel) {
+            cancelDialogOpen.value = true;
+        } else if (action === 'remove') {
+            archiveComponentOpen.value = true;
+        }
+    };
+
+    if (entry.value.uuid === component.entry_uuid) {
+        perform();
+
+        return;
+    }
+
+    componentActionPending.value = component.entry_uuid;
+    router.visit(component.url, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: perform,
+        onFinish: () => {
+            componentActionPending.value = null;
+        },
+    });
+}
+
 const focusedOccurrenceUuid = ref<string | null>(null);
 const highlightedOccurrenceUuid = computed(() => {
     const query = page.url.split('?')[1] ?? '';
@@ -519,13 +774,88 @@ const highlightedOccurrenceUuid = computed(() => {
         new URLSearchParams(query).get('highlight')
     );
 });
-const progressSettled = computed(
-    () =>
-        props.recurringEntry.summary.current_period_settled_occurrences ??
-        props.recurringEntry.summary.settled_occurrences,
+const annualProgressRows = ref<Occurrence[] | null>(null);
+const annualProgressFailed = ref(false);
+const currentProgressYear = computed(() =>
+    Number(props.dateOptions.today.slice(0, 4)),
+);
+const annualProgress = computed(() =>
+    annualProgressRows.value === null
+        ? null
+        : annualOccurrencesProgress(
+              annualProgressRows.value,
+              currentProgressYear.value,
+          ),
+);
+watch(
+    () => props.recurringEntry,
+    async (payload, _previous, onCleanup) => {
+        if (!props.compound) {
+            return;
+        }
+
+        let cancelled = false;
+        onCleanup(() => {
+            cancelled = true;
+        });
+        annualProgressRows.value = null;
+        annualProgressFailed.value = false;
+        const initial = payload.occurrence_page;
+
+        if (
+            initial.year === currentProgressYear.value &&
+            initial.offset === 0 &&
+            initial.next_offset === null
+        ) {
+            annualProgressRows.value = payload.occurrences;
+
+            return;
+        }
+
+        try {
+            const rows: Occurrence[] = [];
+            let offset: number | null = 0;
+
+            do {
+                const chunk = await fetchYear(
+                    currentProgressYear.value,
+                    offset,
+                    null,
+                    false,
+                );
+
+                if (cancelled) {
+                    return;
+                }
+
+                rows.push(...chunk.occurrences);
+                offset = chunk.next_offset;
+            } while (offset !== null);
+
+            annualProgressRows.value = rows;
+        } catch {
+            if (!cancelled) {
+                annualProgressFailed.value = true;
+            }
+        }
+    },
+    { immediate: true },
+);
+const progressSettled = computed(() =>
+    props.compound
+        ? (annualProgress.value?.paid ?? 0)
+        : (props.recurringEntry.summary.current_period_settled_occurrences ??
+          props.recurringEntry.summary.settled_occurrences),
 );
 const planProgress = computed(() =>
-    recurringPlanProgress(entry.value, progressSettled.value),
+    props.compound
+        ? {
+              openEnded: false,
+              total: annualProgress.value?.total ?? null,
+              value: annualProgress.value?.value ?? '—',
+              percentage: annualProgress.value?.percentage ?? null,
+          }
+        : recurringPlanProgress(entry.value, progressSettled.value),
 );
 const progressTotal = computed(() => planProgress.value.total);
 const automaticNotePreferences = useStorage<Record<string, boolean>>(
@@ -642,16 +972,16 @@ const affectedConvertedInstallments = computed(
             (occurrence) => occurrence.converted_transaction !== null,
         ).length,
 );
-const breadcrumbs: BreadcrumbItem[] = [
+const breadcrumbs = computed<BreadcrumbItem[]>(() => [
     {
         title: t('transactions.recurring.title'),
         href: '/recurring-entries',
     },
     {
-        title: entry.value.title,
-        href: entry.value.show_url,
+        title: pageTitle.value,
+        href: props.compound?.url ?? entry.value.show_url,
     },
-];
+]);
 
 const summaryCards = computed(() => {
     const summary = props.recurringEntry.summary;
@@ -703,30 +1033,43 @@ const summaryCards = computed(() => {
         },
         {
             key: 'progress',
-            label: entry.value.has_activity_periods
-                ? ui('Avanzamento del periodo attuale')
-                : t('recurringDetail.progress'),
+            label: props.compound
+                ? t('recurringDetail.annualOccurrences')
+                : entry.value.has_activity_periods
+                  ? ui('Avanzamento del periodo attuale')
+                  : t('recurringDetail.progress'),
             value: planProgress.value.value,
             money: false,
-            description: planProgress.value.openEnded
-                ? t('recurringDetail.openEnded')
-                : progressTotal.value !== null
-                  ? t('recurringDetail.finiteProgress', {
-                        count: progressSettled.value,
-                        total: progressTotal.value,
-                    })
-                  : entry.value.end_date
-                    ? t('recurringDetail.untilDate', {
-                          date: summaryDate(entry.value.end_date),
-                      })
-                    : '',
-            detail: !entry.value.is_active
-                ? ui(
-                      'Generazione interrotta; le scadenze già dovute restano da gestire.',
-                  )
+            description: props.compound
+                ? t('recurringDetail.year', { year: currentProgressYear.value })
                 : planProgress.value.openEnded
-                  ? t('recurringDetail.ongoing')
-                  : t('recurringDetail.allTime'),
+                  ? t('recurringDetail.openEnded')
+                  : progressTotal.value !== null
+                    ? t('recurringDetail.finiteProgress', {
+                          count: progressSettled.value,
+                          total: progressTotal.value,
+                      })
+                    : entry.value.end_date
+                      ? t('recurringDetail.untilDate', {
+                            date: summaryDate(entry.value.end_date),
+                        })
+                      : '',
+            detail: props.compound
+                ? annualProgress.value
+                    ? t('recurringDetail.annualPaid', {
+                          count: annualProgress.value.paid,
+                          total: annualProgress.value.total,
+                      })
+                    : annualProgressFailed.value
+                      ? ui('Caricamento non riuscito. Riprova.')
+                      : ui('Caricamento…')
+                : !entry.value.is_active
+                  ? ui(
+                        'Generazione interrotta; le scadenze già dovute restano da gestire.',
+                    )
+                  : planProgress.value.openEnded
+                    ? t('recurringDetail.ongoing')
+                    : t('recurringDetail.allTime'),
             tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
             icon: planProgress.value.openEnded ? InfinityIcon : ShieldCheck,
         },
@@ -849,7 +1192,7 @@ function occurrenceState(
 
     if (occurrence.converted_transaction) {
         return {
-            label: entry.value.shared_expense_counterparty
+            label: occurrenceCounterparty(occurrence)
                 ? 'Pagata da te'
                 : t('transactions.recurring.table.convertedBadge'),
             tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
@@ -1024,7 +1367,10 @@ function handleConvert(occurrenceUuid: string): void {
 
     convertingOccurrenceUuid.value = occurrenceUuid;
     router.post(
-        convertOccurrence.url([entry.value.uuid, occurrenceUuid]),
+        convertOccurrence.url([
+            occurrenceOwner(occurrenceUuid),
+            occurrenceUuid,
+        ]),
         {
             confirm_future_date: true,
         },
@@ -1057,10 +1403,13 @@ function cancelAmountEdit(): void {
 }
 
 function submitAmount(occurrenceUuid: string): void {
-    amountForm.patch(updateAmount.url([entry.value.uuid, occurrenceUuid]), {
-        preserveScroll: true,
-        onSuccess: cancelAmountEdit,
-    });
+    amountForm.patch(
+        updateAmount.url([occurrenceOwner(occurrenceUuid), occurrenceUuid]),
+        {
+            preserveScroll: true,
+            onSuccess: cancelAmountEdit,
+        },
+    );
 }
 
 function startOccurrenceEdit(
@@ -1088,7 +1437,10 @@ function submitOccurrenceEdit(): void {
     }
 
     occurrenceForm.patch(
-        updateOccurrence.url([entry.value.uuid, editingOccurrence.value.uuid]),
+        updateOccurrence.url([
+            occurrenceOwner(editingOccurrence.value.uuid),
+            editingOccurrence.value.uuid,
+        ]),
         {
             preserveScroll: true,
             onSuccess: cancelOccurrenceEdit,
@@ -1100,13 +1452,15 @@ function requestConvert(
     occurrence: (typeof props.recurringEntry.occurrences)[number],
 ): void {
     if (
-        entry.value.shared_expense_counterparty ||
+        occurrenceCounterparty(occurrence) ||
         occurrence.converted_transaction?.is_refunded
     ) {
         sharedPaymentForm.clearErrors();
         sharedPaymentForm.shared_expense_paid_by = occurrence.external_payment
             ? 'counterparty'
-            : (entry.value.shared_expense_paid_by ?? 'self');
+            : occurrence.payment_defaults
+              ? (occurrence.payment_defaults.shared_expense_paid_by ?? 'self')
+              : (entry.value.shared_expense_paid_by ?? 'self');
         sharedPaymentForm.amount = String(
             occurrence.remaining_amount ?? occurrence.expected_amount ?? '',
         );
@@ -1152,7 +1506,7 @@ function handleUndoConversion(): void {
 
     router.delete(
         undoConversion.url([
-            entry.value.uuid,
+            occurrenceOwner(undoConversionOccurrenceUuid.value),
             undoConversionOccurrenceUuid.value,
         ]),
         {
@@ -1175,7 +1529,55 @@ function handleMobilePrimaryAction(event: Event): void {
     formOpen.value = true;
 }
 
+const occurrenceActionsMounted = ref(false);
+const handledOccurrenceAction = ref<string | null>(null);
+watch(
+    () =>
+        [
+            page.url,
+            loadedOccurrences.value,
+            occurrenceActionsMounted.value,
+        ] as const,
+    () => {
+        if (
+            !occurrenceActionsMounted.value ||
+            handledOccurrenceAction.value === page.url
+        ) {
+            return;
+        }
+
+        const occurrence = loadedOccurrences.value.find(
+            (row) => row.uuid === highlightedOccurrenceUuid.value,
+        );
+        const action = requestedOccurrenceAction(
+            page.url,
+            Boolean(props.compound),
+            occurrence,
+        );
+
+        if (!action || !occurrence) {
+            return;
+        }
+
+        handledOccurrenceAction.value = page.url;
+
+        if (action === 'date') {
+            startOccurrenceEdit(occurrence);
+        }
+
+        if (action === 'amount') {
+            startAmountEdit(occurrence);
+        }
+
+        if (action === 'payment') {
+            registerPayment(occurrence);
+        }
+    },
+    { immediate: true, flush: 'post' },
+);
+
 onMounted(() => {
+    occurrenceActionsMounted.value = true;
     window.addEventListener(
         'app:mobile-primary-action',
         handleMobilePrimaryAction as EventListener,
@@ -1215,7 +1617,7 @@ function isFutureOccurrence(
 
 <template>
     <Head
-        :title="`${entry.title} · ${t('transactions.recurring.detail.title')}`"
+        :title="`${pageTitle} · ${t('transactions.recurring.detail.title')}`"
     />
 
     <AppLayout :breadcrumbs="breadcrumbs">
@@ -1299,9 +1701,10 @@ function isFutureOccurrence(
                                 data-onboarding="recurring-detail.step1"
                                 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
                             >
-                                {{ entry.title }}
+                                {{ pageTitle }}
                             </h1>
                             <p
+                                v-if="!compound"
                                 class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
                             >
                                 {{
@@ -1313,7 +1716,42 @@ function isFutureOccurrence(
                             </p>
                         </div>
 
-                        <div class="flex flex-wrap gap-2">
+                        <div
+                            v-if="compound"
+                            class="flex flex-wrap gap-2"
+                            data-compound-plan-actions
+                        >
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                @click="costTrendPanel?.open()"
+                            >
+                                <ChartNoAxesCombined class="mr-2 size-4" />
+                                {{ t('recurringDetail.costTrend.action') }}
+                            </Button>
+                            <Button
+                                v-if="
+                                    Object.values(componentDetails).some(
+                                        (detail) => detail.entry.can_edit,
+                                    )
+                                "
+                                variant="outline"
+                                size="sm"
+                                @click="addComponentOpen = true"
+                                >{{ t('recurringDetail.compound.add') }}</Button
+                            >
+                        </div>
+                        <div v-else class="flex flex-wrap gap-2">
+                            <Button
+                                v-if="hasCostTrend"
+                                variant="outline"
+                                size="sm"
+                                class="rounded-2xl"
+                                @click="costTrendPanel?.open()"
+                            >
+                                <ChartNoAxesCombined class="mr-2 size-4" />
+                                {{ t('recurringDetail.costTrend.action') }}
+                            </Button>
                             <Button
                                 v-if="entry.can_edit"
                                 class="rounded-2xl"
@@ -1493,18 +1931,379 @@ function isFutureOccurrence(
                 </div>
             </section>
 
-            <section
+            <details
+                v-if="compound"
+                class="group/components space-y-3 rounded-2xl border bg-card p-4 sm:p-6"
+                :open="componentsOpen"
+                @toggle="
+                    componentsOpen = ($event.target as HTMLDetailsElement).open
+                "
+                aria-labelledby="annual-components-title"
+            >
+                <summary
+                    class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+                >
+                    <div class="min-w-0">
+                        <h2
+                            id="annual-components-title"
+                            class="text-lg font-semibold"
+                        >
+                            {{ t('recurringDetail.compound.annualComponents') }}
+                            <span
+                                class="text-sm font-normal text-muted-foreground"
+                                >({{ compound.components.length }})</span
+                            >
+                        </h2>
+                        <p
+                            class="mt-1 text-sm text-primary"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            {{
+                                t('recurringDetail.compound.viewingComponent', {
+                                    name: compound.active_component,
+                                })
+                            }}
+                        </p>
+                    </div>
+                    <ChevronDown
+                        aria-hidden="true"
+                        class="size-4 shrink-0 text-muted-foreground transition-transform group-open/components:rotate-180 motion-reduce:transition-none"
+                    />
+                </summary>
+                <p class="text-sm text-muted-foreground">
+                    {{ t('recurringDetail.compound.selectionHint') }}
+                </p>
+                <div class="divide-y">
+                    <div
+                        v-for="component in compound.components"
+                        :key="component.entry_uuid"
+                        class="flex flex-wrap items-center gap-x-4 gap-y-3 px-3 py-3 transition-colors motion-reduce:transition-none"
+                        :class="
+                            entry.uuid === component.entry_uuid
+                                ? 'rounded-xl bg-primary/5 ring-1 ring-primary/30'
+                                : ''
+                        "
+                        :data-component-uuid="component.entry_uuid"
+                    >
+                        <Link
+                            :href="component.url"
+                            preserve-scroll
+                            preserve-state
+                            @success="lifecycleOpen = true"
+                            :aria-current="
+                                entry.uuid === component.entry_uuid
+                                    ? 'page'
+                                    : undefined
+                            "
+                            class="min-w-0 flex-1 basis-40 rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
+                        >
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-semibold">{{
+                                    component.name
+                                }}</span>
+                                <Badge
+                                    v-if="entry.uuid === component.entry_uuid"
+                                    variant="outline"
+                                    class="border-primary/30 text-primary"
+                                    ><Check
+                                        class="mr-1 size-3"
+                                        aria-hidden="true"
+                                    />{{
+                                        t('recurringDetail.compound.selected')
+                                    }}</Badge
+                                >
+                            </div>
+                            <p
+                                v-if="componentDetails[component.entry_uuid]"
+                                class="mt-1 text-sm text-muted-foreground"
+                            >
+                                {{
+                                    annualComponentDate(
+                                        componentDetails[component.entry_uuid]
+                                            .entry,
+                                    )
+                                }}
+                                ·
+                                <SensitiveValue
+                                    :value="
+                                        formatMoney(
+                                            componentDetails[
+                                                component.entry_uuid
+                                            ].entry.expected_amount ?? 0,
+                                            componentDetails[
+                                                component.entry_uuid
+                                            ].entry.currency,
+                                        )
+                                    "
+                                />
+                            </p>
+                            <p
+                                v-else
+                                class="mt-1 text-sm text-muted-foreground"
+                                role="status"
+                            >
+                                {{
+                                    componentLoadFailed.includes(
+                                        component.entry_uuid,
+                                    )
+                                        ? t(
+                                              'recurringDetail.compound.loadFailed',
+                                          )
+                                        : ui('Caricamento…')
+                                }}
+                            </p>
+                            <span
+                                class="mt-1 block text-xs text-primary underline-offset-4 hover:underline"
+                                >{{
+                                    t('recurringDetail.compound.viewHistory')
+                                }}</span
+                            >
+                        </Link>
+                        <template v-if="componentDetails[component.entry_uuid]">
+                            <Badge variant="secondary">{{
+                                componentStatusLabel(
+                                    componentDetails[component.entry_uuid].entry
+                                        .status,
+                                )
+                            }}</Badge>
+                            <div class="flex items-center gap-2">
+                                <Button
+                                    v-if="
+                                        componentDetails[component.entry_uuid]
+                                            .entry.can_edit
+                                    "
+                                    variant="outline"
+                                    size="sm"
+                                    :disabled="componentActionPending !== null"
+                                    @click="
+                                        runComponentAction(component, 'edit')
+                                    "
+                                    >{{ ui('Modifica') }}</Button
+                                >
+                                <DropdownMenu
+                                    v-if="
+                                        componentDetails[component.entry_uuid]
+                                            .entry.can_edit
+                                    "
+                                >
+                                    <DropdownMenuTrigger as-child
+                                        ><Button
+                                            variant="ghost"
+                                            size="sm"
+                                            :disabled="
+                                                componentActionPending !== null
+                                            "
+                                            :aria-label="
+                                                t(
+                                                    'recurringDetail.compound.moreActions',
+                                                ) +
+                                                ' · ' +
+                                                component.name
+                                            "
+                                            >{{
+                                                t(
+                                                    'recurringDetail.compound.moreActions',
+                                                )
+                                            }}</Button
+                                        ></DropdownMenuTrigger
+                                    >
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                            v-if="
+                                                componentDetails[
+                                                    component.entry_uuid
+                                                ].actions.can_interrupt
+                                            "
+                                            @select="
+                                                runComponentAction(
+                                                    component,
+                                                    'interrupt',
+                                                )
+                                            "
+                                            >{{
+                                                ui(
+                                                    'Interrompi fino alla riattivazione',
+                                                )
+                                            }}</DropdownMenuItem
+                                        >
+                                        <DropdownMenuItem
+                                            v-if="
+                                                componentDetails[
+                                                    component.entry_uuid
+                                                ].actions.can_reactivate
+                                            "
+                                            @select="
+                                                runComponentAction(
+                                                    component,
+                                                    'reactivate',
+                                                )
+                                            "
+                                            >{{
+                                                ui('Riattiva dalla data scelta')
+                                            }}</DropdownMenuItem
+                                        >
+                                        <DropdownMenuItem
+                                            v-if="
+                                                componentDetails[
+                                                    component.entry_uuid
+                                                ].actions.can_pause
+                                            "
+                                            @select="
+                                                runComponentAction(
+                                                    component,
+                                                    'pause',
+                                                )
+                                            "
+                                            >{{
+                                                ui('Salta prossime scadenze')
+                                            }}</DropdownMenuItem
+                                        >
+                                        <DropdownMenuItem
+                                            v-if="
+                                                componentDetails[
+                                                    component.entry_uuid
+                                                ].actions.can_recover_arrears
+                                            "
+                                            @select="
+                                                runComponentAction(
+                                                    component,
+                                                    'recover',
+                                                )
+                                            "
+                                            >{{
+                                                ui(
+                                                    'Recupera arretrati (legacy)',
+                                                )
+                                            }}</DropdownMenuItem
+                                        >
+                                        <DropdownMenuItem
+                                            v-if="
+                                                componentDetails[
+                                                    component.entry_uuid
+                                                ].actions.can_cancel
+                                            "
+                                            @select="
+                                                runComponentAction(
+                                                    component,
+                                                    'cancel',
+                                                )
+                                            "
+                                            >{{
+                                                t(
+                                                    'recurringDetail.compound.cancelIndividual',
+                                                )
+                                            }}</DropdownMenuItem
+                                        >
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            @select="
+                                                runComponentAction(
+                                                    component,
+                                                    'remove',
+                                                )
+                                            "
+                                            >{{
+                                                t(
+                                                    'recurringDetail.compound.removeComponent',
+                                                )
+                                            }}</DropdownMenuItem
+                                        >
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        </template>
+                        <Button
+                            v-else-if="
+                                componentLoadFailed.includes(
+                                    component.entry_uuid,
+                                )
+                            "
+                            variant="ghost"
+                            size="sm"
+                            @click="loadComponentDetails(component)"
+                            >{{ t('app.pwa.retry') }}</Button
+                        >
+                    </div>
+                </div>
+                <details
+                    v-if="compound.archived_components.length"
+                    class="text-sm"
+                >
+                    <summary class="cursor-pointer py-2 text-muted-foreground">
+                        {{
+                            t('recurringDetail.compound.archivedComponents', {
+                                count: compound.archived_components.length,
+                            })
+                        }}
+                    </summary>
+                    <div class="flex flex-wrap gap-2 py-2">
+                        <Link
+                            v-for="component in compound.archived_components"
+                            :key="component.entry_uuid"
+                            :href="component.url"
+                            class="rounded-xl border px-3 py-2"
+                            >{{ component.name }}</Link
+                        >
+                    </div>
+                </details>
+                <p
+                    v-if="compound.is_archived"
+                    class="text-sm text-muted-foreground"
+                >
+                    {{
+                        t('recurringDetail.compound.archivedReadOnly', {
+                            name: compound.active_component,
+                        })
+                    }}
+                </p>
+            </details>
+
+            <details
                 v-if="recurringEntry.activity_periods?.length"
-                class="space-y-3 rounded-2xl border p-4 sm:p-6"
+                class="group/lifecycle space-y-3 rounded-2xl border p-4 sm:p-6"
+                :open="!compound || lifecycleOpen"
+                @toggle="
+                    lifecycleOpen = ($event.target as HTMLDetailsElement).open
+                "
                 aria-labelledby="plan-lifecycle-title"
             >
-                <h2
-                    data-onboarding="recurring-detail.step2"
-                    id="plan-lifecycle-title"
-                    class="font-semibold"
+                <summary
+                    class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
                 >
-                    {{ ui('Cronologia del piano') }}
-                </h2>
+                    <div>
+                        <h2
+                            data-onboarding="recurring-detail.step2"
+                            id="plan-lifecycle-title"
+                            class="font-semibold"
+                        >
+                            {{
+                                compound
+                                    ? t(
+                                          'recurringDetail.compound.historyComponent',
+                                          {
+                                              name: compound.active_component,
+                                          },
+                                      )
+                                    : ui('Cronologia del piano')
+                            }}
+                        </h2>
+                        <p
+                            v-if="compound"
+                            class="mt-1 text-sm text-muted-foreground"
+                        >
+                            {{
+                                t('recurringDetail.compound.historyHint', {
+                                    name: compound.active_component,
+                                })
+                            }}
+                        </p>
+                    </div>
+                    <ChevronDown
+                        aria-hidden="true"
+                        class="size-4 shrink-0 text-muted-foreground transition-transform group-open/lifecycle:rotate-180 motion-reduce:transition-none"
+                    />
+                </summary>
                 <article
                     v-for="(
                         period, periodIndex
@@ -1594,7 +2393,7 @@ function isFutureOccurrence(
                         )
                     }}
                 </p>
-            </section>
+            </details>
 
             <section
                 v-if="recurringEntry.amount_history?.length"
@@ -1753,6 +2552,27 @@ function isFutureOccurrence(
                 </div>
             </section>
 
+            <RecurringCostTrend
+                v-if="hasCostTrend"
+                :key="compound?.uuid ?? entry.uuid"
+                ref="costTrendPanel"
+                :direction="entry.direction"
+                :points="compound ? [] : recurringEntry.cost_trend"
+                :annual-summaries="
+                    compound
+                        ? (recurringEntry.compound_cost_trend ?? [])
+                        : undefined
+                "
+                :recurring-entry-uuid="entry.uuid"
+                :manual-costs="compound ? [] : recurringEntry.manual_costs"
+                :price-history="compound ? [] : recurringEntry.amount_history"
+                :fixed="!compound && !entry.is_amount_variable"
+                :can-edit="!compound && entry.can_edit"
+                :currency="
+                    entry.currency ?? auth.user?.base_currency_code ?? 'EUR'
+                "
+            />
+
             <section
                 v-if="entry.entry_type === 'recurring' && entry.trial_duration"
                 class="grid gap-2 rounded-2xl border bg-muted/30 p-4 sm:grid-cols-2"
@@ -1904,6 +2724,26 @@ function isFutureOccurrence(
                         :id="`occurrences-${group.year}`"
                         :aria-busy="loadingYears.includes(group.year)"
                     >
+                        <div v-if="group.cancelled_count" class="px-4 py-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                :aria-pressed="
+                                    showCancelledYears[group.year] ?? false
+                                "
+                                :disabled="loadingYears.includes(group.year)"
+                                @click="toggleCancelled(group.year)"
+                            >
+                                {{
+                                    t(
+                                        showCancelledYears[group.year]
+                                            ? 'recurringDetail.compound.hideCancelled'
+                                            : 'recurringDetail.compound.showCancelled',
+                                        { count: group.cancelled_count },
+                                    )
+                                }}
+                            </Button>
+                        </div>
                         <div v-if="yearFirst[group.year] > 0" class="px-4 pb-2">
                             <Button
                                 variant="ghost"
@@ -1928,7 +2768,11 @@ function isFutureOccurrence(
                                     to:
                                         (yearFirst[group.year] ?? 0) +
                                         yearRows[group.year].length,
-                                    total: group.count,
+                                    total:
+                                        group.count -
+                                        (showCancelledYears[group.year]
+                                            ? 0
+                                            : (group.cancelled_count ?? 0)),
                                 })
                             }}
                         </p>
@@ -1950,6 +2794,12 @@ function isFutureOccurrence(
                                     class="flex items-start justify-between gap-3"
                                 >
                                     <div class="space-y-1">
+                                        <p
+                                            v-if="occurrence.component_name"
+                                            class="font-semibold"
+                                        >
+                                            {{ occurrence.component_name }}
+                                        </p>
                                         <p
                                             class="text-sm font-semibold text-slate-950 dark:text-white"
                                         >
@@ -2308,7 +3158,7 @@ function isFutureOccurrence(
                                         @click="requestConvert(occurrence)"
                                     >
                                         {{
-                                            entry.shared_expense_counterparty
+                                            occurrenceCounterparty(occurrence)
                                                 ? 'Registra pagamento'
                                                 : t(
                                                       'transactions.recurring.actions.convert',
@@ -2428,6 +3278,16 @@ function isFutureOccurrence(
                                             class="px-4 py-4 text-slate-700 dark:text-slate-200"
                                         >
                                             <div class="space-y-1">
+                                                <p
+                                                    v-if="
+                                                        occurrence.component_name
+                                                    "
+                                                    class="font-semibold"
+                                                >
+                                                    {{
+                                                        occurrence.component_name
+                                                    }}
+                                                </p>
                                                 <p>
                                                     {{
                                                         occurrence.due_date ??
@@ -2872,7 +3732,9 @@ function isFutureOccurrence(
                                                     "
                                                 >
                                                     {{
-                                                        entry.shared_expense_counterparty
+                                                        occurrenceCounterparty(
+                                                            occurrence,
+                                                        )
                                                             ? 'Registra pagamento'
                                                             : t(
                                                                   'transactions.recurring.actions.convert',
@@ -3015,6 +3877,13 @@ function isFutureOccurrence(
             </section>
         </div>
 
+        <CompoundRecurringFormSheet
+            v-if="compound"
+            v-model:open="addComponentOpen"
+            :compound-uuid="compound.uuid"
+            :currency="entry.currency ?? 'EUR'"
+            :reminders="formOptions.reminders"
+        />
         <RecurringEntryFormSheet
             v-model:open="formOpen"
             :entry="entry"
@@ -3165,6 +4034,35 @@ function isFutureOccurrence(
                 >
             </DialogContent>
         </Dialog>
+        <Dialog v-model:open="archiveComponentOpen">
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{{
+                        t('recurringDetail.compound.removeTitle', {
+                            name: compound?.active_component,
+                        })
+                    }}</DialogTitle>
+                    <DialogDescription>{{
+                        t('recurringDetail.compound.removeDescription')
+                    }}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button
+                        variant="outline"
+                        :disabled="archiveComponentForm.processing"
+                        @click="archiveComponentOpen = false"
+                        >{{ t('app.common.cancel') }}</Button
+                    >
+                    <Button
+                        :disabled="archiveComponentForm.processing"
+                        @click="removeSelectedComponent"
+                        >{{
+                            t('recurringDetail.compound.removeComponent')
+                        }}</Button
+                    >
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
         <Dialog v-model:open="cancelDialogOpen">
             <DialogContent class="sm:max-w-xl">
                 <DialogHeader>
@@ -3248,7 +4146,7 @@ function isFutureOccurrence(
                 </DialogHeader>
                 <form class="space-y-4" @submit.prevent="submitSharedPayment">
                     <fieldset
-                        v-if="entry.shared_expense_counterparty"
+                        v-if="sharedPaymentCounterparty"
                         class="space-y-2"
                     >
                         <legend class="text-sm font-medium">
@@ -3289,9 +4187,7 @@ function isFutureOccurrence(
                                     sharedPaymentForm.shared_expense_paid_by =
                                         'counterparty'
                                 "
-                                >{{
-                                    entry.shared_expense_counterparty?.name
-                                }}</Button
+                                >{{ sharedPaymentCounterparty?.name }}</Button
                             >
                         </div>
                     </fieldset>

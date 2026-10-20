@@ -39,6 +39,7 @@ class UpdateRecurringOccurrenceAmountService
                 ->with('user')
                 ->lockForUpdate()
                 ->findOrFail($lockedOccurrence->recurring_entry_id);
+            $entry->ensureComponentIsMutable();
 
             $this->ensureAmountCanBeUpdated($lockedOccurrence, $entry);
             $salaryDetail = $lockedOccurrence->salaryDetail;

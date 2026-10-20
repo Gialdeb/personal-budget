@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import { CalendarClock, TrendingUp } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -88,9 +89,16 @@ function transactionLabel(count: number): string {
                 }}
             </h3>
             <div v-if="upcoming.length" class="mt-3 grid gap-2">
-                <article
+                <component
+                    :is="entry.source_url ? Link : 'article'"
                     v-for="entry in upcoming"
                     :key="entry.id"
+                    :href="entry.source_url ?? undefined"
+                    :class="
+                        entry.source_url
+                            ? 'transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring'
+                            : ''
+                    "
                     class="flex items-center justify-between gap-3 rounded-xl bg-muted/45 px-3.5 py-3"
                 >
                     <div class="min-w-0">
@@ -99,6 +107,9 @@ function transactionLabel(count: number): string {
                         </h4>
                         <p class="text-xs text-muted-foreground">
                             {{ date(entry.scheduled_date) }}
+                            <span v-if="!entry.source_url" class="block">{{
+                                t('dashboard.agenda.sourceUnavailable')
+                            }}</span>
                         </p>
                     </div>
                     <div class="shrink-0 text-right">
@@ -114,7 +125,7 @@ function transactionLabel(count: number): string {
                             }}
                         </p>
                     </div>
-                </article>
+                </component>
             </div>
             <p
                 v-else

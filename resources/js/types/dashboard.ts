@@ -119,6 +119,7 @@ export type DashboardRecurringSummary = {
 };
 
 export type DashboardScheduledUpcomingItem = {
+    source_url: string | null;
     id: string;
     display_label: string;
     scheduled_date: string;

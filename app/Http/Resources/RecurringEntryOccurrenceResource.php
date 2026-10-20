@@ -20,7 +20,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
     {
         $editableAccountIds = $request->attributes->get('recurring_editable_account_ids', []);
         $entry = $this->recurringEntry;
-        $canEdit = $entry !== null
+        $canEdit = $entry !== null && ! $entry->isArchivedComponent()
             && in_array((int) $entry->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
         $canUpdatePendingAmount = in_array($this->status, [
             RecurringOccurrenceStatusEnum::PENDING,
@@ -67,6 +67,17 @@ class RecurringEntryOccurrenceResource extends JsonResource
 
         return [
             'uuid' => $this->uuid,
+            'entry_uuid' => $entry?->uuid,
+            'component_name' => $entry?->compoundComponent?->displayName(),
+            'payment_defaults' => $entry?->compoundComponent === null ? null : [
+                'category_uuid' => $entry->category?->uuid,
+                'tracked_item_uuid' => $entry->trackedItem?->uuid,
+                'shared_expense_paid_by' => $entry->shared_expense_paid_by,
+                'shared_expense_counterparty' => $entry->sharedExpenseCounterparty === null ? null : [
+                    'uuid' => $entry->sharedExpenseCounterparty->uuid,
+                    'name' => $entry->sharedExpenseCounterparty->name,
+                ],
+            ],
             'sequence_number' => $this->sequence_number,
             'expected_date' => $this->expected_date?->toDateString(),
             'due_date' => $this->due_date?->toDateString(),

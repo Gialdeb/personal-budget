@@ -1487,7 +1487,7 @@ test('dashboard keeps account filters backward compatible for users with only ow
             ->where('dashboard.filters.account_options', fn ($options) => count($options) === 1));
 });
 
-test('financial agenda uses future recurring and scheduled items in the current account scope', function () {
+test('financial agenda uses future recurring and scheduled items in the current account scope', function (string $entryType, string $direction) {
     $this->travelTo(now()->setDate(2026, 3, 27));
 
     $user = User::factory()->create();
@@ -1520,10 +1520,10 @@ test('financial agenda uses future recurring and scheduled items in the current 
         'tracked_item_id' => $trackedItem->id,
         'title' => '',
         'description' => '',
-        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'direction' => $direction,
         'expected_amount' => 89.90,
         'currency' => 'EUR',
-        'entry_type' => RecurringEntryTypeEnum::RECURRING->value,
+        'entry_type' => $entryType,
         'status' => RecurringEntryStatusEnum::ACTIVE->value,
         'recurrence_type' => RecurringEntryRecurrenceTypeEnum::MONTHLY->value,
         'recurrence_interval' => 1,
@@ -1535,7 +1535,7 @@ test('financial agenda uses future recurring and scheduled items in the current 
         'is_active' => true,
     ]);
 
-    RecurringEntryOccurrence::query()->create([
+    $occurrence = RecurringEntryOccurrence::query()->create([
         'recurring_entry_id' => $recurringEntry->id,
         'sequence_number' => 1,
         'expected_date' => '2026-03-29',
@@ -1544,14 +1544,14 @@ test('financial agenda uses future recurring and scheduled items in the current 
         'status' => RecurringOccurrenceStatusEnum::PENDING->value,
     ]);
 
-    ScheduledEntry::query()->create([
+    $scheduled = ScheduledEntry::query()->create([
         'user_id' => $user->id,
         'account_id' => $account->id,
         'category_id' => $expenseCategory->id,
         'merchant_id' => $merchant->id,
         'title' => '',
         'description' => '',
-        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'direction' => $direction,
         'expected_amount' => 120.00,
         'currency' => 'EUR',
         'scheduled_date' => '2026-03-28',
@@ -1575,13 +1575,54 @@ test('financial agenda uses future recurring and scheduled items in the current 
                     && str_contains($item['action_url'], '/recurring-entries/')))
             ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
                 ->contains(fn ($item) => $item['display_label'] === 'Enel Energia'
+                    && $item['source_url'] === null
                     && $item['entry_kind'] === 'scheduled'
                     && (float) $item['expected_amount_raw'] === 120.0))
             ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
                 ->contains(fn ($item) => $item['display_label'] === 'Eurospin'
+                    && $item['source_url'] === route('recurring-entries.show', ['recurringEntry' => $recurringEntry->uuid, 'highlight' => $occurrence->uuid])
                     && $item['entry_kind'] === 'recurring'
                     && (float) $item['expected_amount_raw'] === 89.9)));
-});
+
+    $sourceUrl = route('recurring-entries.show', [
+        'recurringEntry' => $recurringEntry->uuid,
+        'highlight' => $occurrence->uuid,
+    ]);
+    $this->getJson($sourceUrl)->assertSuccessful()
+        ->assertJsonPath('recurringEntry.occurrence_page.year', 2026)
+        ->assertJsonPath('recurringEntry.occurrences.0.uuid', $occurrence->uuid);
+
+    $transaction = Transaction::query()->where('account_id', $account->id)->firstOrFail();
+    $scheduled->update(['matched_transaction_id' => $transaction->id]);
+    $this->get(route('dashboard', ['year' => 2026, 'month' => 3]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['id'] === 'scheduled-'.$scheduled->id
+                    && $item['source_url'] === route('transactions.show', [
+                        'year' => $transaction->transaction_date->year,
+                        'month' => $transaction->transaction_date->month,
+                        'highlight' => $transaction->uuid,
+                    ]))));
+
+    $transaction->delete();
+    $occurrence->delete();
+    $this->get(route('dashboard', ['year' => 2026, 'month' => 3]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
+                ->doesntContain('id', 'recurring-'.$occurrence->id)
+                && collect($items)->contains(fn ($item) => $item['id'] === 'scheduled-'.$scheduled->id
+                    && $item['source_url'] === null)));
+    $this->actingAs(User::factory()->create())->getJson($sourceUrl)->assertNotFound();
+    $recurringEntry->delete();
+    $this->actingAs($user)->getJson($sourceUrl)->assertNotFound();
+})->with([
+    'recurring expense' => ['recurring', 'expense'],
+    'recurring income' => ['recurring', 'income'],
+    'installment expense' => ['installment', 'expense'],
+    'installment income' => ['installment', 'income'],
+]);
 
 test('financial agenda top payees use meaningful fallbacks instead of missing merchant labels', function () {
     $user = User::factory()->create();

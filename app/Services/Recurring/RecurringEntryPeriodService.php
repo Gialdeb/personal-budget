@@ -71,6 +71,10 @@ class RecurringEntryPeriodService
     {
         return DB::transaction(function () use ($actor, $entry, $data): RecurringEntry {
             $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->id);
+            $entry->ensureComponentIsMutable();
+            if ($entry->compoundComponent()->exists() && (($data['recurrence_type'] ?? $entry->recurrence_type->value) !== 'yearly' || (int) ($data['recurrence_interval'] ?? $entry->recurrence_interval) !== 1)) {
+                throw ValidationException::withMessages(['entry' => __('compound_recurring.protected_component')]);
+            }
             $start = CarbonImmutable::parse($data['start_date']);
             $current = $this->current($entry);
             if ($entry->status === RecurringEntryStatusEnum::ACTIVE && $current?->starts_on?->eq($start)

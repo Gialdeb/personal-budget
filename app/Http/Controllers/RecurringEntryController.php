@@ -19,6 +19,7 @@ use App\Http\Resources\RecurringEntryOccurrenceResource;
 use App\Http\Resources\RecurringEntryShowResource;
 use App\Models\Account;
 use App\Models\Category;
+use App\Models\CompoundRecurringEntry;
 use App\Models\Merchant;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
@@ -29,6 +30,7 @@ use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\CategoryFoundationService;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
+use App\Services\Recurring\CompoundRecurringCostTrendService;
 use App\Services\Recurring\DeleteRecurringEntryService;
 use App\Services\Recurring\RecalculateInstallmentPlanAmountService;
 use App\Services\Recurring\RecurringEntryDetailReadService;
@@ -82,9 +84,36 @@ class RecurringEntryController extends Controller
         return Inertia::render('transactions/recurring/Index', $payload);
     }
 
-    public function show(RecurringEntryDetailRequest $request, RecurringEntry $recurringEntry): Response|JsonResponse
+    public function show(RecurringEntryDetailRequest $request, string $recurringEntry): Response|JsonResponse|RedirectResponse
     {
-        $entry = $this->accessibleRecurringEntry($request, $recurringEntry);
+        $compound = CompoundRecurringEntry::query()->where('uuid', $recurringEntry)->first();
+        $requestedEntry = $compound === null ? RecurringEntry::query()->where('uuid', $recurringEntry)->firstOrFail() : null;
+        if ($requestedEntry !== null) {
+            $this->accessibleRecurringEntry($request, $requestedEntry);
+            $compound = $requestedEntry->compoundComponent?->compoundRecurringEntry;
+            if ($compound !== null && ! $request->expectsJson()) {
+                return to_route('recurring-entries.show', ['recurringEntry' => $compound->uuid, ...$request->query(), 'component' => $requestedEntry->uuid]);
+            }
+        }
+        $owners = null;
+        $highlightedOccurrence = null;
+        if ($compound !== null) {
+            abort_unless($this->accessibleAccountsQuery->canViewAccountId($request->user(), $compound->account_id), 404);
+            $compound->load(['components.recurringEntry.account', 'components.recurringEntry.category', 'components.recurringEntry.trackedItem', 'components.recurringEntry.sharedExpenseCounterparty', 'components.recurringEntry.salarySchedule']);
+            $owners = new EloquentCollection($compound->components->pluck('recurringEntry')->filter()->all());
+            abort_if($owners->isEmpty(), 404);
+            foreach ($compound->components as $component) {
+                $this->accessibleRecurringEntry($request, $component->recurringEntry);
+                $component->setRelation('compoundRecurringEntry', $compound);
+                $component->recurringEntry->setRelation('compoundComponent', $component);
+            }
+            if ($request->filled('highlight')) {
+                $highlightedOccurrence = RecurringEntryOccurrence::query()->whereIn('recurring_entry_id', $owners->modelKeys())->where('uuid', $request->input('highlight'))->first();
+            }
+            $requestedEntry = $request->filled('component') ? $owners->firstWhere('uuid', $request->input('component')) : ($requestedEntry ?? ($highlightedOccurrence === null ? $owners->first(fn ($owner) => ! $owner->isArchivedComponent()) ?? $owners->first() : $owners->find($highlightedOccurrence->recurring_entry_id)));
+            abort_if($requestedEntry === null, 404);
+        }
+        $entry = $this->accessibleRecurringEntry($request, $requestedEntry);
         $editableAccountIds = $this->accessibleAccountsQuery->editableIds($request->user());
         $request->attributes->set('recurring_editable_account_ids', $editableAccountIds);
         request()->attributes->set('recurring_editable_account_ids', $editableAccountIds);
@@ -105,32 +134,54 @@ class RecurringEntryController extends Controller
         $read = app(RecurringEntryDetailReadService::class);
         if ($request->filled('occurrence_year') && $request->expectsJson()) {
             $year = $request->integer('occurrence_year');
-            $chunk = $read->page($entry, $year, $request->filled('occurrence_offset') ? $request->integer('occurrence_offset') : null, $request->input('highlight'));
+            $chunk = $read->page($entry, $year, $request->filled('occurrence_offset') ? $request->integer('occurrence_offset') : null, $request->input('highlight'), $owners, $request->boolean('show_cancelled'));
 
             return response()->json([
-                'year' => $year, 'offset' => $chunk['offset'], 'next_offset' => $chunk['next_offset'],
+                'year' => $year, 'offset' => $chunk['offset'], 'next_offset' => $chunk['next_offset'], 'show_cancelled' => $chunk['show_cancelled'],
                 'occurrences' => RecurringEntryOccurrenceResource::collection($chunk['rows'])->resolve(),
             ]);
         }
-        $years = $read->years($entry);
+        $years = $read->years($entry, $owners);
         $year = $request->integer('occurrence_year', today()->year);
         if ($request->filled('highlight')) {
-            $target = $entry->occurrences()->where('uuid', $request->input('highlight'))->first();
+            $target = $highlightedOccurrence ?? RecurringEntryOccurrence::query()->whereIn('recurring_entry_id', $owners?->modelKeys() ?? [$entry->id])->where('uuid', $request->input('highlight'))->first();
             $year = $target ? ($target->due_date ?? $target->expected_date)->year : $year;
         }
-        $chunk = $read->page($entry, $year, null, $request->input('highlight'));
+        $chunk = $read->page($entry, $year, null, $request->input('highlight'), $owners, $request->boolean('show_cancelled'));
         $entry->setRelation('occurrences', $chunk['rows']);
-        $summary = $read->summary($entry);
+        $summary = $read->summary($entry, $owners);
         $years = array_map(fn (array $group): array => [...$group, ...($summary['overdue_by_year'][$group['year']] ?? ['overdue_count' => 0, 'overdue_amount' => 0])], $years);
         unset($summary['overdue_by_year']);
         $entry->setAttribute('detail_summary', $summary);
+        $entry->setAttribute('cost_trend', $read->costTrend($entry));
+        $entry->setAttribute('compound_cost_trend', $compound === null ? null : app(CompoundRecurringCostTrendService::class)->years($compound));
+        if ($entry->entry_type?->value === 'recurring') {
+            $entry->load('manualCosts');
+        }
         $entry->setAttribute('occurrence_years', $years);
-        $entry->setAttribute('occurrence_page', ['year' => $year, 'offset' => $chunk['offset'], 'next_offset' => $chunk['next_offset']]);
+        $entry->setAttribute('occurrence_page', ['year' => $year, 'offset' => $chunk['offset'], 'next_offset' => $chunk['next_offset'], 'show_cancelled' => $chunk['show_cancelled']]);
 
         $payload = [
             'recurringEntry' => (new RecurringEntryShowResource($entry))->resolve(),
             'formOptions' => $this->formOptionsPayload($request),
             'dateOptions' => $this->recurringDateOptions($request),
+            'compound' => $compound === null ? null : [
+                'uuid' => $compound->uuid,
+                'name' => $compound->name,
+                'url' => route('recurring-entries.show', $compound->uuid),
+                'active_component' => $entry->compoundComponent->displayName(),
+                'component_uuid' => $entry->compoundComponent->uuid,
+                'is_archived' => $entry->isArchivedComponent(),
+                'archived_components' => $compound->components->whereNotNull('archived_at')->map(fn ($component): array => [
+                    'entry_uuid' => $component->recurringEntry->uuid, 'name' => $component->displayName(),
+                    'url' => route('recurring-entries.show', ['recurringEntry' => $compound->uuid, 'component' => $component->recurringEntry->uuid]),
+                ])->values()->all(),
+                'components' => $compound->components->whereNull('archived_at')->map(fn ($component): array => [
+                    'entry_uuid' => $component->recurringEntry->uuid,
+                    'name' => $component->displayName(),
+                    'url' => route('recurring-entries.show', ['recurringEntry' => $compound->uuid, 'component' => $component->recurringEntry->uuid]),
+                ])->values()->all(),
+            ],
             'transactionSheet' => Inertia::optional(fn () => app(MonthlyTransactionSheetService::class)->build($request->user(), today()->year, today()->month)),
         ];
 
@@ -193,6 +244,7 @@ class RecurringEntryController extends Controller
 
     public function destroy(Request $request, RecurringEntry $recurringEntry): RedirectResponse
     {
+        abort_if($recurringEntry->compoundComponent()->exists(), 403, __('compound_recurring.protected_component'));
         $recurringEntry = $this->editableRecurringEntry($request, $recurringEntry);
         if ($recurringEntry->salarySchedule) {
             throw ValidationException::withMessages(['entry' => __('salary.use_end_employment')]);
@@ -371,6 +423,7 @@ class RecurringEntryController extends Controller
         $request->attributes->set('recurring_editable_account_ids', $editableAccountIds);
 
         $query = RecurringEntry::query()
+            ->whereDoesntHave('compoundComponent', fn ($component) => $component->whereNotNull('archived_at'))
             ->whereIn('account_id', $accessibleAccountIds)
             ->withExists(['periods as has_activity_periods' => fn ($periods) => $periods->where('kind', 'reactivated')])
             ->with([
@@ -381,6 +434,7 @@ class RecurringEntryController extends Controller
                 'trackedItem.websiteIdentity',
                 'merchant:id,uuid,name',
                 'salarySchedule.employment',
+                'compoundComponent.compoundRecurringEntry.components.recurringEntry',
                 'sharedExpenseCounterparty:id,uuid,name',
                 'occurrences.convertedTransaction.refundTransaction',
                 'createdByUser:id,uuid,name,email',
@@ -490,6 +544,14 @@ class RecurringEntryController extends Controller
                 'direction_sort' => $direction,
             ],
             'recurringEntries' => RecurringEntryIndexResource::collection($entries)->resolve(),
+            'compoundEntries' => $entries->filter(fn (RecurringEntry $entry): bool => $entry->compoundComponent !== null)
+                ->map(fn (RecurringEntry $entry) => $entry->compoundComponent->compoundRecurringEntry)->unique('id')->values()
+                ->map(fn ($compound): array => [
+                    'uuid' => $compound->uuid, 'name' => $compound->name, 'status' => $compound->derivedStatus(),
+                    'components_count' => $compound->components->whereNull('archived_at')->count(),
+                    'child_uuids' => $compound->components->whereNull('archived_at')->map(fn ($component) => $component->recurringEntry->uuid)->values()->all(),
+                    'url' => route('recurring-entries.show', $compound->uuid),
+                ])->all(),
             'monthlyCalendar' => $this->monthlyCalendarPayload($entries, $year, $month, $editableAccountIds),
             'formOptions' => $this->formOptionsPayload($request),
             'dateOptions' => $this->recurringDateOptions($request),
@@ -625,7 +687,7 @@ class RecurringEntryController extends Controller
                             'notes' => $occurrence->notes,
                             'direction' => $direction,
                             'entry_type' => $entry?->entry_type?->value,
-                            'title' => $entry?->title,
+                            'title' => $entry?->compoundComponent ? $entry->compoundComponent->compoundRecurringEntry->name.' · '.$entry->compoundComponent->displayName() : $entry?->title,
                             'description' => $entry?->description,
                             'can_convert' => $canEdit
                                 && ! $occurrence->paymentAllocations()->exists()
@@ -654,9 +716,10 @@ class RecurringEntryController extends Controller
                             ],
                             'recurring_entry' => $entry === null ? null : [
                                 'uuid' => $entry->uuid,
-                                'title' => $entry->title,
+                                'title' => $entry->compoundComponent ? $entry->compoundComponent->compoundRecurringEntry->name.' · '.$entry->compoundComponent->displayName() : $entry->title,
                                 'status' => $entry->status?->value,
                                 'can_edit' => $canEdit,
+                                'can_delete' => $canEdit && $entry->compoundComponent === null,
                                 'auto_create_transaction' => (bool) $entry->auto_create_transaction,
                                 'shared_expense_counterparty' => $entry->sharedExpenseCounterparty === null ? null : [
                                     'uuid' => $entry->sharedExpenseCounterparty->uuid,
@@ -676,7 +739,7 @@ class RecurringEntryController extends Controller
                                     'name' => $entry->trackedItem->name,
                                     'logo_url' => $entry->trackedItem->logoUrl(),
                                 ],
-                                'show_url' => route('recurring-entries.show', $entry->uuid),
+                                'show_url' => route('recurring-entries.show', ['recurringEntry' => $entry->compoundComponent?->compoundRecurringEntry?->uuid ?? $entry->uuid, 'highlight' => $occurrence->uuid]),
                             ],
                         ];
                     })
@@ -700,7 +763,9 @@ class RecurringEntryController extends Controller
         return [
             ...$this->activePeriodPayload($year, $month),
             'summary' => [
-                'entries_count' => $entries->count(),
+                'entries_count' => $entries->map(fn (RecurringEntry $entry): string => $entry->compoundComponent !== null
+                    ? 'compound:'.$entry->compoundComponent->compound_recurring_entry_id
+                    : 'entry:'.$entry->id)->unique()->count(),
                 'installment_paid_totals' => $this->installmentPaidTotals($entries),
                 'occurrences_count' => $occurrences->count(),
                 'pending_count' => $occurrences->filter(
@@ -1130,6 +1195,10 @@ class RecurringEntryController extends Controller
             $this->accessibleAccountsQuery->canViewAccountId($request->user(), (int) $recurringEntry->account_id),
             404
         );
+
+        if ($requireEdit && $recurringEntry->isArchivedComponent()) {
+            throw ValidationException::withMessages(['entry' => __('compound_recurring.read_only')]);
+        }
 
         if (
             $requireEdit

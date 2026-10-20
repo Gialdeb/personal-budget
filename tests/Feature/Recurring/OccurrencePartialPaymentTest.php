@@ -274,7 +274,11 @@ test('legacy closed occurrences never become open obligations or arrears', funct
         ->has('items', 0)->where('summary.credits_remaining_total', '0.00')->where('summary.debts_remaining_total', '0.00'));
     $this->get(route('dashboard', ['year' => 2026, 'month' => 10]))->assertInertia(fn (AssertableInertia $page) => $page
         ->has('dashboard.credits_debts.arrears', 0));
-    $this->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn (AssertableInertia $page) => $page
+    if ($status === 'cancelled') {
+        $this->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('recurringEntry.occurrences', 0)->where('recurringEntry.occurrence_years.0.cancelled_count', 1));
+    }
+    $this->get(route('recurring-entries.show', ['recurringEntry' => $entry->uuid, 'show_cancelled' => 1]))->assertInertia(fn (AssertableInertia $page) => $page
         ->where('recurringEntry.occurrences.0.can_register_payment', false));
 })->with(['skipped', 'cancelled', 'completed', 'refunded'])->with(['income', 'expense']);
 

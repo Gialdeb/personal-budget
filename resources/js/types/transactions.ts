@@ -375,6 +375,9 @@ export type MonthlyTransactionSheetPageProps = {
 };
 
 export type RecurringEntryIndexCard = {
+    component_name?: string | null;
+    component_edit_locked?: boolean | null;
+    is_compound_component?: boolean;
     has_activity_periods?: boolean;
     salary_url?: string | null;
     uuid: string;
@@ -489,6 +492,7 @@ export type RecurringMonthlyOccurrence = {
         title: string;
         status: string | null;
         can_edit: boolean;
+        can_delete?: boolean;
         auto_create_transaction: boolean;
         shared_expense_counterparty: {
             uuid: string;
@@ -634,7 +638,17 @@ export type RecurringEntryDateOptions = {
     today: string;
 };
 
+export type CompoundRecurringSummary = {
+    uuid: string;
+    name: string;
+    status: string;
+    components_count?: number;
+    child_uuids?: string[];
+    url?: string;
+};
+
 export type RecurringEntriesIndexPageProps = {
+    compoundEntries?: CompoundRecurringSummary[];
     recurringEntries: RecurringEntryIndexCard[];
     filters: Record<string, unknown>;
     activePeriod: RecurringEntriesPagePeriod;
@@ -643,14 +657,58 @@ export type RecurringEntriesIndexPageProps = {
     dateOptions: RecurringEntryDateOptions;
 };
 
+export type RecurringCostTrendPoint = {
+    transaction_uuid: string;
+    date: string;
+    amount: number;
+};
+
+export type RecurringManualCost = {
+    uuid: string;
+    date: string;
+    amount: number;
+    currency: string;
+};
+
+export type RecurringCostChartPoint = {
+    key: string;
+    source: 'real' | 'manual' | 'automatic' | 'annual';
+    date: string;
+    amount: number;
+    transaction_uuid?: string;
+    manual_uuid?: string;
+};
+
+export type CompoundRecurringCostYear = {
+    year: number;
+    total: number;
+    components: Array<{
+        uuid: string;
+        name: string;
+        archived: boolean;
+        total: number;
+    }>;
+    complete: boolean;
+    comparison: {
+        previous_year: number;
+        difference: number;
+        ratio: number | null;
+    } | null;
+};
+
 export type RecurringEntryShowPayload = {
+    compound_cost_trend?: CompoundRecurringCostYear[] | null;
+    manual_costs: RecurringManualCost[];
+    cost_trend: RecurringCostTrendPoint[];
     occurrence_years: Array<{
+        cancelled_count?: number;
         year: number;
         count: number;
         overdue_count: number;
         overdue_amount: number;
     }>;
     occurrence_page: {
+        show_cancelled?: boolean;
         year: number;
         offset: number;
         next_offset: number | null;
@@ -692,6 +750,14 @@ export type RecurringEntryShowPayload = {
     }>;
     occurrences: Array<{
         uuid: string;
+        entry_uuid?: string | null;
+        component_name?: string | null;
+        payment_defaults?: {
+            category_uuid: string | null;
+            tracked_item_uuid: string | null;
+            shared_expense_paid_by: 'self' | 'counterparty' | null;
+            shared_expense_counterparty: { uuid: string; name: string } | null;
+        } | null;
         sequence_number: number;
         expected_date: string | null;
         due_date: string | null;
@@ -781,6 +847,20 @@ export type RecurringEntryShowPayload = {
 };
 
 export type RecurringEntryShowPageProps = {
+    compound?: {
+        uuid: string;
+        name: string;
+        url: string;
+        active_component: string;
+        component_uuid: string;
+        is_archived: boolean;
+        archived_components: Array<{
+            entry_uuid: string;
+            name: string;
+            url: string;
+        }>;
+        components: Array<{ entry_uuid: string; name: string; url: string }>;
+    } | null;
     transactionSheet?: MonthlyTransactionSheetData;
     recurringEntry: RecurringEntryShowPayload;
     formOptions: RecurringEntryFormOptions;

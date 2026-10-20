@@ -212,6 +212,10 @@ class RecurringEntryOccurrenceController extends Controller
         );
         abort_unless($occurrence->recurring_entry_id === $recurringEntry->id, 404);
 
+        if ($requireEdit && $recurringEntry->isArchivedComponent()) {
+            throw ValidationException::withMessages(['occurrence' => __('compound_recurring.read_only')]);
+        }
+
         if (
             $requireEdit
             && ! $this->accessibleAccountsQuery->canEditAccountId($request->user(), (int) $recurringEntry->account_id)

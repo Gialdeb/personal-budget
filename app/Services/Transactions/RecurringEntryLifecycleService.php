@@ -61,7 +61,7 @@ class RecurringEntryLifecycleService
             ->orderBy('id')
             ->each(function (RecurringEntry $entry) use (&$generatedCount, &$warningCount, &$errorCount, $today): void {
                 try {
-                    $generatedCount += $this->generatorService->generate($entry, $today)->count();
+                    $generatedCount += $this->generatorService->generate($entry, $entry->generationHorizon($today))->count();
                 } catch (Throwable) {
                     $errorCount++;
                 }

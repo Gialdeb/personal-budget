@@ -18,7 +18,7 @@ class RecurringEntryIndexResource extends JsonResource
     public function toArray(Request $request): array
     {
         $editableAccountIds = $request->attributes->get('recurring_editable_account_ids', []);
-        $canEdit = in_array((int) $this->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
+        $canEdit = ! $this->resource->isArchivedComponent() && in_array((int) $this->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
         $occurrences = $this->detail_summary !== null ? collect() : $this->occurrences;
         $pendingOccurrences = $occurrences->filter(function ($occurrence): bool {
             return in_array($occurrence->status, [
@@ -33,8 +33,11 @@ class RecurringEntryIndexResource extends JsonResource
 
         return [
             'uuid' => $this->uuid,
+            'is_compound_component' => $this->compoundComponent !== null,
+            'component_name' => $this->compoundComponent?->displayName(),
+            'component_edit_locked' => $this->compoundComponent === null ? null : $this->resource->hasProtectedComponentPayments(),
             'salary_url' => $this->salarySchedule ? route('salary-employments.show', $this->salarySchedule->employment->uuid) : null,
-            'show_url' => route('recurring-entries.show', $this->uuid),
+            'show_url' => route('recurring-entries.show', $this->compoundComponent?->compoundRecurringEntry?->uuid ?? $this->uuid),
             'title' => $this->title,
             'description' => $this->description,
             'notes' => $this->notes,
