@@ -33,17 +33,26 @@ class CounterpartyBankMutation
 
     public function owns(Transaction $transaction): bool
     {
-        if (! Schema::hasTable('counterparty_payments')) {
-            return false;
+        return in_array((int) $transaction->id, $this->ownedTransactionIds([(int) $transaction->id]), true);
+    }
+
+    /**
+     * @param  array<int, int>  $transactionIds
+     * @return array<int, int>
+     */
+    public function ownedTransactionIds(array $transactionIds): array
+    {
+        if ($transactionIds === [] || ! Schema::hasTable('counterparty_payments')) {
+            return [];
         }
         $activeColumn = Schema::hasColumn('counterparty_relations', 'activated_at');
 
-        return CounterpartyPayment::query()->where('transaction_id', $transaction->id)->where(function ($query) use ($activeColumn): void {
+        return CounterpartyPayment::query()->whereIn('transaction_id', $transactionIds)->where(function ($query) use ($activeColumn): void {
             $query->whereNull('legacy_source_type');
             if ($activeColumn) {
                 $query->orWhereHas('relation', fn ($relation) => $relation->whereNotNull('activated_at'));
             }
-        })->exists();
+        })->distinct()->pluck('transaction_id')->map(fn ($id): int => (int) $id)->all();
     }
 
     public function assertGenericMutationAllowed(Transaction $transaction): void

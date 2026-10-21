@@ -17,6 +17,7 @@ use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
 use App\Services\Transactions\RecurringEntryLifecycleService;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -190,4 +191,37 @@ test('irreversible refunds prevent plan deletion without removing its history', 
     expect($this->entry->fresh())->not->toBeNull()
         ->and($this->payment->fresh())->not->toBeNull()
         ->and(RecurringPlanRefund::count())->toBe(1);
+});
+
+test('refund preview batches protection checks without queries per payment', function () {
+    $service = app(RecurringPlanRefundService::class);
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $before = $service->preview($this->actor, $this->entry->uuid);
+    $beforeQueries = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    for ($index = 0; $index < 20; $index++) {
+        $occurrence = $this->entry->occurrences()->create([
+            'sequence_number' => 100 + $index, 'expected_date' => '2026-10-10',
+            'expected_amount' => 100, 'status' => 'pending',
+        ]);
+        $payment = Transaction::create([
+            'user_id' => $this->actor->id, 'account_id' => $this->account->id,
+            'direction' => 'expense', 'amount' => 100, 'currency' => 'EUR',
+            'transaction_date' => '2026-10-10', 'kind' => 'manual',
+            'source_type' => 'manual', 'status' => 'confirmed',
+        ]);
+        $occurrence->paymentAllocations()->create(['transaction_id' => $payment->id, 'amount_cents' => 10000]);
+    }
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $after = $service->preview($this->actor, $this->entry->uuid);
+    $afterQueries = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($before['total_cents'])->toBe(10000)
+        ->and($after['total_cents'])->toBe(210000)
+        ->and($afterQueries)->toBe($beforeQueries);
 });

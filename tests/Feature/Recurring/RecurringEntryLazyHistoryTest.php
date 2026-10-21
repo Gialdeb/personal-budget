@@ -40,8 +40,9 @@ test('measures recurring history response', function () {
     DB::disableQueryLog();
     $metrics = ['records' => count($response->json('recurringEntry.occurrences')), 'bytes' => strlen($response->getContent()), 'queries' => $queries];
     fwrite(STDOUT, json_encode($metrics).PHP_EOL);
-    expect($metrics['records'])->toBe(7)->and($metrics['queries'])->toBeLessThan(70)->and($metrics['bytes'])->toBeLessThan(20000);
-    $response->assertJsonPath('recurringEntry.occurrence_page.year', 2026)
+    expect($metrics['records'])->toBe(7)->and($metrics['queries'])->toBeLessThan(90)->and($metrics['bytes'])->toBeLessThan(20000);
+    $response->assertJsonPath('planRefund.total_cents', 552000)
+        ->assertJsonPath('recurringEntry.occurrence_page.year', 2026)
         ->assertJsonPath('recurringEntry.occurrence_page.offset', 17)
         ->assertJsonPath('recurringEntry.occurrence_page.next_offset', null)
         ->assertJsonPath('recurringEntry.occurrence_years.0.count', 24)

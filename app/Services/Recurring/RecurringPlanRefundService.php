@@ -11,6 +11,7 @@ use App\Models\RecurringPlanRefundPayment;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Counterparties\CounterpartyBankMutation;
 use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\Transactions\TransactionMutationService;
 use App\Services\UserYearService;
@@ -74,6 +75,8 @@ class RecurringPlanRefundService
         $refunded = RecurringPlanRefundPayment::query()->whereIn('transaction_id', $transactions->modelKeys())->get()
             ->groupBy(fn ($part): string => $part->transaction_id.':'.$part->occurrence_id)
             ->map(fn ($parts): int => (int) $parts->sum('amount_cents'));
+        $bankMutation = app(CounterpartyBankMutation::class);
+        $ownedTransactionIds = $bankMutation->ownedTransactionIds($transactions->modelKeys());
         $result = [];
         foreach ($transactions as $transaction) {
             if ($transaction->status?->value !== 'confirmed' || $transaction->direction?->value !== 'expense'
@@ -86,9 +89,7 @@ class RecurringPlanRefundService
                 || $transaction->currency !== $entries->first()->currency) {
                 return [];
             }
-            try {
-                $this->mutations->ensureNoLinkedObligation($transaction);
-            } catch (ValidationException) {
+            if (in_array((int) $transaction->id, $ownedTransactionIds, true) && ! $bankMutation->permitted($transaction)) {
                 return [];
             }
             if (array_sum($parts[$transaction->id]) > MoneyAmount::cents((string) $transaction->amount)) {
