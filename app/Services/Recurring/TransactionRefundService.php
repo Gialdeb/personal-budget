@@ -24,6 +24,7 @@ class TransactionRefundService
      */
     public function refund(Transaction $transaction, array $attributes = []): Transaction
     {
+        $transaction->ensureNoPlanRefund();
         $transaction->refresh();
         $this->transactionMutationService->ensureNoLinkedObligation($transaction);
         $transaction->load('refundTransaction', 'recurringOccurrence');
@@ -101,6 +102,7 @@ class TransactionRefundService
 
     public function undo(Transaction $refund): Transaction
     {
+        $refund->ensureNoPlanRefund();
         $refund->refresh();
         $refund->load('refundedTransaction.recurringOccurrence');
 

@@ -1,5 +1,23 @@
 export const recurringDetailMessages = {
     it: {
+        planRefund: {
+            action: 'Rimborsa',
+            title: 'Rimborsa i pagamenti del piano',
+            description:
+                'Un solo accredito per i pagamenti indicati. Il piano e le scadenze restano invariati.',
+            date: 'Data effettiva del riaccredito',
+            account: 'Risorsa di accredito',
+            total: 'Totale da rimborsare',
+            irreversible:
+                'Confermo: il rimborso è irreversibile e non potrà essere modificato o annullato.',
+            history: 'Rimborsi del piano',
+            payment: 'Pagamento rimborsato',
+            credit: 'Accredito',
+            unavailable:
+                'Nessun pagamento rimborsabile o pagamenti con collegamenti protetti.',
+            failed: 'Impossibile aggiornare il totale. Riprova.',
+        },
+
         compound: {
             viewingComponent: 'Stai consultando: {name}',
             selectionHint:
@@ -157,6 +175,24 @@ export const recurringDetailMessages = {
         noEndTotal: 'Il piano non ha un numero totale di scadenze.',
     },
     en: {
+        planRefund: {
+            action: 'Refund',
+            title: 'Refund plan payments',
+            description:
+                'One credit for the listed payments. The plan and occurrences remain unchanged.',
+            date: 'Actual credit date',
+            account: 'Credit account',
+            total: 'Refund total',
+            irreversible:
+                'I confirm: this refund is irreversible and cannot be edited or undone.',
+            history: 'Plan refunds',
+            payment: 'Refunded payment',
+            credit: 'Credit',
+            unavailable:
+                'No refundable payments, or payments have protected financial links.',
+            failed: 'Unable to refresh the total. Please try again.',
+        },
+
         compound: {
             viewingComponent: 'Viewing: {name}',
             selectionHint:

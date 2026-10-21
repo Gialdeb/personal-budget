@@ -27,13 +27,22 @@ class Transaction extends Model
 
     protected static function booted(): void
     {
-        static::creating(fn (self $transaction) => app(CounterpartySourceGuard::class)->assertRefund($transaction));
+        static::creating(function (self $transaction): void {
+            if ($transaction->refunded_transaction_id !== null) {
+                self::query()->findOrFail($transaction->refunded_transaction_id)->ensureNoPlanRefund();
+            }
+            app(CounterpartySourceGuard::class)->assertRefund($transaction);
+        });
         static::deleting(function (self $transaction): void {
+            $transaction->ensureNoPlanRefund();
             app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction);
             app(CounterpartySourceGuard::class)->assertChange($transaction, true);
         });
         static::restoring(fn (self $transaction) => app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction));
         static::updating(function (self $transaction): void {
+            if (array_diff(array_keys($transaction->getDirty()), ['balance_after', 'updated_at']) !== []) {
+                $transaction->ensureNoPlanRefund();
+            }
             if ($transaction->isDirty(['amount', 'direction', 'currency', 'currency_code', 'account_id', 'user_id', 'status', 'transaction_date', 'value_date', 'kind', 'source_type', 'is_transfer', 'shared_expense_counterparty_id', 'shared_expense_paid_by', 'shared_expense_my_share_cents', 'shared_expense_counterparty_share_cents', 'refunded_transaction_id', 'related_transaction_id', 'deleted_at'])) {
                 app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction);
                 app(CounterpartySourceGuard::class)->assertRefund($transaction);
@@ -60,6 +69,9 @@ class Transaction extends Model
     protected function synchronizeRecurringSettlement(): void
     {
         $sourceId = $this->refunded_transaction_id ?? $this->id;
+        if (RecurringPlanRefundPayment::query()->where('transaction_id', $sourceId)->exists()) {
+            return;
+        }
         $occurrenceId = $this->recurring_entry_occurrence_id ?? ($this->refunded_transaction_id === null ? null : $this->refundedTransaction?->recurring_entry_occurrence_id);
         RecurringEntryOccurrence::query()->where(function (Builder $query) use ($sourceId, $occurrenceId): void {
             $query->where('converted_transaction_id', $sourceId)->orWhere('matched_transaction_id', $sourceId);
@@ -90,6 +102,18 @@ class Transaction extends Model
                 || $this->direction !== $occurrence->recurringEntry->direction) {
                 throw ValidationException::withMessages(['amount' => __('ui.the_allocation_exceeds_the_remaining_balance_or_is_incompatible_5d9801ff')]);
             }
+        }
+    }
+
+    public function ensureNoPlanRefund(): void
+    {
+        if (! $this->exists) {
+            return;
+        }
+        $this->newQuery()->withTrashed()->whereKey($this->id)->lockForUpdate()->firstOrFail();
+        if (RecurringPlanRefund::query()->where('transaction_id', $this->id)->exists()
+            || RecurringPlanRefundPayment::query()->where('transaction_id', $this->id)->exists()) {
+            throw ValidationException::withMessages(['transaction' => __('recurring_refunds.locked')]);
         }
     }
 

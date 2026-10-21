@@ -20,6 +20,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
     {
         $editableAccountIds = $request->attributes->get('recurring_editable_account_ids', []);
         $entry = $this->recurringEntry;
+        $aggregateRefundedIds = $this->read_aggregate_refund_transactions ?? [];
         $canEdit = $entry !== null && ! $entry->isArchivedComponent()
             && in_array((int) $entry->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
         $canUpdatePendingAmount = in_array($this->status, [
@@ -91,6 +92,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
             ],
             'expected_amount' => $this->expected_amount !== null ? (float) $this->expected_amount : null,
             'status' => $this->status?->value,
+            'is_refunded' => $aggregateRefundedIds !== [] || $this->convertedTransaction?->refundTransaction !== null || $this->status?->value === 'refunded',
             'allocated_amount' => $allocatedCents / 100,
             'payments' => $payments,
             'payment_history' => ($this->resource->relationLoaded('settlementTransactions') ? $this->resource->settlementTransactions : $this->resource->settlementTransactions()->with('refundTransaction')->get())->concat(collect([$this->matchedTransaction])->filter())->unique('id')->where('id', '!=', $this->converted_transaction_id ?? 0)->sortBy('id')->values()->map(fn (Transaction $transaction): array => [
@@ -159,7 +161,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 'amount' => (float) $this->convertedTransaction->amount,
                 'currency' => $this->convertedTransaction->currency,
                 'show_url' => $this->transactionShowUrl($this->convertedTransaction),
-                'is_refunded' => $this->convertedTransaction->refundTransaction !== null,
+                'is_refunded' => $this->convertedTransaction->refundTransaction !== null || in_array((int) $this->converted_transaction_id, $aggregateRefundedIds, true),
                 'can_refund' => $canEdit
                     && $this->canRefundFromRecurringContext()
                     && in_array($this->convertedTransaction->kind?->value, ['manual', 'scheduled'], true)

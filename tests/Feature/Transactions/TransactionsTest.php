@@ -35,6 +35,7 @@ use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Recurring\TransactionRefundService;
 use App\Services\Sharing\AccountMembershipLifecycleService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
+use App\Services\Transactions\TransactionMutationService;
 use App\Support\Pwa\PwaManifestData;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Storage;
@@ -5054,3 +5055,78 @@ function prepareSharedTransactionCatalog(Account $account): void
         $taxonomy->materializeSourceCategoryForAccount($account, $category);
     }
 }
+
+test('shared calendar date updates day or month within its fixed year without changing economic fields', function (string $date) {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+    $user = User::factory()->create();
+    [$account, $category, $trackedItem] = seedTransactionsFixture($user, 2024);
+    $transaction = Transaction::query()->where('user_id', $user->id)->whereDate('transaction_date', '2024-03-18')->firstOrFail();
+    app(TransactionMutationService::class)->recalculateAccount($account);
+    $balance = $account->fresh()->current_balance;
+    $before = $transaction->only(['account_id', 'amount', 'currency', 'category_id', 'tracked_item_id', 'status', 'direction']);
+    $count = Transaction::count();
+    $this->actingAs($user)->patch(route('transactions.update', ['year' => 2024, 'month' => 3, 'transaction' => $transaction->uuid]), [
+        'selected_date' => $date, 'transaction_day' => 18, 'type_key' => 'expense', 'account_id' => $account->id,
+        'category_id' => $category->id, 'tracked_item_id' => $trackedItem->id, 'amount' => $transaction->amount,
+        'description' => $transaction->description, 'notes' => $transaction->notes,
+    ])->assertSessionHasNoErrors();
+    expect($transaction->fresh()->transaction_date->toDateString())->toBe($date)
+        ->and($transaction->fresh()->only(array_keys($before)))->toBe($before)
+        ->and($account->fresh()->current_balance)->toBe($balance)->and(Transaction::count())->toBe($count);
+})->with(['same month' => '2024-03-19', 'different month' => '2024-04-30', 'leap day' => '2024-02-29']);
+
+test('shared calendar rejects invalid years dates and non movable transactions atomically', function (string $condition) {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+    $user = User::factory()->create();
+    [$account, $category, $trackedItem] = seedTransactionsFixture($user);
+    $transaction = Transaction::query()->where('user_id', $user->id)->whereDate('transaction_date', '2025-03-18')->firstOrFail();
+    if ($condition === 'scheduled') {
+        $transaction->update(['kind' => 'scheduled']);
+    } elseif ($condition === 'transfer') {
+        $transaction->update(['is_transfer' => true]);
+    }
+    $before = $transaction->fresh()->getAttributes();
+    $accountBefore = $account->fresh()->getAttributes();
+    $count = Transaction::count();
+    $date = match ($condition) {
+        'year' => '2026-04-30', 'invalid leap' => '2025-02-29', default => '2025-04-30',
+    };
+    $this->actingAs($user)->patch(route('transactions.update', ['year' => 2025, 'month' => 3, 'transaction' => $transaction->uuid]), [
+        'selected_date' => $date, 'transaction_day' => 18, 'type_key' => 'expense', 'account_id' => $account->id,
+        'category_id' => $category->id, 'tracked_item_id' => $trackedItem->id, 'amount' => 999,
+        'description' => 'Must not be saved',
+    ])->assertSessionHasErrors('selected_date');
+    expect($transaction->fresh()->getAttributes())->toBe($before)->and($account->fresh()->getAttributes())->toBe($accountBefore)
+        ->and(Transaction::count())->toBe($count);
+})->with(['year', 'invalid leap', 'scheduled', 'transfer']);
+
+test('shared calendar creation uses its selected month and full date as the only date source', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+    $user = User::factory()->create();
+    [$account, $category] = seedTransactionsFixture($user);
+    $this->actingAs($user)->post(route('transactions.store', ['year' => 2025, 'month' => 3]), [
+        'selected_date' => '2025-04-30', 'transaction_day' => 1, 'type_key' => 'expense',
+        'account_id' => $account->id, 'category_id' => $category->id, 'amount' => 17,
+        'description' => 'Calendar selection',
+    ])->assertSessionHasNoErrors();
+    expect(Transaction::query()->where('description', 'Calendar selection')->sole()->transaction_date->toDateString())->toBe('2025-04-30');
+});
+
+test('shared calendar month changes retain existing allocation links and reject incompatible edits without partial changes', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+    $user = User::factory()->create();
+    [$account, $category, $trackedItem] = seedTransactionsFixture($user);
+    $transaction = Transaction::query()->where('user_id', $user->id)->whereDate('transaction_date', '2025-03-18')->firstOrFail();
+    $entry = RecurringEntry::query()->create(['user_id' => $user->id, 'account_id' => $account->id, 'category_id' => $category->id, 'title' => 'Allocated payment', 'direction' => 'expense', 'currency' => 'EUR', 'entry_type' => 'recurring', 'status' => 'active', 'is_active' => true, 'is_amount_variable' => true, 'start_date' => '2025-03-01', 'recurrence_type' => 'monthly', 'recurrence_interval' => 1, 'end_mode' => 'never', 'expected_amount' => 100, 'auto_create_transaction' => false]);
+    $occurrence = $entry->occurrences()->create(['sequence_number' => 1, 'expected_date' => '2025-03-18', 'due_date' => '2025-03-18', 'expected_amount' => 100, 'status' => 'pending']);
+    $allocation = $occurrence->paymentAllocations()->create(['transaction_id' => $transaction->id, 'amount_cents' => 3000]);
+    $beforeAllocation = $allocation->fresh()->getAttributes();
+    $payload = ['selected_date' => '2025-04-30', 'type_key' => 'expense', 'account_id' => $account->id, 'category_id' => $category->id, 'tracked_item_id' => $trackedItem->id, 'amount' => $transaction->amount, 'description' => $transaction->description, 'notes' => $transaction->notes];
+    $this->actingAs($user)->patch(route('transactions.update', ['year' => 2025, 'month' => 3, 'transaction' => $transaction->uuid]), $payload)->assertSessionHasNoErrors();
+    expect($allocation->fresh()->getAttributes())->toBe($beforeAllocation)->and($transaction->fresh()->transaction_date->toDateString())->toBe('2025-04-30');
+    $before = $transaction->fresh()->getAttributes();
+    $accountBefore = $account->fresh()->getAttributes();
+    $this->patch(route('transactions.update', ['year' => 2025, 'month' => 4, 'transaction' => $transaction->uuid]), [...$payload, 'selected_date' => '2025-05-31', 'amount' => 10])->assertSessionHasErrors('amount');
+    expect($transaction->fresh()->getAttributes())->toBe($before)->and($account->fresh()->getAttributes())->toBe($accountBefore)
+        ->and($allocation->fresh()->getAttributes())->toBe($beforeAllocation);
+});

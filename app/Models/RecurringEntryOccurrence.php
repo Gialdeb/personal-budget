@@ -19,6 +19,12 @@ class RecurringEntryOccurrence extends Model
     protected static function booted(): void
     {
         static::updating(function (self $occurrence): void {
+            foreach (['converted_transaction_id', 'matched_transaction_id'] as $link) {
+                if ($occurrence->isDirty($link) && $occurrence->getRawOriginal($link) !== null
+                    && ($occurrence->{$link} === null || $link === 'matched_transaction_id')) {
+                    Transaction::query()->find($occurrence->getRawOriginal($link))?->ensureNoPlanRefund();
+                }
+            }
             if ($occurrence->isDirty('expected_amount') && $occurrence->sharedExpenseLedgerEntry()->exists()
                 && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null) {
                 $occurrence->status = $occurrence->externalPaymentCents() > 0 && $occurrence->externalPaymentCents() >= (int) round((float) $occurrence->expected_amount * 100)

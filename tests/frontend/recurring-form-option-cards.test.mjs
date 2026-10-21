@@ -474,3 +474,53 @@ test('cancelled monthly rows only expose plan information on desktop and mobile'
         }
     }
 });
+
+test('paid refunded badge renders on desktop and mobile without changing the paid status or duplicating ordinary badges', async () => {
+    const source = readFileSync(
+        new URL(
+            '../../resources/js/pages/transactions/recurring/Show.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const badges = source.match(
+        /<Badge\b(?:(?!<\/Badge\s*>)[\s\S])*?data-occurrence-refund-badge(?:(?!<\/Badge\s*>)[\s\S])*?<\/Badge\s*>/g,
+    );
+    assert.equal(badges?.length, 2);
+
+    for (const badge of badges) {
+        const compiled = compileTemplate({
+            source: `<span>Pagata</span>${badge}`,
+            filename: 'refunded-occurrence.vue',
+            id: 'refunded-occurrence',
+            compilerOptions: { mode: 'function' },
+        });
+        assert.deepEqual(compiled.errors, []);
+
+        for (const [refunded, existingLabel, showBadge] of [
+            [true, 'Pagata', true],
+            [false, 'Pagata', false],
+            [true, 'Rimborsata', false],
+        ]) {
+            const html = await renderToString(
+                Vue.createSSRApp({
+                    render: new Function('Vue', compiled.code)(Vue),
+                    components: {
+                        Badge: { template: '<span><slot /></span>' },
+                    },
+                    setup: () => ({
+                        occurrence: {
+                            is_refunded: refunded,
+                            status: 'completed',
+                            settlement_status: 'settled',
+                        },
+                        occurrenceState: () => ({ label: existingLabel }),
+                        t: () => 'Rimborsata',
+                    }),
+                }),
+            );
+            assert.ok(html.includes('Pagata'));
+            assert.equal(html.includes('Rimborsata'), showBadge);
+        }
+    }
+});

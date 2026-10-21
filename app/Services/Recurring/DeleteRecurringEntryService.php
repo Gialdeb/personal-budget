@@ -5,6 +5,7 @@ namespace App\Services\Recurring;
 use App\Models\Account;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\RecurringPlanRefundPayment;
 use App\Models\ReminderDelivery;
 use App\Models\SharedExpenseLedgerEntry;
 use App\Models\Transaction;
@@ -12,6 +13,7 @@ use App\Services\Counterparties\CounterpartySourceGuard;
 use App\Services\Counterparties\SharedCounterpartyShadowService;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class DeleteRecurringEntryService
 {
@@ -22,6 +24,9 @@ class DeleteRecurringEntryService
     public function delete(RecurringEntry $entry): void
     {
         DB::transaction(function () use ($entry): void {
+            if (RecurringPlanRefundPayment::query()->whereIn('occurrence_id', $entry->occurrences()->select('id'))->exists()) {
+                throw ValidationException::withMessages(['entry' => __('recurring_refunds.locked')]);
+            }
             $occurrenceIds = $entry->occurrences()->pluck('id');
             $convertedTransactionIds = $entry->occurrences()
                 ->whereNotNull('converted_transaction_id')

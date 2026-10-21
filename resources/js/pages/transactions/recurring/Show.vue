@@ -17,6 +17,7 @@ import {
     Receipt,
     ShieldCheck,
     Trash2,
+    Undo2,
     X,
 } from 'lucide-vue-next';
 import {
@@ -56,6 +57,7 @@ import CompoundRecurringFormSheet from '@/components/recurring/CompoundRecurring
 import OccurrencePayments from '@/components/recurring/OccurrencePayments.vue';
 import RecurringCostTrend from '@/components/recurring/RecurringCostTrend.vue';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
+import RecurringPlanRefund from '@/components/recurring/RecurringPlanRefund.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import { Badge } from '@/components/ui/badge';
@@ -97,10 +99,13 @@ import type {
     BreadcrumbItem,
     RecurringEntryShowPageProps,
 } from '@/types';
+import type { PlanRefundPreview } from '@/types/recurring-refunds';
 
 const ui = useUiCopy();
 
-const props = defineProps<RecurringEntryShowPageProps>();
+const props = defineProps<
+    RecurringEntryShowPageProps & { planRefund?: PlanRefundPreview | null }
+>();
 type Occurrence =
     RecurringEntryShowPageProps['recurringEntry']['occurrences'][number];
 type YearChunk = {
@@ -122,6 +127,9 @@ const distributionRows = ref<Occurrence[]>([]);
 const historyOpen = ref(false);
 const componentsOpen = ref(true);
 const lifecycleOpen = ref(false);
+const planRefundPanel = ref<InstanceType<typeof RecurringPlanRefund> | null>(
+    null,
+);
 const costTrendPanel = ref<InstanceType<typeof RecurringCostTrend> | null>(
     null,
 );
@@ -1182,7 +1190,7 @@ function occurrenceState(
 
     if (
         occurrence.status === 'refunded' ||
-        occurrence.converted_transaction?.is_refunded
+        occurrence.converted_transaction?.refund_transaction != null
     ) {
         return {
             label: t('transactions.recurring.table.refundedBadge'),
@@ -1730,6 +1738,19 @@ function isFutureOccurrence(
                                 {{ t('recurringDetail.costTrend.action') }}
                             </Button>
                             <Button
+                                v-if="props.planRefund"
+                                variant="outline"
+                                size="sm"
+                                class="border-emerald-200 bg-emerald-50/60 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200 dark:hover:bg-emerald-950/60"
+                                :disabled="
+                                    planRefundPanel?.triggerDisabled ?? true
+                                "
+                                @click="planRefundPanel?.open()"
+                            >
+                                <Undo2 class="mr-2 size-4" />
+                                {{ t('recurringDetail.planRefund.action') }}
+                            </Button>
+                            <Button
                                 v-if="
                                     Object.values(componentDetails).some(
                                         (detail) => detail.entry.can_edit,
@@ -1839,6 +1860,18 @@ function isFutureOccurrence(
                                 {{ t('transactions.recurring.actions.cancel') }}
                             </Button>
                             <Button
+                                v-if="props.planRefund"
+                                variant="outline"
+                                class="rounded-2xl border-emerald-200 bg-emerald-50/60 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200 dark:hover:bg-emerald-950/60"
+                                :disabled="
+                                    planRefundPanel?.triggerDisabled ?? true
+                                "
+                                @click="planRefundPanel?.open()"
+                            >
+                                <Undo2 class="mr-2 size-4" />
+                                {{ t('recurringDetail.planRefund.action') }}
+                            </Button>
+                            <Button
                                 v-if="props.recurringEntry.actions.can_delete"
                                 variant="destructive"
                                 class="rounded-2xl"
@@ -1850,6 +1883,13 @@ function isFutureOccurrence(
                         </div>
                     </div>
 
+                    <RecurringPlanRefund
+                        v-if="props.planRefund"
+                        ref="planRefundPanel"
+                        hide-trigger
+                        :plan-uuid="compound?.uuid ?? entry.uuid"
+                        :preview="props.planRefund"
+                    />
                     <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
                         <article
                             v-for="card in summaryCards"
@@ -2819,6 +2859,23 @@ function isFutureOccurrence(
                                                     .label
                                             }}
                                         </Badge>
+                                        <Badge
+                                            v-if="
+                                                occurrence.is_refunded &&
+                                                occurrenceState(occurrence)
+                                                    .label !==
+                                                    t(
+                                                        'transactions.recurring.table.refundedBadge',
+                                                    )
+                                            "
+                                            data-occurrence-refund-badge
+                                            class="rounded-full bg-amber-500/12 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                                            >{{
+                                                t(
+                                                    'transactions.recurring.table.refundedBadge',
+                                                )
+                                            }}</Badge
+                                        >
                                     </div>
                                     <form
                                         v-if="
@@ -3505,6 +3562,24 @@ function isFutureOccurrence(
                                                         ).label
                                                     }}
                                                 </Badge>
+                                                <Badge
+                                                    v-if="
+                                                        occurrence.is_refunded &&
+                                                        occurrenceState(
+                                                            occurrence,
+                                                        ).label !==
+                                                            t(
+                                                                'transactions.recurring.table.refundedBadge',
+                                                            )
+                                                    "
+                                                    data-occurrence-refund-badge
+                                                    class="rounded-full bg-amber-500/12 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                                                    >{{
+                                                        t(
+                                                            'transactions.recurring.table.refundedBadge',
+                                                        )
+                                                    }}</Badge
+                                                >
                                             </div>
                                         </td>
                                         <td class="px-4 py-4">

@@ -15,6 +15,7 @@ use App\Http\Controllers\RecurringEntryController;
 use App\Http\Controllers\RecurringEntryManualCostController;
 use App\Http\Controllers\RecurringEntryOccurrenceController;
 use App\Http\Controllers\RecurringEntryTransactionController;
+use App\Http\Controllers\RecurringPlanRefundController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Reports\AccountReportExportController;
 use App\Http\Controllers\SalaryEmploymentController;
@@ -183,6 +184,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/skip', [RecurringEntryOccurrenceController::class, 'skip'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.skip');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/restore', [RecurringEntryOccurrenceController::class, 'restore'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.restore');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/cancel', [RecurringEntryOccurrenceController::class, 'cancel'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.cancel');
+    Route::get('recurring-entries/{plan}/refund', [RecurringPlanRefundController::class, 'preview'])->whereUuid('plan')->name('recurring-entries.plan-refund.preview');
+    Route::post('recurring-entries/{plan}/refund', [RecurringPlanRefundController::class, 'store'])->whereUuid('plan')->name('recurring-entries.plan-refund.store');
     Route::post('recurring-transactions/{transaction:uuid}/refund', [RecurringEntryTransactionController::class, 'refund'])->whereUuid('transaction')->name('recurring-transactions.refund');
     // IMPORTS
     Route::prefix('settings/imports')->middleware('feature.imports')->group(function () {

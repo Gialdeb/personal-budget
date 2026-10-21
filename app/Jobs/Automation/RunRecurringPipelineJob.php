@@ -5,8 +5,10 @@ namespace App\Jobs\Automation;
 use App\Enums\AutomationTriggerTypeEnum;
 use App\Services\Automation\AutomationPipelineRunner;
 use App\Services\Transactions\RecurringEntryLifecycleService;
+use Closure;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 
 class RunRecurringPipelineJob implements ShouldQueue
 {
@@ -19,7 +21,20 @@ class RunRecurringPipelineJob implements ShouldQueue
     public function __construct(
         public AutomationTriggerTypeEnum $triggerType = AutomationTriggerTypeEnum::SCHEDULED,
         public ?string $referenceDate = null,
-    ) {}
+    ) {
+        $this->onConnection('recurring');
+        $this->onQueue('recurring');
+    }
+
+    /** @return array<Closure> */
+    public function middleware(): array
+    {
+        return [function (self $job, Closure $next): void {
+            Cache::store('redis')->lock('recurring-pipeline', 180)->get(
+                fn () => $next($job),
+            );
+        }];
+    }
 
     public function handle(
         AutomationPipelineRunner $runner,

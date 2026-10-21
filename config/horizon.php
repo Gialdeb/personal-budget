@@ -197,6 +197,14 @@ return [
     */
 
     'defaults' => [
+        'supervisor-recurring' => [
+            'connection' => 'recurring',
+            'queue' => ['recurring'],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'tries' => 1,
+            'timeout' => 150,
+        ],
         'supervisor-1' => [
             'connection' => 'redis',
             'queue' => ['default'],
@@ -214,6 +222,7 @@ return [
 
     'environments' => [
         'production' => [
+            'supervisor-recurring' => [],
             'supervisor-1' => [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
@@ -222,6 +231,7 @@ return [
         ],
 
         'local' => [
+            'supervisor-recurring' => [],
             'supervisor-1' => [
                 'maxProcesses' => 3,
             ],

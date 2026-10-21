@@ -84,6 +84,7 @@ return [
         ],
     ],
     'validation' => [
+        'calendar_year_fixed' => 'The date must remain within :year.',
         'linked_obligation_locked' => 'This transaction belongs to a payment or settlement. Manage it from its original section.',
         'date_invalid' => 'The transaction date must be valid.',
         'account_unavailable' => 'The selected account is not available.',

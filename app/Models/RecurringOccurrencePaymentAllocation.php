@@ -12,6 +12,16 @@ class RecurringOccurrencePaymentAllocation extends Model
 
     protected $casts = ['amount_cents' => 'integer'];
 
+    protected static function booted(): void
+    {
+        static::creating(fn (self $allocation) => $allocation->transaction->ensureNoPlanRefund());
+        static::updating(function (self $allocation): void {
+            Transaction::query()->findOrFail($allocation->getRawOriginal('transaction_id'))->ensureNoPlanRefund();
+            $allocation->transaction->ensureNoPlanRefund();
+        });
+        static::deleting(fn (self $allocation) => $allocation->transaction->ensureNoPlanRefund());
+    }
+
     public function occurrence(): BelongsTo
     {
         return $this->belongsTo(RecurringEntryOccurrence::class, 'occurrence_id');

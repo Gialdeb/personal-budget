@@ -52,7 +52,7 @@ class StoreTransactionRequest extends FormRequest
         $userId = $this->user()->id;
         $routeYear = (int) $this->route('year');
         $routeMonth = (int) $this->route('month');
-        $daysInMonth = CarbonImmutable::create($routeYear, $routeMonth, 1)->daysInMonth;
+        $daysInMonth = $this->selectedCalendarDate()?->daysInMonth ?? CarbonImmutable::create($routeYear, $routeMonth, 1)->daysInMonth;
 
         return [
             'payment_occurrence_uuid' => ['nullable', 'uuid', Rule::exists('recurring_entry_occurrences', 'uuid')->whereIn('recurring_entry_id', RecurringEntry::query()->where('user_id', $userId)->select('id'))],
@@ -60,6 +60,7 @@ class StoreTransactionRequest extends FormRequest
             'transaction_day' => ['required', 'integer', 'between:1,'.$daysInMonth],
             'target_month' => ['nullable', 'integer', 'between:1,12'],
             'transaction_date' => ['nullable', 'date'],
+            'selected_date' => ['nullable', 'date_format:Y-m-d', 'date'],
             'type_key' => ['required', Rule::in([
                 CategoryGroupTypeEnum::INCOME->value,
                 CategoryGroupTypeEnum::EXPENSE->value,
@@ -150,6 +151,8 @@ class StoreTransactionRequest extends FormRequest
             'transaction_day.required' => __('ui.the_transaction_day_is_required_beb61e0c'),
             'transaction_day.integer' => __('ui.the_transaction_day_must_be_numeric_3e43a532'),
             'transaction_day.between' => __('ui.the_selected_day_is_invalid_for_the_displayed_month_4dcc5da0'),
+            'selected_date.date_format' => __('ui.the_transaction_date_must_be_valid_bc141f00'),
+            'selected_date.date' => __('ui.the_transaction_date_must_be_valid_bc141f00'),
             'transaction_date.date' => __('ui.the_transaction_date_must_be_valid_bc141f00'),
             'type_key.required' => __('ui.select_the_entry_type_7e538728'),
             'type_key.in' => __('ui.the_selected_type_is_invalid_1b2ad0d5'),
@@ -179,9 +182,13 @@ class StoreTransactionRequest extends FormRequest
             : $routeMonth;
         $transactionDay = null;
 
+        $calendarDate = $this->selectedCalendarDate();
         $parsedTransactionDate = null;
 
-        if ($this->filled('transaction_day')) {
+        if ($calendarDate !== null) {
+            $transactionDay = $calendarDate->day;
+            $targetMonth = $calendarDate->month;
+        } elseif ($this->filled('transaction_day')) {
             $transactionDay = (int) $this->input('transaction_day');
         } elseif ($this->filled('transaction_date')) {
             try {
@@ -207,11 +214,11 @@ class StoreTransactionRequest extends FormRequest
 
         $this->merge([
             'transaction_day' => $transactionDay,
-            'transaction_date' => $isMoveRequest && $parsedTransactionDate instanceof CarbonImmutable
+            'transaction_date' => $calendarDate?->toDateString() ?? ($isMoveRequest && $parsedTransactionDate instanceof CarbonImmutable
                 ? $parsedTransactionDate->toDateString()
                 : ($transactionDay !== null
                     ? sprintf('%04d-%02d-%02d', $routeYear, $isMoveRequest ? $targetMonth : $routeMonth, $transactionDay)
-                    : null),
+                    : null)),
             'target_month' => $targetMonth,
             'account_uuid' => $accountUuid,
             'account_id' => $this->filled('account_id')
@@ -295,7 +302,7 @@ class StoreTransactionRequest extends FormRequest
             $accessibleAccounts = app(AccessibleAccountsQuery::class);
 
             // Skip advanced validation if basic field validation already failed
-            if ($validator->errors()->has(['transaction_day', 'type_key', 'amount', 'desired_balance'])) {
+            if ($validator->errors()->has(['transaction_day', 'selected_date', 'type_key', 'amount', 'desired_balance'])) {
                 return;
             }
 
@@ -325,6 +332,12 @@ class StoreTransactionRequest extends FormRequest
                 }
             }
 
+            $calendarDate = $this->selectedCalendarDate();
+            if ($calendarDate !== null && $calendarDate->year !== (int) $this->route('year')) {
+                $validator->errors()->add('selected_date', __('transactions.validation.calendar_year_fixed', ['year' => (int) $this->route('year')]));
+
+                return;
+            }
             $date = (string) $this->input('transaction_date');
             $routeYear = (int) $this->route('year');
             $routeMonth = (int) $this->route('month');
@@ -344,7 +357,7 @@ class StoreTransactionRequest extends FormRequest
                         $this->input('type_key') !== self::MOVE_TYPE_KEY
                         && (
                             $parsedDate->year !== $routeYear
-                            || $parsedDate->month !== $routeMonth
+                            || (! $this->filled('selected_date') && $parsedDate->month !== $routeMonth)
                         )
                     ) {
                         $validator->errors()->add(
@@ -372,6 +385,16 @@ class StoreTransactionRequest extends FormRequest
                 }
             } elseif ($this->filled('account_uuid')) {
                 $validator->errors()->add('account_uuid', __('transactions.validation.account_unavailable'));
+            }
+
+            $calendarDate = $this->selectedCalendarDate();
+            if ($calendarDate !== null && $calendarDate->month !== $routeMonth && $this->isMethod('PATCH')
+                && $this->input('type_key') !== self::MOVE_TYPE_KEY) {
+                $transaction = $this->resolvedRouteTransaction();
+                if ($transaction === null || ! $this->isMoveTransactionEligible($transaction)
+                    || in_array($this->input('type_key'), [CategoryGroupTypeEnum::TRANSFER->value, self::BALANCE_ADJUSTMENT_TYPE_KEY], true)) {
+                    $validator->errors()->add('selected_date', __('transactions.validation.move_unavailable'));
+                }
             }
 
             if ($this->input('type_key') === self::BALANCE_ADJUSTMENT_TYPE_KEY) {
@@ -403,29 +426,7 @@ class StoreTransactionRequest extends FormRequest
                     return;
                 }
 
-                $transactionKind = $routeTransaction->kind instanceof TransactionKindEnum
-                    ? $routeTransaction->kind->value
-                    : ($routeTransaction->kind !== null ? (string) $routeTransaction->kind : null);
-                $transactionGroupType = $routeTransaction->category()->value('group_type');
-                $transactionTypeKey = $transactionGroupType instanceof CategoryGroupTypeEnum
-                    ? $transactionGroupType->value
-                    : ($transactionGroupType !== null
-                        ? (string) $transactionGroupType
-                        : ($routeTransaction->direction === TransactionDirectionEnum::INCOME
-                            ? CategoryGroupTypeEnum::INCOME->value
-                            : CategoryGroupTypeEnum::EXPENSE->value));
-
-                $isEligibleMoveTransaction = ! $routeTransaction->is_transfer
-                    && ! in_array($transactionKind, [
-                        TransactionKindEnum::SCHEDULED->value,
-                        TransactionKindEnum::OPENING_BALANCE->value,
-                        TransactionKindEnum::BALANCE_ADJUSTMENT->value,
-                        TransactionKindEnum::REFUND->value,
-                    ], true)
-                    && $routeTransaction->recurring_entry_occurrence_id === null
-                    && in_array($transactionTypeKey, self::MOVE_ELIGIBLE_TYPE_KEYS, true);
-
-                if (! $isEligibleMoveTransaction) {
+                if (! $this->isMoveTransactionEligible($routeTransaction)) {
                     $validator->errors()->add('type_key', __('transactions.validation.move_unavailable'));
                 }
 
@@ -614,6 +615,43 @@ class StoreTransactionRequest extends FormRequest
             CategoryGroupTypeEnum::TRANSFER->value => CategoryDirectionTypeEnum::TRANSFER->value,
             default => CategoryDirectionTypeEnum::EXPENSE->value,
         };
+    }
+
+    private function selectedCalendarDate(): ?CarbonImmutable
+    {
+        $date = $this->input('selected_date');
+        if (! is_string($date) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return null;
+        }
+        [$year, $month, $day] = array_map('intval', explode('-', $date));
+
+        return checkdate($month, $day, $year) ? CarbonImmutable::create($year, $month, $day)->startOfDay() : null;
+    }
+
+    private function isMoveTransactionEligible(Transaction $transaction): bool
+    {
+        $transactionKind = $transaction->kind instanceof TransactionKindEnum
+            ? $transaction->kind->value
+            : ($transaction->kind !== null ? (string) $transaction->kind : null);
+        $transactionGroupType = $transaction->category()->value('group_type');
+        $transactionTypeKey = $transactionGroupType instanceof CategoryGroupTypeEnum
+            ? $transactionGroupType->value
+            : ($transactionGroupType !== null
+                ? (string) $transactionGroupType
+                : ($transaction->direction === TransactionDirectionEnum::INCOME
+                    ? CategoryGroupTypeEnum::INCOME->value
+                    : CategoryGroupTypeEnum::EXPENSE->value));
+
+        return ! $transaction->is_transfer
+            && ! in_array($transactionKind, [
+                TransactionKindEnum::SCHEDULED->value,
+                TransactionKindEnum::OPENING_BALANCE->value,
+                TransactionKindEnum::BALANCE_ADJUSTMENT->value,
+                TransactionKindEnum::REFUND->value,
+            ], true)
+            && $transaction->recurring_entry_occurrence_id === null
+            && in_array($transactionTypeKey, self::MOVE_ELIGIBLE_TYPE_KEYS, true);
+
     }
 
     protected function resolvedRouteTransaction(): ?Transaction

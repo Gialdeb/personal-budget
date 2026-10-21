@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
-import { CalendarDays, Plus } from 'lucide-vue-next';
+import { Plus } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store as storeTransaction } from '@/actions/App/Http/Controllers/TransactionsController';
@@ -18,6 +18,7 @@ import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseField
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import TransactionCategoryQuickCreate from '@/components/transactions/TransactionCategoryQuickCreate.vue';
 import TransactionClassificationBadges from '@/components/transactions/TransactionClassificationBadges.vue';
+import TransactionDatePicker from '@/components/transactions/TransactionDatePicker.vue';
 import { Button } from '@/components/ui/button';
 import { DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,7 @@ import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import { fetchWithNotifications } from '@/lib/notifications';
 import { prioritizeReferenceOptions } from '@/lib/tracked-item-options';
+import { transactionCalendarDate } from '@/lib/transaction-calendar.js';
 import { transactionTemplateSplit } from '@/lib/transaction-template-split';
 import type {
     MonthlyTransactionSheetData,
@@ -142,6 +144,7 @@ const emit = defineEmits<{
 }>();
 
 const form = useForm({
+    selected_date: '',
     transaction_day: '',
     target_month: '',
     transaction_date: '',
@@ -577,7 +580,9 @@ const moneyFormatLocale = computed(() =>
 const visibleTransactionDateError = computed(() =>
     isMoveMode.value
         ? form.errors.transaction_date
-        : form.errors.transaction_date || form.errors.transaction_day,
+        : form.errors.selected_date ||
+          form.errors.transaction_date ||
+          form.errors.transaction_day,
 );
 
 const trackedItemOptions = computed(() =>
@@ -672,9 +677,8 @@ const selectedReferenceValue = computed({
 });
 
 const monthDayRange = computed(() => {
-    const month = isMoveMode.value
-        ? Number(form.target_month || props.month)
-        : props.month;
+    const month =
+        parseIsoDateParts(form.transaction_date)?.month ?? props.month;
 
     return {
         min: 1,
@@ -689,73 +693,6 @@ const todayDate = computed(() => {
         year: today.getFullYear(),
         month: today.getMonth() + 1,
         day: today.getDate(),
-    };
-});
-
-const effectiveTransactionDate = computed(() => {
-    const moveDateParts =
-        isMoveMode.value || props.paymentOccurrence
-            ? parseIsoDateParts(form.transaction_date)
-            : null;
-    const savedDateParts = isEditing.value
-        ? parseIsoDateParts(props.transaction?.date ?? null)
-        : null;
-    const dateParts = moveDateParts ?? savedDateParts;
-    const year = dateParts?.year ?? props.year;
-    const month = dateParts?.month ?? props.month;
-    const day = props.paymentOccurrence
-        ? dateParts?.day
-        : Number(form.transaction_day);
-
-    if (
-        day === undefined ||
-        !Number.isInteger(day) ||
-        day < 1 ||
-        day > new Date(year, month, 0).getDate()
-    ) {
-        return null;
-    }
-
-    return new Date(year, month - 1, day);
-});
-
-const effectiveTransactionDateLabel = computed(() => {
-    if (!effectiveTransactionDate.value) {
-        return '';
-    }
-
-    return new Intl.DateTimeFormat(locale.value, {
-        dateStyle: 'full',
-    }).format(effectiveTransactionDate.value);
-});
-
-const transactionDateContext = computed(() => {
-    if (!effectiveTransactionDate.value) {
-        return { message: '', tone: 'neutral' as const };
-    }
-
-    const effectiveDate = effectiveTransactionDate.value;
-    const isToday =
-        effectiveDate.getFullYear() === todayDate.value.year &&
-        effectiveDate.getMonth() + 1 === todayDate.value.month &&
-        effectiveDate.getDate() === todayDate.value.day;
-
-    if (isToday) {
-        return {
-            message: t('transactions.form.dateContext.today'),
-            tone: 'today' as const,
-        };
-    }
-
-    const isInCurrentMonth =
-        effectiveDate.getFullYear() === todayDate.value.year &&
-        effectiveDate.getMonth() + 1 === todayDate.value.month;
-
-    return {
-        message: isInCurrentMonth
-            ? t('transactions.form.dateContext.differentDay')
-            : t('transactions.form.dateContext.differentMonth'),
-        tone: isInCurrentMonth ? ('neutral' as const) : ('period' as const),
     };
 });
 
@@ -1087,7 +1024,7 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
         !props.open ||
         !isBalanceAdjustment.value ||
         form.account_uuid === '' ||
-        form.transaction_day === '' ||
+        form.transaction_date === '' ||
         form.desired_balance === ''
     ) {
         balanceAdjustmentPreview.value = null;
@@ -1107,7 +1044,7 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
 
     try {
         const response = await fetchWithNotifications(
-            `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
+            `/transactions/${props.year}/${parseIsoDateParts(form.transaction_date)?.month ?? props.month}/balance-adjustment-preview`,
             {
                 method: 'POST',
                 headers: {
@@ -1119,7 +1056,7 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     account_uuid: form.account_uuid,
-                    transaction_day: Number(form.transaction_day),
+                    transaction_day: Number(form.transaction_date.slice(8, 10)),
                     desired_balance: desiredBalance,
                 }),
             },
@@ -1164,7 +1101,7 @@ async function refreshAccountCurrentBalance(): Promise<void> {
     if (
         !props.open ||
         form.account_uuid === '' ||
-        form.transaction_day === ''
+        form.transaction_date === ''
     ) {
         accountCurrentBalance.value = null;
 
@@ -1175,7 +1112,7 @@ async function refreshAccountCurrentBalance(): Promise<void> {
 
     try {
         const response = await fetchWithNotifications(
-            `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
+            `/transactions/${props.year}/${parseIsoDateParts(form.transaction_date)?.month ?? props.month}/balance-adjustment-preview`,
             {
                 method: 'POST',
                 headers: {
@@ -1187,7 +1124,7 @@ async function refreshAccountCurrentBalance(): Promise<void> {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     account_uuid: form.account_uuid,
-                    transaction_day: Number(form.transaction_day),
+                    transaction_day: Number(form.transaction_date.slice(8, 10)),
                     desired_balance: 0,
                 }),
             },
@@ -1216,7 +1153,7 @@ async function refreshExchangePreview(): Promise<void> {
         isBalanceAdjustment.value ||
         isMoveMode.value ||
         form.account_uuid === '' ||
-        form.transaction_day === '' ||
+        form.transaction_date === '' ||
         form.amount === ''
     ) {
         resetExchangePreview();
@@ -1239,7 +1176,9 @@ async function refreshExchangePreview(): Promise<void> {
         const response = await fetchWithNotifications(
             previewExchangeSnapshot.url({
                 year: props.year,
-                month: props.month,
+                month:
+                    parseIsoDateParts(form.transaction_date)?.month ??
+                    props.month,
             }),
             {
                 method: 'POST',
@@ -1252,7 +1191,7 @@ async function refreshExchangePreview(): Promise<void> {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     account_uuid: form.account_uuid,
-                    transaction_day: Number(form.transaction_day),
+                    transaction_day: Number(form.transaction_date.slice(8, 10)),
                     amount: parsedAmount,
                 }),
             },
@@ -1425,6 +1364,8 @@ watch(
             shared_expense_custom_split: false,
         });
         form.reset();
+
+        form.transaction_date = `${props.year}-${String(props.month).padStart(2, '0')}-${String(form.transaction_day).padStart(2, '0')}`;
 
         if (props.paymentOccurrence) {
             const payment = props.paymentOccurrence;
@@ -1644,7 +1585,7 @@ watch(
 );
 
 watch(
-    () => [props.open, form.account_uuid, form.transaction_day] as const,
+    () => [props.open, form.account_uuid, form.transaction_date] as const,
     () => {
         void refreshAccountCurrentBalance();
     },
@@ -1656,7 +1597,7 @@ watch(
             props.open,
             form.type_key,
             form.account_uuid,
-            form.transaction_day,
+            form.transaction_date,
             form.amount,
         ] as const,
     () => {
@@ -1667,7 +1608,7 @@ watch(
 watch(
     () => form.transaction_date,
     (value) => {
-        if (!isMoveMode.value || value === '') {
+        if (value === '') {
             return;
         }
 
@@ -1679,7 +1620,7 @@ watch(
 
         form.transaction_day = String(dateParts.day);
         form.target_month = String(dateParts.month);
-        form.clearErrors('transaction_date');
+        form.clearErrors('selected_date', 'transaction_date');
     },
 );
 
@@ -1688,7 +1629,7 @@ watch(
         [
             form.type_key,
             form.account_uuid,
-            form.transaction_day,
+            form.transaction_date,
             form.desired_balance,
         ] as const,
     () => {
@@ -1825,6 +1766,19 @@ function submit(): void {
         return;
     }
 
+    if (
+        !isMoveMode.value &&
+        !props.paymentOccurrence &&
+        !transactionCalendarDate(form.transaction_date, props.year)
+    ) {
+        form.setError(
+            'selected_date',
+            t('transactions.form.calendar.fixedYear', { year: props.year }),
+        );
+
+        return;
+    }
+
     const paymentDateParts = props.paymentOccurrence
         ? parseIsoDateParts(form.transaction_date)
         : null;
@@ -1861,9 +1815,11 @@ function submit(): void {
 
     if (
         !props.paymentOccurrence &&
-        (form.transaction_day === '' ||
-            Number(form.transaction_day) < monthDayRange.value.min ||
-            Number(form.transaction_day) > monthDayRange.value.max)
+        (form.transaction_date === '' ||
+            Number(form.transaction_date.slice(8, 10)) <
+                monthDayRange.value.min ||
+            Number(form.transaction_date.slice(8, 10)) >
+                monthDayRange.value.max)
     ) {
         form.setError(
             'transaction_day',
@@ -1947,7 +1903,8 @@ function submit(): void {
 
         const payload = {
             transaction_template_uuid: props.template?.uuid ?? null,
-            transaction_day: Number(form.transaction_day),
+            selected_date: form.transaction_date,
+            transaction_day: Number(form.transaction_date.slice(8, 10)),
             type_key: form.type_key,
             account_uuid: form.account_uuid,
             desired_balance: normalizedDesiredBalance,
@@ -1976,11 +1933,13 @@ function submit(): void {
     }
 
     const payload = {
+        selected_date: props.paymentOccurrence ? null : form.transaction_date,
         payment_occurrence_uuid: props.paymentOccurrence?.uuid ?? null,
         transaction_template_uuid: !isEditing.value
             ? (props.template?.uuid ?? null)
             : null,
-        transaction_day: paymentDateParts?.day ?? Number(form.transaction_day),
+        transaction_day:
+            paymentDateParts?.day ?? Number(form.transaction_date.slice(8, 10)),
         type_key: form.type_key,
         category_uuid: form.category_uuid || null,
         destination_account_uuid: form.destination_account_uuid || null,
@@ -2113,6 +2072,7 @@ function submit(): void {
                             >
                                 <div class="grid min-w-0 gap-2">
                                     <Label
+                                        v-if="isMoveMode || paymentOccurrence"
                                         :for="
                                             isMoveMode || paymentOccurrence
                                                 ? 'transaction_date'
@@ -2124,7 +2084,7 @@ function submit(): void {
                                                       'transactions.form.labels.moveDate',
                                                   )
                                                 : t(
-                                                      'transactions.form.labels.day',
+                                                      'transactions.form.calendar.date',
                                                   )
                                         }}</Label
                                     >
@@ -2140,60 +2100,16 @@ function submit(): void {
                                         :max="moveDateMax"
                                         class="h-11 rounded-2xl border-slate-200 text-center dark:border-slate-800"
                                     />
-                                    <Input
+                                    <TransactionDatePicker
                                         v-else
                                         id="transaction_day"
-                                        v-model="form.transaction_day"
-                                        :type="isMobile ? 'text' : 'number'"
-                                        inputmode="numeric"
-                                        pattern="[0-9]*"
-                                        autocomplete="off"
-                                        enterkeyhint="next"
-                                        :placeholder="
-                                            t(
-                                                'transactions.form.placeholders.day',
-                                            )
-                                        "
-                                        :min="monthDayRange.min"
-                                        :max="monthDayRange.max"
-                                        class="h-11 rounded-2xl border-slate-200 text-center dark:border-slate-800"
+                                        v-model="form.transaction_date"
+                                        :year="year"
+                                        :month="month"
                                     />
                                     <InputError
                                         :message="visibleTransactionDateError"
                                     />
-                                    <div
-                                        v-if="
-                                            isMobile && effectiveTransactionDate
-                                        "
-                                        class="flex items-center gap-2 rounded-xl border px-3 py-2 text-xs"
-                                        :class="{
-                                            'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200':
-                                                transactionDateContext.tone ===
-                                                'today',
-                                            'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200':
-                                                transactionDateContext.tone ===
-                                                'period',
-                                            'border-border bg-muted/60 text-muted-foreground':
-                                                transactionDateContext.tone ===
-                                                'neutral',
-                                        }"
-                                    >
-                                        <CalendarDays class="size-4 shrink-0" />
-                                        <div class="min-w-0">
-                                            <p
-                                                class="font-medium text-foreground"
-                                            >
-                                                {{
-                                                    effectiveTransactionDateLabel
-                                                }}
-                                            </p>
-                                            <p>
-                                                {{
-                                                    transactionDateContext.message
-                                                }}
-                                            </p>
-                                        </div>
-                                    </div>
                                 </div>
 
                                 <div class="grid gap-2">

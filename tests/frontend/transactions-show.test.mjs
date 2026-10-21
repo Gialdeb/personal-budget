@@ -926,10 +926,15 @@ test('transaction form prepares an existing suggestion without duplicating it in
     );
 });
 
-test('mobile transaction form derives a single effective date from the selected period and day', () => {
-    assert.match(formSheetSource, /const effectiveTransactionDate = computed/);
-    assert.match(formSheetSource, /new Date\(year, month - 1, day\)/);
-    assert.match(formSheetSource, /new Date\(year, month, 0\)\.getDate\(\)/);
+test('mobile transaction form delegates day and calendar selection to the shared date component', () => {
+    assert.match(
+        formSheetSource,
+        /<TransactionDatePicker[\s\S]*?v-model="form.transaction_date"/,
+    );
+    assert.doesNotMatch(
+        formSheetSource,
+        /const transactionDateContext = computed/,
+    );
     assert.match(formSheetSource, /props\.year === todayDate\.value\.year/);
     assert.match(formSheetSource, /props\.month === todayDate\.value\.month/);
     assert.match(
@@ -943,20 +948,22 @@ test('mobile transaction form preserves an edited transaction date and explains 
         formSheetSource,
         /transaction_day: transactionDateParts\s*\? String\(transactionDateParts\.day\)\s*: '1'/,
     );
-    assert.match(formSheetSource, /const transactionDateContext = computed/);
-    assert.match(formSheetSource, /transactions\.form\.dateContext\.today/);
-    assert.match(
-        formSheetSource,
-        /transactions\.form\.dateContext\.differentDay/,
-    );
-    assert.match(
-        formSheetSource,
-        /transactions\.form\.dateContext\.differentMonth/,
-    );
-    assert.match(formSheetSource, /CalendarDays/);
+    assert.match(formSheetSource, /TransactionDatePicker/);
 });
 
 test('mobile transaction date context is localized in Italian and English', () => {
+    for (const key of [
+        'currentMonth',
+        'pastMonth',
+        'futureMonth',
+        'invalidMonth',
+    ]) {
+        assert.equal(
+            (messagesSource.match(new RegExp(`${key}:`, 'g')) ?? []).length,
+            2,
+        );
+    }
+
     assert.match(messagesSource, /today: 'Oggi'/);
     assert.match(messagesSource, /differentDay: 'Data diversa da oggi'/);
     assert.match(

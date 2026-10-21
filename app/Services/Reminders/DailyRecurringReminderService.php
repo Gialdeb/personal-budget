@@ -3,6 +3,7 @@
 namespace App\Services\Reminders;
 
 use App\Enums\RecurringEntryStatusEnum;
+use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\ScheduledEntryStatusEnum;
 use App\Models\RecurringEntryOccurrence;
@@ -114,7 +115,12 @@ class DailyRecurringReminderService
             ->map(fn ($days): int => (int) $days)
             ->all();
 
-        if ($daysBefore !== 0 && ! in_array($daysBefore, $customReminderDays, true)) {
+        $isTrialFirstChargeReminder = $daysBefore === 1
+            && $entry->entry_type === RecurringEntryTypeEnum::RECURRING
+            && $entry->trial_duration > 0
+            && $occurrence->expected_date->isSameDay($entry->firstBillingDate());
+
+        if ($daysBefore !== 0 && ! $isTrialFirstChargeReminder && ! in_array($daysBefore, $customReminderDays, true)) {
             return ['status' => 'skipped', 'pushed' => 0];
         }
 

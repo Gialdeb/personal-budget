@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AutomationRunStatusEnum;
+use App\Enums\AutomationTriggerTypeEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\RecurringEndModeEnum;
@@ -19,6 +20,7 @@ use App\Services\Automation\AutomationPipelineRunner;
 use App\Services\Transactions\RecurringEntryLifecycleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 
 uses(RefreshDatabase::class);
 
@@ -125,4 +127,69 @@ it('runs recurring pipeline job through real lifecycle services and records gene
         ->and($run->result['created_transactions'])->toBe(2)
         ->and($entry->occurrences()->count())->toBe(2)
         ->and($entry->occurrences()->whereNotNull('converted_transaction_id')->count())->toBe(2);
+});
+
+it('isolates recurring workers and orders their timeout and reservation limits', function () {
+    $job = new RunRecurringPipelineJob;
+    $supervisor = config('horizon.defaults.supervisor-recurring');
+    $connection = config('queue.connections.'.$job->connection);
+
+    expect($job->queue)->toBe('recurring')
+        ->and($supervisor['connection'])->toBe($job->connection)
+        ->and($supervisor['queue'])->toBe([$job->queue])
+        ->and($supervisor['timeout'])->toBeGreaterThan($job->timeout)
+        ->and($connection['retry_after'])->toBeGreaterThan($supervisor['timeout'])
+        ->and(config('horizon.environments.production'))->toHaveKey('supervisor-recurring')
+        ->and(config('horizon.environments.local'))->toHaveKey('supervisor-recurring')
+        ->and(config('horizon.defaults.supervisor-1.connection'))->toBe('redis')
+        ->and(config('horizon.defaults.supervisor-1.queue'))->not->toContain($job->queue);
+
+    foreach (['docker-compose.yml', 'docker-compose.production.yml'] as $file) {
+        expect(file_get_contents(base_path($file)))->toMatch('/horizon:\n(?:(?!\n  \w)[\s\S])*?stop_grace_period: 180s/');
+    }
+});
+
+it('prevents overlapping recurring jobs across triggers and releases the lock afterwards', function () {
+    config(['cache.stores.redis' => ['driver' => 'array']]);
+    $scheduled = new RunRecurringPipelineJob;
+    $manual = new RunRecurringPipelineJob(AutomationTriggerTypeEnum::MANUAL);
+    $processed = 0;
+
+    $scheduled->middleware()[0]($scheduled, function () use ($manual, &$processed): void {
+        $processed++;
+        $manual->middleware()[0]($manual, function () use (&$processed): void {
+            $processed++;
+        });
+    });
+
+    expect($processed)->toBe(1);
+
+    $manual->middleware()[0]($manual, function () use (&$processed): void {
+        $processed++;
+    });
+
+    expect($processed)->toBe(2);
+});
+
+it('releases the recurring lock after failure and expires abandoned locks', function () {
+    config(['cache.stores.redis' => ['driver' => 'array']]);
+    $job = new RunRecurringPipelineJob;
+    $middleware = $job->middleware()[0];
+    expect(fn () => $middleware($job, function (): void {
+        throw new RuntimeException('Pipeline failed');
+    }))->toThrow(RuntimeException::class, 'Pipeline failed');
+
+    $cache = Cache::store('redis');
+    $abandoned = $cache->lock('recurring-pipeline', 180);
+    expect($abandoned->get())->toBeTrue();
+    $processed = false;
+    $middleware($job, function () use (&$processed): void {
+        $processed = true;
+    });
+    expect($processed)->toBeFalse();
+    $this->travel(181)->seconds();
+    $middleware($job, function () use (&$processed): void {
+        $processed = true;
+    });
+    expect($processed)->toBeTrue();
 });

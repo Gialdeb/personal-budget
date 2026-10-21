@@ -752,6 +752,13 @@ export const transactionsMessages = {
             },
         },
         form: {
+            calendar: {
+                date: 'Data',
+                month: 'Mese',
+                previousMonth: 'Mese precedente',
+                nextMonth: 'Mese successivo',
+                fixedYear: 'Scegli una data valida nell’anno {year}.',
+            },
             titleNew: 'Nuova registrazione',
             titleEdit: 'Modifica registrazione',
             descriptionNew:
@@ -787,6 +794,12 @@ export const transactionsMessages = {
                 subcategory: 'Sottocategoria',
             },
             dateContext: {
+                currentMonth: 'Stai registrando nel mese corrente.',
+                pastMonth:
+                    'Attenzione: stai registrando in un mese precedente.',
+                futureMonth: 'Stai registrando in un mese futuro.',
+                invalidMonth:
+                    'Inserisci un giorno valido per il mese selezionato.',
                 today: 'Oggi',
                 differentDay: 'Data diversa da oggi',
                 differentMonth: 'Stai registrando nel mese selezionato',
@@ -1612,6 +1625,13 @@ export const transactionsMessages = {
             },
         },
         form: {
+            calendar: {
+                date: 'Date',
+                month: 'Month',
+                previousMonth: 'Previous month',
+                nextMonth: 'Next month',
+                fixedYear: 'Choose a valid date within {year}.',
+            },
             titleNew: 'New transaction',
             titleEdit: 'Edit transaction',
             descriptionNew: 'Add a new operating row for the current month.',
@@ -1646,6 +1666,10 @@ export const transactionsMessages = {
                 subcategory: 'Subcategory',
             },
             dateContext: {
+                currentMonth: 'You are recording in the current month.',
+                pastMonth: 'Warning: you are recording in an earlier month.',
+                futureMonth: 'You are recording in a future month.',
+                invalidMonth: 'Enter a valid day for the selected month.',
                 today: 'Today',
                 differentDay: 'Date differs from today',
                 differentMonth: 'You are recording in the selected month',

@@ -779,6 +779,7 @@ export type RecurringEntryShowPayload = {
             settled: boolean;
             show_url: string;
         } | null;
+        is_refunded?: boolean;
         settlement_status?:
             | 'settled'
             | 'partial'

@@ -84,6 +84,7 @@ return [
         ],
     ],
     'validation' => [
+        'calendar_year_fixed' => 'Il selettore consente solo date dell’anno :year.',
         'linked_obligation_locked' => 'Questa transazione è collegata a un pagamento o pareggio. Gestiscila dalla sezione di origine.',
         'date_invalid' => 'La data movimento deve essere valida.',
         'account_unavailable' => 'Il conto selezionato non è disponibile.',

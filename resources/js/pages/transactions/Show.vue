@@ -54,6 +54,7 @@ import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import SharedLedgerMovements from '@/components/transactions/SharedLedgerMovements.vue';
 import TransactionCategoryQuickCreate from '@/components/transactions/TransactionCategoryQuickCreate.vue';
 import TransactionClassificationBadges from '@/components/transactions/TransactionClassificationBadges.vue';
+import TransactionDatePicker from '@/components/transactions/TransactionDatePicker.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import TransactionRowActions from '@/components/transactions/TransactionRowActions.vue';
 import TransactionVisibilityToggle from '@/components/transactions/TransactionVisibilityToggle.vue';
@@ -92,6 +93,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import { fetchWithNotifications } from '@/lib/notifications';
 import { filterOpeningBalanceTransactions } from '@/lib/opening-balance-visibility.js';
+import { transactionCalendarDate } from '@/lib/transaction-calendar.js';
 import {
     calendarCategoryOrder,
     transactionDayCounts,
@@ -183,7 +185,7 @@ const { locale, t } = useI18n();
 const { isPrivacyModeEnabled } = usePrivacyMode();
 const page = usePage();
 const showShared = ref(true);
-const inlineDateInput = ref<HTMLInputElement | null>(null);
+const inlineDateInput = ref<{ focus: () => void } | null>(null);
 const mobilePeriodAccountSelectorElement = ref<HTMLElement | null>(null);
 const isMobilePeriodAccountSelectorOutOfView = ref(false);
 let mobilePeriodAccountSelectorObserver: IntersectionObserver | null = null;
@@ -424,6 +426,7 @@ const { focusMissing } = useTransactionFocus({
 let rowFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const inlineForm = useForm({
+    transaction_date: '',
     transaction_day: '',
     type_key: '',
     category_uuid: '',
@@ -532,9 +535,16 @@ const moneyFormatLocale = computed(() =>
 const dateFormatPreference = computed(() =>
     String(page.props.auth.user?.date_format ?? 'D MMM YYYY'),
 );
-const visibleInlineDayError = computed(() => inlineForm.errors.transaction_day);
+const visibleInlineDayError = computed(
+    () =>
+        (inlineForm.errors as Record<string, string>).selected_date ||
+        inlineForm.errors.transaction_day,
+);
 const visibleEditDayError = computed(
-    () => editForm.errors.transaction_date || editForm.errors.transaction_day,
+    () =>
+        (editForm.errors as Record<string, string>).selected_date ||
+        editForm.errors.transaction_date ||
+        editForm.errors.transaction_day,
 );
 const yearValue = computed(() => String(sheet.value.filters.year));
 const monthValue = computed(() => String(sheet.value.filters.month));
@@ -1451,14 +1461,17 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
 });
 
 const inlineDayRange = computed(() =>
-    buildMonthDayRange(sheet.value.period.year, sheet.value.period.month),
+    buildMonthDayRange(
+        props.year,
+        Number(inlineForm.transaction_date.slice(5, 7)) || props.month,
+    ),
 );
 const editDayRange = computed(() =>
     buildMonthDayRange(
         sheet.value.period.year,
         isEditMove.value
             ? Number(editForm.target_month || sheet.value.period.month)
-            : sheet.value.period.month,
+            : Number(editForm.transaction_date.slice(5, 7)) || props.month,
     ),
 );
 
@@ -1796,6 +1809,7 @@ async function refreshExchangePreviewForForm(
     form: {
         account_uuid: string;
         transaction_day: string;
+        transaction_date?: string;
         amount: string;
     },
     previewTarget: typeof inlineExchangePreview | typeof editExchangePreview,
@@ -1848,7 +1862,8 @@ async function refreshExchangePreviewForForm(
         const response = await fetchWithNotifications(
             previewExchangeSnapshot.url({
                 year: props.year,
-                month: props.month,
+                month:
+                    Number(form.transaction_date?.slice(5, 7)) || props.month,
             }),
             {
                 method: 'POST',
@@ -1861,7 +1876,10 @@ async function refreshExchangePreviewForForm(
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     account_uuid: form.account_uuid,
-                    transaction_day: Number(form.transaction_day),
+                    transaction_day: Number(
+                        form.transaction_date?.slice(8, 10) ??
+                            form.transaction_day,
+                    ),
                     amount: parsedAmount,
                 }),
             },
@@ -2247,7 +2265,7 @@ async function refreshInlineBalanceAdjustmentPreview(): Promise<void> {
     if (
         !isInlineBalanceAdjustment.value ||
         inlineForm.account_uuid === '' ||
-        inlineForm.transaction_day === '' ||
+        inlineForm.transaction_date === '' ||
         inlineForm.desired_balance === ''
     ) {
         inlineBalanceAdjustmentPreview.value = null;
@@ -2267,7 +2285,7 @@ async function refreshInlineBalanceAdjustmentPreview(): Promise<void> {
 
     try {
         const response = await fetchWithNotifications(
-            `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
+            `/transactions/${props.year}/${Number(inlineForm.transaction_date.slice(5, 7)) || props.month}/balance-adjustment-preview`,
             {
                 method: 'POST',
                 headers: {
@@ -2279,7 +2297,9 @@ async function refreshInlineBalanceAdjustmentPreview(): Promise<void> {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     account_uuid: inlineForm.account_uuid,
-                    transaction_day: Number(inlineForm.transaction_day),
+                    transaction_day: Number(
+                        inlineForm.transaction_date.slice(8, 10),
+                    ),
                     desired_balance: desiredBalance,
                 }),
             },
@@ -2340,7 +2360,7 @@ async function refreshInlineBalanceAdjustmentCurrentBalance(): Promise<void> {
     if (
         !isInlineBalanceAdjustment.value ||
         inlineForm.account_uuid === '' ||
-        inlineForm.transaction_day === ''
+        inlineForm.transaction_date === ''
     ) {
         inlineBalanceAdjustmentCurrentBalanceRaw.value = null;
 
@@ -2351,7 +2371,7 @@ async function refreshInlineBalanceAdjustmentCurrentBalance(): Promise<void> {
 
     try {
         const response = await fetchWithNotifications(
-            `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
+            `/transactions/${props.year}/${Number(inlineForm.transaction_date.slice(5, 7)) || props.month}/balance-adjustment-preview`,
             {
                 method: 'POST',
                 headers: {
@@ -2363,7 +2383,9 @@ async function refreshInlineBalanceAdjustmentCurrentBalance(): Promise<void> {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     account_uuid: inlineForm.account_uuid,
-                    transaction_day: Number(inlineForm.transaction_day),
+                    transaction_day: Number(
+                        inlineForm.transaction_date.slice(8, 10),
+                    ),
                     desired_balance: 0,
                 }),
             },
@@ -2559,7 +2581,16 @@ function resolveDefaultInlineDay(): string {
 }
 
 function validateInlineDay(): boolean {
-    const day = Number(inlineForm.transaction_day);
+    if (!transactionCalendarDate(inlineForm.transaction_date, props.year)) {
+        inlineForm.setError(
+            'transaction_day',
+            t('transactions.form.calendar.fixedYear', { year: props.year }),
+        );
+
+        return false;
+    }
+
+    const day = Number(inlineForm.transaction_date.slice(8, 10));
 
     if (
         !Number.isInteger(day) ||
@@ -2637,7 +2668,16 @@ function validateEditDay(): boolean {
         return true;
     }
 
-    const day = Number(editForm.transaction_day);
+    if (!transactionCalendarDate(editForm.transaction_date, props.year)) {
+        editForm.setError(
+            'transaction_date',
+            t('transactions.form.calendar.fixedYear', { year: props.year }),
+        );
+
+        return false;
+    }
+
+    const day = Number(editForm.transaction_date.slice(8, 10));
 
     if (
         !Number.isInteger(day) ||
@@ -2692,6 +2732,7 @@ function validateEditTransfer(): boolean {
 
 function resetInlineEntry(): void {
     const defaults = {
+        transaction_date: `${props.year}-${String(props.month).padStart(2, '0')}-${String(resolveDefaultInlineDay()).padStart(2, '0')}`,
         transaction_day: resolveDefaultInlineDay(),
         type_key: '',
         category_uuid: '',
@@ -3301,6 +3342,25 @@ function confirmDelete(): void {
     }, 220);
 }
 
+watch(
+    () => inlineForm.transaction_date,
+    (value) => {
+        inlineForm.transaction_day = value
+            ? String(Number(value.slice(8, 10)))
+            : '';
+    },
+);
+watch(
+    () => editForm.transaction_date,
+    (value) => {
+        if (!isEditMove.value) {
+            editForm.transaction_day = value
+                ? String(Number(value.slice(8, 10)))
+                : '';
+        }
+    },
+);
+
 function submitInlineTransaction(): void {
     if (!canEdit.value) {
         return;
@@ -3325,7 +3385,8 @@ function submitInlineTransaction(): void {
     }
 
     const payload = {
-        transaction_day: Number(inlineForm.transaction_day),
+        selected_date: inlineForm.transaction_date,
+        transaction_day: Number(inlineForm.transaction_date.slice(8, 10)),
         type_key: inlineForm.type_key,
         category_uuid: inlineForm.category_uuid || null,
         destination_account_uuid: inlineForm.destination_account_uuid || null,
@@ -3360,6 +3421,7 @@ function submitInlineTransaction(): void {
             onSuccess: () => {
                 pendingMutation.value = { type: 'create' };
                 inlineForm.defaults({
+                    transaction_date: inlineForm.transaction_date,
                     transaction_day: preservedDay || resolveDefaultInlineDay(),
                     type_key: '',
                     category_uuid: '',
@@ -3429,7 +3491,8 @@ function submitInlineEdit(transactionUuid: string): void {
     }
 
     const payload = {
-        transaction_day: Number(editForm.transaction_day),
+        selected_date: editForm.transaction_date,
+        transaction_day: Number(editForm.transaction_date.slice(8, 10)),
         type_key: editForm.type_key,
         category_uuid: editForm.category_uuid || null,
         destination_account_uuid: editForm.destination_account_uuid || null,
@@ -3656,7 +3719,7 @@ watch(
         [
             inlineForm.type_key,
             inlineForm.account_uuid,
-            inlineForm.transaction_day,
+            inlineForm.transaction_date,
         ] as const,
     () => {
         void refreshInlineBalanceAdjustmentCurrentBalance();
@@ -3669,7 +3732,7 @@ watch(
         [
             inlineForm.type_key,
             inlineForm.account_uuid,
-            inlineForm.transaction_day,
+            inlineForm.transaction_date,
             inlineForm.amount,
         ] as const,
     () => {
@@ -3682,7 +3745,7 @@ watch(
         [
             inlineForm.type_key,
             inlineForm.account_uuid,
-            inlineForm.transaction_day,
+            inlineForm.transaction_date,
             inlineForm.desired_balance,
         ] as const,
     ([, , , desiredBalance], [, , , previousDesiredBalance]) => {
@@ -3810,7 +3873,7 @@ watch(
         [
             editForm.type_key,
             editForm.account_uuid,
-            editForm.transaction_day,
+            editForm.transaction_date,
             editForm.amount,
             editForm.transaction_date,
         ] as const,
@@ -5008,39 +5071,20 @@ resetInlineEntry();
                                                                 )
                                                             "
                                                         />
-                                                        <Input
+                                                        <TransactionDatePicker
                                                             v-else
                                                             v-model="
-                                                                editForm.transaction_day
+                                                                editForm.transaction_date
                                                             "
-                                                            type="number"
-                                                            inputmode="numeric"
-                                                            :placeholder="
-                                                                t(
-                                                                    'transactions.form.placeholders.day',
-                                                                )
-                                                            "
-                                                            :min="
-                                                                editDayRange.min
-                                                            "
-                                                            :max="
-                                                                editDayRange.max
-                                                            "
-                                                            :class="
-                                                                cn(
-                                                                    editFieldClass(
-                                                                        'transaction_day',
-                                                                    ),
-                                                                    'text-center',
-                                                                )
-                                                            "
-                                                            @keydown.enter.prevent="
-                                                                submitInlineEdit(
-                                                                    transaction.uuid,
-                                                                )
-                                                            "
+                                                            class="w-28"
+                                                            :fixed-month="month"
+                                                            hide-context
+                                                            hide-label
+                                                            :year="year"
+                                                            :month="month"
                                                         />
                                                         <p
+                                                            v-if="isEditMove"
                                                             class="text-center text-[10px] font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400"
                                                         >
                                                             {{
@@ -5049,7 +5093,7 @@ resetInlineEntry();
                                                                           'transactions.form.labels.moveDate',
                                                                       )
                                                                     : t(
-                                                                          'transactions.sheet.grid.day',
+                                                                          'transactions.form.calendar.date',
                                                                       )
                                                             }}
                                                         </p>
@@ -6168,45 +6212,18 @@ resetInlineEntry();
                                         >
                                             <td class="px-3 py-3">
                                                 <div class="space-y-1.5">
-                                                    <Input
+                                                    <TransactionDatePicker
                                                         ref="inlineDateInput"
                                                         v-model="
-                                                            inlineForm.transaction_day
+                                                            inlineForm.transaction_date
                                                         "
-                                                        type="number"
-                                                        inputmode="numeric"
-                                                        :placeholder="
-                                                            t(
-                                                                'transactions.form.placeholders.day',
-                                                            )
-                                                        "
-                                                        :min="
-                                                            inlineDayRange.min
-                                                        "
-                                                        :max="
-                                                            inlineDayRange.max
-                                                        "
-                                                        :class="
-                                                            cn(
-                                                                inlineFieldClass(
-                                                                    'transaction_day',
-                                                                ),
-                                                                'text-center',
-                                                            )
-                                                        "
-                                                        @keydown.enter.prevent="
-                                                            submitInlineTransaction
-                                                        "
+                                                        class="w-28"
+                                                        :fixed-month="month"
+                                                        hide-context
+                                                        hide-label
+                                                        :year="year"
+                                                        :month="month"
                                                     />
-                                                    <p
-                                                        class="text-center text-[10px] font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.sheet.grid.day',
-                                                            )
-                                                        }}
-                                                    </p>
                                                     <p
                                                         v-if="
                                                             visibleInlineDayError

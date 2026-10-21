@@ -1,10 +1,13 @@
 <?php
 
 use App\Models\Category;
+use App\Models\DeviceToken;
 use App\Models\RecurringEntry;
+use App\Models\ReminderDelivery;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
+use App\Services\Push\PushNotificationService;
 use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
@@ -73,4 +76,88 @@ test('weeks and months calculate trial end without overflowing calendar months',
 
 test('trial is rejected for installment plans', function () {
     expect(fn () => app(RecurringEntryManagementService::class)->store($this->trialUser, [...$this->trialPayload, 'entry_type' => 'installment', 'total_amount' => 150, 'installments_count' => 10]))->toThrow(ValidationException::class);
+});
+
+test('trial first charge automatically reminds one day before and dedupes configured advances', function (array $reminders) {
+    config(['features.push_notifications.enabled' => true]);
+    $this->trialUser->settings()->create([
+        'active_year' => 2026,
+        'base_currency' => 'EUR',
+        'settings' => ['notifications' => ['push' => ['enabled' => true]]],
+    ]);
+    DeviceToken::factory()->for($this->trialUser)->create();
+    $entry = app(RecurringEntryManagementService::class)->store($this->trialUser, [...$this->trialPayload, 'reminder_days_before' => $reminders]);
+    $this->mock(PushNotificationService::class, function ($mock) {
+        $mock->shouldReceive('sendToUser')->once()->andReturn(['sent_count' => 1]);
+    });
+    $this->travelTo(CarbonImmutable::parse('2026-10-15 08:00:00', config('app.timezone')));
+
+    $first = app(DailyRecurringReminderService::class)->run();
+    $second = app(DailyRecurringReminderService::class)->run();
+
+    expect($first)->toMatchArray(['notified' => 1, 'pushed' => 1])
+        ->and($second)->toMatchArray(['notified' => 0, 'pushed' => 0, 'duplicates' => 1])
+        ->and(ReminderDelivery::query()->sole()->reminder_type)->toBe('recurring_advance_1')
+        ->and($entry->fresh()->reminder_days_before)->toBe($reminders)
+        ->and(Transaction::query()->count())->toBe(0)
+        ->and((float) $this->trialAccount->fresh()->current_balance)->toBe(1000.0);
+
+    $this->travelTo(CarbonImmutable::parse('2026-11-15 08:00:00', config('app.timezone')));
+    if (! in_array(1, $reminders, true)) {
+        expect(app(DailyRecurringReminderService::class)->run()['notified'])->toBe(0);
+    }
+})->with(['no manual advances' => [[]], 'existing one day advance' => [[1]], 'other advances preserved' => [[7]]]);
+
+test('automatic trial reminder respects push preferences and active devices', function (bool $enabled, bool $device) {
+    config(['features.push_notifications.enabled' => true]);
+    $this->trialUser->settings()->create([
+        'active_year' => 2026,
+        'base_currency' => 'EUR',
+        'settings' => ['notifications' => ['push' => ['enabled' => $enabled]]],
+    ]);
+    if ($device) {
+        DeviceToken::factory()->for($this->trialUser)->create();
+    }
+    app(RecurringEntryManagementService::class)->store($this->trialUser, [...$this->trialPayload, 'reminder_days_before' => []]);
+    $this->mock(PushNotificationService::class, function ($mock) {
+        $mock->shouldNotReceive('sendToUser');
+    });
+    $this->travelTo(CarbonImmutable::parse('2026-10-15 08:00:00', config('app.timezone')));
+
+    expect(app(DailyRecurringReminderService::class)->run())->toMatchArray(['notified' => 1, 'pushed' => 0]);
+})->with(['disabled push' => [false, true], 'no active device' => [true, false]]);
+
+test('cancelling during trial prevents reminders and subsequent automatic charges', function () {
+    $entry = app(RecurringEntryManagementService::class)->store($this->trialUser, $this->trialPayload);
+    $this->travelTo(CarbonImmutable::parse('2026-10-14 12:00:00'));
+    app(RecurringEntryManagementService::class)->cancel($entry);
+    $this->mock(ReminderNotificationDispatcher::class, function ($mock) {
+        $mock->shouldNotReceive('dispatch');
+    });
+
+    foreach (['2026-10-15', '2026-10-16', '2026-11-16'] as $date) {
+        $this->travelTo(CarbonImmutable::parse($date.' 08:00:00', config('app.timezone')));
+        app(App\Services\Transactions\RecurringEntryLifecycleService::class)->runAutomationPipeline();
+        expect(app(DailyRecurringReminderService::class)->run()['notified'])->toBe(0)
+            ->and(Transaction::query()->count())->toBe(0)
+            ->and((float) $this->trialAccount->fresh()->current_balance)->toBe(1000.0);
+    }
+    expect($entry->fresh()->is_active)->toBeFalse();
+});
+
+test('subscriptions without trial do not gain an automatic one day advance', function () {
+    app(RecurringEntryManagementService::class)->store($this->trialUser, [
+        ...$this->trialPayload,
+        'trial_duration' => null,
+        'trial_unit' => null,
+        'start_date' => '2026-10-16',
+        'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 16],
+        'reminder_days_before' => [],
+    ]);
+    $this->mock(ReminderNotificationDispatcher::class, function ($mock) {
+        $mock->shouldNotReceive('dispatch');
+    });
+    $this->travelTo(CarbonImmutable::parse('2026-10-15 08:00:00', config('app.timezone')));
+
+    expect(app(DailyRecurringReminderService::class)->run())->toMatchArray(['scanned' => 1, 'notified' => 0]);
 });

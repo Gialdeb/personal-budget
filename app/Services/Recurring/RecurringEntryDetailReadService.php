@@ -4,6 +4,7 @@ namespace App\Services\Recurring;
 
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\RecurringPlanRefundPayment;
 use App\Models\Transaction;
 use App\Services\UserYearCreationPolicy;
 use Carbon\CarbonInterface;
@@ -200,6 +201,11 @@ class RecurringEntryDetailReadService
         $rows = new Collection($rows->take(self::PAGE_SIZE)->all());
         $rows->load(['account', 'sharedExpenseLedgerEntry.counterparty', 'convertedTransaction.refundTransaction', 'matchedTransaction.refundTransaction',
             'paymentAllocations.transaction.account', 'paymentAllocations.transaction.trackedItem', 'paymentAllocations.transaction.refundTransaction', 'settlementTransactions.refundTransaction']);
+        $refundedPayments = RecurringPlanRefundPayment::query()->whereIn('occurrence_id', $rows->modelKeys())
+            ->get(['occurrence_id', 'transaction_id'])->groupBy('occurrence_id');
+        foreach ($rows as $row) {
+            $row->setAttribute('read_aggregate_refund_transactions', ($refundedPayments->get($row->id) ?? collect())->pluck('transaction_id')->map(fn ($id): int => (int) $id)->unique()->all());
+        }
         $owners ??= new Collection([$entry]);
         foreach ($owners as $owner) {
             $ownedRows = $rows->where('recurring_entry_id', $owner->id);

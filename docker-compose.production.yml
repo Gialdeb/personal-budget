@@ -87,6 +87,7 @@ services:
 
   horizon:
     <<: *production-runtime
+    stop_grace_period: 180s
     command: ['php', 'artisan', 'horizon']
     healthcheck:
       test: ['CMD', 'php', 'artisan', 'horizon:status']
