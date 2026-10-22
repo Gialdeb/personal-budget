@@ -31,9 +31,9 @@ beforeEach(function () {
     $category = Category::create(['user_id' => $this->actor->id, 'name' => 'Subscription', 'slug' => 'subscription', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true]);
     $this->entry = app(RecurringEntryManagementService::class)->store($this->actor, [
         'title' => 'Subscription', 'account_id' => $this->account->id, 'category_id' => $category->id,
-        'direction' => 'expense', 'currency' => 'EUR', 'entry_type' => 'recurring', 'status' => 'active',
+        'direction' => 'expense', 'currency' => 'EUR', 'entry_type' => 'installment', 'status' => 'active',
         'recurrence_type' => 'monthly', 'recurrence_interval' => 1, 'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 16],
-        'start_date' => '2026-10-16', 'end_mode' => 'never', 'expected_amount' => 100,
+        'start_date' => '2026-10-16', 'end_mode' => 'after_occurrences', 'occurrences_limit' => 12, 'installments_count' => 12, 'total_amount' => 1200, 'expected_amount' => 100,
         'auto_generate_occurrences' => true, 'auto_create_transaction' => false, 'is_active' => true,
     ]);
     $this->occurrence = $this->entry->occurrences()->orderBy('sequence_number')->firstOrFail();
@@ -154,16 +154,18 @@ test('crediting the original account preserves settlement and subsequent lifecyc
         ->and($this->occurrence->fresh()->status->value)->toBe('completed');
 });
 
-test('compound refund includes paid archived children without changing their states', function () {
+test('compound recurring plans reject global refunds without changing their states', function () {
     $parent = CompoundRecurringEntry::factory()->create([
         'user_id' => $this->actor->id, 'account_id' => $this->account->id, 'category_id' => $this->entry->category_id, 'name' => 'IMU',
     ]);
     $component = $parent->components()->create(['name' => 'Acconto', 'recurring_entry_id' => $this->entry->id]);
     $component->forceFill(['archived_at' => now()])->save();
+    $this->entry->update(['entry_type' => 'recurring']);
     $before = $this->entry->fresh()->getAttributes();
-    $this->getJson(route('recurring-entries.plan-refund.preview', $parent->uuid))->assertOk()->assertJsonPath('total_cents', 10000);
-    $this->post(route('recurring-entries.plan-refund.store', $parent->uuid), $this->refundData)->assertSessionHasNoErrors();
-    expect(RecurringPlanRefund::sole()->plan_uuid)->toBe($parent->uuid)
+    $this->getJson(route('recurring-entries.show', $parent->uuid))->assertOk()->assertJsonPath('planRefund', null);
+    $this->getJson(route('recurring-entries.plan-refund.preview', $parent->uuid))->assertForbidden();
+    $this->post(route('recurring-entries.plan-refund.store', $parent->uuid), $this->refundData)->assertForbidden();
+    expect(RecurringPlanRefund::count())->toBe(0)
         ->and($this->entry->fresh()->getAttributes())->toBe($before)
         ->and($component->fresh()->archived_at)->not->toBeNull();
 });
@@ -224,4 +226,32 @@ test('refund preview batches protection checks without queries per payment', fun
     expect($before['total_cents'])->toBe(10000)
         ->and($after['total_cents'])->toBe(210000)
         ->and($afterQueries)->toBe($beforeQueries);
+});
+
+test('global refund is hidden and forbidden for finite and infinite recurrences while row refunds remain available', function (string $endMode) {
+    $this->entry->update(['entry_type' => 'recurring', 'end_mode' => $endMode]);
+    $entryBefore = $this->entry->fresh()->getAttributes();
+    $rowsBefore = $this->entry->occurrences()->get()->map->getAttributes()->all();
+    $paymentBefore = $this->payment->fresh()->getAttributes();
+    $balanceBefore = $this->creditAccount->fresh()->current_balance;
+
+    $this->getJson(route('recurring-entries.show', $this->entry->uuid))->assertOk()->assertJsonPath('planRefund', null);
+    $this->getJson(route('recurring-entries.plan-refund.preview', $this->entry->uuid))->assertForbidden();
+    $this->post(route('recurring-entries.plan-refund.store', $this->entry->uuid), $this->refundData)->assertForbidden();
+
+    expect(RecurringPlanRefund::count())->toBe(0)
+        ->and(RecurringPlanRefundPayment::count())->toBe(0)
+        ->and(Transaction::where('kind', 'refund')->count())->toBe(0)
+        ->and($this->entry->fresh()->getAttributes())->toBe($entryBefore)
+        ->and($this->entry->occurrences()->get()->map->getAttributes()->all())->toBe($rowsBefore)
+        ->and($this->payment->fresh()->getAttributes())->toBe($paymentBefore)
+        ->and($this->creditAccount->fresh()->current_balance)->toBe($balanceBefore);
+
+    $refund = app(TransactionRefundService::class)->refund($this->payment);
+    expect($refund->kind->value)->toBe('refund');
+})->with(['finite' => 'after_occurrences', 'infinite' => 'never']);
+
+test('installment detail exposes the global refund preview', function () {
+    $this->getJson(route('recurring-entries.show', $this->entry->uuid))->assertOk()
+        ->assertJsonPath('planRefund.total_cents', 10000);
 });

@@ -2,6 +2,7 @@
 
 namespace App\Services\Recurring;
 
+use App\Enums\RecurringEntryTypeEnum;
 use App\Models\Account;
 use App\Models\CompoundRecurringEntry;
 use App\Models\RecurringEntry;
@@ -44,6 +45,8 @@ class RecurringPlanRefundService
         foreach ($entries as $entry) {
             abort_unless($this->accounts->canEditAccountId($actor, $entry->account_id), 403);
         }
+
+        abort_unless($plan instanceof RecurringEntry && $plan->entry_type === RecurringEntryTypeEnum::INSTALLMENT, 403);
 
         return compact('plan', 'entries');
     }

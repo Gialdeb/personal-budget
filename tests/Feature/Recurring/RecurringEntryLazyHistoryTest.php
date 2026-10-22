@@ -41,7 +41,7 @@ test('measures recurring history response', function () {
     $metrics = ['records' => count($response->json('recurringEntry.occurrences')), 'bytes' => strlen($response->getContent()), 'queries' => $queries];
     fwrite(STDOUT, json_encode($metrics).PHP_EOL);
     expect($metrics['records'])->toBe(7)->and($metrics['queries'])->toBeLessThan(90)->and($metrics['bytes'])->toBeLessThan(20000);
-    $response->assertJsonPath('planRefund.total_cents', 552000)
+    $response->assertJsonPath('planRefund', null)
         ->assertJsonPath('recurringEntry.occurrence_page.year', 2026)
         ->assertJsonPath('recurringEntry.occurrence_page.offset', 17)
         ->assertJsonPath('recurringEntry.occurrence_page.next_offset', null)

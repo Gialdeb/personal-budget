@@ -78,7 +78,11 @@ test('cost trend starts collapsed without mounting a chart on desktop or mobile'
         );
         assert.match(component, /v-if="years\.length > 1"/);
         assert.match(component, /v-for="point in visiblePoints\.filter/);
-        assert.match(page, /@click="costTrendPanel\?\.open\(\)"/);
+        assert.match(page, /@click="costTrendPanel\?\.toggle\(\)"/);
+        assert.equal(
+            [...page.matchAll(/@click="costTrendPanel\?\.open\(\)"/g)].length,
+            2,
+        );
     } finally {
         await server.close();
     }
@@ -307,6 +311,7 @@ test('compound annual chart preserves original year totals and year navigation w
         page.indexOf('<div v-else class="flex flex-wrap gap-2">'),
     );
     assert.match(header, /costTrendPanel\?\.open/);
+    assert.match(page, /costTrendPanel\?\.toggle/);
     assert.match(header, /recurringDetail\.compound\.add/);
 });
 
@@ -378,8 +383,8 @@ test('ordinary and compound trend titles follow the actual direction in Italian 
         );
         const expected = {
             it: {
-                expense: 'Andamento delle spese',
-                income: 'Andamento delle entrate',
+                expense: 'Andamento spese',
+                income: 'Andamento entrate',
             },
             en: { expense: 'Expense trend', income: 'Income trend' },
         };
@@ -438,7 +443,7 @@ test('ordinary and compound trend titles follow the actual direction in Italian 
         );
         assert.match(
             page,
-            /ref="costTrendPanel"\s+:direction="entry.direction"/,
+            /ref="costTrendPanel"\s+hide-trigger\s+:direction="entry.direction"/,
         );
     } finally {
         await server.close();

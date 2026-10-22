@@ -132,6 +132,7 @@ class RecurringEntry extends Model
         'shared_expense_my_share_cents' => 'integer',
         'shared_expense_counterparty_share_cents' => 'integer',
         'reminder_days_before' => 'array',
+        'price_conditions' => 'array',
         'direction' => TransactionDirectionEnum::class,
         'entry_type' => RecurringEntryTypeEnum::class,
         'status' => RecurringEntryStatusEnum::class,

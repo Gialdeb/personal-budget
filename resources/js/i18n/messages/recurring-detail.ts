@@ -1,5 +1,224 @@
 export const recurringDetailMessages = {
     it: {
+        income: {
+            panels: {
+                label: 'Grafico e importo',
+                priceSummary: 'Riepilogo importo',
+                price: {
+                    increase: 'Importo aumentato',
+                    decrease: 'Importo diminuito',
+                    guarantee: 'Importo garantito',
+                    unchanged: 'Importo comunicato',
+                },
+            },
+            priceConditions: {
+                manage: 'Gestisci importo',
+                expiryHint:
+                    'La scadenza dell’importo garantito non implica una variazione.',
+                cards: {
+                    guaranteed: 'L’importo che ricevi è garantito',
+                    your: {
+                        increase: 'Riceverai di più',
+                        decrease: 'Riceverai di meno',
+                        unchanged: 'L’importo che ricevi',
+                    },
+                    service: {
+                        increase: 'L’importo di riferimento aumenta',
+                        decrease: 'L’importo di riferimento diminuisce',
+                        unchanged: 'Importo di riferimento comunicato',
+                    },
+                    unknownPrevious: 'Importo precedente non disponibile.',
+                    unaffected: 'Per te l’importo non cambia',
+                    youPay: 'Continui a ricevere',
+                    servicePrice: 'Importo di riferimento comunicato:',
+                    serviceDifference: 'Variazione dell’importo di riferimento',
+                    yourDifference: {
+                        increase: 'Maggiore entrata',
+                        decrease: 'Minore entrata',
+                        unchanged: 'Variazione dell’entrata',
+                    },
+                    insteadOf: 'Importo di riferimento:',
+                },
+                guide: {
+                    actions: {
+                        lock: 'Il mio importo è garantito.',
+                        increase: 'L’importo è aumentato.',
+                        decrease: 'L’importo è diminuito.',
+                    },
+                    incompatibleLock:
+                        'Il tuo importo è garantito senza scadenza. Modifica o rimuovi prima la garanzia, oppure indica che la variazione non ti riguarda.',
+                    today: 'Oggi ricevi',
+                    lock: 'Importo garantito',
+                    change: 'Variazione dell’importo',
+                    howLong: 'Per quanto tempo è garantito?',
+                    applies: {
+                        personal: 'Sì, cambia anche l’importo che ricevo',
+                        list_only: 'No, ricevo lo stesso importo',
+                    },
+                    amountQuestion: 'Qual è il nuovo importo?',
+                    lockedForever:
+                        'Il tuo importo di {price} è garantito senza scadenza.',
+                    lockedUntil:
+                        'Il tuo importo di {price} è garantito fino al {date}.',
+                    yourChange: 'Riceverai {price}: il tuo importo {action}',
+                    serviceChange:
+                        'L’importo di riferimento {action} a {price}',
+                    unaffected: 'L’importo che ricevi non cambia.',
+                    serviceAlso:
+                        'L’importo di riferimento comunicato è {price}.',
+                    unknownPrevious:
+                        'Importo precedente non disponibile: differenza e percentuale non calcolabili.',
+                },
+            },
+        },
+        panels: {
+            label: 'Grafico e prezzo',
+            trend: { expense: 'Andamento spese', income: 'Andamento entrate' },
+            priceSummary: 'Riepilogo prezzo',
+            price: {
+                increase: 'Prezzo aumentato',
+                decrease: 'Prezzo diminuito',
+                guarantee: 'Prezzo garantito',
+                unchanged: 'Prezzo comunicato',
+            },
+        },
+        priceConditions: {
+            title: 'Condizioni del prezzo',
+            cards: {
+                guaranteed: 'Il tuo prezzo è garantito',
+                noExpiry: 'Senza scadenza',
+                until: 'Fino al {date}',
+                fromDate: 'Dal {date}',
+                noDate: 'Data non comunicata',
+                your: {
+                    increase: 'Il tuo prezzo aumenta',
+                    decrease: 'Il tuo prezzo diminuisce',
+                    unchanged: 'Il tuo prezzo comunicato',
+                },
+                service: {
+                    increase: 'Il prezzo del servizio aumenta',
+                    decrease: 'Il prezzo del servizio diminuisce',
+                    unchanged: 'Prezzo del servizio comunicato',
+                },
+                before: 'Prima',
+                unknownPrice: 'Importo non disponibile',
+                unknownPrevious: 'Prezzo precedente non disponibile.',
+                unaffected: 'Per te il prezzo non cambia',
+                youPay: 'Continui a pagare',
+                servicePrice: 'Prezzo del servizio comunicato:',
+                serviceDifference: 'Variazione del servizio',
+                yourDifference: 'Variazione del tuo prezzo',
+                insteadOf: 'Invece di',
+                historyLimit:
+                    'È disponibile solo l’ultima variazione: le scadenze precedenti non vengono annotate.',
+                missingDate:
+                    'Senza una data effettiva non è possibile annotare le scadenze.',
+            },
+
+            guide: {
+                actions: {
+                    lock: 'Il mio prezzo è bloccato.',
+                    increase: 'Il prezzo è aumentato.',
+                    decrease: 'Il prezzo è diminuito.',
+                },
+                incompatibleLock:
+                    'Il tuo prezzo è bloccato senza scadenza. Modifica o rimuovi prima il blocco, oppure indica che la variazione non ti riguarda.',
+                incompatibleDate:
+                    'La variazione che ti riguarda deve iniziare dopo la data garantita. Modifica una delle due date.',
+                today: 'Oggi paghi',
+                registered: 'Condizioni registrate',
+                addMore: 'Vuoi aggiungere o aggiornare una condizione?',
+                whatHappened: 'Che cosa vuoi annotare?',
+                edit: 'Modifica',
+                remove: 'Rimuovi',
+                lock: 'Prezzo bloccato',
+                change: 'Variazione di prezzo',
+                back: 'Indietro',
+                howLong: 'Per quanto tempo è bloccato?',
+                durations: {
+                    indefinite: 'Senza scadenza',
+                    until: 'Fino a una data',
+                },
+                untilQuestion: 'Fino a quando?',
+                appliesQuestion: 'La variazione riguarda anche te?',
+                applies: {
+                    personal: 'Sì, cambia anche per me',
+                    list_only: 'No, per me non cambia',
+                },
+                amountQuestion: 'Qual è il nuovo importo?',
+                dateQuestion: 'Da quando? (facoltativo)',
+                noDate: 'Data non indicata',
+                preview: 'Ecco cosa verrà annotato',
+                addToSummary: 'Aggiungi al riepilogo',
+                lockedForever:
+                    'Il tuo prezzo di {price} è bloccato senza scadenza.',
+                lockedUntil:
+                    'Il tuo prezzo di {price} è garantito fino al {date}.',
+                yourChange: 'Pagherai {price}: il tuo prezzo {action}',
+                serviceChange: 'Il prezzo del servizio {action} a {price}',
+                verbs: {
+                    increase: 'aumenta',
+                    decrease: 'diminuisce',
+                    changed: 'cambia',
+                },
+                from: '(prima {price})',
+                fromDate: 'dal {date}',
+                unaffected: 'Per te il prezzo non cambia.',
+                serviceAlso: 'Il prezzo del servizio comunicato è {price}.',
+                unknownPrevious:
+                    'Prezzo precedente non disponibile: differenza e percentuale non calcolabili.',
+                noPercentage: 'percentuale non calcolabile',
+                directionError:
+                    'Il nuovo importo deve essere coerente con l’aumento o la diminuzione scelti.',
+            },
+
+            listPrice: 'Listino del fornitore',
+            personalPrice: 'Il tuo prezzo attuale',
+            referenceHint:
+                'Prezzi descrittivi e facoltativi. Se il tuo prezzo non è indicato, il confronto usa l’importo del piano:',
+            guarantee: 'Garanzia del tuo prezzo',
+            noGuarantee: 'Nessuna data indicata',
+            guaranteedUntil: 'Garantito fino a una data',
+            announcement: 'Variazione annunciata',
+            scopes: {
+                none: 'Nessuna variazione',
+                list_only: 'Solo listino, non mi riguarda',
+                personal: 'Riguarda anche il mio prezzo',
+            },
+            unaffected:
+                'Il tuo prezzo personale resta il riferimento: questa variazione riguarda soltanto il listino.',
+            newList: 'Nuovo listino del fornitore',
+            optionalNewList: 'Nuovo listino del fornitore (facoltativo)',
+            newPersonal: 'Il tuo nuovo prezzo',
+            personalDifference: 'Variazione rispetto al tuo vecchio prezzo',
+            listDifference: 'Variazione rispetto al vecchio listino',
+            saving: 'Risparmio rispetto al listino attuale',
+            surcharge: 'Sovrapprezzo rispetto al listino attuale',
+            futureSaving: 'Risparmio rispetto al nuovo listino',
+            futureSavingCurrentList:
+                'Risparmio dopo la variazione (listino attuale)',
+            futureSurcharge: 'Sovrapprezzo dopo la variazione',
+            noPercentage: 'percentuale non calcolabile',
+            types: {
+                locked_until: 'Prezzo bloccato fino a una data',
+                announced: 'Variazione di prezzo annunciata',
+            },
+            until: 'Prezzo bloccato fino al',
+            newAmount: 'Nuovo importo annunciato',
+            effectiveFrom: 'Data di applicazione',
+            optionalDate: 'Data di applicazione (facoltativa)',
+            noDate: 'Non comunicata',
+            currentAmount: 'Importo attuale del piano',
+            difference: 'Differenza rispetto all’importo attuale',
+            expiryHint:
+                'La scadenza del prezzo bloccato non implica un aumento.',
+            informational:
+                'Informazioni descrittive: non modificano automaticamente importi, ricorrenze, scadenze o transazioni.',
+            manage: 'Gestisci prezzo',
+            remove: 'Rimuovi informazioni',
+            cancel: 'Annulla',
+            save: 'Salva condizioni',
+        },
         planRefund: {
             action: 'Rimborsa',
             title: 'Rimborsa i pagamenti del piano',
@@ -115,8 +334,8 @@ export const recurringDetailMessages = {
             confirmDelete: 'Eliminare questo costo storico?',
 
             title: {
-                expense: 'Andamento delle spese',
-                income: 'Andamento delle entrate',
+                expense: 'Andamento spese',
+                income: 'Andamento entrate',
             },
             action: 'Andamento',
             all: 'Tutto',
@@ -175,6 +394,220 @@ export const recurringDetailMessages = {
         noEndTotal: 'Il piano non ha un numero totale di scadenze.',
     },
     en: {
+        income: {
+            panels: {
+                label: 'Chart and amount',
+                priceSummary: 'Amount summary',
+                price: {
+                    increase: 'Amount increased',
+                    decrease: 'Amount decreased',
+                    guarantee: 'Guaranteed amount',
+                    unchanged: 'Announced amount',
+                },
+            },
+            priceConditions: {
+                manage: 'Manage amount',
+                expiryHint:
+                    'Expiry of the guaranteed amount does not imply a change.',
+                cards: {
+                    guaranteed: 'The amount you receive is guaranteed',
+                    your: {
+                        increase: 'You will receive more',
+                        decrease: 'You will receive less',
+                        unchanged: 'The amount you receive',
+                    },
+                    service: {
+                        increase: 'The reference amount increases',
+                        decrease: 'The reference amount decreases',
+                        unchanged: 'Announced reference amount',
+                    },
+                    unknownPrevious: 'Previous amount unavailable.',
+                    unaffected: 'Your amount does not change',
+                    youPay: 'You continue to receive',
+                    servicePrice: 'Announced reference amount:',
+                    serviceDifference: 'Reference amount change',
+                    yourDifference: {
+                        increase: 'Higher income',
+                        decrease: 'Lower income',
+                        unchanged: 'Income change',
+                    },
+                    insteadOf: 'Reference amount:',
+                },
+                guide: {
+                    actions: {
+                        lock: 'My amount is guaranteed.',
+                        increase: 'The amount increased.',
+                        decrease: 'The amount decreased.',
+                    },
+                    incompatibleLock:
+                        'Your amount is guaranteed indefinitely. Edit or remove the guarantee first, or specify that the change does not affect you.',
+                    today: 'You currently receive',
+                    lock: 'Guaranteed amount',
+                    change: 'Amount change',
+                    howLong: 'How long is the amount guaranteed?',
+                    applies: {
+                        personal: 'Yes, the amount I receive changes too',
+                        list_only: 'No, I receive the same amount',
+                    },
+                    amountQuestion: 'What is the new amount?',
+                    lockedForever:
+                        'Your amount of {price} is guaranteed with no expiry.',
+                    lockedUntil:
+                        'Your amount of {price} is guaranteed until {date}.',
+                    yourChange:
+                        'You will receive {price}: your amount {action}',
+                    serviceChange: 'The reference amount {action} to {price}',
+                    unaffected: 'The amount you receive does not change.',
+                    serviceAlso: 'The announced reference amount is {price}.',
+                    unknownPrevious:
+                        'Previous amount unavailable: the difference and percentage cannot be calculated.',
+                },
+            },
+        },
+        panels: {
+            label: 'Chart and price',
+            trend: { expense: 'Spending trend', income: 'Income trend' },
+            priceSummary: 'Price summary',
+            price: {
+                increase: 'Price increased',
+                decrease: 'Price decreased',
+                guarantee: 'Guaranteed price',
+                unchanged: 'Announced price',
+            },
+        },
+        priceConditions: {
+            title: 'Price conditions',
+            cards: {
+                guaranteed: 'Your price is guaranteed',
+                noExpiry: 'No expiry',
+                until: 'Until {date}',
+                fromDate: 'From {date}',
+                noDate: 'Date not provided',
+                your: {
+                    increase: 'Your price increases',
+                    decrease: 'Your price decreases',
+                    unchanged: 'Your announced price',
+                },
+                service: {
+                    increase: 'The service price increases',
+                    decrease: 'The service price decreases',
+                    unchanged: 'Announced service price',
+                },
+                before: 'Previously',
+                unknownPrice: 'Amount unavailable',
+                unknownPrevious: 'Previous price unavailable.',
+                unaffected: 'Your price does not change',
+                youPay: 'You continue to pay',
+                servicePrice: 'Announced service price:',
+                serviceDifference: 'Service price change',
+                yourDifference: 'Your price change',
+                insteadOf: 'Instead of',
+                historyLimit:
+                    'Only the latest change is available: earlier occurrences are not annotated.',
+                missingDate:
+                    'Occurrences cannot be annotated without an effective date.',
+            },
+
+            guide: {
+                actions: {
+                    lock: 'My price is locked.',
+                    increase: 'The price increased.',
+                    decrease: 'The price decreased.',
+                },
+                incompatibleLock:
+                    'Your price is locked indefinitely. Edit or remove the lock first, or specify that the change does not affect you.',
+                incompatibleDate:
+                    'A change affecting you must start after the guaranteed date. Edit one of the dates.',
+                today: 'You currently pay',
+                registered: 'Recorded conditions',
+                addMore: 'Add or update a condition?',
+                whatHappened: 'What would you like to record?',
+                edit: 'Edit',
+                remove: 'Remove',
+                lock: 'Locked price',
+                change: 'Price change',
+                back: 'Back',
+                howLong: 'How long is your price locked?',
+                durations: { indefinite: 'No expiry', until: 'Until a date' },
+                untilQuestion: 'Until when?',
+                appliesQuestion: 'Does the change affect you too?',
+                applies: {
+                    personal: 'Yes, my price changes too',
+                    list_only: 'No, my price stays the same',
+                },
+                amountQuestion: 'What is the new amount?',
+                dateQuestion: 'From when? (optional)',
+                noDate: 'No date specified',
+                preview: 'This is what will be recorded',
+                addToSummary: 'Add to summary',
+                lockedForever:
+                    'Your price of {price} is locked with no expiry.',
+                lockedUntil:
+                    'Your price of {price} is guaranteed until {date}.',
+                yourChange: 'You will pay {price}: your price {action}',
+                serviceChange: 'The service price {action} to {price}',
+                verbs: {
+                    increase: 'increases',
+                    decrease: 'decreases',
+                    changed: 'changes',
+                },
+                from: '(previously {price})',
+                fromDate: 'from {date}',
+                unaffected: 'Your price does not change.',
+                serviceAlso: 'The announced service price is {price}.',
+                unknownPrevious:
+                    'Previous price unavailable: the difference and percentage cannot be calculated.',
+                noPercentage: 'percentage cannot be calculated',
+                directionError:
+                    'The amount must match the selected increase or decrease.',
+            },
+
+            listPrice: 'Supplier list price',
+            personalPrice: 'Your current price',
+            referenceHint:
+                'Optional descriptive prices. When your price is blank, comparisons use the plan amount:',
+            guarantee: 'Your price guarantee',
+            noGuarantee: 'No date specified',
+            guaranteedUntil: 'Guaranteed until a date',
+            announcement: 'Announced change',
+            scopes: {
+                none: 'No change',
+                list_only: 'List price only, does not affect me',
+                personal: 'Also affects my price',
+            },
+            unaffected:
+                'Your personal price remains the reference: this change only affects the list price.',
+            newList: 'New supplier list price',
+            optionalNewList: 'New supplier list price (optional)',
+            newPersonal: 'Your new price',
+            personalDifference: 'Change from your previous price',
+            listDifference: 'Change from the previous list price',
+            saving: 'Saving against the current list price',
+            surcharge: 'Surcharge against the current list price',
+            futureSaving: 'Saving against the new list price',
+            futureSavingCurrentList:
+                'Saving after the change (current list price)',
+            futureSurcharge: 'Surcharge after the change',
+            noPercentage: 'percentage cannot be calculated',
+            types: {
+                locked_until: 'Price locked until a date',
+                announced: 'Announced price change',
+            },
+            until: 'Price locked until',
+            newAmount: 'Announced new amount',
+            effectiveFrom: 'Effective date',
+            optionalDate: 'Effective date (optional)',
+            noDate: 'Not announced',
+            currentAmount: 'Current plan amount',
+            difference: 'Difference from current amount',
+            expiryHint: 'Expiry of a locked price does not imply an increase.',
+            informational:
+                'Descriptive information: amounts, recurrence, due dates and transactions are never changed automatically.',
+            manage: 'Manage price',
+            remove: 'Remove information',
+            cancel: 'Cancel',
+            save: 'Save conditions',
+        },
         planRefund: {
             action: 'Refund',
             title: 'Refund plan payments',

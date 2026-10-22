@@ -40,6 +40,7 @@ class RecurringEntryShowResource extends JsonResource
             'occurrence_years' => $this->detail_summary !== null ? $this->occurrence_years : [],
             'occurrence_page' => $this->occurrence_page,
             'summary' => $this->detail_summary,
+            'price_conditions' => $this->price_conditions,
             'cost_trend' => $this->cost_trend ?? [],
             'compound_cost_trend' => $this->compound_cost_trend,
             'manual_costs' => $this->entry_type?->value === 'recurring'

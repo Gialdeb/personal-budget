@@ -14,6 +14,7 @@ use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\RecurringEntryController;
 use App\Http\Controllers\RecurringEntryManualCostController;
 use App\Http\Controllers\RecurringEntryOccurrenceController;
+use App\Http\Controllers\RecurringEntryPriceConditionsController;
 use App\Http\Controllers\RecurringEntryTransactionController;
 use App\Http\Controllers\RecurringPlanRefundController;
 use App\Http\Controllers\ReportController;
@@ -175,6 +176,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::post('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/convert', [RecurringEntryOccurrenceController::class, 'convert'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.convert');
     Route::get('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/payment-candidates', [RecurringEntryOccurrenceController::class, 'paymentCandidates'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.payment-candidates');
     Route::post('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/payments', [RecurringEntryOccurrenceController::class, 'allocatePayment'])->whereUuid('occurrence')->whereUuid('recurringEntry')->name('recurring-entries.occurrences.payments.store');
+    Route::patch('recurring-entries/{recurringEntry:uuid}/price-conditions', [RecurringEntryPriceConditionsController::class, 'update'])->whereUuid('recurringEntry')->name('recurring-entries.price-conditions.update');
     Route::post('recurring-entries/{recurringEntry:uuid}/manual-costs', [RecurringEntryManualCostController::class, 'store'])->whereUuid('recurringEntry')->name('recurring-entries.manual-costs.store');
     Route::patch('recurring-entries/{recurringEntry:uuid}/manual-costs/{manualCost:uuid}', [RecurringEntryManualCostController::class, 'update'])->whereUuid('recurringEntry')->whereUuid('manualCost')->scopeBindings()->name('recurring-entries.manual-costs.update');
     Route::delete('recurring-entries/{recurringEntry:uuid}/manual-costs/{manualCost:uuid}', [RecurringEntryManualCostController::class, 'destroy'])->whereUuid('recurringEntry')->whereUuid('manualCost')->scopeBindings()->name('recurring-entries.manual-costs.destroy');

@@ -163,7 +163,7 @@ class RecurringEntryController extends Controller
         $entry->setAttribute('occurrence_page', ['year' => $year, 'offset' => $chunk['offset'], 'next_offset' => $chunk['next_offset'], 'show_cancelled' => $chunk['show_cancelled']]);
 
         $payload = [
-            'planRefund' => ($owners ?? collect([$entry]))->every(fn ($owner): bool => in_array((int) $owner->account_id, $editableAccountIds, true))
+            'planRefund' => $compound === null && $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT && ($owners ?? collect([$entry]))->every(fn ($owner): bool => in_array((int) $owner->account_id, $editableAccountIds, true))
                 ? app(RecurringPlanRefundService::class)->preview($request->user(), $compound?->uuid ?? $entry->uuid) : null,
             'recurringEntry' => (new RecurringEntryShowResource($entry))->resolve(),
             'formOptions' => $this->formOptionsPayload($request),

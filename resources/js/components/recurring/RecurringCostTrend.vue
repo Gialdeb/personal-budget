@@ -58,6 +58,8 @@ const props = withDefaults(
         priceHistory?: RecurringEntryShowPayload['amount_history'];
         fixed?: boolean;
         canEdit?: boolean;
+        hideTrigger?: boolean;
+        panelId?: string;
     }>(),
     {
         manualCosts: () => [],
@@ -65,6 +67,8 @@ const props = withDefaults(
         fixed: false,
         canEdit: false,
         recurringEntryUuid: '',
+        hideTrigger: false,
+        panelId: 'recurring-cost-trend-panel',
     },
 );
 const { t, locale } = useI18n();
@@ -379,29 +383,66 @@ onBeforeUnmount(dispose);
 async function open(): Promise<void> {
     expanded.value = true;
     await nextTick();
-    panel.value?.scrollIntoView({
+    const scrollOptions: ScrollIntoViewOptions = {
         behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
             ? 'auto'
             : 'smooth',
         block: 'start',
-    });
+    };
+
+    if (props.hideTrigger && !chartElement.value) {
+        const stop = watch(
+            chartElement,
+            (element) => {
+                if (element) {
+                    element.scrollIntoView(scrollOptions);
+                    stop();
+                }
+            },
+            { flush: 'post' },
+        );
+
+        return;
+    }
+
+    (props.hideTrigger ? chartElement.value : panel.value)?.scrollIntoView(
+        scrollOptions,
+    );
 }
-defineExpose({ open });
+function toggle(): void {
+    expanded.value = !expanded.value;
+}
+defineExpose({ open, toggle, expanded });
 </script>
 
 <template>
     <section
         ref="panel"
-        class="min-w-0 scroll-mt-24 rounded-2xl border bg-card shadow-sm"
+        :class="
+            hideTrigger
+                ? 'contents'
+                : 'min-w-0 scroll-mt-24 rounded-2xl border bg-card shadow-sm'
+        "
     >
-        <Collapsible v-model:open="expanded">
+        <Collapsible
+            v-model:open="expanded"
+            :class="hideTrigger ? 'contents' : undefined"
+        >
             <CollapsibleTrigger
+                v-if="!hideTrigger"
                 class="flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left font-semibold focus-visible:outline-2 focus-visible:outline-ring sm:p-5"
             >
                 <span
                     class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
                 >
-                    <span>{{ title }}</span>
+                    <span
+                        :class="
+                            direction === 'income'
+                                ? 'text-emerald-700 dark:text-emerald-300'
+                                : 'text-sky-700 dark:text-sky-300'
+                        "
+                        >{{ title }}</span
+                    >
                     <span
                         class="text-xs font-normal text-muted-foreground"
                         aria-live="polite"
@@ -413,10 +454,31 @@ defineExpose({ open });
                     :class="expanded ? 'rotate-180' : ''"
                 />
             </CollapsibleTrigger>
-            <CollapsibleContent>
+            <CollapsibleContent
+                :class="hideTrigger ? 'cost-panel-content min-w-0' : undefined"
+            >
                 <div
+                    :id="panelId"
+                    role="region"
+                    :aria-label="title"
                     class="min-w-0 space-y-2 px-4 pb-3 sm:space-y-4 sm:px-5 sm:pb-5"
+                    :class="
+                        hideTrigger
+                            ? 'rounded-2xl border bg-card pt-4 shadow-sm sm:pt-5'
+                            : undefined
+                    "
                 >
+                    <h3
+                        v-if="hideTrigger"
+                        class="font-semibold"
+                        :class="
+                            direction === 'income'
+                                ? 'text-emerald-700 dark:text-emerald-300'
+                                : 'text-sky-700 dark:text-sky-300'
+                        "
+                    >
+                        {{ title }}
+                    </h3>
                     <div
                         v-if="years.length > 1"
                         class="flex items-center justify-end gap-1"
@@ -580,7 +642,7 @@ defineExpose({ open });
                     </div>
                     <div
                         ref="chartElement"
-                        class="h-48 w-full min-w-0 sm:h-72"
+                        class="h-48 w-full min-w-0 scroll-mt-24 sm:h-72"
                         role="img"
                         :aria-label="title"
                     />
@@ -710,3 +772,40 @@ defineExpose({ open });
         />
     </section>
 </template>
+
+<style scoped>
+.cost-panel-content {
+    overflow: hidden;
+}
+.cost-panel-content[data-state='open'] {
+    animation: cost-panel-open 180ms ease-out;
+}
+.cost-panel-content[data-state='closed'] {
+    animation: cost-panel-close 140ms ease-in;
+}
+@keyframes cost-panel-open {
+    from {
+        height: 0;
+        opacity: 0;
+    }
+    to {
+        height: var(--reka-collapsible-content-height);
+        opacity: 1;
+    }
+}
+@keyframes cost-panel-close {
+    from {
+        height: var(--reka-collapsible-content-height);
+        opacity: 1;
+    }
+    to {
+        height: 0;
+        opacity: 0;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cost-panel-content {
+        animation: none !important;
+    }
+}
+</style>

@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\Category;
+use App\Models\RecurringPlanRefund;
 use App\Models\RecurringPlanRefundPayment;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
 use App\Services\Recurring\RecurringEntryManagementService;
@@ -39,10 +41,26 @@ test('aggregate refunded occurrences expose the marker while keeping their paid 
     foreach ($paid as $row) {
         app(RecurringEntryPostingService::class)->post($row);
     }
-    app(RecurringPlanRefundService::class)->refund($this->actor, $entry->uuid, [
-        'request_uuid' => (string) Str::uuid(), 'transaction_date' => '2026-06-20', 'account_uuid' => $this->account->uuid,
-        'expected_total_cents' => $count * 10000, 'irreversible' => true,
-    ]);
+    if ($kind === 'installment') {
+        app(RecurringPlanRefundService::class)->refund($this->actor, $entry->uuid, [
+            'request_uuid' => (string) Str::uuid(), 'transaction_date' => '2026-06-20', 'account_uuid' => $this->account->uuid,
+            'expected_total_cents' => $count * 10000, 'irreversible' => true,
+        ]);
+    } else {
+        $credit = Transaction::create([
+            'user_id' => $this->actor->id, 'account_id' => $this->account->id,
+            'direction' => 'income', 'kind' => 'refund', 'source_type' => 'generated', 'status' => 'confirmed',
+            'transaction_date' => '2026-06-20', 'amount' => 100, 'currency' => 'EUR',
+        ]);
+        $legacyRefund = RecurringPlanRefund::create([
+            'plan_uuid' => $entry->uuid, 'request_uuid' => (string) Str::uuid(),
+            'user_id' => $this->actor->id, 'transaction_id' => $credit->id, 'amount_cents' => 10000,
+        ]);
+        $legacyRefund->payments()->create([
+            'transaction_id' => $paid->first()->fresh()->converted_transaction_id,
+            'occurrence_id' => $paid->first()->id, 'amount_cents' => 10000,
+        ]);
+    }
     $entryBefore = $entry->fresh()->getAttributes();
     $rowsBefore = $entry->occurrences()->orderBy('id')->get()->map->getAttributes()->all();
     $accountBefore = $this->account->fresh()->getAttributes();

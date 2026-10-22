@@ -698,6 +698,7 @@ export type CompoundRecurringCostYear = {
 
 export type RecurringEntryShowPayload = {
     compound_cost_trend?: CompoundRecurringCostYear[] | null;
+    price_conditions?: RecurringPriceConditions | null;
     manual_costs: RecurringManualCost[];
     cost_trend: RecurringCostTrendPoint[];
     occurrence_years: Array<{
@@ -769,6 +770,7 @@ export type RecurringEntryShowPayload = {
             is_overridden: boolean;
         } | null;
         expected_amount: number | null;
+        service_price_at_due_date?: number | null;
         status: string | null;
         external_payment?: {
             uuid: string;
@@ -867,3 +869,16 @@ export type RecurringEntryShowPageProps = {
     formOptions: RecurringEntryFormOptions;
     dateOptions: RecurringEntryDateOptions;
 };
+
+export interface RecurringPriceConditions {
+    lock_mode?: 'indefinite' | 'until' | null;
+    change_direction?: 'increase' | 'decrease' | null;
+    list_price?: string | number | null;
+    personal_price?: string | number | null;
+    change_scope?: 'list_only' | 'personal' | null;
+    new_list_price?: string | number | null;
+    type?: 'standard' | 'locked' | 'locked_until' | 'announced';
+    locked_until?: string | null;
+    new_amount?: string | number | null;
+    effective_from?: string | null;
+}

@@ -58,6 +58,7 @@ import OccurrencePayments from '@/components/recurring/OccurrencePayments.vue';
 import RecurringCostTrend from '@/components/recurring/RecurringCostTrend.vue';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringPlanRefund from '@/components/recurring/RecurringPlanRefund.vue';
+import RecurringPriceConditions from '@/components/recurring/RecurringPriceConditions.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import { Badge } from '@/components/ui/badge';
@@ -124,12 +125,16 @@ const failedYears = ref<number[]>([]);
 const retryOffsets = ref<Record<number, number>>({});
 const distributionLoading = ref(false);
 const distributionRows = ref<Occurrence[]>([]);
+const priceConditionsOpen = ref(false);
 const historyOpen = ref(false);
 const componentsOpen = ref(true);
 const lifecycleOpen = ref(false);
 const planRefundPanel = ref<InstanceType<typeof RecurringPlanRefund> | null>(
     null,
 );
+const priceSummaryPanel = ref<InstanceType<
+    typeof RecurringPriceConditions
+> | null>(null);
 const costTrendPanel = ref<InstanceType<typeof RecurringCostTrend> | null>(
     null,
 );
@@ -1730,12 +1735,31 @@ function isFutureOccurrence(
                             data-compound-plan-actions
                         >
                             <Button
+                                v-if="hasCostTrend"
                                 variant="outline"
-                                size="sm"
+                                class="rounded-2xl"
                                 @click="costTrendPanel?.open()"
                             >
                                 <ChartNoAxesCombined class="mr-2 size-4" />
                                 {{ t('recurringDetail.costTrend.action') }}
+                            </Button>
+                            <Button
+                                v-if="
+                                    entry.entry_type === 'recurring' &&
+                                    entry.can_edit
+                                "
+                                variant="outline"
+                                size="sm"
+                                class="rounded-2xl"
+                                @click="priceConditionsOpen = true"
+                            >
+                                {{
+                                    t(
+                                        entry.direction === 'income'
+                                            ? 'recurringDetail.income.priceConditions.manage'
+                                            : 'recurringDetail.priceConditions.manage',
+                                    )
+                                }}
                             </Button>
                             <Button
                                 v-if="props.planRefund"
@@ -1766,7 +1790,6 @@ function isFutureOccurrence(
                             <Button
                                 v-if="hasCostTrend"
                                 variant="outline"
-                                size="sm"
                                 class="rounded-2xl"
                                 @click="costTrendPanel?.open()"
                             >
@@ -1858,6 +1881,24 @@ function isFutureOccurrence(
                                 @click="cancelDialogOpen = true"
                             >
                                 {{ t('transactions.recurring.actions.cancel') }}
+                            </Button>
+                            <Button
+                                v-if="
+                                    entry.entry_type === 'recurring' &&
+                                    entry.can_edit
+                                "
+                                variant="outline"
+                                size="sm"
+                                class="rounded-2xl"
+                                @click="priceConditionsOpen = true"
+                            >
+                                {{
+                                    t(
+                                        entry.direction === 'income'
+                                            ? 'recurringDetail.income.priceConditions.manage'
+                                            : 'recurringDetail.priceConditions.manage',
+                                    )
+                                }}
                             </Button>
                             <Button
                                 v-if="props.planRefund"
@@ -2592,26 +2633,172 @@ function isFutureOccurrence(
                 </div>
             </section>
 
-            <RecurringCostTrend
+            <section
                 v-if="hasCostTrend"
-                :key="compound?.uuid ?? entry.uuid"
-                ref="costTrendPanel"
-                :direction="entry.direction"
-                :points="compound ? [] : recurringEntry.cost_trend"
-                :annual-summaries="
-                    compound
-                        ? (recurringEntry.compound_cost_trend ?? [])
-                        : undefined
-                "
-                :recurring-entry-uuid="entry.uuid"
-                :manual-costs="compound ? [] : recurringEntry.manual_costs"
-                :price-history="compound ? [] : recurringEntry.amount_history"
-                :fixed="!compound && !entry.is_amount_variable"
-                :can-edit="!compound && entry.can_edit"
-                :currency="
-                    entry.currency ?? auth.user?.base_currency_code ?? 'EUR'
-                "
-            />
+                class="min-w-0 space-y-3 pb-1"
+                data-recurring-detail-panels
+            >
+                <div
+                    class="flex min-w-0 flex-wrap gap-2"
+                    role="group"
+                    :aria-label="
+                        t(
+                            entry.direction === 'income'
+                                ? 'recurringDetail.income.panels.label'
+                                : 'recurringDetail.panels.label',
+                        )
+                    "
+                >
+                    <Button
+                        type="button"
+                        variant="outline"
+                        class="h-auto max-w-full min-w-0 gap-2 rounded-xl px-3 py-2 text-left"
+                        :class="
+                            entry.direction === 'income'
+                                ? 'text-emerald-700 dark:text-emerald-300'
+                                : 'text-sky-700 dark:text-sky-300'
+                        "
+                        :aria-expanded="Boolean(costTrendPanel?.expanded)"
+                        aria-controls="recurring-cost-trend-panel"
+                        @click="costTrendPanel?.toggle()"
+                    >
+                        <span
+                            class="flex size-8 shrink-0 items-center justify-center rounded-full"
+                            :class="
+                                entry.direction === 'income'
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                    : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
+                            "
+                            aria-hidden="true"
+                            ><ChartNoAxesCombined class="size-4"
+                        /></span>
+                        <span class="whitespace-normal">{{
+                            t(
+                                'recurringDetail.panels.trend.' +
+                                    (entry.direction === 'income'
+                                        ? 'income'
+                                        : 'expense'),
+                            )
+                        }}</span>
+                        <ChevronDown
+                            class="size-3.5 shrink-0 transition-transform motion-reduce:transition-none"
+                            :class="
+                                costTrendPanel?.expanded ? 'rotate-180' : ''
+                            "
+                            aria-hidden="true"
+                        />
+                    </Button>
+                    <Button
+                        v-if="priceSummaryPanel?.summaryButton"
+                        type="button"
+                        variant="outline"
+                        class="h-auto max-w-full min-w-0 flex-wrap gap-2 rounded-xl px-3 py-2 text-left"
+                        :aria-expanded="
+                            Boolean(priceSummaryPanel.summaryExpanded)
+                        "
+                        :aria-controls="`recurring-price-summary-${entry.uuid}`"
+                        @click="priceSummaryPanel.toggleSummary()"
+                    >
+                        <span
+                            class="flex size-8 shrink-0 items-center justify-center rounded-full"
+                            :class="
+                                priceSummaryPanel.summaryButton.kind ===
+                                (entry.direction === 'income'
+                                    ? 'decrease'
+                                    : 'increase')
+                                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+                                    : priceSummaryPanel.summaryButton.kind ===
+                                        (entry.direction === 'income'
+                                            ? 'increase'
+                                            : 'decrease')
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                      : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
+                            "
+                            aria-hidden="true"
+                        >
+                            <component
+                                :is="
+                                    priceSummaryPanel.summaryButton.kind ===
+                                    'increase'
+                                        ? ArrowUpRight
+                                        : priceSummaryPanel.summaryButton
+                                                .kind === 'decrease'
+                                          ? ArrowDownLeft
+                                          : ShieldCheck
+                                "
+                                class="size-4"
+                            />
+                        </span>
+                        <span class="whitespace-normal">{{
+                            t(
+                                (entry.direction === 'income'
+                                    ? 'recurringDetail.income.panels.price.'
+                                    : 'recurringDetail.panels.price.') +
+                                    priceSummaryPanel.summaryButton.kind,
+                            )
+                        }}</span>
+                        <SensitiveValue
+                            v-if="
+                                typeof priceSummaryPanel.summaryButton.price ===
+                                'number'
+                            "
+                            class="text-xs tabular-nums"
+                            :value="
+                                formatMoney(
+                                    priceSummaryPanel.summaryButton.price,
+                                    entry.currency,
+                                )
+                            "
+                        />
+                        <ChevronDown
+                            class="size-3.5 shrink-0 transition-transform motion-reduce:transition-none"
+                            :class="
+                                priceSummaryPanel.summaryExpanded
+                                    ? 'rotate-180'
+                                    : ''
+                            "
+                            aria-hidden="true"
+                        />
+                    </Button>
+                </div>
+                <RecurringPriceConditions
+                    ref="priceSummaryPanel"
+                    collapsible-summary
+                    v-model:open="priceConditionsOpen"
+                    v-if="entry.entry_type === 'recurring'"
+                    :key="entry.uuid"
+                    :recurring-entry-uuid="entry.uuid"
+                    :conditions="recurringEntry.price_conditions"
+                    :direction="entry.direction"
+                    :current-amount="entry.expected_amount ?? null"
+                    :currency="entry.currency ?? 'EUR'"
+                    :can-edit="Boolean(entry.can_edit)"
+                />
+
+                <RecurringCostTrend
+                    v-if="hasCostTrend"
+                    :key="compound?.uuid ?? entry.uuid"
+                    ref="costTrendPanel"
+                    hide-trigger
+                    :direction="entry.direction"
+                    :points="compound ? [] : recurringEntry.cost_trend"
+                    :annual-summaries="
+                        compound
+                            ? (recurringEntry.compound_cost_trend ?? [])
+                            : undefined
+                    "
+                    :recurring-entry-uuid="entry.uuid"
+                    :manual-costs="compound ? [] : recurringEntry.manual_costs"
+                    :price-history="
+                        compound ? [] : recurringEntry.amount_history
+                    "
+                    :fixed="!compound && !entry.is_amount_variable"
+                    :can-edit="!compound && entry.can_edit"
+                    :currency="
+                        entry.currency ?? auth.user?.base_currency_code ?? 'EUR'
+                    "
+                />
+            </section>
 
             <section
                 v-if="entry.entry_type === 'recurring' && entry.trial_duration"
@@ -2934,7 +3121,7 @@ function isFutureOccurrence(
                                     </form>
                                     <div
                                         v-else
-                                        class="flex items-center gap-1.5"
+                                        class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5"
                                     >
                                         <p
                                             class="text-sm font-semibold text-slate-950 dark:text-white"
@@ -2963,6 +3150,30 @@ function isFutureOccurrence(
                                         >
                                             <Pencil class="size-3.5" />
                                         </Button>
+                                        <p
+                                            v-if="
+                                                typeof occurrence.service_price_at_due_date ===
+                                                'number'
+                                            "
+                                            data-service-price-note
+                                            class="basis-full text-xs font-normal text-muted-foreground"
+                                        >
+                                            {{
+                                                t(
+                                                    entry.direction === 'income'
+                                                        ? 'recurringDetail.income.priceConditions.cards.insteadOf'
+                                                        : 'recurringDetail.priceConditions.cards.insteadOf',
+                                                )
+                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatMoney(
+                                                        occurrence.service_price_at_due_date,
+                                                        entry.currency,
+                                                    )
+                                                "
+                                            />
+                                        </p>
                                     </div>
                                 </div>
 
@@ -3439,7 +3650,7 @@ function isFutureOccurrence(
                                             </form>
                                             <div
                                                 v-else
-                                                class="flex items-center gap-1.5"
+                                                class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5"
                                             >
                                                 <SensitiveValue
                                                     :value="
@@ -3470,6 +3681,31 @@ function isFutureOccurrence(
                                                 >
                                                     <Pencil class="size-3.5" />
                                                 </Button>
+                                                <p
+                                                    v-if="
+                                                        typeof occurrence.service_price_at_due_date ===
+                                                        'number'
+                                                    "
+                                                    data-service-price-note
+                                                    class="basis-full text-xs font-normal text-muted-foreground"
+                                                >
+                                                    {{
+                                                        t(
+                                                            entry.direction ===
+                                                                'income'
+                                                                ? 'recurringDetail.income.priceConditions.cards.insteadOf'
+                                                                : 'recurringDetail.priceConditions.cards.insteadOf',
+                                                        )
+                                                    }}
+                                                    <SensitiveValue
+                                                        :value="
+                                                            formatMoney(
+                                                                occurrence.service_price_at_due_date,
+                                                                entry.currency,
+                                                            )
+                                                        "
+                                                    />
+                                                </p>
                                             </div>
                                             <dl class="mt-2 space-y-1 text-xs">
                                                 <div

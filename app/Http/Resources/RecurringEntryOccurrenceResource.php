@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
+use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
 use App\Services\Recurring\RecurringOccurrenceReadService;
@@ -91,6 +92,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 'is_overridden' => $this->account_id !== null,
             ],
             'expected_amount' => $this->expected_amount !== null ? (float) $this->expected_amount : null,
+            'service_price_at_due_date' => $this->servicePriceAtDueDate($entry),
             'status' => $this->status?->value,
             'is_refunded' => $aggregateRefundedIds !== [] || $this->convertedTransaction?->refundTransaction !== null || $this->status?->value === 'refunded',
             'allocated_amount' => $allocatedCents / 100,
@@ -173,6 +175,25 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 ],
             ],
         ];
+    }
+
+    private function servicePriceAtDueDate(?RecurringEntry $entry): ?float
+    {
+        $conditions = $entry?->price_conditions;
+        $effective = $conditions['effective_from'] ?? null;
+        $price = $conditions['new_list_price'] ?? null;
+        $date = $this->due_date ?? $this->expected_date;
+        if ($entry?->entry_type !== RecurringEntryTypeEnum::RECURRING
+            || ($conditions['change_scope'] ?? null) !== 'list_only'
+            || ! is_string($effective) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $effective)
+            || ! checkdate((int) substr($effective, 5, 2), (int) substr($effective, 8, 2), (int) substr($effective, 0, 4))
+            || $date === null || $date->toDateString() < $effective
+            || ! is_numeric($price) || (float) $price < 0 || $this->expected_amount === null
+            || (int) round((float) $price * 100) === (int) round((float) $this->expected_amount * 100)) {
+            return null;
+        }
+
+        return (float) $price;
     }
 
     protected function transactionShowUrl(Transaction $transaction): ?string

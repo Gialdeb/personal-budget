@@ -82,7 +82,7 @@ function remove(): void {
     <Sheet :open="open" @update:open="emit('update:open', $event)">
         <SheetContent
             :side="isMobile ? 'bottom' : 'right'"
-            class="max-h-[85dvh] overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6"
+            class="max-h-[85dvh] overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 md:max-h-dvh"
         >
             <SheetHeader>
                 <SheetTitle>{{
@@ -96,7 +96,7 @@ function remove(): void {
                     t('recurringDetail.costTrend.informational')
                 }}</SheetDescription>
             </SheetHeader>
-            <form class="space-y-3" @submit.prevent="save">
+            <form class="shrink-0 space-y-3" @submit.prevent="save">
                 <div class="space-y-1">
                     <Label for="manual-cost-date">{{
                         t('recurringDetail.costTrend.date')

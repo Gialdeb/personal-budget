@@ -60,7 +60,7 @@ function submit(): void {
     <Sheet :open="open" @update:open="emit('update:open', $event)">
         <SheetContent
             :side="mobile ? 'bottom' : 'right'"
-            class="max-h-[90dvh] overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-[32rem] sm:max-w-lg sm:p-6"
+            class="max-h-[90dvh] overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-[32rem] sm:max-w-lg sm:p-6 md:max-h-dvh"
         >
             <SheetHeader
                 ><SheetTitle>{{ t('recurringDetail.compound.add') }}</SheetTitle
@@ -68,7 +68,7 @@ function submit(): void {
                     t('recurringDetail.compound.description')
                 }}</SheetDescription></SheetHeader
             >
-            <form class="space-y-3" @submit.prevent="submit">
+            <form class="shrink-0 space-y-3" @submit.prevent="submit">
                 <CompoundRecurringPaymentFields
                     v-model="form.components"
                     :currency="currency"
