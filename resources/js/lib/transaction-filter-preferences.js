@@ -13,7 +13,6 @@ export const transactionFilterDefaults = {
     category: 'all',
     account: 'all',
     search: '',
-    advancedBy: 'all',
 };
 const booleanKeys = [
     'transfer',
@@ -39,7 +38,6 @@ const queryKeys = {
     category: 'category_uuid',
     account: 'account_uuid',
     search: 'search',
-    advancedBy: 'tx_advanced_by',
 };
 
 export function normalizeTransactionFilters(value) {
@@ -55,13 +53,7 @@ export function normalizeTransactionFilters(value) {
         }
     }
 
-    for (const key of [
-        'macrogroup',
-        'category',
-        'account',
-        'search',
-        'advancedBy',
-    ]) {
+    for (const key of ['macrogroup', 'category', 'account', 'search']) {
         if (typeof value[key] === 'string' && value[key].length <= 1000) {
             filters[key] = value[key];
         }
@@ -173,6 +165,7 @@ export function resolveTransactionFilters(url, saved) {
 export function transactionFilterUrl(url, filters) {
     const parsed = new URL(url, 'https://transactions.local');
     const normalized = normalizeTransactionFilters(filters);
+    parsed.searchParams.delete('tx_advanced_by');
 
     for (const [key, query] of Object.entries(queryKeys)) {
         parsed.searchParams.delete(query);
@@ -203,7 +196,11 @@ export function transactionFiltersAreCustomized(filters) {
 export function clearTransactionFilterUrl(url) {
     const parsed = new URL(url, 'https://transactions.local');
 
-    for (const query of [...Object.values(queryKeys), 'tx_filters']) {
+    for (const query of [
+        ...Object.values(queryKeys),
+        'tx_filters',
+        'tx_advanced_by',
+    ]) {
         parsed.searchParams.delete(query);
     }
 

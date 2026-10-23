@@ -9,6 +9,7 @@ use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Http\Requests\Recurring\PauseRecurringEntryRequest;
 use App\Http\Requests\Recurring\PreviewRecurringEntryExchangeRequest;
+use App\Http\Requests\Recurring\PreviewRecurringPromotionRequest;
 use App\Http\Requests\Recurring\ReactivateRecurringEntryRequest;
 use App\Http\Requests\Recurring\StoreRecurringEntryRequest;
 use App\Http\Requests\Recurring\UpdateInstallmentDistributionRequest;
@@ -35,7 +36,9 @@ use App\Services\Recurring\DeleteRecurringEntryService;
 use App\Services\Recurring\RecalculateInstallmentPlanAmountService;
 use App\Services\Recurring\RecurringEntryDetailReadService;
 use App\Services\Recurring\RecurringEntryManagementService;
+use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
 use App\Services\Recurring\RecurringEntryPeriodService;
+use App\Services\Recurring\RecurringEntryValidatorService;
 use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Services\Recurring\RecurringPlanRefundService;
 use App\Services\Salary\SalaryEmploymentService;
@@ -56,6 +59,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -260,6 +264,26 @@ class RecurringEntryController extends Controller
             ->with('success', __('transactions.flash.recurring_deleted'));
     }
 
+    public function previewPromotion(PreviewRecurringPromotionRequest $request, RecurringEntryValidatorService $validator, RecurringEntryOccurrenceGeneratorService $generator): JsonResponse
+    {
+        $data = $request->validated();
+        $entry = filled($data['recurring_entry_uuid'] ?? null)
+            ? RecurringEntry::query()->where('uuid', $data['recurring_entry_uuid'])->firstOrFail() : null;
+        if ($entry !== null) {
+            $this->accessibleRecurringEntry($request, $entry);
+            abort_unless($this->accessibleAccountsQuery->canEditAccountId($request->user(), $entry->account_id) && ! $entry->isArchivedComponent(), 403);
+        }
+        $normalized = $validator->validate($request->user(), [...($entry?->getAttributes() ?? []), ...$data], $entry);
+        $candidate = $entry ? clone $entry : new RecurringEntry;
+        $candidate->fill($normalized);
+        $impact = $entry ? $generator->promotionImpact($candidate, $entry) : ['changes' => [], 'confirmation' => null];
+        $start = $candidate->firstBillingDate();
+        $schedule = $generator->previewScheduleWithinRange($candidate, $start, $start->addYears(2), 6)
+            ->map(fn (array $row): array => ['date' => $row['expected_date'], 'amount' => (float) $row['expected_amount'], 'currency' => $candidate->currency])->all();
+
+        return response()->json([...$impact, 'promotion' => $candidate->promotion, 'schedule' => $schedule]);
+    }
+
     public function previewExchangeSnapshot(
         PreviewRecurringEntryExchangeRequest $request,
     ): JsonResponse {
@@ -302,6 +326,11 @@ class RecurringEntryController extends Controller
     {
         $validated = $request->validate([
             'draft' => ['sometimes', 'boolean'],
+            'website_url' => ['required_if:logo_source,website', 'nullable', 'string', 'max:2048'],
+            'logo_identity_uuid' => ['sometimes', 'nullable', 'uuid'],
+            'logo_brand_uuid' => ['sometimes', 'nullable', 'uuid'],
+            'logo_upload_token' => ['sometimes', 'nullable', 'string', 'max:8192'],
+            'logo_source' => ['sometimes', 'in:website'],
             'name' => ['required_without:tracked_item_uuid', 'nullable', 'string', 'max:150'],
             'tracked_item_uuid' => ['nullable', 'uuid'],
             'account_uuid' => ['required', 'uuid'],
@@ -503,7 +532,7 @@ class RecurringEntryController extends Controller
 
             $query->where(function ($builder) use ($needle, $entryTypes): void {
                 $builder
-                    ->whereRaw('LOWER(title) LIKE ?', [$needle])
+                    ->whereRaw(DB::raw('LOWER(title) LIKE ?'), [$needle])
                     ->orWhereRaw('LOWER(COALESCE(description, \'\')) LIKE ?', [$needle])
                     ->orWhereRaw('LOWER(entry_type) LIKE ?', [$needle])
                     ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$needle]))
@@ -874,7 +903,7 @@ class RecurringEntryController extends Controller
                 ->selectRaw('COALESCE(due_date, expected_date)')
                 ->whereColumn('recurring_entry_id', 'recurring_entries.id')
                 ->whereIn('status', ['pending', 'generated', 'refunded'])
-                ->whereRaw('COALESCE(due_date, expected_date) >= ?', [today()->toDateString()])
+                ->whereRaw(DB::raw('COALESCE(due_date, expected_date) >= ?'), [today()->toDateString()])
                 ->orderByRaw('COALESCE(due_date, expected_date)')->orderBy('sequence_number')->limit(1)])
             ->with(['trackedItem.websiteIdentity', 'account', 'periods', 'salarySchedule'])->orderBy('title')->orderBy('id')->get();
         $installmentRows = RecurringEntryOccurrence::query()

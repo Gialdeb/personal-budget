@@ -160,6 +160,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::patch('recurring-entries/{compoundRecurringEntry:uuid}/components/{component:uuid}/archive', [CompoundRecurringEntryController::class, 'archive'])->whereUuid('compoundRecurringEntry')->whereUuid('component')->name('recurring-entries.components.archive');
     Route::get('recurring-entries', [RecurringEntryController::class, 'index'])->name('recurring-entries.index');
     Route::post('recurring-entries', [RecurringEntryController::class, 'store'])->name('recurring-entries.store');
+    Route::post('recurring-entries/promotion-preview', [RecurringEntryController::class, 'previewPromotion'])->name('recurring-entries.promotion-preview');
     Route::post('recurring-entries/exchange-preview', [RecurringEntryController::class, 'previewExchangeSnapshot'])
         ->name('recurring-entries.exchange-preview');
     Route::post('recurring-entries/tracked-items', [RecurringEntryController::class, 'storeTrackedItemOption'])

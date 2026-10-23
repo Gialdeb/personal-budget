@@ -179,11 +179,20 @@ test('day and transfer filters round trip through URL and saved preferences', ()
     );
 });
 
-test('advance payer participates in URL preferences and reset while stale period days are cleared', () => {
-    const selected = { ...defaults, advancedBy: 'payer-a', day: '2026-10-10' };
-    const url = transactionFilterUrl('/transactions/2026/10', selected);
-    assert.match(url, /tx_advanced_by=payer-a/);
-    assert.deepEqual(resolveTransactionFilters(url, null), selected);
+test('advance payer stays local to its box while general URL preferences and period days keep their behavior', () => {
+    const selected = {
+        ...defaults,
+        advancedBy: 'payer-a',
+        day: '2026-10-10',
+        search: 'coffee',
+    };
+    const general = { ...defaults, day: '2026-10-10', search: 'coffee' };
+    const url = transactionFilterUrl(
+        '/transactions/2026/10?tx_advanced_by=old-payer',
+        selected,
+    );
+    assert.doesNotMatch(url, /tx_advanced_by/);
+    assert.deepEqual(resolveTransactionFilters(url, null), general);
     assert.equal(
         resolveTransactionFilters(url.replace('/2026/10', '/2026/11'), null)
             .day,
@@ -195,12 +204,11 @@ test('advance payer participates in URL preferences and reset while stale period
         '',
     );
     assert.equal(
-        resolveTransactionFilters(url.replace('/2026/10', '/2026/11'), null)
-            .advancedBy,
-        'payer-a',
+        transactionFiltersAreCustomized({ ...defaults, advancedBy: 'payer-a' }),
+        false,
     );
     assert.equal(clearTransactionFilterUrl(url), '/transactions/2026/10');
     const local = storage();
     storeTransactionFilterPreference(local, selected, true);
-    assert.deepEqual(readTransactionFilterPreference(local), selected);
+    assert.deepEqual(readTransactionFilterPreference(local), general);
 });

@@ -86,6 +86,7 @@ export type MonthlyTransactionSheetTrackedItemOption =
         group_keys?: string[];
         category_uuids?: string[];
         logo_url?: string | null;
+        domain?: string | null;
     };
 
 export type MonthlyTransactionSheetScopeOption =
@@ -374,12 +375,42 @@ export type MonthlyTransactionSheetPageProps = {
     month: number;
 };
 
+export type RecurringPromotionInput = {
+    amount: string;
+    normal_amount: string;
+    duration: 'first_payment' | 'payments' | 'until_date';
+    payments?: number;
+    until_date?: string;
+    outcome: 'keep' | 'normal' | 'unknown';
+};
+
+export type RecurringPromotion = RecurringPromotionInput & {
+    starts_on: string;
+    ends_before: string;
+    origin: Record<string, unknown>;
+};
+
+export type RecurringPromotionPreview = {
+    promotion: RecurringPromotion | null;
+    confirmation: string | null;
+    changes: Array<{
+        uuid: string;
+        previous_date: string;
+        date: string;
+        previous_amount: number;
+        amount: number;
+        currency: string;
+    }>;
+    schedule: Array<{ date: string; amount: number; currency: string }>;
+};
+
 export type RecurringEntryIndexCard = {
     component_name?: string | null;
     component_edit_locked?: boolean | null;
     is_compound_component?: boolean;
     has_activity_periods?: boolean;
     salary_url?: string | null;
+    promotion?: RecurringPromotion | null;
     uuid: string;
     show_url: string;
     title: string;
@@ -557,6 +588,7 @@ export type RecurringEntriesPagePeriod = {
 
 export type RecurringFormOption = {
     logo_url?: string | null;
+    domain?: string | null;
     value: string;
     uuid?: string;
     label: string;
@@ -697,6 +729,7 @@ export type CompoundRecurringCostYear = {
 };
 
 export type RecurringEntryShowPayload = {
+    promotion?: RecurringPromotion | null;
     compound_cost_trend?: CompoundRecurringCostYear[] | null;
     price_conditions?: RecurringPriceConditions | null;
     manual_costs: RecurringManualCost[];

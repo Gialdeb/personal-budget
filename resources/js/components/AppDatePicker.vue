@@ -317,7 +317,7 @@ defineExpose({ focus, showPicker, element: inputElement });
         <PopoverPortal>
             <PopoverContent
                 v-if="open"
-                align="start"
+                v-bind="{ align: 'start' }"
                 side="bottom"
                 :side-offset="8"
                 :collision-padding="12"
@@ -339,6 +339,7 @@ defineExpose({ focus, showPicker, element: inputElement });
 </template>
 
 <style>
+/*noinspection CssUnusedSymbol*/
 .app-date-calendar.vc-container {
     --vc-font-family: var(--font-sans);
     --vc-bg: var(--popover);
@@ -370,26 +371,50 @@ defineExpose({ focus, showPicker, element: inputElement });
     --vc-accent-900: var(--foreground);
     color: var(--foreground);
 }
+/*noinspection CssUnusedSymbol*/
 .app-date-calendar .vc-attr {
     --vc-highlight-solid-bg: var(--primary);
     --vc-highlight-solid-content-color: var(--primary-foreground);
     --vc-content-color: var(--foreground);
 }
+/*noinspection CssUnusedSymbol*/
 .app-date-calendar .vc-day-content {
     width: 36px;
     height: 36px;
 }
+/*noinspection CssUnusedSymbol*/
+.app-date-calendar .vc-day.is-today .vc-day-content {
+    position: relative;
+}
+/*noinspection CssUnusedSymbol*/
+.app-date-calendar .vc-day.is-today .vc-day-content::after {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.7;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+/*noinspection CssUnusedSymbol*/
 .app-date-calendar .vc-header {
     margin-bottom: 8px;
 }
+/*noinspection CssUnusedSymbol*/
 .app-date-calendar .vc-weekday {
     font-weight: 500;
     font-size: 11px;
 }
+/*noinspection CssUnusedSymbol*/
 .app-date-calendar .vc-title {
     font-size: 15px;
     font-weight: 600;
 }
+/*noinspection CssUnusedSymbol*/
 .app-date-calendar .vc-pane {
     padding-bottom: 4px;
 }

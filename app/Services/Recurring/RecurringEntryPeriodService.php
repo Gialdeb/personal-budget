@@ -18,6 +18,11 @@ class RecurringEntryPeriodService
 {
     public const TERM_FIELDS = ['expected_amount', 'recurrence_type', 'recurrence_interval', 'recurrence_rule', 'due_day', 'end_mode', 'end_date', 'occurrences_limit'];
 
+    public function __construct(
+        protected RecurringEntryAmountResolver $amountResolver,
+        protected RecurringEntryOccurrenceGeneratorService $generator,
+    ) {}
+
     /** @return array<string, mixed> */
     public function terms(RecurringEntry $entry): array
     {
@@ -52,17 +57,31 @@ class RecurringEntryPeriodService
 
     public function canRetire(RecurringEntryOccurrence $row, RecurringEntry $entry): bool
     {
+        $amount = $entry->expected_amount;
+        $myShare = $entry->shared_expense_my_share_cents;
+        $counterpartyShare = $entry->shared_expense_counterparty_share_cents;
+        if ($entry->promotion !== null) {
+            $entry->loadMissing('amountChanges');
+            $changes = $entry->amountChanges->sortBy([
+                ['effective_from', 'asc'], ['id', 'asc'],
+            ])->values();
+            $amount = $this->amountResolver->resolve($entry, CarbonImmutable::parse($row->expected_date), $changes);
+            $allocation = $this->generator->sharedExpenseAllocationForAmount($entry, (string) $amount);
+            $myShare = $allocation['shared_expense_my_share_cents'];
+            $counterpartyShare = $allocation['shared_expense_counterparty_share_cents'];
+        }
+
         return in_array($row->status?->value, ['pending', 'generated'], true)
             && $row->expected_date->isAfter(today()) && ($row->due_date ?? $row->expected_date)->isAfter(today())
             && $row->converted_transaction_id === null && $row->matched_transaction_id === null
             && $row->account_id === null && $row->amount_confirmed_at === null && $row->automatic_posting_blocked_at === null
             && ($row->due_date === null || $row->due_date->eq($row->expected_date))
             && $row->notes === $entry->notes
-            && (int) round((float) $row->expected_amount * 100) === (int) round((float) $entry->expected_amount * 100)
+            && (int) round((float) $row->expected_amount * 100) === (int) round((float) $amount * 100)
             && ! $row->paymentAllocations()->exists() && ! $row->settlementTransactions()->withTrashed()->exists()
             && ($row->shared_expense_paid_by === null || $row->shared_expense_paid_by === $entry->shared_expense_paid_by)
-            && ($row->shared_expense_my_share_cents === null || $row->shared_expense_my_share_cents === $entry->shared_expense_my_share_cents)
-            && ($row->shared_expense_counterparty_share_cents === null || $row->shared_expense_counterparty_share_cents === $entry->shared_expense_counterparty_share_cents)
+            && ($row->shared_expense_my_share_cents === null || $row->shared_expense_my_share_cents === $myShare)
+            && ($row->shared_expense_counterparty_share_cents === null || $row->shared_expense_counterparty_share_cents === $counterpartyShare)
             && ! $row->sharedExpenseLedgerEntry()->exists() && ! $row->salaryDetail()->exists();
     }
 
@@ -101,7 +120,7 @@ class RecurringEntryPeriodService
                 ...$entry->getAttributes(), ...Arr::only($data, [...self::TERM_FIELDS, 'auto_create_transaction']),
                 'start_date' => $start->toDateString(), 'trial_duration' => null, 'trial_unit' => null,
                 'status' => 'active', 'is_active' => true,
-            ]);
+            ], $original);
             app(UserYearService::class)->ensureDateYearExistsAndIsOpen($entry->user, $start->toDateString(), 'start_date');
             // Preserve existing obligations and all overrides, including future ones.
             foreach ($entry->occurrences()->lockForUpdate()->get() as $row) {

@@ -10,6 +10,7 @@ import {
 import { computed, ref, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Label } from '@/components/ui/label';
+import { datePickerValue } from '@/lib/date-picker';
 import {
     transactionCalendarDate,
     transactionCalendarDays,
@@ -49,6 +50,7 @@ const maximumDay = computed(() =>
     new Date(Date.UTC(props.year, displayedMonth.value, 0)).getUTCDate(),
 );
 const now = useNow({ interval: 60_000 });
+const today = computed(() => datePickerValue(now.value));
 const period = computed(() =>
     transactionCalendarPeriod(props.modelValue, props.year, now.value),
 );
@@ -283,17 +285,26 @@ function choose(value: string): void {
                             <button
                                 v-if="day"
                                 type="button"
-                                class="flex min-h-11 touch-manipulation items-center justify-center rounded-xl text-base hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                                class="relative flex min-h-11 touch-manipulation items-center justify-center rounded-xl text-base hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
                                 :class="
                                     day.date === modelValue
                                         ? 'bg-primary font-semibold text-primary-foreground hover:bg-primary/90'
                                         : ''
                                 "
                                 :aria-pressed="day.date === modelValue"
+                                :aria-current="
+                                    day.date === today ? 'date' : undefined
+                                "
                                 :aria-label="`${day.day} ${months[displayedMonth - 1]} ${year}`"
                                 @click="choose(day.date)"
                             >
                                 {{ day.day }}
+                                <span
+                                    v-if="day.date === today"
+                                    aria-hidden="true"
+                                    data-today-dot
+                                    class="pointer-events-none absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-current opacity-70"
+                                />
                             </button>
                             <span v-else aria-hidden="true" />
                         </template>

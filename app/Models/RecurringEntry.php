@@ -82,6 +82,7 @@ class RecurringEntry extends Model
         'description',
         'direction',
         'expected_amount',
+        'promotion',
         'is_amount_variable',
         'total_amount',
         'currency',
@@ -133,6 +134,7 @@ class RecurringEntry extends Model
         'shared_expense_counterparty_share_cents' => 'integer',
         'reminder_days_before' => 'array',
         'price_conditions' => 'array',
+        'promotion' => 'array',
         'direction' => TransactionDirectionEnum::class,
         'entry_type' => RecurringEntryTypeEnum::class,
         'status' => RecurringEntryStatusEnum::class,
@@ -236,6 +238,7 @@ class RecurringEntry extends Model
         return $this->hasMany(RecurringEntryOccurrence::class);
     }
 
+    /** @return HasMany<RecurringEntryPeriod, $this> */
     public function periods(): HasMany
     {
         return $this->hasMany(RecurringEntryPeriod::class)->orderBy('id');
@@ -251,6 +254,7 @@ class RecurringEntry extends Model
         return $this->hasMany(RecurringEntryManualCost::class)->orderBy('date')->orderBy('id');
     }
 
+    /** @return HasMany<RecurringEntryAmountChange, $this> */
     public function amountChanges(): HasMany
     {
         return $this->hasMany(RecurringEntryAmountChange::class)->orderBy('created_at')->orderBy('id');

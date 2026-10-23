@@ -25,6 +25,7 @@ import { useUiCopy } from '@/i18n/ui-copy';
 import { toUrl } from '@/lib/utils';
 import { index, users, activityLog } from '@/routes/admin';
 import { index as automationIndex } from '@/routes/admin/automation';
+import { index as brandsIndex } from '@/routes/admin/brands';
 import { index as changelogIndex } from '@/routes/admin/changelog/index';
 import { index as communicationCategoriesIndex } from '@/routes/admin/communication-categories';
 import { index as communicationTemplatesIndex } from '@/routes/admin/communication-templates';
@@ -55,6 +56,7 @@ const sidebarNavItems = computed<(NavItem & { fullPage?: boolean })[]>(() => [
         href: users(),
         icon: Users,
     },
+    { title: ui('Catalogo marchi'), href: brandsIndex(), icon: Shield },
     {
         title: t('admin.sections.activityLog'),
         href: activityLog(),

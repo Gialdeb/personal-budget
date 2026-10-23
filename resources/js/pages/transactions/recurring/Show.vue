@@ -10,6 +10,11 @@ import {
     ChevronDown,
     Infinity as InfinityIcon,
     Check,
+    FileText,
+    CircleX,
+    SlidersHorizontal,
+    Square,
+    Plus,
     LoaderCircle,
     Pause,
     Pencil,
@@ -490,7 +495,9 @@ async function loadPaymentCandidates(pageNumber = 1): Promise<void> {
         );
 
         if (!response.ok) {
-            throw new Error('Unable to load payments');
+            linkPaymentFailed.value = true;
+
+            return;
         }
 
         const result = await response.json();
@@ -650,7 +657,11 @@ async function loadComponentDetails(component: AnnualComponent): Promise<void> {
         });
 
         if (!response.ok) {
-            throw new Error('Unable to load component');
+            if (props.compound?.uuid === parentUuid) {
+                componentLoadFailed.value.push(component.entry_uuid);
+            }
+
+            return;
         }
 
         const payload: RecurringEntryShowPageProps = await response.json();
@@ -1704,12 +1715,6 @@ function isFutureOccurrence(
                         </div>
 
                         <div class="space-y-2">
-                            <Link
-                                v-if="entry.salary_url"
-                                :href="entry.salary_url"
-                                class="inline-flex rounded-xl border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
-                                >{{ t('salary.details') }}</Link
-                            >
                             <h1
                                 data-onboarding="recurring-detail.step1"
                                 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
@@ -1753,6 +1758,10 @@ function isFutureOccurrence(
                                 class="rounded-2xl"
                                 @click="priceConditionsOpen = true"
                             >
+                                <Receipt
+                                    class="mr-2 size-4 shrink-0"
+                                    aria-hidden="true"
+                                />
                                 {{
                                     t(
                                         entry.direction === 'income'
@@ -1761,6 +1770,15 @@ function isFutureOccurrence(
                                     )
                                 }}
                             </Button>
+                            <Link
+                                v-if="entry.salary_url"
+                                :href="entry.salary_url"
+                                class="inline-flex items-center rounded-xl border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                                ><FileText
+                                    class="mr-2 size-4 shrink-0"
+                                    aria-hidden="true"
+                                />{{ t('salary.details') }}</Link
+                            >
                             <Button
                                 v-if="props.planRefund"
                                 variant="outline"
@@ -1783,7 +1801,12 @@ function isFutureOccurrence(
                                 variant="outline"
                                 size="sm"
                                 @click="addComponentOpen = true"
-                                >{{ t('recurringDetail.compound.add') }}</Button
+                                ><Plus
+                                    class="mr-2 size-4 shrink-0"
+                                    aria-hidden="true"
+                                />{{
+                                    t('recurringDetail.compound.add')
+                                }}</Button
                             >
                         </div>
                         <div v-else class="flex flex-wrap gap-2">
@@ -1817,6 +1840,10 @@ function isFutureOccurrence(
                                 :disabled="distributionLoading"
                                 @click="openInstallmentDistribution"
                             >
+                                <SlidersHorizontal
+                                    class="mr-2 size-4 shrink-0"
+                                    aria-hidden="true"
+                                />
                                 {{ ui('Modifica importi rate') }}
                             </Button>
                             <Button
@@ -1843,7 +1870,10 @@ function isFutureOccurrence(
                                         { preserveScroll: true },
                                     )
                                 "
-                                >{{
+                                ><Square
+                                    class="mr-2 size-4 shrink-0"
+                                    aria-hidden="true"
+                                />{{
                                     ui('Interrompi fino alla riattivazione')
                                 }}</Button
                             >
@@ -1880,6 +1910,10 @@ function isFutureOccurrence(
                                 class="rounded-2xl"
                                 @click="cancelDialogOpen = true"
                             >
+                                <CircleX
+                                    class="mr-2 size-4 shrink-0"
+                                    aria-hidden="true"
+                                />
                                 {{ t('transactions.recurring.actions.cancel') }}
                             </Button>
                             <Button
@@ -1892,6 +1926,10 @@ function isFutureOccurrence(
                                 class="rounded-2xl"
                                 @click="priceConditionsOpen = true"
                             >
+                                <Receipt
+                                    class="mr-2 size-4 shrink-0"
+                                    aria-hidden="true"
+                                />
                                 {{
                                     t(
                                         entry.direction === 'income'
@@ -1900,6 +1938,15 @@ function isFutureOccurrence(
                                     )
                                 }}
                             </Button>
+                            <Link
+                                v-if="entry.salary_url"
+                                :href="entry.salary_url"
+                                class="inline-flex items-center rounded-xl border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                                ><FileText
+                                    class="mr-2 size-4 shrink-0"
+                                    aria-hidden="true"
+                                />{{ t('salary.details') }}</Link
+                            >
                             <Button
                                 v-if="props.planRefund"
                                 variant="outline"
@@ -2024,19 +2071,21 @@ function isFutureOccurrence(
                 <summary
                     class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
                 >
-                    <div class="min-w-0">
-                        <h2
+                    <span class="block min-w-0">
+                        <span
+                            role="heading"
+                            aria-level="2"
                             id="annual-components-title"
-                            class="text-lg font-semibold"
+                            class="block text-lg font-semibold"
                         >
                             {{ t('recurringDetail.compound.annualComponents') }}
                             <span
                                 class="text-sm font-normal text-muted-foreground"
                                 >({{ compound.components.length }})</span
                             >
-                        </h2>
-                        <p
-                            class="mt-1 text-sm text-primary"
+                        </span>
+                        <span
+                            class="mt-1 block text-sm text-primary"
                             role="status"
                             aria-live="polite"
                         >
@@ -2045,8 +2094,8 @@ function isFutureOccurrence(
                                     name: compound.active_component,
                                 })
                             }}
-                        </p>
-                    </div>
+                        </span>
+                    </span>
                     <ChevronDown
                         aria-hidden="true"
                         class="size-4 shrink-0 text-muted-foreground transition-transform group-open/components:rotate-180 motion-reduce:transition-none"
@@ -2352,11 +2401,13 @@ function isFutureOccurrence(
                 <summary
                     class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
                 >
-                    <div>
-                        <h2
+                    <span class="block">
+                        <span
+                            role="heading"
+                            aria-level="2"
                             data-onboarding="recurring-detail.step2"
                             id="plan-lifecycle-title"
-                            class="font-semibold"
+                            class="block font-semibold"
                         >
                             {{
                                 compound
@@ -2368,18 +2419,18 @@ function isFutureOccurrence(
                                       )
                                     : ui('Cronologia del piano')
                             }}
-                        </h2>
-                        <p
+                        </span>
+                        <span
                             v-if="compound"
-                            class="mt-1 text-sm text-muted-foreground"
+                            class="mt-1 block text-sm text-muted-foreground"
                         >
                             {{
                                 t('recurringDetail.compound.historyHint', {
                                     name: compound.active_component,
                                 })
                             }}
-                        </p>
-                    </div>
+                        </span>
+                    </span>
                     <ChevronDown
                         aria-hidden="true"
                         class="size-4 shrink-0 text-muted-foreground transition-transform group-open/lifecycle:rotate-180 motion-reduce:transition-none"
@@ -2718,23 +2769,31 @@ function isFutureOccurrence(
                         >
                             <component
                                 :is="
+                                    priceSummaryPanel.summaryButton.id ===
+                                        'promotion' &&
                                     priceSummaryPanel.summaryButton.kind ===
-                                    'increase'
-                                        ? ArrowUpRight
+                                        'unchanged'
+                                        ? Receipt
                                         : priceSummaryPanel.summaryButton
-                                                .kind === 'decrease'
-                                          ? ArrowDownLeft
-                                          : ShieldCheck
+                                                .kind === 'increase'
+                                          ? ArrowUpRight
+                                          : priceSummaryPanel.summaryButton
+                                                  .kind === 'decrease'
+                                            ? ArrowDownLeft
+                                            : ShieldCheck
                                 "
                                 class="size-4"
                             />
                         </span>
                         <span class="whitespace-normal">{{
                             t(
-                                (entry.direction === 'income'
-                                    ? 'recurringDetail.income.panels.price.'
-                                    : 'recurringDetail.panels.price.') +
-                                    priceSummaryPanel.summaryButton.kind,
+                                priceSummaryPanel.summaryButton.id ===
+                                    'promotion'
+                                    ? 'recurringDetail.promotion.summary'
+                                    : (entry.direction === 'income'
+                                          ? 'recurringDetail.income.panels.price.'
+                                          : 'recurringDetail.panels.price.') +
+                                          priceSummaryPanel.summaryButton.kind,
                             )
                         }}</span>
                         <SensitiveValue
@@ -2769,6 +2828,7 @@ function isFutureOccurrence(
                     :key="entry.uuid"
                     :recurring-entry-uuid="entry.uuid"
                     :conditions="recurringEntry.price_conditions"
+                    :promotion="recurringEntry.promotion"
                     :direction="entry.direction"
                     :current-amount="entry.expected_amount ?? null"
                     :currency="entry.currency ?? 'EUR'"

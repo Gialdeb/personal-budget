@@ -8,6 +8,7 @@ use App\Enums\RecurringEntryStatusEnum;
 use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
+use App\Models\RecurringEntryAmountChange;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\RecurringEntryPeriod;
 use App\Services\Salary\SalaryOccurrenceService;
@@ -19,7 +20,8 @@ use Illuminate\Support\Facades\DB;
 class RecurringEntryOccurrenceGeneratorService
 {
     public function __construct(
-        protected InstallmentAmountAllocatorService $allocator
+        protected InstallmentAmountAllocatorService $allocator,
+        protected RecurringEntryAmountResolver $amountResolver,
     ) {}
 
     /**
@@ -75,21 +77,13 @@ class RecurringEntryOccurrenceGeneratorService
     protected function generatePeriod(RecurringEntry $entry, RecurringEntryPeriod $period, ?CarbonImmutable $throughDate, ?int $maxOccurrences, bool $updateNextOccurrenceDate): Collection
     {
         $schedule = app(RecurringEntryPeriodService::class)->schedule($entry, $period);
-        $rows = $this->recurringSchedule($schedule, $throughDate, $maxOccurrences);
+        $changes = $entry->amountChanges()->reorder('effective_from')->orderBy('id')->get();
+        $rows = $this->recurringSchedule($schedule, $throughDate, $maxOccurrences, $changes, $entry);
         $existing = $entry->occurrences()->get();
         $sequences = $existing->pluck('sequence_number')->all();
         $protectedDates = $existing->where('status', '!=', RecurringOccurrenceStatusEnum::CANCELLED)->map(fn ($row): string => $row->expected_date->toDateString())->all();
         $created = collect();
-        $changes = $entry->amountChanges()->reorder('effective_from')->orderBy('id')->get();
         foreach ($rows as $row) {
-            $price = $changes->first()?->previous_amount ?? $schedule->expected_amount;
-            foreach ($changes as $change) {
-                if ($change->effective_from->toDateString() <= $row['expected_date']) {
-                    $price = $change->new_amount;
-                }
-            }
-            $row['expected_amount'] = $price;
-            $row = [...$row, ...$this->sharedExpenseAllocationForAmount($schedule, (string) $price)];
             $row['sequence_number'] += $period->sequence_offset;
             if (in_array($row['sequence_number'], $sequences, true) || in_array($row['expected_date'], $protectedDates, true)) {
                 continue;
@@ -115,9 +109,64 @@ class RecurringEntryOccurrenceGeneratorService
      */
     public function synchronizeFutureOccurrences(RecurringEntry $entry, RecurringEntry $original): ?string
     {
-        $occurrences = $entry->occurrences()->with('salaryDetail.components')->lockForUpdate()->get();
+        $firstChangedAmountDate = null;
+        foreach ($this->futureOccurrenceReplacements($entry, $original, true) as $plan) {
+            $occurrence = $plan['occurrence'];
+            $replacement = $plan['replacement'];
+            if ($plan['cancel']) {
+                $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::CANCELLED])->save();
+
+                continue;
+            }
+            if ((int) round((float) $occurrence->expected_amount * 100) !== (int) round((float) $replacement['expected_amount'] * 100)) {
+                $date = $replacement['expected_date'];
+                $firstChangedAmountDate = $firstChangedAmountDate === null ? $date : min($firstChangedAmountDate, $date);
+            }
+            $occurrence->fill(Arr::only($replacement, [
+                'expected_date', 'due_date', 'expected_amount',
+                'shared_expense_paid_by', 'shared_expense_my_share_cents', 'shared_expense_counterparty_share_cents',
+            ]))->save();
+            $occurrence->salaryDetail?->update(['base_expected_amount' => $occurrence->expected_amount]);
+        }
+
+        return $firstChangedAmountDate;
+    }
+
+    /** @return array{changes: array<int, array<string, mixed>>, confirmation: string|null} */
+    public function promotionImpact(RecurringEntry $entry, RecurringEntry $original, bool $lock = false): array
+    {
+        $changes = $this->futureOccurrenceReplacements($entry, $original, $lock)
+            ->filter(fn (array $plan): bool => ! $plan['cancel'] && (int) round((float) $plan['occurrence']->expected_amount * 100) !== (int) round((float) $plan['replacement']['expected_amount'] * 100))
+            ->map(fn (array $plan): array => [
+                'uuid' => $plan['occurrence']->uuid,
+                'previous_date' => $plan['occurrence']->expected_date->toDateString(),
+                'date' => $plan['replacement']['expected_date'],
+                'previous_amount' => (float) $plan['occurrence']->expected_amount,
+                'amount' => (float) $plan['replacement']['expected_amount'],
+                'currency' => $entry->currency,
+            ])->sortBy('uuid')->values()->all();
+        $terms = Arr::only($entry->attributesToArray(), ['promotion', 'expected_amount', 'currency', 'start_date', 'trial_duration', 'trial_unit', 'recurrence_type', 'recurrence_interval', 'recurrence_rule', 'end_mode', 'end_date', 'occurrences_limit']);
+
+        return ['changes' => $changes, 'confirmation' => $changes === [] ? null : hash_hmac('sha256', json_encode([$original->uuid, $original->promotion, $terms, $changes, today()->toDateString()], JSON_THROW_ON_ERROR), (string) config('app.key'))];
+    }
+
+    /** @return Collection<int, array{occurrence: RecurringEntryOccurrence, replacement: array<string, mixed>, cancel: bool}> */
+    protected function futureOccurrenceReplacements(RecurringEntry $entry, RecurringEntry $original, bool $lock): Collection
+    {
+        $occurrences = $entry->occurrences()->with('salaryDetail.components')->when($lock, fn ($query) => $query->lockForUpdate())->get();
         $period = app(RecurringEntryPeriodService::class)->current($entry);
         $offset = $period?->kind === 'reactivated' ? $period->sequence_offset : 0;
+        $amountEntry = $entry;
+        $originalAmountEntry = $original;
+        $beforeChanges = $original->promotion !== null ? $original->amountChanges()->reorder('effective_from')->orderBy('id')->get() : null;
+        $afterChanges = $entry->promotion !== null ? $entry->amountChanges()->reorder('effective_from')->orderBy('id')->get() : null;
+        if ($afterChanges !== null && $entry->expected_amount !== $original->expected_amount) {
+            $afterChanges->push(new RecurringEntryAmountChange([
+                'previous_amount' => $original->expected_amount, 'new_amount' => $entry->expected_amount,
+                'effective_from' => CarbonImmutable::tomorrow()->toDateString(),
+            ]));
+            $afterChanges = $afterChanges->sortBy(fn (RecurringEntryAmountChange $change): string => $change->effective_from->toDateString())->values();
+        }
         if ($period?->kind === 'reactivated') {
             $newAmount = $entry->expected_amount;
             $entry = app(RecurringEntryPeriodService::class)->schedule($entry, $period);
@@ -127,10 +176,10 @@ class RecurringEntryOccurrenceGeneratorService
         $limit = max(1, (int) $occurrences->max('sequence_number') - $offset);
         $before = collect($original->entry_type === RecurringEntryTypeEnum::INSTALLMENT
             ? $this->installmentSchedule($original)
-            : $this->recurringSchedule($original, null, $limit))->keyBy('sequence_number');
+            : $this->recurringSchedule($original, null, $limit, $beforeChanges, $originalAmountEntry))->keyBy('sequence_number');
         $after = collect($entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT
             ? $this->installmentSchedule($entry)
-            : $this->recurringSchedule($entry, null, $limit))->keyBy('sequence_number');
+            : $this->recurringSchedule($entry, null, $limit, $afterChanges, $amountEntry))->keyBy('sequence_number');
 
         $mutable = collect();
         foreach ($occurrences as $occurrence) {
@@ -155,26 +204,12 @@ class RecurringEntryOccurrenceGeneratorService
         $protectedDates = $occurrences->reject(fn (RecurringEntryOccurrence $occurrence): bool => $mutable->contains('id', $occurrence->id))
             ->reject(fn (RecurringEntryOccurrence $occurrence): bool => $occurrence->status === RecurringOccurrenceStatusEnum::CANCELLED)
             ->map(fn (RecurringEntryOccurrence $occurrence): string => $occurrence->expected_date->toDateString());
-        $firstChangedAmountDate = null;
-        foreach ($mutable as $occurrence) {
+
+        return $mutable->map(function (RecurringEntryOccurrence $occurrence) use ($after, $offset, $protectedDates): array {
             $replacement = $after->get($occurrence->sequence_number - $offset);
-            if ($protectedDates->contains($replacement['expected_date'])) {
-                $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::CANCELLED])->save();
 
-                continue;
-            }
-            if ((int) round((float) $occurrence->expected_amount * 100) !== (int) round((float) $replacement['expected_amount'] * 100)) {
-                $date = $replacement['expected_date'];
-                $firstChangedAmountDate = $firstChangedAmountDate === null ? $date : min($firstChangedAmountDate, $date);
-            }
-            $occurrence->fill(Arr::only($replacement, [
-                'expected_date', 'due_date', 'expected_amount',
-                'shared_expense_paid_by', 'shared_expense_my_share_cents', 'shared_expense_counterparty_share_cents',
-            ]))->save();
-            $occurrence->salaryDetail?->update(['base_expected_amount' => $occurrence->expected_amount]);
-        }
-
-        return $firstChangedAmountDate;
+            return ['occurrence' => $occurrence, 'replacement' => $replacement, 'cancel' => $protectedDates->contains($replacement['expected_date'])];
+        })->values();
     }
 
     /**
@@ -197,6 +232,40 @@ class RecurringEntryOccurrenceGeneratorService
 
         return collect($this->buildRecurringDates($entry, $endDate, $maxOccurrences))
             ->filter(fn (CarbonImmutable $date): bool => $date->betweenIncluded($startDate, $endDate))
+            ->values();
+    }
+
+    /**
+     * Preview planned recurring rows without persisting or replacing occurrence overrides.
+     * This is not a list of mutable occurrences; synchronization retains that responsibility.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function previewScheduleWithinRange(
+        RecurringEntry $entry,
+        CarbonImmutable $startDate,
+        CarbonImmutable $endDate,
+        ?int $maxOccurrences = null,
+    ): Collection {
+        if ($entry->entry_type !== RecurringEntryTypeEnum::RECURRING
+            || $entry->status !== RecurringEntryStatusEnum::ACTIVE || ! $entry->is_active) {
+            return collect();
+        }
+
+        $period = app(RecurringEntryPeriodService::class)->current($entry);
+        $reactivated = $period?->kind === 'reactivated';
+        $schedule = $reactivated ? app(RecurringEntryPeriodService::class)->schedule($entry, $period) : $entry;
+        $changes = $reactivated ? $entry->amountChanges()->reorder('effective_from')->orderBy('id')->get() : null;
+
+        return collect($this->recurringSchedule($schedule, $endDate, $maxOccurrences, $changes, $entry))
+            ->filter(fn (array $row): bool => $row['expected_date'] >= $startDate->toDateString()
+                && $row['expected_date'] <= $endDate->toDateString()
+                && (! $reactivated || ! $period->ends_on || $row['expected_date'] < $period->ends_on->toDateString()))
+            ->map(function (array $row) use ($reactivated, $period): array {
+                $row['sequence_number'] += $reactivated ? $period->sequence_offset : 0;
+
+                return $row;
+            })
             ->values();
     }
 
@@ -226,24 +295,40 @@ class RecurringEntryOccurrenceGeneratorService
     }
 
     /**
+     * @param  Collection<int, RecurringEntryAmountChange>|null  $manualChanges
      * @return array<int, array<string, mixed>>
      */
-    protected function recurringSchedule(RecurringEntry $entry, ?CarbonImmutable $throughDate, ?int $maxOccurrences): array
+    protected function recurringSchedule(RecurringEntry $entry, ?CarbonImmutable $throughDate, ?int $maxOccurrences, ?Collection $manualChanges = null, ?RecurringEntry $amountEntry = null): array
     {
         $dates = $this->buildRecurringDates($entry, $throughDate, $maxOccurrences);
         $historyOffset = $this->refundedHistoryOffset($entry);
+        $source = $amountEntry ?? $entry;
+        if ($manualChanges === null && $source->promotion !== null) {
+            $manualChanges = $source->amountChanges()->reorder('effective_from')->orderBy('id')->get();
+        }
 
-        return array_map(function (CarbonImmutable $date, int $index) use ($entry, $historyOffset): array {
+        return array_map(function (CarbonImmutable $date, int $index) use ($entry, $historyOffset, $manualChanges, $amountEntry): array {
+            $amount = $this->amountResolver->resolve($amountEntry ?? $entry, $date, $manualChanges);
+
             return [
                 'sequence_number' => $historyOffset + $index + 1,
                 'expected_date' => $date->toDateString(),
                 'due_date' => $date->toDateString(),
-                'expected_amount' => $entry->expected_amount,
-                ...$this->sharedExpenseAllocationForAmount($entry, (string) $entry->expected_amount),
+                'expected_amount' => $amount,
+                ...$this->sharedExpenseAllocationForAmount($entry, (string) $amount),
                 'status' => RecurringOccurrenceStatusEnum::PENDING->value,
                 'notes' => $entry->notes,
             ];
         }, $dates, array_keys($dates));
+    }
+
+    public function billingDateForPayment(RecurringEntry $entry, int $paymentNumber): CarbonImmutable
+    {
+        $schedule = clone $entry;
+        $schedule->end_mode = RecurringEndModeEnum::NEVER;
+        $schedule->setRelation('salarySchedule', null);
+
+        return $this->buildRecurringDates($schedule, null, $paymentNumber)[$paymentNumber - 1];
     }
 
     protected function refundedHistoryOffset(RecurringEntry $entry): int
@@ -264,7 +349,7 @@ class RecurringEntryOccurrenceGeneratorService
     /**
      * @return array<string, int|string|null>
      */
-    protected function sharedExpenseAllocationForAmount(RecurringEntry $entry, string $amount): array
+    public function sharedExpenseAllocationForAmount(RecurringEntry $entry, string $amount): array
     {
         if ($entry->shared_expense_counterparty_id === null) {
             return ['shared_expense_paid_by' => null, 'shared_expense_my_share_cents' => null, 'shared_expense_counterparty_share_cents' => null];

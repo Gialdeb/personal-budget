@@ -131,6 +131,10 @@ test('authenticated page matrix preserves successful responses and records query
                     expect($counterpartyQueries)->toHaveCount(1, $name);
                     expect($counterpartyQueries->first()['sql'])
                         ->toContain('"counterparty_payments"', '"counterparty_source_links"', '"counterparty_allocation_entries"');
+                } elseif ($name === 'tracked-items.edit') {
+                    expect($counterpartyQueries)->toHaveCount(1, $name);
+                    expect($counterpartyQueries->first()['sql'])
+                        ->toContain('from "counterparty_relations"', '"counterparty_id"');
                 } else {
                     expect($counterpartyQueries)->toBeEmpty($name);
                 }

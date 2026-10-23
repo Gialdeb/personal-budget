@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminInvitationAcceptanceController;
 use App\Http\Controllers\AssetVersionController;
+use App\Http\Controllers\BrandCatalogController;
 use App\Http\Controllers\ChangelogFeedController;
 use App\Http\Controllers\HelpCenterArticleController;
 use App\Http\Controllers\HelpCenterController;
@@ -34,6 +35,9 @@ Route::post('/webhooks/kofi', KofiWebhookController::class)
 Route::get('/sitemap.xml', PublicSitemapController::class)->name('sitemap');
 Route::get('/editorial-assets', PublicEditorialAssetController::class)
     ->name('editorial-assets.show');
+
+Route::get('/api/brands', [BrandCatalogController::class, 'index'])->middleware('throttle:60,1')->name('brands.index');
+Route::get('/brand-logos/{brand:uuid}', [BrandCatalogController::class, 'logo'])->whereUuid('brand')->middleware('throttle:120,1')->name('brands.logo');
 
 // PUBLIC ROUTE
 Route::inertia('/', 'Welcome', [

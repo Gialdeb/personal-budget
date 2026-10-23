@@ -156,6 +156,74 @@ const emit = defineEmits<{
                     </div>
 
                     <div
+                        v-if="item.link_counts"
+                        class="space-y-2 text-xs text-muted-foreground"
+                        data-reference-link-counts
+                    >
+                        <p>
+                            {{
+                                t('trackedItems.tree.links.direct', {
+                                    count: item.link_counts.direct,
+                                })
+                            }}
+                            ·
+                            {{
+                                t('trackedItems.tree.links.indirect', {
+                                    count: item.link_counts.indirect,
+                                })
+                            }}
+                        </p>
+                        <ul class="flex flex-wrap gap-x-4 gap-y-2">
+                            <li
+                                v-for="group in item.link_counts.groups"
+                                :key="group.key"
+                            >
+                                <span class="font-medium"
+                                    >{{
+                                        t(
+                                            `trackedItems.tree.links.groups.${group.key}`,
+                                        )
+                                    }}: {{ group.total }}</span
+                                >
+                                <span
+                                    v-if="group.key === 'shared'"
+                                    class="block"
+                                >
+                                    <span
+                                        v-for="(count, type) in group.types"
+                                        :key="type"
+                                        class="mr-2"
+                                        >{{
+                                            t(
+                                                `trackedItems.tree.links.groups.${type}`,
+                                            )
+                                        }}: {{ count }}</span
+                                    >
+                                </span>
+                                <span v-if="group.indirect">
+                                    ·
+                                    {{
+                                        t('trackedItems.tree.links.indirect', {
+                                            count: group.indirect,
+                                        })
+                                    }}</span
+                                >
+                                <span v-if="group.archived">
+                                    ·
+                                    {{
+                                        t('trackedItems.tree.links.archived', {
+                                            count: group.archived,
+                                        })
+                                    }}</span
+                                >
+                            </li>
+                        </ul>
+                        <p v-if="item.link_counts.indirect">
+                            {{ t('trackedItems.tree.links.previewNote') }}
+                        </p>
+                    </div>
+                    <div
+                        v-else
                         class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400"
                     >
                         <span v-if="item.counts.transactions > 0">

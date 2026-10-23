@@ -12,6 +12,7 @@ use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Services\TrackedItems\TrackedItemResolver;
+use App\Services\TrackedItems\TrackedItemUsageReadService;
 use App\Services\TrackedItems\WebsiteLogoService;
 use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
@@ -28,6 +29,9 @@ class TrackedItemController extends Controller
 {
     /** @var array<int, array<string, mixed>> */
     private array $identityPayload = [];
+
+    /** @var array<int, array<string, mixed>> */
+    private array $usagePayload = [];
 
     public function __construct(
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
@@ -253,6 +257,8 @@ class TrackedItemController extends Controller
                 'is_active',
                 'is_shared_expense_counterpart',
             ]);
+
+        $this->usagePayload = app(TrackedItemUsageReadService::class)->counts($userId, $trackedItems);
 
         $this->identityPayload = $trackedItems->mapWithKeys(function (TrackedItem $item): array {
             $presentation = app(TrackedItemIdentityService::class)->presentation($item);
@@ -529,6 +535,7 @@ class TrackedItemController extends Controller
      */
     protected function publicTrackedItemPayload(array $trackedItem): array
     {
+        $trackedItem = [...$trackedItem, ...($this->usagePayload[$trackedItem['id']] ?? [])];
         $identity = $this->identityPayload[$trackedItem['id']] ?? null;
         if ($identity !== null) {
             $trackedItem = [...$trackedItem, ...$identity];

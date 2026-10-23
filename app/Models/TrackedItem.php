@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -115,7 +116,9 @@ class TrackedItem extends Model
 
     public function logoUrl(): ?string
     {
-        return $this->websiteIdentity?->logoUrl();
+        return filled($this->settings['reference_logo_path'] ?? null)
+            ? Storage::disk('public')->url($this->settings['reference_logo_path'])
+            : $this->websiteIdentity?->logoUrl();
     }
 
     public function parent(): BelongsTo

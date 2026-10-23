@@ -12,6 +12,7 @@ use App\Jobs\Automation\RunRecurringWeeklySummaryJob;
 use App\Jobs\Automation\RunUserBackupJob;
 use App\Services\Recurring\AutomaticPaymentVerificationService;
 use App\Services\Support\SupportTicketInactivityService;
+use App\Services\TrackedItems\PendingReferenceLogoService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
@@ -100,3 +101,6 @@ Schedule::job(new RunImportsPruneOldJob)
 
 Schedule::call(fn () => app(SupportTicketInactivityService::class)->process())
     ->hourly()->name('support-ticket-inactivity')->withoutOverlapping()->onOneServer();
+
+Schedule::call(fn () => app(PendingReferenceLogoService::class)->prune())
+    ->hourly()->name('pending-reference-logos-prune')->withoutOverlapping();

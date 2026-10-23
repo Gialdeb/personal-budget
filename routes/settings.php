@@ -120,6 +120,9 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::get('settings/tracked-items/movements/preview', [MoveTrackedItemMovementsController::class, 'preview'])->name('tracked-items.movements.preview');
     Route::post('settings/tracked-items/movements', [MoveTrackedItemMovementsController::class, 'store'])->name('tracked-items.movements.store');
     Route::get('settings/tracked-items', [TrackedItemController::class, 'index'])->name('tracked-items.edit');
+    Route::post('settings/tracked-items/logo-upload', [TrackedItemLogoController::class, 'upload'])->middleware('throttle:30,1')->name('tracked-items.logo-upload');
+    Route::delete('settings/tracked-items/logo-upload', [TrackedItemLogoController::class, 'discard'])->middleware('throttle:60,1')->name('tracked-items.logo-discard');
+    Route::get('settings/tracked-items/logo-catalog', [TrackedItemLogoController::class, 'catalog'])->name('tracked-items.logo-catalog');
     Route::post('settings/tracked-items/logo-preview', [TrackedItemLogoController::class, 'preview'])
         ->middleware('throttle:20,1')
         ->name('tracked-items.logo-preview');

@@ -233,12 +233,16 @@ class TransactionsController extends Controller
     {
         $validated = $request->validate([
             'draft' => ['sometimes', 'boolean'],
+            'logo_identity_uuid' => ['sometimes', 'nullable', 'uuid'],
+            'logo_brand_uuid' => ['sometimes', 'nullable', 'uuid'],
+            'logo_upload_token' => ['sometimes', 'nullable', 'string', 'max:8192'],
+            'logo_source' => ['sometimes', 'in:website'],
             'name' => ['required_without:tracked_item_uuid', 'nullable', 'string', 'max:150'],
             'tracked_item_uuid' => ['nullable', 'uuid'],
             'account_uuid' => ['required', 'uuid'],
             'category_uuid' => ['required', 'uuid'],
             'type_key' => ['required', 'string', 'in:income,expense,bill,debt,saving'],
-            'website_url' => ['nullable', 'string', 'max:2048'],
+            'website_url' => ['required_if:logo_source,website', 'nullable', 'string', 'max:2048'],
             'context' => ['nullable', 'string', 'in:credit_debt'],
         ]);
 

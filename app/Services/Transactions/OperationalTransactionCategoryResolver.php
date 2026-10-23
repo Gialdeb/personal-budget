@@ -326,6 +326,7 @@ class OperationalTransactionCategoryResolver
                         'full_path' => $trackedItem['full_path'],
                         'slug' => $trackedItem['slug'],
                         'logo_url' => $trackedItem['logo_url'] ?? null,
+                        'domain' => filled($trackedItem['website_url'] ?? null) ? parse_url($trackedItem['website_url'], PHP_URL_HOST) : null,
                         'owner_user_id' => $sourceTrackedItem instanceof TrackedItem
                             ? (int) $sourceTrackedItem->user_id
                             : null,

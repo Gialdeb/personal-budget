@@ -503,14 +503,14 @@ test('transactions reference creation surfaces backend slug validation errors on
 test('transactions tracked item create-option uses the account-aware endpoint and sends account plus category context', () => {
     assert.match(
         source,
-        /fetchWithNotifications\(\s*'\/transactions\/tracked-items'/,
+        /fetchWithNotifications\(\s*storeTrackedItemOption\.url\(\)/,
     );
     assert.match(source, /account_uuid: accountUuid/);
     assert.match(source, /category_uuid: categoryUuid/);
     assert.match(source, /type_key: typeKey/);
     assert.match(
         formSheetSource,
-        /import \{ storeTrackedItemOption \} from '@\/actions\/App\/Http\/Controllers\/TransactionsController'/,
+        /import \{ storeTrackedItemOption } from '@\/actions\/App\/Http\/Controllers\/TransactionsController'/,
     );
     assert.match(
         formSheetSource,
@@ -680,7 +680,7 @@ test('refund actions use a neutral refresh icon and accessible localized explana
 });
 
 test('transaction register adapts to available width and releases the summary column', () => {
-    assert.doesNotMatch(source, /min-w-\[1140px\]|overflow-x-auto xl:block/);
+    assert.doesNotMatch(source, /min-w-\[1140px]|overflow-x-auto xl:block/);
     assert.match(source, /table-fixed/);
     assert.match(source, /summary-closed/);
     assert.match(source, /grid-template-columns: minmax\(0, 1fr\) 36px/);
@@ -790,7 +790,7 @@ test('move mode is available only in edit flows and locks non-date fields in bot
     );
     assert.match(
         source,
-        /inlineCreateTypeOptions = computed\(\(\) => sheet\.value\.editor\.type_options\)/,
+        /inlineCreateTypeOptions = computed\([\s\S]*?sheet\.value\.editor\.type_options/,
     );
     assert.match(source, /:disabled="isEditMove"/);
     assert.match(formSheetSource, /:disabled="isMoveMode"/);
@@ -918,7 +918,10 @@ test('transaction form prepares an existing suggestion without duplicating it in
         formSheetSource,
         /function handleReferenceSelection\(value: string\)/,
     );
-    assert.match(formSheetSource, /tracked_item_uuid: trackedItemUuid/);
+    assert.match(
+        formSheetSource,
+        /body: JSON\.stringify\(\{[\s\S]*?\.\.\.draft,[\s\S]*?draft: true/,
+    );
     assert.match(formSheetSource, /trackedItem.value !== option.source_uuid/);
     assert.match(
         formSheetSource,
@@ -1290,10 +1293,41 @@ test('desktop shared management shows only the shared editor with an intrinsic-h
         2,
     );
     assert.match(formSheetSource, /sharedOnly\s*\? 'min-w-0 px-5 py-4'/);
-    assert.doesNotMatch(formSheetSource, /h-\[min\(85dvh,900px\)\]/);
+    assert.doesNotMatch(formSheetSource, /h-\[min\(85dvh,900px\)]/);
     assert.match(formSheetSource, /preventScroll: true/);
     assert.match(
         formSheetSource,
         /sharedOnly && Object\.keys\(form\.errors\)\.length/,
+    );
+});
+
+test('desktop inline types put expenses first without changing the shared source order', () => {
+    const options = [
+        { value: 'income', label: 'Entrate' },
+        { value: 'bill', label: 'Bollette' },
+        { value: 'expense', label: 'Spese' },
+        { value: 'transfer', label: 'Trasferimento' },
+    ];
+    const declaration = source.match(
+        /const inlineCreateTypeOptions = computed\([\s\S]*?\n\);/,
+    )[0];
+    const sorted = new Function(
+        'computed',
+        'sheet',
+        `${declaration}; return inlineCreateTypeOptions;`,
+    )((callback) => callback(), {
+        value: { editor: { type_options: options } },
+    });
+    assert.deepEqual(
+        sorted.map((option) => option.value),
+        ['expense', 'income', 'bill', 'transfer'],
+    );
+    assert.deepEqual(
+        options.map((option) => option.value),
+        ['income', 'bill', 'expense', 'transfer'],
+    );
+    assert.match(
+        source,
+        /const options = inlineCreateTypeOptions\.value\.filter/,
     );
 });

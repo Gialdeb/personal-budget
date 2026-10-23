@@ -14,6 +14,7 @@ use App\Models\RecurringEntry;
 use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Recurring\RecurringPromotionService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Model;
@@ -38,6 +39,7 @@ class StoreRecurringEntryRequest extends FormRequest
         $userId = $this->user()?->id;
 
         return [
+            ...RecurringPromotionService::rules(),
             'salary' => ['nullable', 'array', Rule::prohibitedIf($this->input('direction') !== 'income' || $this->input('entry_type') !== 'recurring' || $this->boolean('is_shared_expense'))],
             'salary.name' => ['nullable', 'string', 'max:150'],
             'salary.employment_uuid' => ['nullable', 'uuid', Rule::exists('salary_employments', 'uuid')->where('user_id', $userId)],

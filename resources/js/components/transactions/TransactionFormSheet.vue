@@ -13,6 +13,8 @@ import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
+import ReferencePicker from '@/components/ReferencePicker.vue';
+import type { ReferenceDraft } from '@/components/ReferencePicker.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
@@ -166,6 +168,13 @@ const form = useForm({
     notes: '',
 });
 const creatingTrackedItem = ref(false);
+const referenceDraftErrors = ref<Record<string, string>>({});
+watch(
+    () => [props.open, form.account_uuid, form.category_uuid, form.type_key],
+    () => {
+        referenceDraftErrors.value = {};
+    },
+);
 const transactionFormElement = ref<HTMLFormElement | null>(null);
 const templateAmountEditorOpen = ref(false);
 
@@ -210,19 +219,12 @@ const unresolvedTemplateIssues = computed(() => {
 const mobileDescriptionEditorOpen = ref(false);
 const mobileNotesEditorOpen = ref(false);
 const trackedItemCatalog = ref<MonthlyTransactionSheetTrackedItemOption[]>([]);
-const newReferenceOpen = ref(false);
-const newReferenceName = ref('');
-const newReferenceWebsite = ref('');
 watch(
     () => props.open,
     (open) => {
         if (!open) {
             form.cancel();
         }
-
-        newReferenceOpen.value = false;
-        newReferenceName.value = '';
-        newReferenceWebsite.value = '';
     },
 );
 
@@ -606,8 +608,45 @@ const referenceOptions = computed<ReferenceOption[]>(() => [
         is_selectable: trackedItem.is_selectable,
         search_terms: trackedItem.search_terms,
         logo_url: trackedItem.logo_url,
+        domain: trackedItem.domain,
     })),
 ]);
+
+const mobileReferenceSuggestions = computed(() => {
+    if (!form.category_uuid) {
+        return [];
+    }
+
+    const categories = resolveCategoryContextUuids(form.category_uuid);
+    const values = new Set(
+        trackedItemOptions.value
+            .filter((option) =>
+                option.category_uuids?.some((uuid) =>
+                    categories.includes(uuid),
+                ),
+            )
+            .map((option) => `tracked_item:${option.uuid ?? option.value}`),
+    );
+
+    return referenceOptions.value.filter((option) => values.has(option.value));
+});
+const mobileReferenceRecent = computed(() => {
+    if (!isMobile.value) {
+        return [];
+    }
+
+    const values = new Set(
+        props.sheet.transactions.flatMap((row) =>
+            row.tracked_item_uuid
+                ? [`tracked_item:${row.tracked_item_uuid}`]
+                : row.scope_uuid
+                  ? [`scope:${row.scope_uuid}`]
+                  : [],
+        ),
+    );
+
+    return quickReferences.value.filter((option) => values.has(option.value));
+});
 
 function parseIsoDateParts(
     date: string | null,
@@ -877,23 +916,24 @@ function transactionCategoryLabel(
 }
 
 async function createTrackedItemFromContext(
-    name: string,
-    trackedItemUuid?: string,
-): Promise<void> {
+    draft: ReferenceDraft,
+): Promise<boolean> {
     if (form.type_key === '' || form.type_key === transferTypeKey) {
         form.setError(
             'tracked_item_uuid',
             t('transactions.form.errors.invalidTypeForTrackedItem'),
         );
 
-        return;
+        return false;
     }
 
     const requestContext = [
+        String(props.open),
         form.account_uuid,
         form.category_uuid,
         form.type_key,
     ].join(':');
+    referenceDraftErrors.value = {};
     creatingTrackedItem.value = true;
 
     try {
@@ -909,27 +949,39 @@ async function createTrackedItemFromContext(
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: JSON.stringify({
-                    name: trackedItemUuid ? undefined : name,
-                    tracked_item_uuid: trackedItemUuid,
+                    ...draft,
+                    draft: true,
                     account_uuid: form.account_uuid,
                     category_uuid: form.category_uuid,
                     type_key: form.type_key,
-                    ...(isMobile.value && newReferenceOpen.value
-                        ? { website_url: newReferenceWebsite.value || null }
-                        : {}),
                 }),
             },
         );
 
         if (
             requestContext !==
-            [form.account_uuid, form.category_uuid, form.type_key].join(':')
+            [
+                String(props.open),
+                form.account_uuid,
+                form.category_uuid,
+                form.type_key,
+            ].join(':')
         ) {
-            return;
+            return false;
         }
 
         if (!response.ok) {
             const payload = await response.json().catch(() => null);
+            referenceDraftErrors.value = Object.fromEntries(
+                Object.entries(payload?.errors ?? {}).map(
+                    ([field, messages]) => [
+                        field,
+                        Array.isArray(messages)
+                            ? String(messages[0])
+                            : String(messages),
+                    ],
+                ),
+            );
             const slugError = Array.isArray(payload?.errors?.slug)
                 ? payload.errors.slug[0]
                 : null;
@@ -946,7 +998,7 @@ async function createTrackedItemFromContext(
                       : t('transactions.form.errors.createTrackedItemFailed'),
             );
 
-            return;
+            return false;
         }
 
         const payload = await response.json();
@@ -964,9 +1016,9 @@ async function createTrackedItemFromContext(
             first.label.localeCompare(second.label, 'it'),
         );
         selectedReferenceValue.value = `tracked_item:${option.value}`;
-        newReferenceOpen.value = false;
-        newReferenceName.value = '';
-        newReferenceWebsite.value = '';
+        form.clearErrors('tracked_item_uuid');
+
+        return true;
     } catch (error) {
         form.setError(
             'tracked_item_uuid',
@@ -974,6 +1026,8 @@ async function createTrackedItemFromContext(
                 ? error.message
                 : t('transactions.form.errors.createTrackedItemFailed'),
         );
+
+        return false;
     } finally {
         creatingTrackedItem.value = false;
     }
@@ -1959,7 +2013,7 @@ function submit(): void {
         shared_expense_counterparty_share: form.is_shared_expense
             ? form.shared_expense_counterparty_share
             : null,
-        confirm_shared_review: props.confirmSharedReview === true,
+        confirm_shared_review: props.confirmSharedReview ?? false,
         amount: normalizedAmount,
         description: form.description.trim() || null,
         notes: form.notes.trim() || null,
@@ -2825,138 +2879,40 @@ function submit(): void {
                                         )
                                     }}
                                 </div>
-                                <div
-                                    v-if="isMobile && !isMoveMode"
-                                    class="grid min-w-0 gap-2"
-                                >
-                                    <MobileQuickChoices
-                                        v-if="quickReferences.length"
-                                        :model-value="selectedReferenceValue"
-                                        :options="quickReferences"
-                                        appearance="reference"
-                                        @update:model-value="
-                                            handleReferenceSelection
-                                        "
-                                    />
-                                    <div
-                                        class="flex min-w-0 items-center gap-2"
-                                    >
-                                        <MobileSearchableSelect
-                                            v-if="referenceOptions.length"
-                                            :model-value="
-                                                selectedReferenceValue
-                                            "
-                                            :options="referenceOptions"
-                                            :placeholder="ui('Tutti · Cerca')"
-                                            :search-placeholder="
-                                                ui('Cerca riferimento')
-                                            "
-                                            clearable
-                                            :teleport="false"
-                                            :mobile-title="ui('Riferimento')"
-                                            trigger-class="min-h-11 rounded-2xl"
-                                            class="min-w-0 flex-1"
-                                            @update:model-value="
-                                                handleReferenceSelection
-                                            "
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            class="min-h-11 shrink-0 rounded-2xl"
-                                            @click="
-                                                newReferenceOpen =
-                                                    !newReferenceOpen
-                                            "
-                                            >{{ ui('+ Nuovo') }}</Button
-                                        >
-                                    </div>
-                                    <div
-                                        v-if="newReferenceOpen"
-                                        class="grid gap-3 rounded-2xl border border-border bg-muted/30 p-3"
-                                    >
-                                        <Label for="new-reference-name">{{
-                                            ui('Nome riferimento')
-                                        }}</Label>
-                                        <Input
-                                            id="new-reference-name"
-                                            v-model="newReferenceName"
-                                            :placeholder="ui('Es. Amazon')"
-                                            class="min-h-11"
-                                        />
-                                        <Label for="new-reference-website">{{
-                                            ui(
-                                                'Sito web per il logo (opzionale)',
-                                            )
-                                        }}</Label>
-                                        <Input
-                                            id="new-reference-website"
-                                            v-model="newReferenceWebsite"
-                                            type="url"
-                                            placeholder="https://www.amazon.it"
-                                            class="min-h-11"
-                                        />
-                                        <Button
-                                            type="button"
-                                            :disabled="
-                                                creatingTrackedItem ||
-                                                !newReferenceName.trim()
-                                            "
-                                            class="min-h-11"
-                                            @click="
-                                                createTrackedItemFromContext(
-                                                    newReferenceName.trim(),
-                                                )
-                                            "
-                                            >{{
-                                                ui('Crea e seleziona')
-                                            }}</Button
-                                        >
-                                    </div>
-                                </div>
-                                <MobileSearchableSelect
-                                    v-else-if="!isMoveMode"
+                                <ReferencePicker
+                                    v-if="!isMoveMode"
                                     :model-value="selectedReferenceValue"
-                                    :options="[
-                                        {
-                                            value: '',
-                                            label: t(
-                                                'transactions.form.placeholders.none',
-                                            ),
-                                        },
-                                        ...referenceOptions,
-                                    ]"
-                                    :placeholder="
-                                        t(
-                                            'transactions.form.placeholders.selectTrackedItem',
-                                        )
+                                    :options="referenceOptions"
+                                    :recent="quickReferences"
+                                    :mobile-category="
+                                        filteredCategories.find(
+                                            (option) =>
+                                                option.value ===
+                                                form.category_uuid,
+                                        )?.label
                                     "
-                                    :search-placeholder="
-                                        t(
-                                            'transactions.form.placeholders.searchTrackedItem',
-                                        )
+                                    :mobile-suggestions="
+                                        mobileReferenceSuggestions
                                     "
+                                    :mobile-recent="mobileReferenceRecent"
                                     :disabled="form.type_key === ''"
-                                    clearable
-                                    :teleport="false"
-                                    creatable
-                                    :creating="creatingTrackedItem"
-                                    :mobile-title="
-                                        t(
-                                            'transactions.form.labels.trackedItem',
-                                        )
+                                    :busy="creatingTrackedItem"
+                                    :draft-errors="referenceDraftErrors"
+                                    :error="
+                                        form.errors.tracked_item_uuid ||
+                                        form.errors.scope_uuid
                                     "
-                                    :create-label="
-                                        t(
-                                            'transactions.form.placeholders.createTrackedItem',
-                                        )
+                                    :context-key="
+                                        [
+                                            props.open,
+                                            form.account_uuid,
+                                            form.category_uuid,
+                                            form.type_key,
+                                        ].join(':')
                                     "
-                                    trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    :prepare="createTrackedItemFromContext"
                                     @update:model-value="
                                         handleReferenceSelection
-                                    "
-                                    @create-option="
-                                        createTrackedItemFromContext
                                     "
                                 />
                                 <InputError

@@ -8,6 +8,8 @@ use Carbon\CarbonImmutable;
 
 class RecurringEntryAmountHistoryService
 {
+    public function __construct(protected RecurringEntryAmountResolver $amountResolver) {}
+
     public function record(RecurringEntry $entry, RecurringEntry $original, ?string $effectiveFrom): void
     {
         if ($entry->entry_type !== $original->entry_type) {
@@ -17,6 +19,13 @@ class RecurringEntryAmountHistoryService
         $newCents = $this->baseAmountCents($entry);
         if ($previousCents === $newCents) {
             return;
+        }
+        if ($original->promotion !== null) {
+            $previousCents = (int) round((float) $this->amountResolver->resolve(
+                $original,
+                CarbonImmutable::parse($effectiveFrom ?? CarbonImmutable::tomorrow()->toDateString()),
+                $original->amountChanges()->reorder('effective_from')->orderBy('id')->get(),
+            ) * 100);
         }
 
         $entry->amountChanges()->create([

@@ -6,7 +6,22 @@ export type TrackedItemCounts = {
     scheduled_entries: number;
 };
 
+export type TrackedItemLinkCounts = {
+    total: number;
+    direct: number;
+    indirect: number;
+    groups: Array<{
+        key: string;
+        total: number;
+        direct: number;
+        indirect: number;
+        archived: number;
+        types: Record<string, number>;
+    }>;
+};
+
 export type TrackedItemItem = {
+    link_counts?: TrackedItemLinkCounts;
     canonical_uuid?: string | null;
     canonical_name?: string | null;
     uuid: string;

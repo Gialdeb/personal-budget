@@ -3,6 +3,8 @@
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AdminInvitationController;
 use App\Http\Controllers\Admin\AutomationController;
+use App\Http\Controllers\Admin\BrandCategoryController;
+use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\ChangelogReleaseController;
 use App\Http\Controllers\Admin\CommunicationCategoryController;
 use App\Http\Controllers\Admin\CommunicationComposerController;
@@ -34,6 +36,16 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
     ->group(function () {
         // ADMIN IMPERSONATE
         Route::get('/impersonate/take/{id}/{guardName?}', [ImpersonateController::class, 'take'])->name('impersonate');
+
+        Route::post('brands/categories', [BrandCategoryController::class, 'store'])->name('brands.categories.store');
+        Route::patch('brands/categories/{brandCategory:uuid}', [BrandCategoryController::class, 'update'])->name('brands.categories.update');
+        Route::delete('brands/categories/{brandCategory:uuid}', [BrandCategoryController::class, 'destroy'])->name('brands.categories.destroy');
+        Route::post('brands/move', [BrandCategoryController::class, 'move'])->name('brands.move');
+        Route::get('brands/import-candidates', [BrandController::class, 'importCandidates'])->name('brands.import-candidates');
+        Route::get('brands', [BrandController::class, 'index'])->name('brands.index');
+        Route::post('brands', [BrandController::class, 'store'])->name('brands.store');
+        Route::match(['patch', 'post'], 'brands/{brand:uuid}', [BrandController::class, 'update'])->whereUuid('brand')->name('brands.update');
+        Route::delete('brands/{brand:uuid}', [BrandController::class, 'destroy'])->whereUuid('brand')->name('brands.destroy');
 
         // ADMIN DASHBOARD
         Route::get('/', fn () => inertia('admin/Index'))->name('index');

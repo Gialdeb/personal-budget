@@ -66,6 +66,9 @@ class WebsiteLogoService
 
     public function afterReferenceSaved(TrackedItem $item): void
     {
+        if (in_array($item->settings['logo_source'] ?? null, ['catalog', 'none', 'brand', 'upload'], true)) {
+            return;
+        }
         $url = $item->website_url;
         if (! filled($url)) {
             return;
@@ -74,7 +77,7 @@ class WebsiteLogoService
         DB::afterCommit(function () use ($id, $url): void {
             try {
                 $current = TrackedItem::query()->find($id);
-                if ($current === null || $current->website_url !== $url) {
+                if ($current === null || $current->website_url !== $url || in_array($current->settings['logo_source'] ?? null, ['catalog', 'none', 'brand', 'upload'], true)) {
                     return;
                 }
                 $identity = $this->resolve($url, retryUnavailable: true);

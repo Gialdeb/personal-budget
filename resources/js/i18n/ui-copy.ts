@@ -2,6 +2,141 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'Logo dal sito': 'Logo from website',
+    'Logo non disponibile. Verranno mostrate le iniziali.':
+        'Logo unavailable. Initials will be shown.',
+    'Caricamento anteprima logo…': 'Loading logo preview…',
+    'Anteprima logo': 'Logo preview',
+    'Anteprima marchio': 'Brand preview',
+    Azioni: 'Actions',
+    'Impossibile completare l’operazione. Controlla i dati e riprova.':
+        'Unable to complete this operation. Check the details and try again.',
+    'Trasferisci ed elimina': 'Transfer and delete',
+    'Confermo il trasferimento di tutti i marchi e l’eliminazione della categoria.':
+        'I confirm transferring all brands and deleting the category.',
+    'La categoria contiene marchi. Trasferiscili tutti prima di eliminarla.':
+        'This category contains brands. Transfer them all before deleting it.',
+    'Pagina successiva': 'Next page',
+    'Pagina precedente': 'Previous page',
+    'Pagina {page} di {pages} · {count} categorie':
+        'Page {page} of {pages} · {count} categories',
+    'Paginazione categorie': 'Category pagination',
+    'Righe per pagina': 'Rows per page',
+    'Nessuna categoria. Crea la prima per organizzare i marchi.':
+        'No categories yet. Create one to organize brands.',
+    'Nessuna categoria corrisponde alla ricerca.':
+        'No categories match your search.',
+    'Azioni categoria {name}': 'Actions for {name}',
+    'Visualizza {count} marchi della categoria {name}':
+        'View {count} brands in {name}',
+    'Ordinamento categorie': 'Category order',
+    'Cerca categorie': 'Search categories',
+    'Seleziona marchio {name}': 'Select brand {name}',
+    'Confermi l’eliminazione della categoria vuota?':
+        'Delete this empty category?',
+    'Sposta prima i marchi in un’altra categoria.':
+        'Move the brands to another category first.',
+    'Crea prima una categoria di destinazione.':
+        'Create a destination category first.',
+    'Scegli categoria': 'Choose category',
+    'Categoria di destinazione': 'Destination category',
+    'marchi da spostare': 'brands to move',
+    'Nome categoria': 'Category name',
+    'Riassegna marchi': 'Reassign brands',
+    Rinomina: 'Rename',
+    'Categorie indipendenti dalle categorie delle transazioni.':
+        'Categories independent of transaction categories.',
+    'Sposta selezionati': 'Move selected',
+    'Gestisci categorie': 'Manage categories',
+    'Sposta marchi': 'Move brands',
+    'Elimina categoria': 'Delete category',
+    'Rinomina categoria': 'Rename category',
+    'Categorie del catalogo': 'Catalog categories',
+    'Il riferimento e il logo verranno salvati insieme alla registrazione.':
+        'The reference and logo will be saved with the main entry.',
+    'Impossibile caricare i marchi. Riprova.':
+        'Unable to load brands. Try again.',
+    'Impossibile caricare il logo.': 'Unable to upload the logo.',
+    Marchio: 'Brand',
+    Marchi: 'Brands',
+    'Riferimento esistente': 'Existing reference',
+    'Riferimenti esistenti': 'Existing references',
+    'Suggeriti e recenti': 'Suggested and recent',
+    'Logo suggerito: conferma per utilizzarlo':
+        'Suggested logo: confirm to use it',
+    'Logo personalizzato': 'Custom logo',
+
+    Riprova: 'Retry',
+    'Importa loghi esistenti': 'Import existing logos',
+    'Logo selezionato dall’archivio. Nessun riferimento personale verrà importato.':
+        'Logo selected from the archive. No personal reference will be imported.',
+    'Solo siti con un’immagine disponibile e non ancora presenti nel catalogo. Scegli un logo, poi conferma nome e categoria.':
+        'Only websites with an available image that are not yet in the catalog. Choose a logo, then confirm the name and category.',
+    'Cerca dominio da importare': 'Search domain to import',
+    'Nessun logo da importare': 'No logos to import',
+
+    'Filtra per categoria': 'Filter by category',
+    'Tutte le categorie': 'All categories',
+    'Aggiungi categoria': 'Add category',
+    'Nuova categoria': 'New category',
+    'Salva e crea nuovo': 'Save and create another',
+    Aggiungi: 'Add',
+    Salva: 'Save',
+    'Il marchio verrà rimosso dal catalogo. I riferimenti personali restano invariati.':
+        'The brand will be removed from the catalog. Personal references remain unchanged.',
+    'Rimuovi marchio': 'Remove brand',
+    'Carica logo': 'Upload logo',
+    'Rimuovi logo': 'Remove logo',
+    'Recupera dal sito al salvataggio': 'Retrieve from website when saving',
+    'Mantieni logo': 'Keep logo',
+    'Categoria del marchio (facoltativa)': 'Brand category (optional)',
+    Dominio: 'Domain',
+    'Alias, uno per riga': 'Aliases, one per line',
+    'Nome marchio': 'Brand name',
+    'Nessun riferimento personale viene importato nel catalogo.':
+        'No personal references are imported into the catalog.',
+    'Nessun marchio trovato': 'No brands found',
+    Rimuovi: 'Remove',
+    Pubblica: 'Publish',
+    Ritira: 'Unpublish',
+    Bozza: 'Draft',
+    Pubblicato: 'Published',
+    marchi: 'brands',
+    Tutti: 'All',
+    'Filtro alfabetico': 'Alphabetical filter',
+    'Ultima modifica': 'Last updated',
+    Ordinamento: 'Sort order',
+    'Nome, alias o dominio': 'Name, alias or domain',
+    'Cerca marchi': 'Search brands',
+    'Modifica marchio': 'Edit brand',
+    'Nuovo marchio': 'New brand',
+    'Marchi pubblici gestiti dagli amministratori. Separati dai riferimenti personali.':
+        'Public brands managed by administrators. Separate from personal references.',
+    'Catalogo marchi': 'Brand catalog',
+    Nuovo: 'New',
+    'Suggeriti per questa categoria': 'Suggested for this category',
+    'Nessun logo trovato. Puoi continuare senza logo.':
+        'No logo found. You can continue without one.',
+    'Scegli un riferimento o preparane uno nuovo. Verrà salvato insieme alla transazione.':
+        'Choose a reference or prepare a new one. It will be saved with the transaction.',
+
+    'Dal sito': 'From website',
+    'Dal catalogo': 'From catalog',
+    'Senza logo': 'No logo',
+    'Logo selezionato': 'Selected logo',
+    'Recupera logo dal sito': 'Retrieve logo from website',
+    'Mostra altri': 'Show more',
+    'Nessun logo disponibile': 'No logos available',
+    'Cerca per sito o dominio': 'Search by website or domain',
+    'Cerca logo nel catalogo': 'Search logo catalog',
+    Logo: 'Logo',
+    'Sito web (facoltativo)': 'Website (optional)',
+    'Nessun riferimento': 'Nessun riferimento',
+    Recenti: 'Recenti',
+    'Scegli riferimento': 'Choose reference',
+    'Impossibile recuperare il logo.': 'Unable to retrieve the logo.',
+    'Impossibile caricare i loghi. Riprova.':
+        'Unable to load logos. Try again.',
     'Residuo rata': 'Installment outstanding',
     'Visualizza piani': 'View plans',
     'piani associati a': 'plans associated with',

@@ -36,6 +36,7 @@ class RecurringEntryIndexResource extends JsonResource
             'is_compound_component' => $this->compoundComponent !== null,
             'component_name' => $this->compoundComponent?->displayName(),
             'component_edit_locked' => $this->compoundComponent === null ? null : $this->resource->hasProtectedComponentPayments(),
+            'promotion' => $this->promotion,
             'salary_url' => $this->salarySchedule ? route('salary-employments.show', $this->salarySchedule->employment->uuid) : null,
             'show_url' => route('recurring-entries.show', $this->compoundComponent?->compoundRecurringEntry?->uuid ?? $this->uuid),
             'title' => $this->title,

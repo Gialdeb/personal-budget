@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HandCoins, Pencil, UsersRound } from 'lucide-vue-next';
+import { HandCoins, Pencil, RotateCcw, UsersRound } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
@@ -51,7 +51,9 @@ const { t, locale } = useI18n();
                     </p>
                 </div>
             </div>
-            <div class="flex min-w-0 items-center gap-2 sm:w-72">
+            <div
+                class="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap"
+            >
                 <span
                     id="shared-ledger-filter-label"
                     class="shrink-0 text-xs text-muted-foreground"
@@ -71,6 +73,17 @@ const { t, locale } = useI18n();
                     aria-labelledby="shared-ledger-filter-label"
                     trigger-class="h-9 min-w-0 rounded-lg text-xs"
                 />
+                <Button
+                    v-if="counterparty !== 'all'"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="h-9 shrink-0 gap-1.5 text-xs"
+                    @click="counterparty = 'all'"
+                    ><RotateCcw class="size-3.5" aria-hidden="true" />{{
+                        t('transactions.sharedLedger.reset')
+                    }}</Button
+                >
             </div>
         </header>
         <ul

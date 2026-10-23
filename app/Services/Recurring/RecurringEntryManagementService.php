@@ -169,7 +169,7 @@ class RecurringEntryManagementService
                     ->whereHas('convertedTransaction.refundTransaction')->exists();
 
             if ($hasConvertedOccurrences || $hasTrialPayment) {
-                $validated = $this->validator->validate($user, [...$entry->getAttributes(), ...$validated]);
+                $validated = $this->validator->validate($user, [...$entry->getAttributes(), ...$validated], $originalEntry);
                 if (
                     $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT
                     && (bool) ($validated['is_amount_variable'] ?? false)
@@ -201,6 +201,7 @@ class RecurringEntryManagementService
                     ]);
                 }
 
+                $this->confirmPromotionChanges($entry, $validated);
                 $entry->fill(Arr::only($validated, [
                     'title',
                     'description',
@@ -210,6 +211,7 @@ class RecurringEntryManagementService
                     'auto_create_transaction',
                     'auto_generate_occurrences',
                     'is_amount_variable',
+                    'promotion',
                     'reminder_days_before',
                     'shared_expense_counterparty_id',
                     'shared_expense_paid_by',
@@ -222,7 +224,7 @@ class RecurringEntryManagementService
                 $entry->save();
 
                 if ($canRealignRefundedSchedule && array_key_exists('start_date', $validated)) {
-                    $normalized = $this->validator->validate($user, [...$entry->getAttributes(), ...$validated]);
+                    $normalized = $this->validator->validate($user, [...$entry->getAttributes(), ...$validated], $originalEntry);
                     $entry->forceFill(['start_date' => $normalized['start_date']])->save();
                 }
 
@@ -253,9 +255,10 @@ class RecurringEntryManagementService
             $normalized = $this->validator->validate($user, [
                 ...$entry->getAttributes(),
                 ...$validated,
-            ]);
+            ], $originalEntry);
             $this->ensureSelectedFutureYearsExist($user, $normalized);
 
+            $this->confirmPromotionChanges($entry, $normalized);
             $entry->fill($normalized);
             $entry->forceFill([
                 'updated_by_user_id' => $user->id,
@@ -283,6 +286,20 @@ class RecurringEntryManagementService
                 'occurrences.convertedTransaction',
             ]);
         });
+    }
+
+    /** @param array<string, mixed> $validated */
+    protected function confirmPromotionChanges(RecurringEntry $original, array $validated): void
+    {
+        $candidate = clone $original;
+        $candidate->fill($validated);
+        if ($original->promotion === null && $candidate->promotion === null) {
+            return;
+        }
+        $impact = $this->generator->promotionImpact($candidate, $original, true);
+        if ($impact['confirmation'] !== null && ! hash_equals($impact['confirmation'], (string) ($validated['promotion_confirmation'] ?? ''))) {
+            throw ValidationException::withMessages(['promotion_confirmation' => __('recurring_promotion.confirm_changes')]);
+        }
     }
 
     public function synchronizeSalaryRegistration(User $user, RecurringEntry $entry, bool $automatic): void

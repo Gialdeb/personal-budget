@@ -41,12 +41,15 @@ import {
 import {
     undoRefund as undoTransactionRefund,
     previewExchangeSnapshot,
+    storeTrackedItemOption,
 } from '@/actions/App/Http/Controllers/TransactionsController';
 import AppDatePicker from '@/components/AppDatePicker.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import RecurringCalendarGrid from '@/components/recurring/RecurringCalendarGrid.vue';
 import type { RecurringCalendarCell } from '@/components/recurring/RecurringCalendarGrid.vue';
+import ReferencePicker from '@/components/ReferencePicker.vue';
+import type { ReferenceDraft } from '@/components/ReferencePicker.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
 import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
@@ -360,7 +363,6 @@ const {
 } = useTransactionFilters({
     transfer: showTransfers,
     day: selectedDay,
-    advancedBy: selectedAdvancedBy,
     income: showIncome,
     expense: showExpenses,
     opening: showOpeningBalances,
@@ -674,7 +676,13 @@ const selectedAccountFilterLabel = computed(
         )?.label ?? t('transactions.index.labels.allAccounts'),
 );
 const trackedItemOptions = computed(() => sheet.value.editor.tracked_items);
-const inlineCreateTypeOptions = computed(() => sheet.value.editor.type_options);
+const inlineCreateTypeOptions = computed(() =>
+    [...sheet.value.editor.type_options].sort(
+        (first, second) =>
+            Number(second.value === 'expense') -
+            Number(first.value === 'expense'),
+    ),
+);
 const editingInlineTransaction = computed(
     () =>
         sheet.value.transactions.find(
@@ -739,7 +747,7 @@ function transactionCategoryPath(
 }
 
 const inlineEditTypeOptions = computed(() => {
-    const options = sheet.value.editor.type_options.filter(
+    const options = inlineCreateTypeOptions.value.filter(
         (option) => option.create_only !== true,
     );
 
@@ -1111,15 +1119,20 @@ const filteredDeletedTransactions = computed(() =>
 );
 
 const sharedLedgerCounterparties = computed(() => {
-    const options = new Map(
-        sheet.value.editor.shared_expense_counterparties.map((option) => [
-            option.value,
-            option,
-        ]),
-    );
+    const options = new Map<string, { value: string; label: string }>();
+    const period = `${props.year}-${String(props.month).padStart(2, '0')}`;
 
     for (const movement of sheet.value.shared_ledger_movements ?? []) {
         if (
+            matchesSharedLedgerDisplay(movement, {
+                shared: true,
+                refunded: false,
+                period,
+                advancedBy: 'all',
+                category: 'all',
+                macrogroup: 'all',
+                account: 'all',
+            }) &&
             movement.shared_expense_counterparty_uuid &&
             movement.shared_expense_counterparty_label
         ) {
@@ -1133,6 +1146,14 @@ const sharedLedgerCounterparties = computed(() => {
     return [...options.values()].sort((a, b) =>
         a.label.localeCompare(b.label, locale.value),
     );
+});
+watch(sharedLedgerCounterparties, (options) => {
+    if (
+        selectedAdvancedBy.value !== 'all' &&
+        !options.some((option) => option.value === selectedAdvancedBy.value)
+    ) {
+        selectedAdvancedBy.value = 'all';
+    }
 });
 function matchesSharedLedgerFilters(
     movement: MonthlyTransactionSheetTransaction,
@@ -1522,6 +1543,10 @@ const inlineReferenceOptions = computed<ReferenceOption[]>(() => [
     ...inlineTrackedItems.value.map((trackedItem) => ({
         value: `tracked_item:${trackedItem.uuid ?? trackedItem.value}`,
         label: trackedItem.label,
+        logo_url: trackedItem.logo_url,
+        domain: trackedItem.domain,
+        search_terms: trackedItem.search_terms,
+        is_selectable: trackedItem.is_selectable,
     })),
 ]);
 
@@ -1533,9 +1558,41 @@ const editReferenceOptions = computed<ReferenceOption[]>(() => [
     ...editTrackedItems.value.map((trackedItem) => ({
         value: `tracked_item:${trackedItem.uuid ?? trackedItem.value}`,
         label: trackedItem.label,
+        logo_url: trackedItem.logo_url,
+        domain: trackedItem.domain,
+        search_terms: trackedItem.search_terms,
+        is_selectable: trackedItem.is_selectable,
     })),
 ]);
 
+const inlineReferenceSuggestions = computed(() => {
+    const categories = resolveCategoryContextUuids(inlineForm.category_uuid);
+    const values = new Set(
+        inlineTrackedItems.value
+            .filter((item) =>
+                item.category_uuids?.some((uuid) => categories.includes(uuid)),
+            )
+            .map((item) => `tracked_item:${item.uuid ?? item.value}`),
+    );
+
+    return inlineReferenceOptions.value.filter((option) =>
+        values.has(option.value),
+    );
+});
+const editReferenceSuggestions = computed(() => {
+    const categories = resolveCategoryContextUuids(editForm.category_uuid);
+    const values = new Set(
+        editTrackedItems.value
+            .filter((item) =>
+                item.category_uuids?.some((uuid) => categories.includes(uuid)),
+            )
+            .map((item) => `tracked_item:${item.uuid ?? item.value}`),
+    );
+
+    return editReferenceOptions.value.filter((option) =>
+        values.has(option.value),
+    );
+});
 const inlineReferenceValue = computed({
     get(): string {
         if (inlineForm.scope_uuid !== '') {
@@ -2109,13 +2166,13 @@ function pushTrackedItemOption(
 }
 
 async function createTrackedItemFromContext(
-    name: string,
+    draft: ReferenceDraft,
     accountUuid: string,
     typeKey: string,
     categoryUuid: string,
 ): Promise<MonthlyTransactionSheetTrackedItemOption> {
     const response = await fetchWithNotifications(
-        '/transactions/tracked-items',
+        storeTrackedItemOption.url(),
         {
             notification: 'Riferimento creato correttamente.',
             method: 'POST',
@@ -2126,7 +2183,8 @@ async function createTrackedItemFromContext(
                 'X-Requested-With': 'XMLHttpRequest',
             },
             body: JSON.stringify({
-                name,
+                ...draft,
+                draft: true,
                 account_uuid: accountUuid,
                 category_uuid: categoryUuid,
                 type_key: typeKey,
@@ -2157,28 +2215,49 @@ async function createTrackedItemFromContext(
     return payload.item as MonthlyTransactionSheetTrackedItemOption;
 }
 
-async function handleCreateInlineTrackedItem(name: string): Promise<void> {
+async function handleCreateInlineTrackedItem(
+    draft: ReferenceDraft,
+): Promise<boolean> {
     if (inlineForm.type_key === '' || inlineForm.type_key === transferTypeKey) {
         inlineForm.setError(
             'tracked_item_uuid',
             t('transactions.form.errors.invalidTypeForTrackedItem'),
         );
 
-        return;
+        return false;
     }
 
     creatingInlineTrackedItem.value = true;
 
+    const context = [
+        inlineForm.account_uuid,
+        inlineForm.type_key,
+        inlineForm.category_uuid,
+    ].join(':');
+
     try {
         const option = await createTrackedItemFromContext(
-            name,
+            draft,
             inlineForm.account_uuid,
             inlineForm.type_key,
             inlineForm.category_uuid,
         );
 
+        if (
+            context !==
+            [
+                inlineForm.account_uuid,
+                inlineForm.type_key,
+                inlineForm.category_uuid,
+            ].join(':')
+        ) {
+            return false;
+        }
+
         pushTrackedItemOption(option);
         inlineReferenceValue.value = `tracked_item:${option.value}`;
+
+        return true;
     } catch (error) {
         inlineForm.setError(
             'tracked_item_uuid',
@@ -2186,33 +2265,56 @@ async function handleCreateInlineTrackedItem(name: string): Promise<void> {
                 ? error.message
                 : t('transactions.form.errors.createTrackedItemFailed'),
         );
+
+        return false;
     } finally {
         creatingInlineTrackedItem.value = false;
     }
 }
 
-async function handleCreateEditTrackedItem(name: string): Promise<void> {
+async function handleCreateEditTrackedItem(
+    draft: ReferenceDraft,
+): Promise<boolean> {
     if (editForm.type_key === '' || editForm.type_key === transferTypeKey) {
         editForm.setError(
             'tracked_item_uuid',
             t('transactions.form.errors.invalidTypeForTrackedItem'),
         );
 
-        return;
+        return false;
     }
 
     creatingEditTrackedItem.value = true;
 
+    const context = [
+        editForm.account_uuid,
+        editForm.type_key,
+        editForm.category_uuid,
+    ].join(':');
+
     try {
         const option = await createTrackedItemFromContext(
-            name,
+            draft,
             editForm.account_uuid,
             editForm.type_key,
             editForm.category_uuid,
         );
 
+        if (
+            context !==
+            [
+                editForm.account_uuid,
+                editForm.type_key,
+                editForm.category_uuid,
+            ].join(':')
+        ) {
+            return false;
+        }
+
         pushTrackedItemOption(option);
         editReferenceValue.value = `tracked_item:${option.value}`;
+
+        return true;
     } catch (error) {
         editForm.setError(
             'tracked_item_uuid',
@@ -2220,6 +2322,8 @@ async function handleCreateEditTrackedItem(name: string): Promise<void> {
                 ? error.message
                 : t('transactions.form.errors.createTrackedItemFailed'),
         );
+
+        return false;
     } finally {
         creatingEditTrackedItem.value = false;
     }
@@ -2957,7 +3061,6 @@ function handleMonthSelection(value: unknown): void {
 
 function resetFilters(): void {
     selectedDay.value = '';
-    selectedAdvancedBy.value = 'all';
     showShared.value = true;
     showDeleted.value = false;
     showIncome.value = true;
@@ -5529,53 +5632,55 @@ resetInlineEntry();
                                                             )
                                                         }}
                                                     </div>
-                                                    <SearchableSelect
+                                                    <ReferencePicker
                                                         v-else-if="
                                                             !isEditTransfer
                                                         "
                                                         v-model="
                                                             editReferenceValue
                                                         "
-                                                        :options="[
-                                                            {
-                                                                value: '',
-                                                                label: t(
-                                                                    'transactions.sheet.grid.noSelection',
-                                                                ),
-                                                            },
-                                                            ...editReferenceOptions,
-                                                        ]"
-                                                        :placeholder="
-                                                            t(
-                                                                'transactions.sheet.grid.columns.trackedItem',
-                                                            )
+                                                        :options="
+                                                            editReferenceOptions
                                                         "
-                                                        :search-placeholder="
-                                                            t(
-                                                                'transactions.form.placeholders.searchTrackedItem',
-                                                            )
+                                                        :mobile-suggestions="
+                                                            editReferenceSuggestions
+                                                        "
+                                                        :mobile-category="
+                                                            editCategories.find(
+                                                                (category) =>
+                                                                    category.value ===
+                                                                    editForm.category_uuid,
+                                                            )?.label
                                                         "
                                                         :disabled="
                                                             editForm.type_key ===
                                                             ''
                                                         "
-                                                        clearable
-                                                        creatable
-                                                        :creating="
+                                                        :busy="
                                                             creatingEditTrackedItem
                                                         "
-                                                        :create-label="
-                                                            t(
-                                                                'transactions.form.placeholders.createTrackedItem',
-                                                            )
+                                                        :context-key="
+                                                            [
+                                                                editingInlineUuid,
+                                                                editForm.account_uuid,
+                                                                editForm.type_key,
+                                                                editForm.category_uuid,
+                                                            ].join(':')
                                                         "
-                                                        :trigger-class="
+                                                        :prepare="
+                                                            handleCreateEditTrackedItem
+                                                        "
+                                                        :error="
+                                                            editForm.errors
+                                                                .tracked_item_uuid ||
+                                                            editForm.errors
+                                                                .scope_uuid
+                                                        "
+                                                        desktop-teleport
+                                                        :desktop-trigger-class="
                                                             editFieldClass(
                                                                 'tracked_item_uuid',
                                                             )
-                                                        "
-                                                        @create-option="
-                                                            handleCreateEditTrackedItem
                                                         "
                                                     />
                                                     <div
@@ -6717,53 +6822,54 @@ resetInlineEntry();
                                                         )
                                                     }}
                                                 </div>
-                                                <SearchableSelect
+                                                <ReferencePicker
                                                     v-else-if="
                                                         !isInlineTransfer
                                                     "
                                                     v-model="
                                                         inlineReferenceValue
                                                     "
-                                                    :options="[
-                                                        {
-                                                            value: '',
-                                                            label: t(
-                                                                'transactions.sheet.grid.noSelection',
-                                                            ),
-                                                        },
-                                                        ...inlineReferenceOptions,
-                                                    ]"
-                                                    :placeholder="
-                                                        t(
-                                                            'transactions.sheet.grid.columns.trackedItem',
-                                                        )
+                                                    :options="
+                                                        inlineReferenceOptions
                                                     "
-                                                    :search-placeholder="
-                                                        t(
-                                                            'transactions.form.placeholders.searchTrackedItem',
-                                                        )
+                                                    :mobile-suggestions="
+                                                        inlineReferenceSuggestions
+                                                    "
+                                                    :mobile-category="
+                                                        inlineCategories.find(
+                                                            (category) =>
+                                                                category.value ===
+                                                                inlineForm.category_uuid,
+                                                        )?.label
                                                     "
                                                     :disabled="
                                                         inlineForm.type_key ===
                                                         ''
                                                     "
-                                                    clearable
-                                                    creatable
-                                                    :creating="
+                                                    :busy="
                                                         creatingInlineTrackedItem
                                                     "
-                                                    :create-label="
-                                                        t(
-                                                            'transactions.form.placeholders.createTrackedItem',
-                                                        )
+                                                    :context-key="
+                                                        [
+                                                            inlineForm.account_uuid,
+                                                            inlineForm.type_key,
+                                                            inlineForm.category_uuid,
+                                                        ].join(':')
                                                     "
-                                                    :trigger-class="
+                                                    :prepare="
+                                                        handleCreateInlineTrackedItem
+                                                    "
+                                                    :error="
+                                                        inlineForm.errors
+                                                            .tracked_item_uuid ||
+                                                        inlineForm.errors
+                                                            .scope_uuid
+                                                    "
+                                                    desktop-teleport
+                                                    :desktop-trigger-class="
                                                         inlineFieldClass(
                                                             'tracked_item_uuid',
                                                         )
-                                                    "
-                                                    @create-option="
-                                                        handleCreateInlineTrackedItem
                                                     "
                                                 />
                                                 <div
@@ -7478,7 +7584,7 @@ resetInlineEntry();
                             <SharedLedgerMovements
                                 v-if="
                                     showShared &&
-                                    filteredSharedLedgerMovements.length > 0
+                                    sharedLedgerCounterparties.length > 0
                                 "
                                 v-model:counterparty="selectedAdvancedBy"
                                 :movements="filteredSharedLedgerMovements"
@@ -8587,6 +8693,11 @@ resetInlineEntry();
 </template>
 
 <style scoped>
+@property --summary-height {
+    syntax: '*';
+    inherits: true;
+}
+
 :global([data-slot='sidebar-inset']:has(.transaction-workspace)) {
     overflow-x: clip;
 }
@@ -8615,6 +8726,7 @@ resetInlineEntry();
 .ledger-table :deep(td button) {
     overflow: hidden;
 }
+/*noinspection CssUnusedSymbol*/
 .ledger-table :deep(td .pr-14) {
     padding-right: 1.5rem;
     padding-left: 0.25rem;
@@ -8624,12 +8736,14 @@ resetInlineEntry();
     flex-wrap: wrap;
     gap: 0.25rem;
 }
+/*noinspection CssUnusedSymbol*/
 .ledger-table :deep(td .grid.rounded-2xl) {
     padding: 0.25rem;
 }
 .ledger-table :deep(th) {
     overflow-wrap: anywhere;
 }
+/*noinspection CssUnusedSymbol*/
 .ledger-table :deep(td .whitespace-nowrap) {
     white-space: normal;
 }

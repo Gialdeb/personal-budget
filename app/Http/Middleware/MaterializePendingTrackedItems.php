@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\PendingCategoryService;
+use App\Services\TrackedItems\PendingReferenceLogoService;
 use App\Services\TrackedItems\PendingTrackedItemService;
 use App\Services\TrackedItems\TrackedItemIdentityService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
@@ -37,7 +38,9 @@ class MaterializePendingTrackedItems
             $input = Validator::make($request->all(), [
                 'name' => ['required_without:tracked_item_uuid', 'nullable', 'string', 'max:150'], 'tracked_item_uuid' => ['nullable', 'uuid'],
                 'account_uuid' => ['required', 'uuid'], 'type_key' => ['nullable', 'in:income,expense,bill,debt,saving'],
-                'direction' => ['nullable', 'in:income,expense'], 'website_url' => ['nullable', 'string', 'max:2048'],
+                'direction' => ['nullable', 'in:income,expense'], 'website_url' => ['required_if:logo_source,website', 'nullable', 'string', 'max:2048'], 'logo_identity_uuid' => ['sometimes', 'nullable', 'uuid'],
+                'logo_brand_uuid' => ['sometimes', 'nullable', 'uuid'],
+                'logo_upload_token' => ['sometimes', 'nullable', 'string', 'max:8192'], 'logo_source' => ['sometimes', 'in:website'],
             ])->validate();
             $account = app(AccessibleAccountsQuery::class)->editable($request->user())->where('accounts.uuid', $input['account_uuid'])->firstOrFail();
             $category = app(PendingCategoryService::class)->virtualCategory($request, $categoryToken, $account);
@@ -120,13 +123,16 @@ class MaterializePendingTrackedItems
             $response = $next($request);
             if ($response->getStatusCode() >= 400 || ($request->hasSession() && $request->session()->get('errors') !== $previousErrors)) {
                 DB::rollBack();
+                app(PendingReferenceLogoService::class)->finish(false);
             } else {
                 DB::commit();
+                app(PendingReferenceLogoService::class)->finish(true);
             }
 
             return $response;
         } catch (Throwable $exception) {
             DB::rollBack();
+            app(PendingReferenceLogoService::class)->finish(false);
             throw $exception;
         }
     }

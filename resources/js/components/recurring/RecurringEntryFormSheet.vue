@@ -6,21 +6,21 @@ import {
     BriefcaseBusiness,
     Check,
     Calendar,
-    Gift,
+    Hourglass,
     LoaderCircle,
     SlidersHorizontal,
 } from 'lucide-vue-next';
-import { computed, ref, watch, useId } from 'vue';
+import { computed, ref, watch, useId, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store as storeCompound } from '@/actions/App/Http/Controllers/CompoundRecurringEntryController';
 import {
     previewExchangeSnapshot,
+    previewPromotion,
     storeTrackedItemOption,
     store,
     update,
     reactivate,
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
-import { storeTrackedItemOption as storeTransactionReference } from '@/actions/App/Http/Controllers/TransactionsController';
 import AlertError from '@/components/AlertError.vue';
 import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
@@ -31,8 +31,11 @@ import CompoundRecurringPaymentFields from '@/components/recurring/CompoundRecur
 import ExistingRecurringPlans from '@/components/recurring/ExistingRecurringPlans.vue';
 import InstallmentPlanSummary from '@/components/recurring/InstallmentPlanSummary.vue';
 import RecurringPostingMode from '@/components/recurring/RecurringPostingMode.vue';
+import RecurringPromotionFields from '@/components/recurring/RecurringPromotionFields.vue';
 import RecurringReminderFields from '@/components/recurring/RecurringReminderFields.vue';
 import SalarySetupFields from '@/components/recurring/SalarySetupFields.vue';
+import ReferencePicker from '@/components/ReferencePicker.vue';
+import type { ReferenceDraft } from '@/components/ReferencePicker.vue';
 import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
 import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import { Button } from '@/components/ui/button';
@@ -85,6 +88,9 @@ import type {
     RecurringEntryFormOptions,
     RecurringEntryIndexCard,
     RecurringFormOption,
+    RecurringPromotionInput,
+    RecurringPromotion,
+    RecurringPromotionPreview,
 } from '@/types';
 
 const ui = useUiCopy();
@@ -179,6 +185,7 @@ const form = useForm({
     recurrence_type: 'monthly',
     recurrence_interval: 1,
     start_date: '',
+    promotion: null as RecurringPromotionInput | null,
     trial_enabled: false,
     trial_duration: '7',
     trial_unit: 'days',
@@ -194,6 +201,101 @@ const form = useForm({
     is_active: true,
     reminder_days_before: [] as number[],
 });
+
+const promotionPreview = ref<RecurringPromotionPreview | null>(null);
+const promotionPreviewLoading = ref(false);
+const promotionPreviewError = ref('');
+const promotionDialogOpen = ref(false);
+let promotionPreviewKey = '';
+let promotionRequest = 0;
+let promotionTimer: ReturnType<typeof setTimeout> | undefined;
+onBeforeUnmount(() => {
+    clearTimeout(promotionTimer);
+    promotionRequest++;
+});
+function promotionDraft(
+    value?: RecurringPromotion | null,
+): RecurringPromotionInput | null {
+    return value
+        ? {
+              amount: String(value.amount),
+              normal_amount: String(value.normal_amount),
+              duration: value.duration,
+              payments: value.payments,
+              until_date: value.until_date,
+              outcome: value.outcome,
+          }
+        : null;
+}
+async function loadPromotionPreview(
+    payload: Record<string, unknown>,
+): Promise<RecurringPromotionPreview | null> {
+    const body = {
+        ...payload,
+        recurring_entry_uuid: props.entry?.uuid ?? null,
+    };
+    const key = JSON.stringify(body);
+
+    if (key === promotionPreviewKey && promotionPreview.value) {
+        return promotionPreview.value;
+    }
+
+    const request = ++promotionRequest;
+    promotionPreviewLoading.value = true;
+    promotionPreviewError.value = '';
+
+    try {
+        const response = await fetchWithNotifications(previewPromotion.url(), {
+            method: 'POST',
+            credentials: 'same-origin',
+            notification: 'preview',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': readCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(body),
+        });
+        const data = await response.json();
+
+        if (request !== promotionRequest) {
+            return null;
+        }
+
+        if (!response.ok) {
+            const errors = Object.fromEntries(
+                Object.entries(data.errors ?? {}).map(([field, messages]) => [
+                    field === 'tracked_item_id' ? 'tracked_item_uuid' : field,
+                    Array.isArray(messages)
+                        ? String(messages[0])
+                        : String(messages),
+                ]),
+            );
+            form.setError(errors);
+            promotionPreviewError.value = Object.keys(errors).length
+                ? ''
+                : data.message || t('recurringDetail.promotion.error');
+
+            return null;
+        }
+
+        promotionPreview.value = data;
+        promotionPreviewKey = key;
+
+        return data;
+    } catch {
+        if (request === promotionRequest) {
+            promotionPreviewError.value = t('recurringDetail.promotion.error');
+        }
+
+        return null;
+    } finally {
+        if (request === promotionRequest) {
+            promotionPreviewLoading.value = false;
+        }
+    }
+}
 
 const isSalary = ref(false);
 const incomeTypeChoices = ref<HTMLElement | null>(null);
@@ -289,9 +391,13 @@ watch(
 );
 const trackedItemCatalog = ref<Record<string, RecurringFormOption[]>>({});
 const creatingTrackedItem = ref(false);
-const newReferenceOpen = ref(false);
-const newReferenceName = ref('');
-const newReferenceWebsite = ref('');
+const referenceDraftErrors = ref<Record<string, string>>({});
+watch(
+    () => [props.open, form.account_uuid, form.category_uuid, form.direction],
+    () => {
+        referenceDraftErrors.value = {};
+    },
+);
 const installmentAmountDraft = ref<string | null>(null);
 const installmentAmount = computed({
     get: () =>
@@ -337,9 +443,6 @@ watch(
     () => [props.open, props.entry?.uuid],
     () => {
         installmentAmountDraft.value = null;
-        newReferenceOpen.value = false;
-        newReferenceName.value = '';
-        newReferenceWebsite.value = '';
     },
     { flush: 'sync' },
 );
@@ -454,13 +557,14 @@ const baseCurrencyCode = computed(() =>
 const isEditing = computed(
     () => props.entry !== null && props.entry !== undefined,
 );
-const structuralLocked = computed(
-    () =>
-        !!props.reactivation ||
+const structuralLocked = computed(() =>
+    Boolean(
+        props.reactivation ||
         (props.entry?.component_edit_locked ??
             (props.entry?.stats.converted_occurrences ?? 0) > 0) ||
-        !!props.entry?.trial_locked ||
-        !!props.entry?.has_activity_periods,
+        props.entry?.trial_locked ||
+        props.entry?.has_activity_periods,
+    ),
 );
 const scheduleLocked = computed(
     () => structuralLocked.value && !props.reactivation,
@@ -521,6 +625,11 @@ const formErrorMessages = computed(() =>
     ),
 );
 function revealFormErrors(): void {
+    if (formError('promotion_confirmation')) {
+        promotionPreviewKey = '';
+        promotionPreview.value = null;
+    }
+
     requestAnimationFrame(() => {
         formScrollContainer.value?.scrollTo({
             top: 0,
@@ -732,10 +841,43 @@ const trackedItemOptions = computed(() =>
         value: String(option.value),
         label: option.label,
         logo_url: option.logo_url,
+        domain: option.domain,
         is_selectable: option.is_selectable,
         search_terms: option.search_terms,
     })),
 );
+
+const mobileReferenceSuggestions = computed(() => {
+    if (!form.category_uuid) {
+        return [];
+    }
+
+    const categories = resolveCategoryContextUuids(form.category_uuid);
+    const values = new Set(
+        trackedItemsForSelectedAccount(form.account_uuid)
+            .filter((option) =>
+                option.category_uuids?.some((uuid) =>
+                    categories.includes(uuid),
+                ),
+            )
+            .map((option) => option.value),
+    );
+
+    return trackedItemOptions.value.filter((option) =>
+        values.has(option.value),
+    );
+});
+const mobileReferenceRecent = computed(() => {
+    if (!isMobile.value) {
+        return [];
+    }
+
+    const values = new Set(
+        recentPlans.value.map((entry) => entry.tracked_item?.uuid),
+    );
+
+    return quickReferences.value.filter((option) => values.has(option.value));
+});
 const scopeOptions = computed(() =>
     props.formOptions.scopes
         .filter((option: RecurringFormOption) => {
@@ -1356,6 +1498,7 @@ watch(
                 start_date: resolveRecurringStartDate(
                     entry.start_date ?? props.defaultStartDate,
                 ),
+                promotion: promotionDraft(entry.promotion),
                 trial_enabled: !!entry.trial_duration,
                 trial_duration: String(entry.trial_duration ?? 7),
                 trial_unit: entry.trial_unit ?? 'days',
@@ -1422,6 +1565,7 @@ watch(
             recurrence_type: 'monthly',
             recurrence_interval: 1,
             start_date: resolveRecurringStartDate(props.defaultStartDate),
+            promotion: null,
             trial_enabled: false,
             trial_duration: '7',
             trial_unit: 'days',
@@ -2209,6 +2353,9 @@ function setBooleanField(
 }
 
 function closeSheet(): void {
+    promotionDialogOpen.value = false;
+    promotionRequest++;
+    clearTimeout(promotionTimer);
     form.clearErrors();
     emit('update:open', false);
 }
@@ -2246,26 +2393,16 @@ function handleReferenceSelection(value: string): void {
     form.clearErrors('tracked_item_uuid');
 }
 
-function createTrackedItemPayload(name: string): Record<string, unknown> {
-    return {
-        name,
-        account_uuid: form.account_uuid,
-        category_uuid: form.category_uuid,
-        direction: form.direction,
-    };
-}
-
 async function createTrackedItemFromContext(
-    name: string,
-    trackedItemUuid?: string,
-): Promise<void> {
+    draft: ReferenceDraft,
+): Promise<boolean> {
     if (form.account_uuid === '') {
         form.setError(
             'tracked_item_uuid',
             t('transactions.recurring.form.errors.accountRequired'),
         );
 
-        return;
+        return false;
     }
 
     if (form.category_uuid === '') {
@@ -2274,21 +2411,21 @@ async function createTrackedItemFromContext(
             t('transactions.recurring.form.errors.categoryRequired'),
         );
 
-        return;
+        return false;
     }
 
     const requestContext = [
+        String(props.open),
         form.account_uuid,
         form.category_uuid,
         form.direction,
     ].join(':');
+    referenceDraftErrors.value = {};
     creatingTrackedItem.value = true;
 
     try {
         const response = await fetchWithNotifications(
-            isMobile.value
-                ? storeTransactionReference.url()
-                : storeTrackedItemOption.url(),
+            storeTrackedItemOption.url(),
             {
                 method: 'POST',
                 headers: {
@@ -2297,36 +2434,40 @@ async function createTrackedItemFromContext(
                     'X-CSRF-TOKEN': readCsrfToken(),
                     'X-Requested-With': 'XMLHttpRequest',
                 },
-                body: JSON.stringify(
-                    isMobile.value
-                        ? {
-                              ...createTrackedItemPayload(name),
-                              name: trackedItemUuid ? undefined : name,
-                              tracked_item_uuid: trackedItemUuid,
-                              type_key:
-                                  form.direction === 'income'
-                                      ? 'income'
-                                      : 'expense',
-                              website_url: newReferenceWebsite.value || null,
-                          }
-                        : {
-                              ...createTrackedItemPayload(name),
-                              name: trackedItemUuid ? undefined : name,
-                              tracked_item_uuid: trackedItemUuid,
-                          },
-                ),
+                body: JSON.stringify({
+                    ...draft,
+                    draft: true,
+                    account_uuid: form.account_uuid,
+                    category_uuid: form.category_uuid,
+                    direction: form.direction,
+                }),
             },
         );
 
         if (
             requestContext !==
-            [form.account_uuid, form.category_uuid, form.direction].join(':')
+            [
+                String(props.open),
+                form.account_uuid,
+                form.category_uuid,
+                form.direction,
+            ].join(':')
         ) {
-            return;
+            return false;
         }
 
         if (!response.ok) {
             const payload = await response.json().catch(() => null);
+            referenceDraftErrors.value = Object.fromEntries(
+                Object.entries(payload?.errors ?? {}).map(
+                    ([field, messages]) => [
+                        field,
+                        Array.isArray(messages)
+                            ? String(messages[0])
+                            : String(messages),
+                    ],
+                ),
+            );
             const slugError = Array.isArray(payload?.errors?.slug)
                 ? payload.errors.slug[0]
                 : null;
@@ -2345,7 +2486,7 @@ async function createTrackedItemFromContext(
                         ),
             );
 
-            return;
+            return false;
         }
 
         const payload = await response.json();
@@ -2368,7 +2509,7 @@ async function createTrackedItemFromContext(
                 t('transactions.recurring.form.errors.createTrackedItemFailed'),
             );
 
-            return;
+            return false;
         }
 
         const accountUuid =
@@ -2402,10 +2543,9 @@ async function createTrackedItemFromContext(
             ),
         };
         form.tracked_item_uuid = optionValue;
-        newReferenceOpen.value = false;
-        newReferenceName.value = '';
-        newReferenceWebsite.value = '';
         form.clearErrors('tracked_item_uuid');
+
+        return true;
     } catch (error) {
         form.setError(
             'tracked_item_uuid',
@@ -2415,6 +2555,8 @@ async function createTrackedItemFromContext(
                       'transactions.recurring.form.errors.createTrackedItemFailed',
                   ),
         );
+
+        return false;
     } finally {
         creatingTrackedItem.value = false;
     }
@@ -2563,7 +2705,66 @@ function resolveRecurrenceConfig(): {
     };
 }
 
-function submit(confirmInstallmentRecalculation = false): void {
+watch(
+    () =>
+        JSON.stringify([
+            props.open,
+            form.data(),
+            repeatPreset.value,
+            customRecurrenceType.value,
+            customRecurrenceInterval.value,
+            buildRecurrenceRule(form.recurrence_type),
+        ]),
+    () => {
+        clearTimeout(promotionTimer);
+        promotionRequest++;
+        promotionPreviewKey = '';
+        promotionPreview.value = null;
+        promotionPreviewLoading.value = false;
+        promotionDialogOpen.value = false;
+        promotionPreviewError.value = '';
+
+        if (
+            !props.open ||
+            props.reactivation ||
+            selectedPlanType.value !== 'recurring' ||
+            (!form.promotion && !props.entry?.promotion) ||
+            !form.account_uuid ||
+            !form.category_uuid ||
+            !form.start_date ||
+            !normalizedPrimaryDescription() ||
+            !(Number(form.expected_amount) > 0)
+        ) {
+            return;
+        }
+
+        if (
+            form.promotion &&
+            (!(Number(form.promotion.amount) > 0) ||
+                !(Number(form.promotion.normal_amount) > 0) ||
+                (form.promotion.duration === 'payments' &&
+                    !form.promotion.payments) ||
+                (form.promotion.duration === 'until_date' &&
+                    !form.promotion.until_date))
+        ) {
+            return;
+        }
+
+        promotionTimer = setTimeout(() => {
+            void submit(false, null, true);
+        }, 400);
+    },
+);
+
+async function submit(
+    confirmInstallmentRecalculation = false,
+    confirmedPromotion: string | null = null,
+    previewOnly = false,
+): Promise<void> {
+    if (previewOnly && (compoundMode.value || props.reactivation)) {
+        return;
+    }
+
     if (creatingTrackedItem.value) {
         return;
     }
@@ -2745,6 +2946,9 @@ function submit(confirmInstallmentRecalculation = false): void {
                           ),
                   }
                 : null,
+        promotion:
+            selectedPlanType.value === 'recurring' ? form.promotion : null,
+        promotion_confirmation: confirmedPromotion,
         trial_duration:
             selectedPlanType.value === 'recurring' && form.trial_enabled
                 ? Number(form.trial_duration)
@@ -2824,6 +3028,29 @@ function submit(confirmInstallmentRecalculation = false): void {
     ) {
         installmentRecalculationDialogOpen.value = true;
 
+        return;
+    }
+
+    if (
+        !props.reactivation &&
+        selectedPlanType.value === 'recurring' &&
+        (form.promotion || props.entry?.promotion)
+    ) {
+        const previewPayload = { ...payload };
+        delete (previewPayload as Record<string, unknown>)
+            .promotion_confirmation;
+        const preview = await loadPromotionPreview(previewPayload);
+
+        if (!preview || previewOnly) {
+            return;
+        }
+
+        if (props.entry && preview.changes.length && !confirmedPromotion) {
+            promotionDialogOpen.value = true;
+
+            return;
+        }
+    } else if (previewOnly) {
         return;
     }
 
@@ -2921,131 +3148,40 @@ const firstTrialBillingDate = computed(() => {
                         ? t('salary.employer')
                         : t('transactions.recurring.form.labels.trackedItem')
                 }}</Label>
-                <div
-                    v-if="isMobile && !structuralLocked"
-                    class="grid min-w-0 gap-2"
-                >
-                    <MobileQuickChoices
-                        v-if="quickReferences.length"
-                        v-model="form.tracked_item_uuid"
-                        @update:model-value="handleReferenceSelection"
-                        :options="quickReferences"
-                        appearance="reference"
-                    />
-                    <div class="flex min-w-0 items-center gap-2">
-                        <MobileSearchableSelect
-                            v-if="trackedItemOptions.length"
-                            v-model="form.tracked_item_uuid"
-                            @update:model-value="handleReferenceSelection"
-                            :options="trackedItemOptions"
-                            :placeholder="ui('Tutti · Cerca')"
-                            :search-placeholder="ui('Cerca riferimento')"
-                            clearable
-                            :clear-value="NONE_VALUE"
-                            :teleport="false"
-                            :mobile-title="ui('Riferimento')"
-                            class="min-w-0 flex-1"
-                            trigger-class="min-h-11 rounded-2xl"
-                        />
-                        <Button
-                            type="button"
-                            variant="outline"
-                            class="min-h-11 shrink-0 rounded-2xl"
-                            @click="newReferenceOpen = !newReferenceOpen"
-                            >{{ ui('+ Nuovo') }}</Button
-                        >
-                    </div>
-                    <div
-                        v-if="newReferenceOpen"
-                        class="grid gap-3 rounded-2xl border border-border bg-muted/30 p-3"
-                    >
-                        <Label for="recurring-reference-name">{{
-                            ui('Nome riferimento')
-                        }}</Label>
-                        <Input
-                            id="recurring-reference-name"
-                            v-model="newReferenceName"
-                            :placeholder="ui('Es. Amazon')"
-                        />
-                        <Label for="recurring-reference-website">{{
-                            ui('Sito web per il logo (opzionale)')
-                        }}</Label>
-                        <Input
-                            id="recurring-reference-website"
-                            v-model="newReferenceWebsite"
-                            type="url"
-                            placeholder="https://www.amazon.it"
-                        />
-                        <Button
-                            type="button"
-                            class="min-h-11"
-                            :disabled="
-                                creatingTrackedItem || !newReferenceName.trim()
-                            "
-                            @click="
-                                createTrackedItemFromContext(
-                                    newReferenceName.trim(),
-                                )
-                            "
-                            >{{ ui('Crea e seleziona') }}</Button
-                        >
-                    </div>
-                </div>
-                <MobileSearchableSelect
-                    v-else
-                    v-model="form.tracked_item_uuid"
-                    @update:model-value="handleReferenceSelection"
-                    :options="[
-                        {
-                            value: NONE_VALUE,
-                            label: t(
-                                'transactions.recurring.form.placeholders.none',
-                            ),
-                        },
-                        ...trackedItemOptions,
-                    ]"
-                    :placeholder="
-                        t(
-                            'transactions.recurring.form.placeholders.selectTrackedItem',
-                        )
+                <ReferencePicker
+                    :model-value="
+                        form.tracked_item_uuid === NONE_VALUE
+                            ? ''
+                            : form.tracked_item_uuid
                     "
-                    :search-placeholder="
-                        t(
-                            'transactions.recurring.form.placeholders.searchTrackedItem',
-                        )
+                    :description="
+                        t('transactions.recurring.form.helper.trackedItem')
                     "
-                    :empty-label="
-                        t(
-                            'transactions.recurring.form.placeholders.noSearchResults',
-                        )
+                    :options="trackedItemOptions"
+                    :recent="quickReferences"
+                    :mobile-category="
+                        categoriesForSelectedAccount(form.account_uuid).find(
+                            (option) => option.value === form.category_uuid,
+                        )?.label
                     "
+                    :mobile-suggestions="mobileReferenceSuggestions"
+                    :mobile-recent="mobileReferenceRecent"
                     :disabled="structuralLocked"
-                    clearable
-                    :clear-value="NONE_VALUE"
-                    creatable
-                    :creating="creatingTrackedItem"
-                    :mobile-title="
-                        t('transactions.recurring.form.labels.trackedItem')
+                    :busy="creatingTrackedItem"
+                    :error="formError('tracked_item_uuid', 'tracked_item_id')"
+                    :draft-errors="referenceDraftErrors"
+                    :context-key="
+                        [
+                            props.open,
+                            form.account_uuid,
+                            form.category_uuid,
+                            form.direction,
+                        ].join(':')
                     "
-                    :create-label="
-                        t(
-                            'transactions.recurring.form.actions.createTrackedItem',
-                        )
+                    :prepare="createTrackedItemFromContext"
+                    @update:model-value="
+                        (value) => handleReferenceSelection(value || NONE_VALUE)
                     "
-                    :teleport="false"
-                    :trigger-class="
-                        cn(
-                            'h-11 rounded-2xl',
-                            fieldErrorClass(
-                                hasFormError(
-                                    'tracked_item_uuid',
-                                    'tracked_item_id',
-                                ),
-                            ),
-                        )
-                    "
-                    content-class="z-[260]"
-                    @create-option="createTrackedItemFromContext"
                 />
                 <p class="text-xs text-slate-500 dark:text-slate-400">
                     {{
@@ -4252,7 +4388,248 @@ const firstTrialBillingDate = computed(() => {
                                 v-if="!compoundMode"
                                 class="grid gap-5 md:grid-cols-2"
                             >
-                                <div class="grid gap-2">
+                                <div
+                                    v-if="
+                                        selectedPlanType === 'recurring' &&
+                                        ((!isSalary &&
+                                            !props.entry?.salary_url) ||
+                                            !reactivation)
+                                    "
+                                    class="grid min-w-0 items-start gap-5 md:col-span-2 md:grid-cols-2"
+                                >
+                                    <section
+                                        v-if="
+                                            selectedPlanType === 'recurring' &&
+                                            !isSalary &&
+                                            !props.entry?.salary_url
+                                        "
+                                        class="grid min-w-0 gap-3 rounded-2xl border p-4 transition-colors"
+                                        :class="
+                                            form.trial_enabled
+                                                ? 'border-sky-200 bg-sky-50/60 dark:border-sky-500/30 dark:bg-sky-500/10'
+                                                : 'border-border bg-background'
+                                        "
+                                    >
+                                        <label
+                                            class="flex min-h-11 min-w-0 cursor-pointer items-center gap-3"
+                                        >
+                                            <span
+                                                class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300"
+                                                ><Hourglass
+                                                    class="size-5"
+                                                    aria-hidden="true"
+                                            /></span>
+                                            <span class="min-w-0 flex-1"
+                                                ><span
+                                                    class="block text-sm font-semibold"
+                                                    >{{
+                                                        ui('Periodo di prova')
+                                                    }}</span
+                                                ><span
+                                                    class="block text-xs text-muted-foreground"
+                                                    >{{
+                                                        ui(
+                                                            'Gratis prima del primo addebito',
+                                                        )
+                                                    }}</span
+                                                ></span
+                                            >
+                                            <span
+                                                class="relative flex h-6 w-11 shrink-0 items-center"
+                                            >
+                                                <input
+                                                    v-model="form.trial_enabled"
+                                                    type="checkbox"
+                                                    :disabled="scheduleLocked"
+                                                    class="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                                                />
+                                                <span
+                                                    aria-hidden="true"
+                                                    class="h-6 w-11 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-disabled:opacity-50"
+                                                />
+                                                <span
+                                                    aria-hidden="true"
+                                                    class="pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-background shadow-sm transition-transform peer-checked:translate-x-5"
+                                                />
+                                            </span>
+                                        </label>
+                                        <template v-if="form.trial_enabled">
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <div class="grid gap-1.5">
+                                                    <Label
+                                                        for="trial-duration"
+                                                        >{{
+                                                            ui('Durata')
+                                                        }}</Label
+                                                    ><Input
+                                                        id="trial-duration"
+                                                        v-model="
+                                                            form.trial_duration
+                                                        "
+                                                        type="number"
+                                                        min="1"
+                                                        max="3650"
+                                                        :disabled="
+                                                            scheduleLocked
+                                                        "
+                                                        class="h-11 min-w-0 text-base"
+                                                    />
+                                                </div>
+                                                <div class="grid gap-1.5">
+                                                    <Label>{{
+                                                        ui('Unità')
+                                                    }}</Label
+                                                    ><Select
+                                                        v-model="
+                                                            form.trial_unit
+                                                        "
+                                                        :disabled="
+                                                            scheduleLocked
+                                                        "
+                                                        ><SelectTrigger
+                                                            class="h-11"
+                                                            ><SelectValue /></SelectTrigger
+                                                        ><SelectContent
+                                                            ><SelectItem
+                                                                value="days"
+                                                                >{{
+                                                                    ui('Giorni')
+                                                                }}</SelectItem
+                                                            ><SelectItem
+                                                                value="weeks"
+                                                                >{{
+                                                                    ui(
+                                                                        'Settimane',
+                                                                    )
+                                                                }}</SelectItem
+                                                            ><SelectItem
+                                                                value="months"
+                                                                >{{
+                                                                    ui('Mesi')
+                                                                }}</SelectItem
+                                                            ></SelectContent
+                                                        ></Select
+                                                    >
+                                                </div>
+                                            </div>
+                                            <p
+                                                class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-sky-100/80 px-3 py-2.5 text-sm font-semibold text-sky-800 dark:bg-sky-500/15 dark:text-sky-200"
+                                            >
+                                                <Calendar
+                                                    class="size-4 shrink-0"
+                                                    aria-hidden="true"
+                                                />
+                                                {{ ui('Primo addebito:') }}
+                                                {{
+                                                    firstTrialBillingDate || '—'
+                                                }}
+                                            </p>
+                                            <p
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{
+                                                    ui(
+                                                        'Durante la prova non vengono registrati movimenti economici. Gli avvisi configurati restano attivi prima del primo addebito.',
+                                                    )
+                                                }}
+                                            </p>
+                                            <InputError
+                                                :message="
+                                                    form.errors
+                                                        .trial_duration ||
+                                                    form.errors.trial_unit
+                                                "
+                                            />
+                                        </template>
+                                    </section>
+
+                                    <div
+                                        class="grid min-w-0 gap-3"
+                                        v-if="
+                                            selectedPlanType === 'recurring' &&
+                                            !reactivation &&
+                                            !compoundMode
+                                        "
+                                    >
+                                        <RecurringPromotionFields
+                                            v-model="form.promotion"
+                                            :currency="form.currency"
+                                            :direction="form.direction"
+                                            :normal-amount="
+                                                form.expected_amount
+                                            "
+                                        />
+                                        <p
+                                            v-if="promotionPreviewLoading"
+                                            class="text-xs text-muted-foreground"
+                                            role="status"
+                                        >
+                                            {{
+                                                t(
+                                                    'recurringDetail.promotion.loading',
+                                                )
+                                            }}
+                                        </p>
+                                        <InputError
+                                            :message="
+                                                promotionPreviewError ||
+                                                formError(
+                                                    'promotion',
+                                                    'promotion.amount',
+                                                    'promotion.normal_amount',
+                                                    'promotion.duration',
+                                                    'promotion.payments',
+                                                    'promotion.until_date',
+                                                    'promotion.outcome',
+                                                    'promotion_confirmation',
+                                                )
+                                            "
+                                        />
+                                        <div
+                                            v-if="
+                                                promotionPreview?.promotion &&
+                                                promotionPreview.schedule.length
+                                            "
+                                            class="min-w-0 rounded-xl border p-3 text-sm"
+                                            data-promotion-schedule
+                                        >
+                                            <p class="mb-2 font-medium">
+                                                {{
+                                                    t(
+                                                        'recurringDetail.promotion.planned',
+                                                    )
+                                                }}
+                                            </p>
+                                            <ul class="space-y-1">
+                                                <li
+                                                    v-for="row in promotionPreview.schedule"
+                                                    :key="row.date"
+                                                    class="flex flex-wrap justify-between gap-2"
+                                                >
+                                                    <span>{{
+                                                        new Date(
+                                                            row.date +
+                                                                'T12:00:00',
+                                                        ).toLocaleDateString(
+                                                            locale,
+                                                        )
+                                                    }}</span
+                                                    ><span
+                                                        class="font-medium tabular-nums"
+                                                        >{{
+                                                            formatCurrency(
+                                                                row.amount,
+                                                                row.currency,
+                                                            )
+                                                        }}</span
+                                                    >
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid min-w-0 content-start gap-2">
                                     <Label for="recurring-start-date">{{
                                         reactivation
                                             ? ui('Data di ripartenza')
@@ -4304,139 +4681,9 @@ const firstTrialBillingDate = computed(() => {
                                     </p>
                                 </div>
 
-                                <section
-                                    v-if="
-                                        selectedPlanType === 'recurring' &&
-                                        !isSalary &&
-                                        !props.entry?.salary_url
-                                    "
-                                    class="grid min-w-0 gap-3 rounded-2xl border p-4 transition-colors"
-                                    :class="
-                                        form.trial_enabled
-                                            ? 'border-sky-200 bg-sky-50/60 dark:border-sky-500/30 dark:bg-sky-500/10'
-                                            : 'border-border bg-background'
-                                    "
-                                >
-                                    <label
-                                        class="flex min-h-11 min-w-0 cursor-pointer items-center gap-3"
-                                    >
-                                        <span
-                                            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300"
-                                            ><Gift
-                                                class="size-5"
-                                                aria-hidden="true"
-                                        /></span>
-                                        <span class="min-w-0 flex-1"
-                                            ><span
-                                                class="block text-sm font-semibold"
-                                                >{{
-                                                    ui('Periodo di prova')
-                                                }}</span
-                                            ><span
-                                                class="block text-xs text-muted-foreground"
-                                                >{{
-                                                    ui(
-                                                        'Gratis prima del primo addebito',
-                                                    )
-                                                }}</span
-                                            ></span
-                                        >
-                                        <span
-                                            class="relative flex h-6 w-11 shrink-0 items-center"
-                                        >
-                                            <input
-                                                v-model="form.trial_enabled"
-                                                type="checkbox"
-                                                :disabled="scheduleLocked"
-                                                class="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-                                            />
-                                            <span
-                                                aria-hidden="true"
-                                                class="h-6 w-11 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-disabled:opacity-50"
-                                            />
-                                            <span
-                                                aria-hidden="true"
-                                                class="pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-background shadow-sm transition-transform peer-checked:translate-x-5"
-                                            />
-                                        </span>
-                                    </label>
-                                    <template v-if="form.trial_enabled">
-                                        <div class="grid grid-cols-2 gap-3">
-                                            <div class="grid gap-1.5">
-                                                <Label for="trial-duration">{{
-                                                    ui('Durata')
-                                                }}</Label
-                                                ><Input
-                                                    id="trial-duration"
-                                                    v-model="
-                                                        form.trial_duration
-                                                    "
-                                                    type="number"
-                                                    min="1"
-                                                    max="3650"
-                                                    :disabled="scheduleLocked"
-                                                    class="h-11 min-w-0 text-base"
-                                                />
-                                            </div>
-                                            <div class="grid gap-1.5">
-                                                <Label>{{ ui('Unità') }}</Label
-                                                ><Select
-                                                    v-model="form.trial_unit"
-                                                    :disabled="scheduleLocked"
-                                                    ><SelectTrigger class="h-11"
-                                                        ><SelectValue /></SelectTrigger
-                                                    ><SelectContent
-                                                        ><SelectItem
-                                                            value="days"
-                                                            >{{
-                                                                ui('Giorni')
-                                                            }}</SelectItem
-                                                        ><SelectItem
-                                                            value="weeks"
-                                                            >{{
-                                                                ui('Settimane')
-                                                            }}</SelectItem
-                                                        ><SelectItem
-                                                            value="months"
-                                                            >{{
-                                                                ui('Mesi')
-                                                            }}</SelectItem
-                                                        ></SelectContent
-                                                    ></Select
-                                                >
-                                            </div>
-                                        </div>
-                                        <p
-                                            class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-sky-100/80 px-3 py-2.5 text-sm font-semibold text-sky-800 dark:bg-sky-500/15 dark:text-sky-200"
-                                        >
-                                            <Calendar
-                                                class="size-4 shrink-0"
-                                                aria-hidden="true"
-                                            />
-                                            {{ ui('Primo addebito:') }}
-                                            {{ firstTrialBillingDate || '—' }}
-                                        </p>
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            {{
-                                                ui(
-                                                    'Durante la prova non vengono registrati movimenti economici. Gli avvisi configurati restano attivi prima del primo addebito.',
-                                                )
-                                            }}
-                                        </p>
-                                        <InputError
-                                            :message="
-                                                form.errors.trial_duration ||
-                                                form.errors.trial_unit
-                                            "
-                                        />
-                                    </template>
-                                </section>
-
                                 <div
                                     v-if="showStartMonthSelector && !isEditing"
-                                    class="grid gap-2"
+                                    class="grid min-w-0 content-start gap-2"
                                 >
                                     <Label for="recurring-start-month">{{
                                         t(
@@ -5404,7 +5651,9 @@ const firstTrialBillingDate = computed(() => {
                                 type="button"
                                 class="rounded-2xl"
                                 :disabled="
-                                    form.processing || creatingTrackedItem
+                                    form.processing ||
+                                    creatingTrackedItem ||
+                                    promotionPreviewLoading
                                 "
                                 @click="submit()"
                             >
@@ -5424,6 +5673,105 @@ const firstTrialBillingDate = computed(() => {
                     </div>
                 </div>
             </SheetContent>
+            <Dialog v-model:open="promotionDialogOpen">
+                <DialogContent
+                    class="flex max-h-[90dvh] flex-col overflow-hidden rounded-2xl sm:max-w-xl"
+                >
+                    <DialogHeader
+                        ><DialogTitle>{{
+                            t('recurringDetail.promotion.previewTitle')
+                        }}</DialogTitle
+                        ><DialogDescription>{{
+                            t('recurringDetail.promotion.previewHint')
+                        }}</DialogDescription></DialogHeader
+                    >
+                    <div class="min-h-0 overflow-auto">
+                        <table
+                            class="w-full text-left text-sm"
+                            data-promotion-impact
+                        >
+                            <thead>
+                                <tr>
+                                    <th class="p-2">
+                                        {{
+                                            t('recurringDetail.promotion.date')
+                                        }}
+                                    </th>
+                                    <th class="p-2">
+                                        {{
+                                            t(
+                                                'recurringDetail.promotion.before',
+                                            )
+                                        }}
+                                    </th>
+                                    <th class="p-2">
+                                        {{
+                                            t('recurringDetail.promotion.after')
+                                        }}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="row in promotionPreview?.changes ??
+                                    []"
+                                    :key="row.uuid"
+                                    class="border-t"
+                                >
+                                    <td class="p-2">
+                                        {{
+                                            new Date(
+                                                row.date + 'T12:00:00',
+                                            ).toLocaleDateString(locale)
+                                        }}
+                                    </td>
+                                    <td class="p-2 tabular-nums">
+                                        {{
+                                            formatCurrency(
+                                                row.previous_amount,
+                                                row.currency,
+                                            )
+                                        }}
+                                    </td>
+                                    <td class="p-2 font-semibold tabular-nums">
+                                        {{
+                                            formatCurrency(
+                                                row.amount,
+                                                row.currency,
+                                            )
+                                        }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <DialogFooter class="shrink-0 gap-2"
+                        ><Button
+                            type="button"
+                            variant="outline"
+                            @click="promotionDialogOpen = false"
+                            >{{ t('recurringDetail.promotion.cancel') }}</Button
+                        ><Button
+                            type="button"
+                            :disabled="
+                                !promotionPreview?.confirmation ||
+                                promotionPreviewLoading ||
+                                form.processing
+                            "
+                            @click="
+                                promotionDialogOpen = false;
+                                submit(
+                                    false,
+                                    promotionPreview?.confirmation ?? null,
+                                );
+                            "
+                            >{{
+                                t('recurringDetail.promotion.confirm')
+                            }}</Button
+                        ></DialogFooter
+                    >
+                </DialogContent>
+            </Dialog>
             <Dialog v-model:open="installmentRecalculationDialogOpen">
                 <DialogContent class="sm:max-w-lg">
                     <DialogHeader class="space-y-3 text-left">
@@ -5503,6 +5851,7 @@ const firstTrialBillingDate = computed(() => {
 </template>
 
 <style scoped>
+/*noinspection CssUnusedSymbol*/
 .salary-fields-enter-active,
 .salary-fields-leave-active {
     grid-template-rows: 1fr;
@@ -5511,23 +5860,23 @@ const firstTrialBillingDate = computed(() => {
         opacity 450ms ease-in-out,
         margin 450ms ease-in-out;
 }
-
+/*noinspection CssUnusedSymbol*/
 .salary-fields-enter-from,
 .salary-fields-leave-to {
     grid-template-rows: 0fr;
     opacity: 0;
     margin-block: 0;
 }
-
+/*noinspection CssUnusedSymbol*/
 .salary-fields-enter-active > .salary-reference-content,
 .salary-fields-leave-active > .salary-reference-content {
     overflow: hidden;
 }
-
+/*noinspection CssUnusedSymbol*/
 .salary-fields-leave-active {
     pointer-events: none;
 }
-
+/*noinspection CssUnusedSymbol*/
 .compound-fields-enter-active,
 .compound-fields-leave-active {
     grid-template-rows: 1fr;
@@ -5535,24 +5884,29 @@ const firstTrialBillingDate = computed(() => {
         grid-template-rows 280ms ease,
         opacity 280ms ease;
 }
+/*noinspection CssUnusedSymbol*/
 .compound-fields-enter-from,
 .compound-fields-leave-to {
     grid-template-rows: 0fr;
     opacity: 0;
 }
+/*noinspection CssUnusedSymbol*/
 .compound-fields-enter-active > .compound-fields-content,
 .compound-fields-leave-active > .compound-fields-content {
     overflow: hidden;
 }
+/*noinspection CssUnusedSymbol*/
 .compound-fields-leave-active {
     pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
+    /*noinspection CssUnusedSymbol*/
     .compound-fields-enter-active,
     .compound-fields-leave-active {
         transition: none;
     }
+    /*noinspection CssUnusedSymbol*/
     .salary-fields-enter-active,
     .salary-fields-leave-active {
         transition: none;

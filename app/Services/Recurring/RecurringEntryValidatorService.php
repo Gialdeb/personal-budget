@@ -28,13 +28,14 @@ class RecurringEntryValidatorService
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected UserYearService $userYearService,
         protected SharedExpenseAllocation $sharedExpenseAllocation,
+        protected RecurringPromotionService $promotionService,
     ) {}
 
     /**
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
-    public function validate(User $user, array $attributes): array
+    public function validate(User $user, array $attributes, ?RecurringEntry $original = null): array
     {
         $normalized = $attributes;
         $normalized['title'] = trim((string) ($normalized['title'] ?? ''));
@@ -122,6 +123,17 @@ class RecurringEntryValidatorService
             ? $normalized['currency']
             : Account::query()->find($normalized['account_id'])?->currency;
         $normalized['next_occurrence_date'] = (new RecurringEntry($normalized))->firstBillingDate()->toDateString();
+
+        if (array_key_exists('promotion', $normalized)) {
+            $promotion = $normalized['promotion'];
+            if (is_string($promotion)) {
+                $promotion = json_decode($promotion, true, flags: JSON_THROW_ON_ERROR);
+            }
+            if ($promotion !== null && ! is_array($promotion)) {
+                throw ValidationException::withMessages(['promotion' => __('recurring_promotion.invalid')]);
+            }
+            $normalized['promotion'] = $this->promotionService->normalize($promotion, new RecurringEntry($normalized), $original);
+        }
 
         return $normalized;
     }

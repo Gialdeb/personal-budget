@@ -27,10 +27,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { activityLog, index, users } from '@/routes/admin';
 import { index as automationIndex } from '@/routes/admin/automation';
+import { index as brandsIndex } from '@/routes/admin/brands';
 import { index as changelogIndex } from '@/routes/admin/changelog/index';
 import { index as communicationCategoriesIndex } from '@/routes/admin/communication-categories';
 import { index as communicationTemplatesIndex } from '@/routes/admin/communication-templates';
@@ -51,6 +53,7 @@ type AdminSectionCard = {
 };
 
 const { t } = useI18n();
+const ui = useUiCopy();
 const page = usePage();
 const pushNotificationsEnabled = computed(() =>
     Boolean(page.props.features?.push_notifications_enabled),
@@ -70,6 +73,15 @@ const sectionCards = computed<AdminSectionCard[]>(() => [
         status: t('admin.overview.cards.users.status'),
         href: users(),
         icon: Users,
+    },
+    {
+        title: ui('Catalogo marchi'),
+        description: ui(
+            'Marchi pubblici gestiti dagli amministratori. Separati dai riferimenti personali.',
+        ),
+        status: ui('Catalogo marchi'),
+        href: brandsIndex(),
+        icon: Shield,
     },
     {
         title: t('admin.overview.cards.activityLog.title'),

@@ -6,6 +6,7 @@ import { update } from '@/actions/App/Http/Controllers/RecurringEntryPriceCondit
 import AppDatePicker from '@/components/AppDatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
+import RecurringPromotionSummary from '@/components/recurring/RecurringPromotionSummary.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
@@ -19,7 +20,10 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useForm } from '@/composables/useNotifiedForm';
-import type { RecurringPriceConditions } from '@/types/transactions';
+import type {
+    RecurringPriceConditions,
+    RecurringPromotion,
+} from '@/types/transactions';
 
 type Choice = 'lock' | 'increase' | 'decrease';
 const props = defineProps<{
@@ -31,6 +35,7 @@ const props = defineProps<{
     currency: string;
     canEdit: boolean;
     direction?: string | null;
+    promotion?: RecurringPromotion | null;
 }>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 const { t: translate, te, locale } = useI18n();
@@ -315,10 +320,32 @@ const savedCards = computed(() => {
 
     return cards;
 });
+const promotionButton = computed(() =>
+    props.promotion
+        ? {
+              id: 'promotion',
+              kind:
+                  props.promotion.outcome === 'normal'
+                      ? ('increase' as const)
+                      : ('unchanged' as const),
+              price: Number(props.promotion.amount),
+          }
+        : null,
+);
+const duplicatePromotionTransition = computed(
+    () =>
+        props.promotion?.outcome === 'normal' &&
+        normalize(props.conditions).change_scope === 'personal' &&
+        Number(normalize(props.conditions).new_amount) ===
+            Number(props.promotion.normal_amount) &&
+        normalize(props.conditions).effective_from ===
+            props.promotion.ends_before,
+);
 const summaryExpanded = ref(false);
 const summaryButton = computed(
     () =>
         savedCards.value.find((card) => card.id === 'change') ??
+        promotionButton.value ??
         savedCards.value[0] ??
         null,
 );
@@ -332,7 +359,7 @@ watch(
     },
 );
 watch(
-    () => savedCards.value.length,
+    () => savedCards.value.length + (props.promotion ? 1 : 0),
     (length) => {
         if (!length) {
             summaryExpanded.value = false;
@@ -528,7 +555,7 @@ function save(): void {
 <template>
     <div class="contents">
         <Collapsible
-            v-if="savedCards.length"
+            v-if="savedCards.length || promotion"
             class="contents"
             :open="!collapsibleSummary || summaryExpanded"
         >
@@ -544,9 +571,35 @@ function save(): void {
                     role="region"
                     :aria-label="t('recurringDetail.panels.priceSummary')"
                     class="grid min-w-0 gap-3"
-                    :class="savedCards.length > 1 ? 'sm:grid-cols-2' : ''"
+                    :class="
+                        savedCards.length + (promotion ? 1 : 0) > 1
+                            ? 'sm:grid-cols-2'
+                            : ''
+                    "
                     data-price-conditions-summary
                 >
+                    <article
+                        v-if="promotion"
+                        class="min-w-0 rounded-2xl border p-4 shadow-xs sm:p-5"
+                        :class="
+                            promotion.outcome === 'normal'
+                                ? direction === 'income'
+                                    ? tones.decrease
+                                    : tones.increase
+                                : tones.unchanged
+                        "
+                        data-price-promotion-card
+                    >
+                        <RecurringPromotionSummary
+                            :promotion="promotion"
+                            :currency="currency"
+                            :direction="direction"
+                            :hide-transition="duplicatePromotionTransition"
+                        />
+                        <p class="mt-3 text-xs opacity-75">
+                            {{ t('recurringDetail.promotion.editHint') }}
+                        </p>
+                    </article>
                     <article
                         v-for="card in savedCards"
                         :key="card.id"
@@ -695,6 +748,21 @@ function save(): void {
                     @submit.prevent="active ? apply() : save()"
                 >
                     <div class="space-y-4 overflow-y-auto px-6 py-3">
+                        <div
+                            v-if="promotion"
+                            class="rounded-xl border bg-muted/30 p-3"
+                            data-promotion-registered
+                        >
+                            <RecurringPromotionSummary
+                                :promotion="promotion"
+                                :currency="currency"
+                                :direction="direction"
+                                :hide-transition="duplicatePromotionTransition"
+                            />
+                            <p class="mt-2 text-xs text-muted-foreground">
+                                {{ t('recurringDetail.promotion.editHint') }}
+                            </p>
+                        </div>
                         <p class="text-sm">
                             {{ t(key + 'today') }}
                             <SensitiveValue
@@ -971,6 +1039,11 @@ function save(): void {
 </template>
 
 <style scoped>
+@property --reka-collapsible-content-height {
+    syntax: '*';
+    inherits: true;
+}
+
 .price-summary-content {
     overflow: hidden;
 }

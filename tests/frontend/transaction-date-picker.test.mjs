@@ -292,3 +292,88 @@ test('desktop inline pickers lock the page month and hide context while the comp
     assert.match(component, /props.fixedMonth !== undefined \|\|\s*month/);
     assert.match(component, /date.month !== props.fixedMonth/);
 });
+
+test('transaction calendar identifies today independently of selection and shows its dot', async () => {
+    const source = await readFile(
+        new URL(
+            'resources/js/components/transactions/TransactionDatePicker.vue',
+            root,
+        ),
+        'utf8',
+    );
+    assert.match(
+        source,
+        /const today = computed\(\(\) => datePickerValue\(now\.value\)\)/,
+    );
+    assert.match(
+        source,
+        /:aria-current="\s*day\.date === today \? 'date' : undefined\s*"/,
+    );
+    assert.match(
+        source,
+        /v-if="day\.date === today"[\s\S]*?aria-hidden="true"[\s\S]*?data-today-dot/,
+    );
+    assert.match(source, /bg-current opacity-70/);
+    assert.match(source, /:aria-pressed="day\.date === modelValue"/);
+});
+
+test('shared monthly calendars show today on mobile and desktop even when another day is selected', async () => {
+    const server = await createServer({
+        configFile: false,
+        plugins: [vue()],
+        resolve: { alias: { '@': new URL('resources/js', root).pathname } },
+        server: { middlewareMode: true, hmr: false, ws: false, watch: null },
+        optimizeDeps: { noDiscovery: true, include: [] },
+        appType: 'custom',
+    });
+
+    try {
+        const { default: Calendar } = await server.ssrLoadModule(
+            '/resources/js/components/recurring/RecurringCalendarGrid.vue',
+        );
+
+        for (const selectedDate of ['2026-10-22', '2026-10-23']) {
+            const app = createSSRApp({
+                render: () =>
+                    h(Calendar, {
+                        calendarWeeks: [
+                            [
+                                {
+                                    date: '2026-10-22',
+                                    dayNumber: 22,
+                                    isToday: false,
+                                    isCurrentMonth: true,
+                                    summary: null,
+                                },
+                                {
+                                    date: '2026-10-23',
+                                    dayNumber: 23,
+                                    isToday: true,
+                                    isCurrentMonth: true,
+                                    summary: null,
+                                },
+                            ],
+                        ],
+                        weekdayLabels: [],
+                        selectedDate,
+                        formatMoney: String,
+                        formatDayHeading: String,
+                        filteredOccurrencesCount: () => 0,
+                    }),
+            });
+            app.use(
+                createI18n({
+                    legacy: false,
+                    locale: 'it',
+                    messages: { it: {} },
+                }),
+            );
+            const html = await renderToString(app);
+            assert.equal((html.match(/data-today-dot/g) ?? []).length, 2);
+            assert.equal((html.match(/aria-current="date"/g) ?? []).length, 2);
+            assert.equal((html.match(/aria-pressed="true"/g) ?? []).length, 2);
+        }
+    } finally {
+        await server.close();
+    }
+});

@@ -7,6 +7,7 @@ use App\Models\AccountMembership;
 use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Models\User;
+use App\Models\WebsiteIdentity;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use Illuminate\Contracts\Encryption\DecryptException;
@@ -46,13 +47,39 @@ class PendingTrackedItemService
         if ($item !== null && ! $item->is_active) {
             throw ValidationException::withMessages(['name' => 'Questo riferimento è archiviato. Gestiscilo nelle impostazioni prima di utilizzarlo.']);
         }
+        $assets = app(PendingReferenceLogoService::class);
+        $brand = filled($input['logo_brand_uuid'] ?? null) ? $assets->brand($input['logo_brand_uuid']) : null;
+        $upload = filled($input['logo_upload_token'] ?? null) ? $assets->temporaryPath($actor, $input['logo_upload_token']) : null;
+        if ((int) ($brand !== null) + (int) ($upload !== null) + (int) array_key_exists('logo_identity_uuid', $input) + (int) filled($input['logo_source'] ?? null) > 1) {
+            throw ValidationException::withMessages(['logo_upload_token' => 'Seleziona un solo logo.']);
+        }
+        $preserveLogo = $item !== null && $uuid === null;
+        $previewLogo = match (true) {
+            $preserveLogo => $item->logoUrl(),
+            $brand !== null => route('brands.logo', $brand->uuid),
+            $upload !== null => $assets->previewUpload($upload),
+            default => null,
+        };
         $website = filled($input['website_url'] ?? null) ? app(WebsiteLogoService::class)->normalizeUrl($input['website_url']) : null;
+        if (! $preserveLogo && $website !== null && ($input['logo_source'] ?? null) === 'website') {
+            $previewLogo = app(WebsiteLogoService::class)->preview($website)['logo_url'];
+        }
+        $logo = null;
+        if (filled($input['logo_identity_uuid'] ?? null)) {
+            $logo = WebsiteIdentity::query()->where('uuid', $input['logo_identity_uuid'])->first();
+            if ($logo === null || ! $logo->hasStoredLogo()) {
+                throw ValidationException::withMessages(['logo_identity_uuid' => 'Il logo selezionato non è disponibile.']);
+            }
+        }
         $token = self::PREFIX.Crypt::encryptString(json_encode([
             'actor_id' => $actor->id, 'owner_id' => $ownerId, 'catalog_account_id' => $accountId,
             'account_id' => $account?->id, 'category_id' => $category?->id, 'category_uuid' => $category?->uuid,
             'group_key' => $input['type_key'] ?? $input['direction'] ?? null,
             'name' => $item?->name ?? Str::squish($input['name']), 'uuid' => $item?->uuid,
-            'website_url' => $website, 'counterparty' => $counterparty, 'personal' => $personal,
+            'logo_brand_uuid' => $preserveLogo ? null : $brand?->uuid, 'logo_upload_token' => $preserveLogo ? null : ($input['logo_upload_token'] ?? null),
+            'preserve_existing_logo' => $uuid === null,
+            'logo_identity_uuid' => $preserveLogo ? null : $logo?->uuid, 'logo_explicit' => ! $preserveLogo && array_key_exists('logo_identity_uuid', $input), 'logo_source' => $preserveLogo ? null : ($input['logo_source'] ?? null),
+            'website_url' => $preserveLogo ? $item->website_url : $website, 'counterparty' => $counterparty, 'personal' => $personal,
             'economic_subject' => ($input['context'] ?? null) === 'credit_debt',
             'expires_at' => now()->addDay()->timestamp,
         ], JSON_THROW_ON_ERROR));
@@ -63,7 +90,8 @@ class PendingTrackedItemService
             'available_account_uuids' => $account === null ? [] : [$account->uuid],
             'group_keys' => array_values(array_unique([...($item?->settings['transaction_group_keys'] ?? []), ...array_filter([$input['type_key'] ?? $input['direction'] ?? null])])),
             'category_uuids' => array_values(array_unique([...($item?->compatibleCategories->pluck('uuid')->all() ?? []), ...($category === null ? [] : [$category->uuid])])),
-            'is_selectable' => true, 'logo_url' => $item?->logoUrl()];
+            'domain' => $website !== null ? parse_url($website, PHP_URL_HOST) : null,
+            'is_selectable' => true, 'logo_url' => $preserveLogo ? $item->logoUrl() : ($previewLogo ?? (array_key_exists('logo_identity_uuid', $input) ? $logo?->logoUrl() : $item?->logoUrl()))];
     }
 
     /** @param array<string, mixed> $input */
@@ -103,7 +131,7 @@ class PendingTrackedItemService
             }
         }
 
-        return app(TrackedItemResolver::class)->inCatalog($draft['owner_id'], $draft['catalog_account_id'], function () use ($draft, $category, $field): TrackedItem {
+        return app(TrackedItemResolver::class)->inCatalog($draft['owner_id'], $draft['catalog_account_id'], function () use ($draft, $category, $field, $actor): TrackedItem {
             $uuid = $draft['uuid'];
             if ($uuid === null) {
                 $matches = app(TrackedItemResolver::class)->matchingName($draft['owner_id'], $draft['catalog_account_id'], $draft['name'])->get()
@@ -117,16 +145,43 @@ class PendingTrackedItemService
                 }
                 $uuid = $match?->uuid;
             }
+            $existing = $uuid !== null ? TrackedItem::query()->where('uuid', $uuid)->first() : null;
+            $preserveLogo = $existing !== null && ($draft['preserve_existing_logo'] ?? false);
+            $customLogo = $preserveLogo ? null : app(PendingReferenceLogoService::class)->persist($actor, $draft);
             $attributes = ['settings' => ['economic_subject' => $draft['economic_subject']]];
-            if ($draft['website_url'] !== null) {
+            if (! $preserveLogo && $draft['website_url'] !== null) {
                 $attributes += ['website_url' => $draft['website_url']];
             }
 
+            if (! $preserveLogo && ($draft['logo_explicit'] ?? false)) {
+                $logo = filled($draft['logo_identity_uuid'] ?? null) ? WebsiteIdentity::query()->where('uuid', $draft['logo_identity_uuid'])->first() : null;
+                if (filled($draft['logo_identity_uuid'] ?? null) && ($logo === null || ! $logo->hasStoredLogo())) {
+                    $this->invalid($field);
+                }
+                $attributes['website_identity_id'] = $logo?->id;
+            }
             $item = app(TrackedItemResolver::class)->resolve(
                 userId: $draft['owner_id'], accountId: $draft['catalog_account_id'], name: $draft['name'], uuid: $uuid,
                 attributes: $attributes, category: $category, groupKey: $draft['group_key'], counterparty: $draft['counterparty'],
             );
-            app(WebsiteLogoService::class)->afterReferenceSaved($item);
+            if ($customLogo !== null) {
+                $settings = $item->settings ?? [];
+                $settings['reference_logo_path'] = $customLogo;
+                $settings['logo_source'] = filled($draft['logo_brand_uuid'] ?? null) ? 'brand' : 'upload';
+                $item->forceFill(['settings' => $settings, 'website_identity_id' => null])->save();
+            } elseif (! $preserveLogo && ($draft['logo_explicit'] ?? false)) {
+                $settings = $item->settings ?? [];
+                unset($settings['reference_logo_path']);
+                $settings['logo_source'] = filled($draft['logo_identity_uuid'] ?? null) ? 'catalog' : 'none';
+                $item->forceFill(['settings' => $settings])->save();
+            } elseif (! $preserveLogo && ($draft['logo_source'] ?? null) === 'website') {
+                $settings = $item->settings ?? [];
+                unset($settings['logo_source'], $settings['reference_logo_path']);
+                $item->forceFill(['settings' => $settings, 'website_identity_id' => null])->save();
+            }
+            if ($customLogo === null && ! $preserveLogo && ! ($draft['logo_explicit'] ?? false)) {
+                app(WebsiteLogoService::class)->afterReferenceSaved($item);
+            }
 
             return $item;
         });

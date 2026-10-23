@@ -233,7 +233,7 @@ test('recurring sheet constrains iOS scrolling to its shrinkable content pane', 
         source,
         /min-h-0 min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-y-contain/,
     );
-    assert.match(source, /\[-webkit-overflow-scrolling:touch\]/);
+    assert.match(source, /\[-webkit-overflow-scrolling:touch]/);
     assert.match(source, /shrink-0 border-t/);
     assert.match(source, /:style="mobileFooterStyle"/);
 });
@@ -251,7 +251,7 @@ test('refunded recurring history unlocks only the start date for realignment', (
 
 test('recurring option cards have decorative icons and preserve existing models', () => {
     const source = readFileSync(recurringPath, 'utf8');
-    assert.match(source, /<Gift[\s\S]*?aria-hidden="true"/);
+    assert.match(source, /<Hourglass[\s\S]*?aria-hidden="true"/);
     assert.match(source, /<SlidersHorizontal[\s\S]*?aria-hidden="true"/);
     assert.match(source, /v-model="form.trial_enabled"/);
     assert.match(source, /:model-value="\s*form\.is_amount_variable\s*"/);

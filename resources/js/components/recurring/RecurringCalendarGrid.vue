@@ -77,12 +77,13 @@ const { t } = useI18n();
                         "
                         :disabled="!cell.isCurrentMonth"
                         :aria-pressed="selectedDate === cell.date"
+                        :aria-current="cell.isToday ? 'date' : undefined"
                         :aria-label="formatDayHeading(cell.date)"
                         @click="emit('select', cell.date)"
                     >
-                        <div class="flex items-start justify-between gap-1">
+                        <span class="flex items-start justify-between gap-1">
                             <span
-                                class="text-sm font-semibold"
+                                class="relative inline-flex min-w-6 justify-center pb-1 text-sm font-semibold"
                                 :class="
                                     cell.isCurrentMonth
                                         ? selectedDate === cell.date
@@ -92,6 +93,12 @@ const { t } = useI18n();
                                 "
                             >
                                 {{ cell.isCurrentMonth ? cell.dayNumber : '' }}
+                                <span
+                                    v-if="cell.isToday && cell.isCurrentMonth"
+                                    aria-hidden="true"
+                                    data-today-dot
+                                    class="pointer-events-none absolute bottom-0 left-1/2 size-1 -translate-x-1/2 rounded-full bg-current opacity-70"
+                                />
                             </span>
                             <span
                                 v-if="cell.summary?.occurrences_count"
@@ -99,16 +106,16 @@ const { t } = useI18n();
                             >
                                 {{ filteredOccurrencesCount(cell.summary) }}
                             </span>
-                        </div>
+                        </span>
 
                         <slot name="day-content" :cell="cell" :mobile="true">
-                            <div
+                            <span
                                 v-if="cell.summary && cell.isCurrentMonth"
-                                class="mt-2 space-y-1"
+                                class="mt-2 block space-y-1"
                             >
-                                <p
+                                <span
                                     v-if="cell.summary.income_total > 0"
-                                    class="truncate text-[10px] leading-none font-semibold text-emerald-600 dark:text-emerald-300"
+                                    class="block truncate text-[10px] leading-none font-semibold text-emerald-600 dark:text-emerald-300"
                                 >
                                     +<SensitiveValue
                                         :value="
@@ -117,10 +124,10 @@ const { t } = useI18n();
                                             )
                                         "
                                     />
-                                </p>
-                                <p
+                                </span>
+                                <span
                                     v-if="cell.summary.expense_total > 0"
-                                    class="truncate text-[10px] leading-none font-semibold text-rose-600 dark:text-rose-300"
+                                    class="block truncate text-[10px] leading-none font-semibold text-rose-600 dark:text-rose-300"
                                 >
                                     -<SensitiveValue
                                         :value="
@@ -129,8 +136,8 @@ const { t } = useI18n();
                                             )
                                         "
                                     />
-                                </p>
-                            </div>
+                                </span>
+                            </span>
                         </slot>
                     </button>
                 </div>
@@ -180,12 +187,15 @@ const { t } = useI18n();
                             "
                             :disabled="!cell.isCurrentMonth"
                             :aria-pressed="selectedDate === cell.date"
+                            :aria-current="cell.isToday ? 'date' : undefined"
                             :aria-label="formatDayHeading(cell.date)"
                             @click="emit('select', cell.date)"
                         >
-                            <div class="flex items-start justify-between gap-2">
+                            <span
+                                class="flex items-start justify-between gap-2"
+                            >
                                 <span
-                                    class="text-sm font-semibold sm:text-base"
+                                    class="relative inline-flex min-w-6 justify-center pb-1 text-sm font-semibold sm:text-base"
                                     :class="
                                         cell.isCurrentMonth
                                             ? 'text-slate-950 dark:text-white'
@@ -197,6 +207,14 @@ const { t } = useI18n();
                                             ? cell.dayNumber
                                             : ''
                                     }}
+                                    <span
+                                        v-if="
+                                            cell.isToday && cell.isCurrentMonth
+                                        "
+                                        aria-hidden="true"
+                                        data-today-dot
+                                        class="pointer-events-none absolute bottom-0 left-1/2 size-1 -translate-x-1/2 rounded-full bg-current opacity-70"
+                                    />
                                 </span>
                                 <span
                                     v-if="cell.summary?.occurrences_count"
@@ -204,20 +222,20 @@ const { t } = useI18n();
                                 >
                                     {{ filteredOccurrencesCount(cell.summary) }}
                                 </span>
-                            </div>
+                            </span>
 
                             <slot
                                 name="day-content"
                                 :cell="cell"
                                 :mobile="false"
                             >
-                                <div
+                                <span
                                     v-if="cell.summary && cell.isCurrentMonth"
-                                    class="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2"
+                                    class="mt-3 block space-y-1.5 sm:mt-4 sm:space-y-2"
                                 >
-                                    <div
+                                    <span
                                         v-if="cell.summary.income_total > 0"
-                                        class="rounded-2xl bg-emerald-500/10 px-2 py-1.5 text-emerald-700 sm:px-2.5 sm:py-2 dark:bg-emerald-500/12 dark:text-emerald-300"
+                                        class="block rounded-2xl bg-emerald-500/10 px-2 py-1.5 text-emerald-700 sm:px-2.5 sm:py-2 dark:bg-emerald-500/12 dark:text-emerald-300"
                                     >
                                         <span
                                             class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
@@ -245,10 +263,10 @@ const { t } = useI18n();
                                                 "
                                             />
                                         </span>
-                                    </div>
-                                    <div
+                                    </span>
+                                    <span
                                         v-if="cell.summary.expense_total > 0"
-                                        class="rounded-2xl bg-rose-500/10 px-2 py-1.5 text-rose-700 sm:px-2.5 sm:py-2 dark:bg-rose-500/12 dark:text-rose-300"
+                                        class="block rounded-2xl bg-rose-500/10 px-2 py-1.5 text-rose-700 sm:px-2.5 sm:py-2 dark:bg-rose-500/12 dark:text-rose-300"
                                     >
                                         <span
                                             class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
@@ -276,8 +294,8 @@ const { t } = useI18n();
                                                 "
                                             />
                                         </span>
-                                    </div>
-                                </div>
+                                    </span>
+                                </span>
                             </slot>
                         </button>
                     </div>

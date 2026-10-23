@@ -27,6 +27,30 @@ export const trackedItemsMessages = {
             unused: 'Mai usati',
         },
         tree: {
+            links: {
+                direct: 'Diretti: {count}',
+                indirect: 'Indiretti: {count}',
+                archived: 'Di cui eliminati: {count}',
+                previewNote:
+                    'L’anteprima di Sposta movimenti considera i collegamenti diretti. Occorrenze e collegamenti tramite alias sono indiretti e restano distinti.',
+                groups: {
+                    transactions: 'Transazioni',
+                    recurring_entries: 'Ricorrenze',
+                    occurrences: 'Occorrenze',
+                    shared: 'Spese condivise',
+                    shared_expense_ledger_entries: 'Anticipi nel ledger',
+                    shared_expense_settlements: 'Regolazioni',
+                    budgets: 'Budget',
+                    scheduled_entries: 'Pianificati',
+                    transaction_templates: 'Template',
+                    credit_debt_items: 'Crediti e debiti',
+                    import_rows: 'Importazioni in attesa',
+                    counterparty_relations: 'Rapporti controparte',
+                    counterparty_sync_issues: 'Segnalazioni',
+                    tracked_items: 'Riferimenti figli',
+                    tracked_item_aliases: 'Alias',
+                },
+            },
             title: 'Riferimenti operativi',
             summary: '{visible} visibili, {used} in uso.',
             badges: {
@@ -39,7 +63,7 @@ export const trackedItemsMessages = {
                 sharedExpenseCounterpart:
                     'Può essere usato nelle spese condivise',
                 archived: 'In archivio',
-                used: 'In uso ({count})',
+                used: 'In uso · {count} collegamenti',
                 unused: 'Mai usato',
             },
             labels: {
@@ -261,6 +285,30 @@ export const trackedItemsMessages = {
             unused: 'Never used',
         },
         tree: {
+            links: {
+                direct: 'Direct: {count}',
+                indirect: 'Indirect: {count}',
+                archived: 'Including deleted: {count}',
+                previewNote:
+                    'The move preview considers direct links. Occurrences and links through aliases are indirect and remain distinct.',
+                groups: {
+                    transactions: 'Transactions',
+                    recurring_entries: 'Recurring plans',
+                    occurrences: 'Occurrences',
+                    shared: 'Shared expenses',
+                    shared_expense_ledger_entries: 'Ledger advances',
+                    shared_expense_settlements: 'Settlements',
+                    budgets: 'Budgets',
+                    scheduled_entries: 'Scheduled entries',
+                    transaction_templates: 'Templates',
+                    credit_debt_items: 'Credits and debts',
+                    import_rows: 'Pending imports',
+                    counterparty_relations: 'Counterparty relationships',
+                    counterparty_sync_issues: 'Issues',
+                    tracked_items: 'Child references',
+                    tracked_item_aliases: 'Aliases',
+                },
+            },
             title: 'Operational references',
             summary: '{visible} visible, {used} in use.',
             badges: {
@@ -272,7 +320,7 @@ export const trackedItemsMessages = {
                 active: 'Active',
                 archived: 'Archived',
                 sharedExpenseCounterpart: 'Available for shared expenses',
-                used: 'In use ({count})',
+                used: 'In use · {count} links',
                 unused: 'Never used',
             },
             labels: {

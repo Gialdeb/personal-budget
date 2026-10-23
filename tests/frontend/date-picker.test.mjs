@@ -165,3 +165,27 @@ test('shared date picker compiles with left alignment and lazy calendar loading'
     assert.match(contents, /\$attrs/);
     assert.match(contents, /setCustomValidity/);
 });
+
+test('global calendar marks only today with a subtle dot that follows the day text color', () => {
+    const component = readFileSync(
+        new URL(
+            '../../resources/js/components/AppDatePicker.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const { descriptor } = parse(component);
+    const styles = descriptor.styles.map((style) => style.content).join('\n');
+    const dot = styles.match(
+        /\.app-date-calendar \.vc-day\.is-today \.vc-day-content::after\s*\{([^}]+)}/,
+    )[1];
+    assert.match(dot, /width: 3px/);
+    assert.match(dot, /height: 3px/);
+    assert.match(dot, /background: currentColor/);
+    assert.match(dot, /opacity: 0\.7/);
+    assert.match(dot, /pointer-events: none/);
+    assert.match(
+        styles,
+        /\.app-date-calendar \.vc-day\.is-today \.vc-day-content\s*\{\s*position: relative/,
+    );
+});
