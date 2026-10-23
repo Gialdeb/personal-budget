@@ -2,6 +2,56 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# Hold the lock for the whole deploy, including git pull and all image builds.
+# Never unlink it: a second process must lock the same inode after we exit.
+command -v flock >/dev/null || { echo 'Deployment requires flock (util-linux) on the VPS.' >&2; exit 1; }
+(umask 077; touch /tmp/soamco-production-deploy.lock)
+exec 9<>/tmp/soamco-production-deploy.lock
+flock -n 9 || { echo 'Another Soamco production deployment is running. Nothing was changed.' >&2; exit 1; }
+
+# Compose limits service builds; disabling Bake keeps that limit authoritative.
+export COMPOSE_PARALLEL_LIMIT=1
+export COMPOSE_BAKE=false
+
+check_resources() {
+    local available_ram swap_total swap_free docker_root path free_kb free_inodes
+    if [[ ! -r /proc/meminfo ]]; then
+        echo 'Cannot read Linux RAM/swap availability; deployment stopped before build.' >&2
+        return 1
+    fi
+    read -r available_ram swap_total swap_free < <(awk '
+        /^MemAvailable:/ { ram = $2 }
+        /^SwapTotal:/ { total = $2 }
+        /^SwapFree:/ { free = $2 }
+        END { printf "%d %d %d\n", ram, total, free }
+    ' /proc/meminfo)
+    printf 'Preflight: available RAM=%s MiB, swap total=%s MiB, swap free=%s MiB\n' \
+        "$((available_ram / 1024))" "$((swap_total / 1024))" "$((swap_free / 1024))"
+    # Leave headroom for the live site on a 4 GiB RAM / 2 GiB swap VPS.
+    if (( available_ram < 768 * 1024 || swap_total < 1536 * 1024 || swap_free < 1024 * 1024 || available_ram + swap_free < 2560 * 1024 )); then
+        echo 'Insufficient build headroom: require 768 MiB available RAM, 1.5 GiB configured swap, 1 GiB free swap and 2.5 GiB available RAM + free swap. Live services were left running.' >&2
+        return 1
+    fi
+    docker_root="$(docker info --format '{{.DockerRootDir}}')"
+    if [[ -z "$docker_root" || ! -d "$docker_root" ]]; then
+        echo 'Cannot inspect the local Docker data directory; deployment stopped before build.' >&2
+        return 1
+    fi
+    for path in "$PWD" "$docker_root"; do
+        free_kb="$(df -Pk "$path" | awk 'NR == 2 { print $4 }')"
+        free_inodes="$(df -Pi "$path" | awk 'NR == 2 { print $4 }')"
+        if [[ ! "$free_kb" =~ ^[0-9]+$ || ! "$free_inodes" =~ ^[0-9]+$ ]]; then
+            echo "Cannot determine free disk space/inodes for $path; deployment stopped before build." >&2
+            return 1
+        fi
+        printf 'Preflight: %s free=%s MiB, free inodes=%s\n' "$path" "$((free_kb / 1024))" "$free_inodes"
+        if (( free_kb < 8192 * 1024 || free_inodes < 50000 )); then
+            echo 'Insufficient build disk headroom: require 8 GiB and 50000 free inodes on both checkout and Docker filesystems. No images or volumes were removed.' >&2
+            return 1
+        fi
+    done
+}
+
 if [[ "${1:-}" != '--skip-pull' ]]; then
     git diff --quiet && git diff --cached --quiet || { echo 'Commit or stash tracked changes before deployment.' >&2; exit 1; }
     git pull --ff-only
@@ -14,7 +64,7 @@ env_args=(--env-file "$env_file")
 if [[ -n "${SOAMCO_COMPOSE_ENV_FILE:-}" ]]; then
     env_args+=(--env-file "$SOAMCO_COMPOSE_ENV_FILE")
 fi
-compose() { docker compose "${env_args[@]}" -f docker-compose.yml -f docker-compose.production.yml "$@"; }
+compose() { docker compose --parallel 1 "${env_args[@]}" -f docker-compose.yml -f docker-compose.production.yml "$@"; }
 maintenance=false
 proxy_maintenance=false
 scratch="$(mktemp -d)"
@@ -46,6 +96,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 compose config --quiet
+check_resources
 for service in app web; do
     previous="$(compose ps --status running -q "$service")"
     if [[ -n "$previous" ]]; then
