@@ -49,7 +49,7 @@ class CounterpartyReconciliationService
     public function compare(User $user, TrackedItem $counterparty, string $currency): array
     {
         if ($counterparty->user_id !== $user->id || $counterparty->account_id !== null) {
-            throw ValidationException::withMessages(['counterparty' => 'Invalid economic ownership.']);
+            throw ValidationException::withMessages(['counterparty' => __('form_errors.invalid_economic_ownership')]);
         }
         $relation = CounterpartyRelation::query()->where(['user_id' => $user->id, 'counterparty_id' => $counterparty->id, 'currency_code' => $currency])->first();
         $anomalies = app(ManualEconomicSubjectResolver::class)->relationIssues($user, $counterparty, $currency);

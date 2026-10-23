@@ -41,6 +41,8 @@ export type ImportCategoryOption = {
 };
 
 export type ImportReferenceOption = {
+    reference_name?: string;
+    logo_url?: string | null;
     value: string;
     uuid: string;
     label: string;

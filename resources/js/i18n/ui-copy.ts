@@ -2,6 +2,67 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'Sposta movimenti da {name}': 'Move transactions from {name}',
+    'Ripristino…': 'Restoring…',
+    'Conferma ripristino': 'Confirm restoration',
+    'Conferma lo spostamento dei budget': 'Confirm budget transfer',
+    'La nuova sottocategoria riceverà questi budget. Il movimento, le categorie e i budget saranno salvati insieme. Annullando non viene salvato nulla.':
+        'The new subcategory will receive these budgets. The transaction, categories and budgets will be saved together. Cancelling saves nothing.',
+    'Conferma e salva tutto': 'Confirm and save everything',
+    'Sposta movimenti': 'Move transactions',
+    'Sposta tutti i collegamenti dal riferimento di origine alla destinazione, incluse ricorrenze e pianificazioni. Entrambi i riferimenti resteranno disponibili.':
+        'Move all links from the source reference to the destination, including recurring and planned entries. Both references will remain available.',
+    Da: 'From',
+    Destinazione: 'Destination',
+    'Cerca un riferimento per nome': 'Search for a reference by name',
+    'Caricamento riferimenti…': 'Loading references…',
+    'Riferimenti di destinazione': 'Destination references',
+    'Destinazione:': 'Destination:',
+    'Verifica movimenti…': 'Checking transactions…',
+    'Cambiano soltanto i riferimenti. Nomi, descrizioni, importi e date restano invariati. Le ricorrenze useranno la destinazione anche per i prossimi movimenti. Il solo riferimento descrittivo di un pagamento può cambiare; la controparte del pagamento resta invariata. Il ripristino entro 30 giorni riguarda solo i record di questa operazione; quelli creati dopo restano invariati.':
+        'Only references change. Names, descriptions, amounts and dates remain unchanged. Recurring entries will use the destination for future transactions too. A payment’s descriptive reference may change; its counterparty stays the same. Restoration within 30 days applies only to records in this operation; records created later remain unchanged.',
+    '· eliminato': '· deleted',
+    'Nessun collegamento verrà modificato.': 'No links will be changed.',
+    'Confermi lo spostamento di tutti questi collegamenti?':
+        'Confirm moving all these links?',
+    'Storico spostamenti': 'Transfer history',
+    'Ripristina i riferimenti originali entro 30 giorni, se i collegamenti sono ancora compatibili. I movimenti creati successivamente restano invariati.':
+        'Restore the original references within 30 days if the links are still compatible. Transactions created later remain unchanged.',
+    'Stato ripristino': 'Restoration status',
+    'Caricamento storico…': 'Loading history…',
+    'collegamenti ·': 'links ·',
+    Ripristina: 'Restore',
+    'Ripristinare il riferimento originale dei':
+        'Restore the original reference for these',
+    'collegamenti?': 'links?',
+    'Alias permanente di': 'Permanent alias of',
+    'Hai spostamenti che puoi ripristinare entro 30 giorni.':
+        'You have transfers you can restore within 30 days.',
+    'Vai allo storico e ai ripristini': 'Go to history and restoration',
+    'PNG, JPEG, WebP · max 2 MB · 4096 × 4096 px':
+        'PNG, JPEG, WebP · max 2 MB · 4096 × 4096 px',
+    'apple.com': 'apple.com',
+    'apple.it': 'apple.it',
+    'Da ripristinare': 'Pending restoration',
+    Ripristinati: 'Restored',
+    'Non ripristinabili': 'Cannot be restored',
+    'Operazione non disponibile.': 'Operation unavailable.',
+    'Nessuno spostamento ripristinato.': 'No restored transfers.',
+    'Nessuno spostamento non ripristinabile.':
+        'No transfers that cannot be restored.',
+    'Nessuno spostamento da ripristinare.': 'No transfers pending restoration.',
+    Ripristinato: 'Restored',
+    'Ripristinabile fino al': 'Restorable until',
+    'Termine previsto per il ripristino:': 'Restoration deadline:',
+    'Nessun altro riferimento disponibile.': 'No other reference available.',
+    'Nessun riferimento trovato.': 'No reference found.',
+    'collegamenti rilevati. L’operazione è bloccata.':
+        'links found. The operation is blocked.',
+    'collegamenti interessati. Verranno spostati tutti, senza selezione individuale.':
+        'links affected. All will be moved, without individual selection.',
+    Chiudi: 'Close',
+    'Spostamento…': 'Moving…',
+    'Conferma spostamento': 'Confirm transfer',
     'Logo dal sito': 'Logo from website',
     'Logo non disponibile. Verranno mostrate le iniziali.':
         'Logo unavailable. Initials will be shown.',
@@ -91,6 +152,11 @@ export const uiCopy = {
     'Mantieni logo': 'Keep logo',
     'Categoria del marchio (facoltativa)': 'Brand category (optional)',
     Dominio: 'Domain',
+    'Domini alternativi': 'Alternative domains',
+    'Dominio alternativo': 'Alternative domain',
+    'Aggiungi dominio': 'Add domain',
+    'Gli alias sono nomi alternativi, non domini.':
+        'Aliases are alternative names, not domains.',
     'Alias, uno per riga': 'Aliases, one per line',
     'Nome marchio': 'Brand name',
     'Nessun riferimento personale viene importato nel catalogo.':

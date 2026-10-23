@@ -47,7 +47,7 @@ class RegisterUserFromAccountInvitationAction
             ->first();
 
         if ($existingUser) {
-            throw new CannotRegisterFromAccountInvitationException('A user with this email already exists.');
+            throw new CannotRegisterFromAccountInvitationException(__('form_errors.email_already_registered'));
         }
 
         return DB::transaction(function () use ($accountInvitation, $plainToken, $firstName, $lastName, $password) {

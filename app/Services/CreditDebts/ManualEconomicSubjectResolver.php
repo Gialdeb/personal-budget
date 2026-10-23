@@ -21,17 +21,17 @@ class ManualEconomicSubjectResolver
         $party = $reference === null ? null : TrackedItem::query()->find($reference);
         $unchanged = $item->exists && (int) $item->getRawOriginal('reference_id') === (int) $reference;
         if ($party === null || $party->user_id !== (int) $item->user_id || $party->account_id !== null || (! $party->is_active && ! $unchanged)) {
-            throw ValidationException::withMessages(['reference_id' => 'Seleziona un soggetto economico personale valido e appartenente all’utente.']);
+            throw ValidationException::withMessages(['reference_id' => __('form_errors.select_a_valid_personal_economic_subject_belonging_to_the_user')]);
         }
         if (($counterpartyProvided || $item->isDirty('counterparty_id')) && $item->counterparty_id !== null && (int) $item->counterparty_id !== (int) $reference) {
-            throw ValidationException::withMessages(['counterparty_id' => 'La controparte tecnica deve coincidere con il riferimento.']);
+            throw ValidationException::withMessages(['counterparty_id' => __('form_errors.the_technical_counterparty_must_match_the_reference')]);
         }
         if ($item->exists && ! $item->isDirty('reference_id') && ($item->getRawOriginal('reference_id') === null || $item->getRawOriginal('counterparty_id') === null || (int) $item->getRawOriginal('reference_id') !== (int) $item->getRawOriginal('counterparty_id'))) {
-            throw ValidationException::withMessages(['reference_id' => 'Riallinea esplicitamente il soggetto legacy prima di modificare la posizione.']);
+            throw ValidationException::withMessages(['reference_id' => __('form_errors.explicitly_align_the_legacy_subject_before_editing_the_position')]);
         }
         $changed = $item->exists && ((int) $item->getRawOriginal('reference_id') !== (int) $reference || (int) $item->getRawOriginal('counterparty_id') !== (int) $reference || $item->isDirty(['user_id', 'currency_code']));
         if ($changed && ($item->payments()->withTrashed()->exists() || $this->captured($item))) {
-            throw ValidationException::withMessages(['reference_id' => 'Il soggetto ha uno storico regolato o ledger: serve una rettifica dedicata.']);
+            throw ValidationException::withMessages(['reference_id' => __('form_errors.this_subject_has_settled_history_or_ledger_entries_a_dedicated_adjustment_is')]);
         }
         $item->reference_id = $reference;
         $item->counterparty_id = $reference;
@@ -50,7 +50,7 @@ class ManualEconomicSubjectResolver
     public function assertConsistent(CreditDebtItem $item): void
     {
         if (! $this->consistent($item)) {
-            throw ValidationException::withMessages(['reference_id' => 'Identità economica manuale incoerente: riallinea il riferimento prima di pagare o importare nel ledger.']);
+            throw ValidationException::withMessages(['reference_id' => __('form_errors.inconsistent_manual_economic_identity_align_the_reference_before_paying_or_importing_into')]);
         }
     }
 

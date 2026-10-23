@@ -121,7 +121,7 @@ class TrackedItemController extends Controller
     {
         $trackedItem = $this->ownedTrackedItem($request, $trackedItem);
         if ($trackedItem->identityAlias()->exists()) {
-            throw ValidationException::withMessages(['toggle' => 'Un alias permanente non può essere riattivato.']);
+            throw ValidationException::withMessages(['toggle' => __('form_errors.a_permanent_alias_cannot_be_reactivated')]);
         }
         $desiredState = ! $trackedItem->is_active;
 
@@ -164,7 +164,7 @@ class TrackedItemController extends Controller
     {
         $trackedItem = $this->ownedTrackedItem($request, $trackedItem);
         if ($trackedItem->identityAlias()->exists() || $trackedItem->incomingIdentityAliases()->exists()) {
-            throw ValidationException::withMessages(['delete' => 'Il riferimento appartiene a un’identità canonica permanente e deve essere conservato.']);
+            throw ValidationException::withMessages(['delete' => __('form_errors.the_reference_belongs_to_a_permanent_canonical_identity_and_must_be_retained')]);
         }
         $blockingReasons = $this->blockingReasons($trackedItem);
 

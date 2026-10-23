@@ -366,7 +366,7 @@ class RecurringEntryValidatorService
         if ($attributes['entry_type'] === RecurringEntryTypeEnum::RECURRING->value) {
             if (($attributes['expected_amount'] ?? 0) <= 0) {
                 throw ValidationException::withMessages([
-                    'expected_amount' => 'I piani ricorrenti richiedono un importo atteso positivo.',
+                    'expected_amount' => __('form_errors.recurring_plans_require_a_positive_expected_amount'),
                 ]);
             }
 
@@ -387,13 +387,13 @@ class RecurringEntryValidatorService
 
         if (($attributes['total_amount'] ?? 0) <= 0) {
             throw ValidationException::withMessages([
-                'total_amount' => 'I piani rateali richiedono un totale positivo.',
+                'total_amount' => __('form_errors.installment_plans_require_a_positive_total'),
             ]);
         }
 
         if (($attributes['installments_count'] ?? 0) <= 0) {
             throw ValidationException::withMessages([
-                'installments_count' => 'I piani rateali richiedono un numero di rate positivo.',
+                'installments_count' => __('form_errors.installment_plans_require_a_positive_number_of_installments'),
             ]);
         }
     }

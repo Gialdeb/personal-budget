@@ -604,7 +604,7 @@ const referenceOptions = computed<ReferenceOption[]>(() => [
     })),
     ...trackedItemOptions.value.map((trackedItem) => ({
         value: `tracked_item:${trackedItem.uuid ?? trackedItem.value}`,
-        label: trackedItem.label,
+        label: trackedItem.name ?? trackedItem.label,
         is_selectable: trackedItem.is_selectable,
         search_terms: trackedItem.search_terms,
         logo_url: trackedItem.logo_url,

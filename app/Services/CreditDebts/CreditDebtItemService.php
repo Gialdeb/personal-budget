@@ -45,7 +45,7 @@ class CreditDebtItemService
             TrackedItem::query()->ownedBy($user->id)->whereIn('id', array_filter([$preview->reference_id, $preview->counterparty_id, $data['reference_id'] ?? null, $data['counterparty_id'] ?? null]))->orderBy('id')->lockForUpdate()->get();
             $item = CreditDebtItem::query()->forUser($user)->lockForUpdate()->findOrFail($item->id);
             if ($item->reference_id !== $preview->reference_id || $item->counterparty_id !== $preview->counterparty_id) {
-                throw ValidationException::withMessages(['reference_id' => 'Il soggetto è cambiato. Ricarica la posizione.']);
+                throw ValidationException::withMessages(['reference_id' => __('form_errors.the_subject_has_changed_reload_the_position')]);
             }
             $confirmed = in_array($data['confirm_reference'] ?? false, [true, 1, '1'], true);
             unset($data['confirm_reference'], $data['counterparty_uuid'], $data['reference_uuid']);

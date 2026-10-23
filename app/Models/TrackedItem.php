@@ -23,7 +23,7 @@ class TrackedItem extends Model
     {
         static::updating(function (self $item): void {
             if ($item->isDirty('is_active') && $item->is_active && $item->identityAlias()->exists()) {
-                throw ValidationException::withMessages(['is_active' => 'Un riferimento secondario non può essere riattivato.']);
+                throw ValidationException::withMessages(['is_active' => __('form_errors.a_secondary_reference_cannot_be_reactivated')]);
             }
         });
 

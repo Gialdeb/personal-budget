@@ -1,5 +1,6 @@
 import { shallowRef } from 'vue';
 import { effects } from '@/actions/App/Http/Controllers/Settings/PendingCategoryController';
+import { getCurrentLocale } from '@/lib/locale';
 import { userErrorMessage } from '@/lib/notification-feedback.js';
 
 type Transfer = {
@@ -45,7 +46,9 @@ export async function confirmPendingCategory(
                 Object.values(payload.errors ?? {})
                     .flat()
                     .join(' ') ||
-                    'Non è stato possibile verificare i budget. Riprova prima di salvare.',
+                    (getCurrentLocale().startsWith('en')
+                        ? 'Unable to check budgets. Try again before saving.'
+                        : 'Non è stato possibile verificare i budget. Riprova prima di salvare.'),
             ),
         );
     }

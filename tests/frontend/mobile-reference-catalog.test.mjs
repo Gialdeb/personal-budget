@@ -136,11 +136,14 @@ test(
                         json: {
                             data:
                                 !search ||
-                                ['apple', 'mela', 'apple.com'].some((term) =>
-                                    term.includes(search),
+                                ['apple', 'mela', 'apple.com', 'apple.it'].some(
+                                    (term) => term.includes(search),
                                 )
                                     ? [
-                                          data.brand,
+                                          {
+                                              ...data.brand,
+                                              alternative_domains: ['apple.it'],
+                                          },
                                           {
                                               ...data.brand,
                                               uuid: 'other-brand',
@@ -284,7 +287,7 @@ test(
                     .first();
                 await picker
                     .locator('[data-mobile-reference-shortcuts]')
-                    .getByRole('button', { name: /Apple.*Marchio/ })
+                    .getByRole('button', { name: 'Apple', exact: true })
                     .first()
                     .waitFor();
                 assert.ok(
@@ -311,7 +314,8 @@ test(
                     })
                     .waitFor();
                 await modal
-                    .getByRole('button', { name: /Apple apple.com/ })
+                    .getByRole('button', { name: 'Apple', exact: true })
+                    .first()
                     .waitFor();
                 assert.ok(
                     (await modal
@@ -333,9 +337,18 @@ test(
                     ),
                 );
                 await trigger.tap();
-                await search.fill('Mela');
+                await search.fill('https://www.apple.it/store/');
                 await modal
-                    .getByRole('button', { name: /Apple apple.com/ })
+                    .getByRole('button', { name: 'Apple', exact: true })
+                    .waitFor();
+                assert.equal(searches.at(-1).get('search'), 'apple.it');
+                assert.doesNotMatch(
+                    await modal.innerText(),
+                    /apple\.(it|com|other)|Marchio|Riferimento esistente/,
+                );
+                await modal
+                    .getByRole('button', { name: 'Apple', exact: true })
+                    .first()
                     .tap();
                 assert.equal(drafts.length, 0);
                 assert.equal(

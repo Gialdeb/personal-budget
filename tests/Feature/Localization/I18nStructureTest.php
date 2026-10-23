@@ -1,8 +1,13 @@
 <?php
 
+use App\Http\Middleware\MaterializePendingTrackedItems;
+use App\Http\Middleware\SetApplicationLocaleMiddleware;
+use App\Mail\SupportRequestSubmittedMail;
+use App\Models\SupportRequest;
 use App\Services\Communication\CommunicationPreferenceCatalog;
 use App\Support\ContextualHelp\CurrentContextualHelpResolver;
 use App\Support\Pwa\PwaManifestData;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Finder\SplFileInfo;
@@ -144,3 +149,63 @@ it('translates every built-in notification preference category in both languages
         }
     }
 });
+
+it('translates form validation rules and field names in both languages', function (string $locale, string $required, string $positive) {
+    app()->setLocale($locale);
+
+    foreach (['enum', 'present', 'uploaded', 'dimensions', 'timezone'] as $rule) {
+        expect(trans('validation.'.$rule, [], $locale))->not->toBe('validation.'.$rule);
+    }
+
+    $requiredValidator = validator([], ['amount' => ['required']]);
+    expect($requiredValidator->errors()->first('amount'))->toBe($required);
+
+    $positiveValidator = validator(['amount' => 0], ['amount' => ['numeric', 'gt:0']]);
+    expect($positiveValidator->errors()->first('amount'))->toBe($positive);
+
+    foreach ([
+        [['month' => 13], ['month' => ['integer', 'between:1,12']]],
+        [['currency' => 'EU'], ['currency' => ['string', 'size:3']]],
+        [['currency' => 'EUR'], ['currency' => ['prohibited']]],
+        [['source_uuid' => 'same', 'destination_uuid' => 'same'], ['destination_uuid' => ['different:source_uuid']]],
+    ] as [$data, $rules]) {
+        $message = validator($data, $rules)->errors()->first();
+        expect($message)->not->toBeEmpty()->not->toContain('validation.');
+        expect($message)->toMatch($locale === 'it' ? '/^(Il campo|I campi) /' : '/^The /');
+    }
+})->with([
+    ['it', 'Il campo importo è obbligatorio.', 'Il campo importo deve essere maggiore di 0.'],
+    ['en', 'The amount field is required.', 'The amount field must be greater than 0.'],
+]);
+
+it('keeps validation exception messages translatable throughout the backend', function () {
+    foreach (File::allFiles(app_path()) as $file) {
+        preg_match_all('/ValidationException::withMessages\(\[\s*[^\n]*?=>\s*\x27[^\x27]+\x27/s', $file->getContents(), $matches);
+        expect($matches[0])->toBeEmpty($file->getRelativePathname());
+    }
+});
+
+it('sets the request language before materializing pending form references', function () {
+    $middleware = app(Kernel::class)->getMiddlewareGroups()['web'];
+
+    expect(array_search(SetApplicationLocaleMiddleware::class, $middleware, true))
+        ->toBeLessThan(array_search(MaterializePendingTrackedItems::class, $middleware, true));
+});
+
+it('renders support email labels in the current delivery language', function (string $locale, string $heading, string $unknownUser) {
+    app()->setLocale($locale);
+    $ticket = new SupportRequest([
+        'uuid' => '00000000-0000-4000-8000-000000000001',
+        'category' => 'general_support',
+        'subject' => 'Example subject',
+        'message' => 'Example message',
+        'locale' => $locale,
+    ]);
+    $ticket->setRelation('user', null);
+
+    $html = (new SupportRequestSubmittedMail($ticket))->render();
+    expect($html)->toContain('lang="'.$locale.'"')->toContain($heading)->toContain($unknownUser);
+})->with([
+    ['it', 'Nuova richiesta di assistenza', 'Utente sconosciuto'],
+    ['en', 'New support request', 'Unknown user'],
+]);

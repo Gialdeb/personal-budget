@@ -352,7 +352,7 @@ class SharedExpenseController extends Controller
             if ($relation?->activated_at === null) {
                 $plan = $backfill->run($request->user(), $counterparty, 'EUR');
                 if ($plan['ambiguous'] !== []) {
-                    throw ValidationException::withMessages(['payments' => 'Non è ancora possibile collegare questi rimborsi: ci sono riferimenti non confermati o movimenti con collegamenti in conflitto. Correggi prima i movimenti segnalati.']);
+                    throw ValidationException::withMessages(['payments' => __('form_errors.these_reimbursements_cannot_be_linked_yet_some_references_are_unconfirmed_or_transactions')]);
                 }
                 $backfill->run($request->user(), $counterparty, 'EUR', true);
                 $relation = CounterpartyRelation::where('user_id', $request->user()->id)->where('counterparty_id', $counterparty->id)->where('currency_code', 'EUR')->firstOrFail();

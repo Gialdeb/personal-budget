@@ -115,7 +115,7 @@ class MaterializePendingTrackedItems
                 $idField = substr($field, 0, -5).'_id';
                 if ($request->exists($idField)) {
                     if ($request->filled($idField) && (! is_numeric($request->input($idField)) || (int) $request->input($idField) !== $item->id)) {
-                        throw ValidationException::withMessages([$field => 'La selezione del riferimento non corrisponde ai dati del form. Selezionalo nuovamente prima di salvare.']);
+                        throw ValidationException::withMessages([$field => __('form_errors.the_reference_selection_does_not_match_the_form_data_select_it_again')]);
                     }
                     $request->merge([$idField => $item->id]);
                 }

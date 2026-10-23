@@ -43,7 +43,7 @@ class AlignManualEconomicSubjects
             $item = CreditDebtItem::withTrashed()->forUser($user)->whereKey($preview->id)->when($apply, fn ($query) => $query->lockForUpdate())->firstOrFail();
             $plan = $this->resolver->classify($item);
             if ($apply && $plan['status'] === 'safe' && ($item->reference_id !== $preview->reference_id || $item->counterparty_id !== $preview->counterparty_id)) {
-                throw ValidationException::withMessages(['reference_id' => 'Subject changed concurrently; run the dry-run again.']);
+                throw ValidationException::withMessages(['reference_id' => __('form_errors.subject_changed_concurrently_run_the_dry_run_again')]);
             }
             $before = ['reference_id' => $item->reference_id, 'counterparty_id' => $item->counterparty_id];
             $after = $plan['status'] === 'safe' ? ['reference_id' => $plan['target'], 'counterparty_id' => $plan['target']] : $before;

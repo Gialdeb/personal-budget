@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { RotateCcw } from 'lucide-vue-next';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { canRestoreMovement } from '@/lib/tracked-item-movements';
 import type { MovementHistoryEntry } from '@/lib/tracked-item-movements';
 import { history, restore } from '@/routes/tracked-items/movements';
+
+const copy = useUiCopy();
+const { locale } = useI18n();
 
 const props = defineProps<{ refreshKey: number }>();
 const emit = defineEmits<{
@@ -12,33 +17,39 @@ const emit = defineEmits<{
     availability: [hasRestorable: boolean];
 }>();
 const status = ref<'pending' | 'restored' | 'blocked'>('pending');
-const tabs = [
-    {
-        value: 'pending',
-        label: 'Da ripristinare',
-        color: 'border-sky-300 text-sky-800 hover:bg-sky-100 dark:border-sky-800 dark:text-sky-200 dark:hover:bg-sky-900',
-        active: 'bg-sky-100 dark:bg-sky-900',
-    },
-    {
-        value: 'restored',
-        label: 'Ripristinati',
-        color: 'border-emerald-300 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-900',
-        active: 'bg-emerald-100 dark:bg-emerald-900',
-    },
-    {
-        value: 'blocked',
-        label: 'Non ripristinabili',
-        color: 'border-red-300 text-red-800 hover:bg-red-100 dark:border-red-800 dark:text-red-200 dark:hover:bg-red-900',
-        active: 'bg-red-100 dark:bg-red-900',
-    },
-] as const;
+const tabs = computed(
+    () =>
+        [
+            {
+                value: 'pending',
+                label: copy('Da ripristinare'),
+                color: 'border-sky-300 text-sky-800 hover:bg-sky-100 dark:border-sky-800 dark:text-sky-200 dark:hover:bg-sky-900',
+                active: 'bg-sky-100 dark:bg-sky-900',
+            },
+            {
+                value: 'restored',
+                label: copy('Ripristinati'),
+                color: 'border-emerald-300 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-900',
+                active: 'bg-emerald-100 dark:bg-emerald-900',
+            },
+            {
+                value: 'blocked',
+                label: copy('Non ripristinabili'),
+                color: 'border-red-300 text-red-800 hover:bg-red-100 dark:border-red-800 dark:text-red-200 dark:hover:bg-red-900',
+                active: 'bg-red-100 dark:bg-red-900',
+            },
+        ] as const,
+);
 function selectTab(value: 'pending' | 'restored' | 'blocked'): void {
     status.value = value;
     void load(1);
 }
 function adjacentTab(direction: number): void {
-    const index = tabs.findIndex((tab) => tab.value === status.value);
-    selectTab(tabs[(index + direction + tabs.length) % tabs.length].value);
+    const index = tabs.value.findIndex((tab) => tab.value === status.value);
+    selectTab(
+        tabs.value[(index + direction + tabs.value.length) % tabs.value.length]
+            .value,
+    );
     document.getElementById(`movement-tab-${status.value}`)?.focus();
 }
 const entries = ref<MovementHistoryEntry[]>([]);
@@ -52,7 +63,7 @@ const message = ref('');
 const unavailable = ref('');
 let revision = 0;
 function date(value: string): string {
-    return new Date(value).toLocaleString('it-IT', {
+    return new Date(value).toLocaleString(locale.value, {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
@@ -77,7 +88,7 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
                 .flat()
                 .join(' ') ||
                 data.message ||
-                'Operazione non disponibile.',
+                copy('Operazione non disponibile.'),
         );
     }
 
@@ -164,19 +175,23 @@ async function undo(entry: MovementHistoryEntry): Promise<void> {
 <template>
     <section
         class="space-y-4 rounded-3xl border border-slate-200 bg-white/95 p-5 dark:border-slate-800 dark:bg-slate-950/80"
-        aria-label="Storico spostamenti"
+        :aria-label="copy('Storico spostamenti')"
     >
         <div>
-            <h2 class="text-base font-semibold">Storico spostamenti</h2>
+            <h2 class="text-base font-semibold">
+                {{ copy('Storico spostamenti') }}
+            </h2>
             <p class="mt-1 text-sm text-muted-foreground">
-                Ripristina i riferimenti originali entro 30 giorni, se i
-                collegamenti sono ancora compatibili. I movimenti creati
-                successivamente restano invariati.
+                {{
+                    copy(
+                        'Ripristina i riferimenti originali entro 30 giorni, se i collegamenti sono ancora compatibili. I movimenti creati successivamente restano invariati.',
+                    )
+                }}
             </p>
         </div>
         <div
             role="tablist"
-            aria-label="Stato ripristino"
+            :aria-label="copy('Stato ripristino')"
             class="flex flex-wrap gap-2"
         >
             <Button
@@ -218,7 +233,7 @@ async function undo(entry: MovementHistoryEntry): Promise<void> {
                 role="status"
                 class="text-sm text-muted-foreground"
             >
-                Caricamento storico…
+                {{ copy('Caricamento storico…') }}
             </p>
             <p
                 v-else-if="!entries.length"
@@ -226,10 +241,10 @@ async function undo(entry: MovementHistoryEntry): Promise<void> {
             >
                 {{
                     status === 'restored'
-                        ? 'Nessuno spostamento ripristinato.'
+                        ? copy('Nessuno spostamento ripristinato.')
                         : status === 'blocked'
-                          ? 'Nessuno spostamento non ripristinabile.'
-                          : 'Nessuno spostamento da ripristinare.'
+                          ? copy('Nessuno spostamento non ripristinabile.')
+                          : copy('Nessuno spostamento da ripristinare.')
                 }}
             </p>
             <ul v-else class="space-y-3">
@@ -257,17 +272,19 @@ async function undo(entry: MovementHistoryEntry): Promise<void> {
                                 }}
                             </p>
                             <p class="text-xs text-muted-foreground">
-                                {{ entry.count }} collegamenti ·
+                                {{ entry.count }} {{ copy('collegamenti ·') }}
                                 {{ entry.actor_name }} ·
                                 {{ date(entry.created_at) }}
                             </p>
                             <p class="text-xs text-muted-foreground">
                                 {{
                                     entry.restored_at
-                                        ? 'Ripristinato'
+                                        ? copy('Ripristinato')
                                         : entry.can_restore
-                                          ? 'Ripristinabile fino al'
-                                          : 'Termine previsto per il ripristino:'
+                                          ? copy('Ripristinabile fino al')
+                                          : copy(
+                                                'Termine previsto per il ripristino:',
+                                            )
                                 }}
                                 {{ date(entry.restored_at ?? entry.expires_at)
                                 }}<template v-if="entry.restored_by_name">
@@ -289,7 +306,9 @@ async function undo(entry: MovementHistoryEntry): Promise<void> {
                                 !canRestoreMovement(entry, restoring || loading)
                             "
                             @click="selected = entry.uuid"
-                            ><RotateCcw class="size-4" />Ripristina</Button
+                            ><RotateCcw class="size-4" />{{
+                                copy('Ripristina')
+                            }}</Button
                         >
                     </div>
                     <div
@@ -297,15 +316,19 @@ async function undo(entry: MovementHistoryEntry): Promise<void> {
                         class="space-y-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-900"
                     >
                         <p class="text-sm">
-                            Ripristinare il riferimento originale dei
-                            {{ entry.count }} collegamenti?
+                            {{
+                                copy(
+                                    'Ripristinare il riferimento originale dei',
+                                )
+                            }}
+                            {{ entry.count }} {{ copy('collegamenti?') }}
                         </p>
                         <div class="flex flex-wrap gap-2">
                             <Button
                                 variant="outline"
                                 :disabled="restoring"
                                 @click="selected = ''"
-                                >Annulla</Button
+                                >{{ copy('Annulla') }}</Button
                             >
                             <Button
                                 :disabled="
@@ -317,8 +340,8 @@ async function undo(entry: MovementHistoryEntry): Promise<void> {
                                 @click="undo(entry)"
                                 >{{
                                     restoring
-                                        ? 'Ripristino…'
-                                        : 'Conferma ripristino'
+                                        ? copy('Ripristino…')
+                                        : copy('Conferma ripristino')
                                 }}</Button
                             >
                         </div>
@@ -333,7 +356,7 @@ async function undo(entry: MovementHistoryEntry): Promise<void> {
                     variant="outline"
                     :disabled="loading || restoring || page <= 1"
                     @click="load(page - 1)"
-                    >Precedente</Button
+                    >{{ copy('Precedente') }}</Button
                 >
                 <span class="text-sm text-muted-foreground"
                     >{{ page }} / {{ lastPage }}</span
@@ -342,7 +365,7 @@ async function undo(entry: MovementHistoryEntry): Promise<void> {
                     variant="outline"
                     :disabled="loading || restoring || page >= lastPage"
                     @click="load(page + 1)"
-                    >Successiva</Button
+                    >{{ copy('Successiva') }}</Button
                 >
             </div>
         </div>

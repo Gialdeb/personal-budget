@@ -431,8 +431,8 @@ test('the transaction form receives only the authenticated users active counterp
     $sheet = app(MonthlyTransactionSheetService::class)->build($user, 2026, 1);
 
     expect($sheet['editor']['shared_expense_counterparties'])->toBe([
-        ['value' => $alpha->uuid, 'label' => 'Alessia'],
-        ['value' => $zeta->uuid, 'label' => 'Zeno'],
+        ['value' => $alpha->uuid, 'reference_name' => 'Alessia', 'logo_url' => null, 'label' => 'Alessia'],
+        ['value' => $zeta->uuid, 'reference_name' => 'Zeno', 'logo_url' => null, 'label' => 'Zeno'],
     ]);
 });
 

@@ -39,10 +39,10 @@ class SharedSourceProjector
         $partyId = $source instanceof Transaction ? $source->shared_expense_counterparty_id : $source->counterparty_id;
         $party = TrackedItem::query()->find($partyId ?? $link?->relation->counterparty_id);
         if ($party === null || $party->account_id !== null) {
-            throw ValidationException::withMessages(['identity' => 'A personal counterparty is required.']);
+            throw ValidationException::withMessages(['identity' => __('form_errors.a_personal_counterparty_is_required')]);
         }
         if ($source instanceof SharedExpenseLedgerEntry && $source->user_id !== $party->user_id) {
-            throw ValidationException::withMessages(['ownership' => 'External shared source and personal counterparty have different owners.']);
+            throw ValidationException::withMessages(['ownership' => __('form_errors.external_shared_source_and_personal_counterparty_have_different_owners')]);
         }
         $currency = $source->currency;
         $knownIdentity = null;
@@ -51,21 +51,21 @@ class SharedSourceProjector
                 ->whereHas('relation', fn ($query) => $query->where('user_id', $party->user_id)->where('counterparty_id', $party->id)->where('currency_code', $currency))
                 ->distinct()->pluck('obligation_id');
             if ($roots->count() > 1) {
-                throw ValidationException::withMessages(['identity' => 'The source already belongs to multiple economic obligations.']);
+                throw ValidationException::withMessages(['identity' => __('form_errors.the_source_already_belongs_to_multiple_economic_obligations')]);
             }
             $knownIdentity = $roots->isEmpty() ? null : CounterpartyObligation::query()->findOrFail($roots->first())->economic_identity;
         }
         if ($link !== null && ($link->relation->counterparty_id !== $party->id || $link->relation->user_id !== $party->user_id || $link->relation->currency_code !== $currency)) {
-            throw ValidationException::withMessages(['identity' => 'Counterparty or currency changed on an already mapped shared fact.']);
+            throw ValidationException::withMessages(['identity' => __('form_errors.counterparty_or_currency_changed_on_an_already_mapped_shared_fact')]);
         }
         $effect = 0;
         if ($source instanceof Transaction) {
             if (! in_array($source->account_id, $this->accounts->ids($party->user_id), true)) {
-                throw ValidationException::withMessages(['ownership' => 'The shared bank document is not accessible to the personal counterparty owner.']);
+                throw ValidationException::withMessages(['ownership' => __('form_errors.the_shared_bank_document_is_not_accessible_to_the_personal_counterparty_owner')]);
             }
             $source->load('refundTransaction');
             if ($source->sharedExpenseSettlement()->exists() || $source->creditDebtPayment()->exists()) {
-                throw ValidationException::withMessages(['source' => 'The same bank document is marked as both expense and payment.']);
+                throw ValidationException::withMessages(['source' => __('form_errors.the_same_bank_document_is_marked_as_both_expense_and_payment')]);
             }
             if (! $deleted && ! $source->trashed() && $source->status === TransactionStatusEnum::CONFIRMED && $partyId !== null) {
                 $total = MoneyAmount::cents((string) $source->amount);
@@ -92,21 +92,21 @@ class SharedSourceProjector
         }
         $occurrences = $occurrences->unique('id');
         if ($occurrences->count() > 1) {
-            throw ValidationException::withMessages(['identity' => 'One shared document is attached to multiple occurrences.']);
+            throw ValidationException::withMessages(['identity' => __('form_errors.one_shared_document_is_attached_to_multiple_occurrences')]);
         }
         foreach ($occurrences as $occurrence) {
             $historical = $this->counterparties->historicalIdentity($occurrence);
             if ($currency !== $occurrence->recurringEntry->currency || ($historical !== null && ($historical['counterparty_id'] !== $party->id || $historical['currency'] !== $currency))) {
-                throw ValidationException::withMessages(['identity' => 'The source conflicts with the economic identity of its occurrence.']);
+                throw ValidationException::withMessages(['identity' => __('form_errors.the_source_conflicts_with_the_economic_identity_of_its_occurrence')]);
             }
         }
         $occurrenceIdentity = $occurrences->isEmpty() ? null : 'shared-occurrence:'.$occurrences->first()->uuid;
         if ($occurrences->isNotEmpty() && $occurrences->first()->recurringEntry->user_id !== $party->user_id) {
-            throw ValidationException::withMessages(['ownership' => 'Occurrence and personal counterparty have different owners.']);
+            throw ValidationException::withMessages(['ownership' => __('form_errors.occurrence_and_personal_counterparty_have_different_owners')]);
         }
         $persistentIdentity = $link?->economic_identity ?? $knownIdentity;
         if ($persistentIdentity !== null && $occurrenceIdentity !== null && $persistentIdentity !== $occurrenceIdentity) {
-            throw ValidationException::withMessages(['identity' => 'Occurrence identity conflicts with the existing source mapping.']);
+            throw ValidationException::withMessages(['identity' => __('form_errors.occurrence_identity_conflicts_with_the_existing_source_mapping')]);
         }
 
         $documentIdentity = $source->uuid;
@@ -144,7 +144,7 @@ class SharedSourceProjector
             || $transaction->shared_expense_counterparty_id !== null || $transaction->creditDebtPayment()->exists() || $transaction->is_transfer
             || $transaction->user_id !== $transaction->account->user_id || MoneyAmount::cents((string) $transaction->amount) !== $source->amount_cents
             || $transaction->direction->value !== ($source->direction === 'counterparty_to_me' ? 'income' : 'expense')) {
-            throw ValidationException::withMessages(['settlement' => 'Legacy settlement has an invalid or missing bank document.']);
+            throw ValidationException::withMessages(['settlement' => __('form_errors.legacy_settlement_has_an_invalid_or_missing_bank_document')]);
         }
         $effective = $deleted || $transaction->trashed() || $transaction->status !== TransactionStatusEnum::CONFIRMED ? 0
             : max(0, $source->amount_cents - ($transaction->refundTransaction?->status === TransactionStatusEnum::CONFIRMED ? MoneyAmount::cents((string) $transaction->refundTransaction->amount) : 0));

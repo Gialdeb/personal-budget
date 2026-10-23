@@ -32,6 +32,7 @@ const ui = useUiCopy();
 type SearchableOption = {
     value: string;
     label: string;
+    reference_name?: string;
     groupLabel?: string;
     badgeLabel?: string;
     badgeClass?: string;
@@ -428,6 +429,7 @@ function handleOpenAutoFocus(event: Event): void {
                     <SheetTitle class="text-xl font-semibold tracking-tight">
                         {{
                             mobileTitle ??
+                            selectedOption?.reference_name ??
                             selectedOption?.label ??
                             placeholder ??
                             t('transactions.form.placeholders.searchAccount')

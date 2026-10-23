@@ -32,10 +32,10 @@ class CounterpartyBackfillService
     public function run(User $user, TrackedItem $party, string $currency, bool $apply = false): array
     {
         if ($party->user_id !== $user->id || $party->account_id !== null) {
-            throw ValidationException::withMessages(['counterparty' => 'Invalid personal economic ownership.']);
+            throw ValidationException::withMessages(['counterparty' => __('form_errors.invalid_personal_economic_ownership')]);
         }
         if ($apply && app(CounterpartyAuthority::class)->activeRelation($user->id, $party->id, $currency) !== null) {
-            throw ValidationException::withMessages(['relation' => 'Il rapporto è attivo: non reimportare i documenti legacy. Usa il lifecycle comune.']);
+            throw ValidationException::withMessages(['relation' => __('form_errors.the_relationship_is_active_do_not_import_legacy_documents_again_use_the')]);
         }
         if (! $apply) {
             return $this->plan($user, $party, $currency);
@@ -46,7 +46,7 @@ class CounterpartyBackfillService
                 TrackedItem::query()->whereKey($party->id)->lockForUpdate()->firstOrFail();
                 $plan = $this->plan($user, $party, $currency, true);
                 if ($plan['ambiguous'] !== []) {
-                    throw ValidationException::withMessages(['migration' => 'Relation backfill blocked: '.json_encode($plan['ambiguous'], JSON_THROW_ON_ERROR)]);
+                    throw ValidationException::withMessages(['migration' => __('form_errors.relation_backfill_blocked').json_encode($plan['ambiguous'], JSON_THROW_ON_ERROR)]);
                 }
                 $relation = $this->ledger->relation($user, $party, $currency);
                 $relation = CounterpartyRelation::query()->whereKey($relation->id)->lockForUpdate()->firstOrFail();
@@ -65,12 +65,12 @@ class CounterpartyBackfillService
                         if ($payment === null) {
                             $payment = $this->ledger->synchronizeLegacyPayment($relation, $source, $minor, 'backfill:manual-payment:'.$source->uuid, ['allocation_status' => 'known_legacy', 'legacy_origin' => 'credit_debt_payment', 'migration_date' => now()->toISOString()]);
                         } elseif ($payment->relation_id !== $relation->id || $this->projections->effectivePayment($payment) !== $minor) {
-                            throw ValidationException::withMessages(['payment' => 'Existing manual payment differs from legacy; explicit correction is required.']);
+                            throw ValidationException::withMessages(['payment' => __('form_errors.existing_manual_payment_differs_from_legacy_explicit_correction_is_required')]);
                         }
                         if ($this->projections->allocatedToPayment($payment) === 0) {
                             $this->ledger->allocate($payment, $obligation, $minor, $source->paid_at->toDateString(), 'backfill:known-allocation:'.$source->uuid);
                         } elseif ($payment->allocationEntries()->where('obligation_id', '!=', $obligation->id)->exists() || $this->projections->allocatedToPayment($payment) !== $minor) {
-                            throw ValidationException::withMessages(['allocation' => 'Existing manual allocation differs from its known legacy obligation.']);
+                            throw ValidationException::withMessages(['allocation' => __('form_errors.existing_manual_allocation_differs_from_its_known_legacy_obligation')]);
                         }
                         CounterpartySyncIssue::query()->where('source_type', 'credit_debt_payment')->where('source_identity', $source->uuid)->whereNull('resolved_at')->update(['resolved_at' => now()]);
                     }
@@ -126,14 +126,14 @@ class CounterpartyBackfillService
                 app(ManualEconomicSubjectResolver::class)->assertConsistent($item);
                 $minor = CurrencyMinorUnits::fromDecimal((string) $item->total_amount, $currency) * ($item->type === CreditDebtTypeEnum::CREDIT ? 1 : -1);
                 if ($minor === 0) {
-                    throw ValidationException::withMessages(['amount' => 'Zero manual principal cannot be recognized.']);
+                    throw ValidationException::withMessages(['amount' => __('form_errors.zero_manual_principal_cannot_be_recognized')]);
                 }
                 $existing = $relation?->obligations()->where('source_type', 'credit_debt_item')->where('source_identity', $item->uuid)->first();
                 if ($existing !== null && ((($this->projections->recognized($existing) ?: $existing->recognized_minor) > 0) !== ($minor > 0) || $this->projections->allocatedToObligation($existing) > abs($minor))) {
-                    throw ValidationException::withMessages(['obligation' => 'Existing manual obligation cannot be revised safely.']);
+                    throw ValidationException::withMessages(['obligation' => __('form_errors.existing_manual_obligation_cannot_be_revised_safely')]);
                 }
                 if (CurrencyMinorUnits::sum($item->payments->map(fn ($payment): int => CurrencyMinorUnits::fromDecimal((string) $payment->amount, $currency))) > abs($minor)) {
-                    throw ValidationException::withMessages(['payment' => 'Known manual payments exceed the documented principal.']);
+                    throw ValidationException::withMessages(['payment' => __('form_errors.known_manual_payments_exceed_the_documented_principal')]);
                 }
                 $effects[] = ['kind' => 'obligation', 'source_type' => 'credit_debt_item', 'source_identity' => $item->uuid, 'target_minor' => $minor, 'current_minor' => $existing === null ? 0 : $this->projections->recognized($existing)];
                 if ($existing === null) {
@@ -147,15 +147,15 @@ class CounterpartyBackfillService
                     if ($transaction === null || $transaction->account === null || $transaction->status->value !== 'confirmed' || $transaction->currency !== $currency
                         || $transaction->account->currency_code !== $currency || $transaction->direction->value !== ($minor > 0 ? 'income' : 'expense')
                         || CurrencyMinorUnits::fromDecimal((string) $transaction->amount, $currency) !== $amount || $transaction->refundTransaction()->exists()) {
-                        throw ValidationException::withMessages(['payment' => 'Manual payment bank document is missing or incompatible.']);
+                        throw ValidationException::withMessages(['payment' => __('form_errors.manual_payment_bank_document_is_missing_or_incompatible')]);
                     }
                     if (isset($bankIdentities[$transaction->uuid])) {
-                        throw ValidationException::withMessages(['payment' => 'Duplicate bank payment source.']);
+                        throw ValidationException::withMessages(['payment' => __('form_errors.duplicate_bank_payment_source')]);
                     }
                     $bankIdentities[$transaction->uuid] = true;
                     $old = CounterpartyPayment::query()->where('legacy_source_type', 'credit_debt_payment')->where('legacy_source_identity', $payment->uuid)->first();
                     if ($old !== null && ($relation === null || $old->relation_id !== $relation->id || $this->projections->effectivePayment($old) !== $amount)) {
-                        throw ValidationException::withMessages(['payment' => 'Existing manual payment conflicts with its legacy source.']);
+                        throw ValidationException::withMessages(['payment' => __('form_errors.existing_manual_payment_conflicts_with_its_legacy_source')]);
                     }
                     $effects[] = ['kind' => 'payment', 'source_type' => 'credit_debt_payment', 'source_identity' => $payment->uuid, 'target_minor' => $amount * ($minor > 0 ? -1 : 1), 'current_minor' => $old === null ? 0 : $this->projections->effectivePayment($old) * $old->direction->balanceSign()];
                     if ($old === null) {
@@ -178,14 +178,14 @@ class CounterpartyBackfillService
                     continue;
                 }
                 if ($data['signed_minor'] !== 0 && isset($identities[$data['economic_identity']])) {
-                    throw ValidationException::withMessages(['identity' => 'Multiple effective sources have the same economic identity.']);
+                    throw ValidationException::withMessages(['identity' => __('form_errors.multiple_effective_sources_have_the_same_economic_identity')]);
                 }
                 if ($data['signed_minor'] !== 0) {
                     $identities[$data['economic_identity']] = $componentFingerprint ?? true;
                 }
                 $old = $relation?->obligations()->where('economic_identity', $data['economic_identity'])->first();
                 if ($old !== null && $this->projections->allocatedToObligation($old) !== 0 && $this->projections->recognized($old) !== $data['signed_minor']) {
-                    throw ValidationException::withMessages(['allocation' => 'Release shared allocations before revision.']);
+                    throw ValidationException::withMessages(['allocation' => __('form_errors.release_shared_allocations_before_revision')]);
                 }
                 $effects[] = ['kind' => 'obligation', 'source_type' => $data['source_type'], 'source_identity' => $data['source_identity'], 'economic_identity' => $data['economic_identity'], 'target_minor' => $data['signed_minor'], 'current_minor' => $old === null ? 0 : $this->projections->recognized($old)];
                 if ($old !== null) {
@@ -201,12 +201,12 @@ class CounterpartyBackfillService
             try {
                 $data = $this->sources->settlement($source);
                 if (isset($bankIdentities[$data['transaction_uuid']])) {
-                    throw ValidationException::withMessages(['payment' => 'Duplicate bank payment source.']);
+                    throw ValidationException::withMessages(['payment' => __('form_errors.duplicate_bank_payment_source')]);
                 }
                 $bankIdentities[$data['transaction_uuid']] = true;
                 $old = CounterpartyPayment::query()->where('legacy_source_type', 'shared_expense_settlement')->where('legacy_source_identity', $source->uuid)->first();
                 if ($old !== null && ($relation === null || $old->relation_id !== $relation->id || $this->projections->allocatedToPayment($old) !== 0)) {
-                    throw ValidationException::withMessages(['payment' => 'Existing settlement cannot be replaced without reviewing allocations or ownership.']);
+                    throw ValidationException::withMessages(['payment' => __('form_errors.existing_settlement_cannot_be_replaced_without_reviewing_allocations_or_ownership')]);
                 }
                 $effects[] = ['kind' => 'payment', 'source_type' => 'shared_expense_settlement', 'source_identity' => $source->uuid, 'target_minor' => $data['signed_minor'], 'current_minor' => $old === null ? 0 : $this->projections->effectivePayment($old) * $old->direction->balanceSign(), 'allocation_status' => 'unknown_legacy'];
                 if ($old === null) {

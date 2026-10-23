@@ -29,7 +29,7 @@ class CreditDebtPaymentService
     public function create(User $user, CreditDebtItem $item, array $data): CreditDebtPayment
     {
         if (app(CounterpartyAuthority::class)->activeRelation($user->id, $item->counterparty_id, $item->currency_code) !== null) {
-            throw ValidationException::withMessages(['counterparty' => 'Usa Registra pagamento nel rapporto della controparte.']);
+            throw ValidationException::withMessages(['counterparty' => __('form_errors.use_record_payment_in_the_counterparty_relationship')]);
         }
         abort_unless((bool) config('features.credits_debts.enabled'), 404);
 
@@ -50,10 +50,10 @@ class CreditDebtPaymentService
             app(ManualEconomicSubjectResolver::class)->assertConsistent($lockedItem);
 
             if ((string) $lockedItem->counterparty_id !== (string) $item->counterparty_id) {
-                throw ValidationException::withMessages(['counterparty' => 'La controparte è cambiata. Ricarica la posizione prima di registrare il pagamento.']);
+                throw ValidationException::withMessages(['counterparty' => __('form_errors.the_counterparty_has_changed_reload_the_position_before_recording_the_payment')]);
             }
             if (app(CounterpartyAuthority::class)->activeRelation($user->id, $lockedItem->counterparty_id, $lockedItem->currency_code) !== null) {
-                throw ValidationException::withMessages(['counterparty' => 'Usa Registra pagamento nel rapporto della controparte.']);
+                throw ValidationException::withMessages(['counterparty' => __('form_errors.use_record_payment_in_the_counterparty_relationship')]);
             }
             if (! $lockedItem->canAcceptPayment($amount)) {
                 throw ValidationException::withMessages([

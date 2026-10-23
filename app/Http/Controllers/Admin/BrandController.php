@@ -13,6 +13,7 @@ use App\Services\Brands\BrandLogoService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -55,7 +56,8 @@ class BrandController extends Controller
     {
         $data = $request->validated();
         $data['domain'] = $request->input('domain');
-        $attributes = collect($data)->only(['name', 'aliases', 'domain', 'category', 'is_published'])->all();
+        $data['alternative_domains'] = $request->input('alternative_domains', $brand->alternative_domains ?? []);
+        $attributes = collect($data)->only(['name', 'aliases', 'alternative_domains', 'domain', 'category', 'is_published'])->all();
         if ($request->hasFile('logo')) {
             $attributes += $logos->upload($request->file('logo'));
         } elseif ($request->boolean('fetch_logo')) {
@@ -64,18 +66,21 @@ class BrandController extends Controller
             $attributes += ['logo_path' => null, 'logo_mime_type' => null];
         }
         try {
-            DB::transaction(function () use ($request, $attributes, $brand): void {
+            Cache::lock('brand-domain-catalog', 30)->block(10, fn () => DB::transaction(function () use ($request, $attributes, $brand): void {
+                if (Brand::conflictingDomains([$attributes['domain'], ...$attributes['alternative_domains']], $brand)) {
+                    throw ValidationException::withMessages(['domain' => __('form_errors.a_domain_is_already_associated_with_another_brand')]);
+                }
                 if (filled($attributes['category'] ?? null) && ! BrandCategory::query()->where('name', $attributes['category'])->lockForUpdate()->first()) {
-                    throw ValidationException::withMessages(['category' => 'Categoria non più disponibile.']);
+                    throw ValidationException::withMessages(['category' => __('form_errors.category_no_longer_available')]);
                 }
                 if ($request->filled('source_logo_uuid')) {
                     app(BrandImportService::class)->import($request->string('source_logo_uuid')->toString(), $attributes);
                 } else {
                     $brand->fill($attributes)->save();
                 }
-            });
+            }));
         } catch (UniqueConstraintViolationException) {
-            throw ValidationException::withMessages(['name' => 'Esiste già un marchio con questo nome e dominio.']);
+            throw ValidationException::withMessages(['name' => __('form_errors.a_brand_with_this_name_and_domain_already_exists')]);
         }
 
         return back()->with('success', 'Marchio salvato.');

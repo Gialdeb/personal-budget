@@ -839,7 +839,7 @@ const trackedItemOptions = computed(() =>
         form.tracked_item_uuid,
     ).map((option: RecurringFormOption) => ({
         value: String(option.value),
-        label: option.label,
+        label: option.name ?? option.label,
         logo_url: option.logo_url,
         domain: option.domain,
         is_selectable: option.is_selectable,

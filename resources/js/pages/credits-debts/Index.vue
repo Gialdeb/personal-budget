@@ -83,6 +83,7 @@ import type { BreadcrumbItem } from '@/types';
 const ui = useUiCopy();
 
 type Option = {
+    reference_name?: string;
     value: string;
     uuid?: string;
     label: string;
@@ -364,6 +365,7 @@ const selectedAccountReferences = computed(() => {
         options.push({
             value: reference.uuid,
             label: reference.label ?? reference.name ?? '',
+            reference_name: reference.name,
         });
     }
 
@@ -381,6 +383,7 @@ const filterReferences = computed(() =>
                 ? [
                       {
                           value: item.reference.uuid,
+                          reference_name: item.reference.name,
                           label:
                               item.reference.label ??
                               item.reference.name ??

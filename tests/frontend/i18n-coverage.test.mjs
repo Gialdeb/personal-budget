@@ -149,7 +149,7 @@ test('literal translation keys in every Vue screen resolve in both languages', (
                 const source = readFileSync(path, 'utf8');
 
                 for (const match of source.matchAll(
-                    /\bt\(\s*['"]([\w.-]+)['"]/g,
+                    /\bt\(\s*['"]([\w.-]+)['"]\s*(?=[,)])/g,
                 )) {
                     if (!Object.hasOwn(flatten, match[1])) {
                         missing.push(`${path}: ${match[1]}`);
@@ -225,4 +225,15 @@ test('Vue templates contain no untranslated static prose or accessible labels', 
     }
 
     assert.deepEqual(missing, []);
+});
+
+test('server JSON dictionaries have matching keys and nonempty translations', () => {
+    const italian = JSON.parse(readFileSync('lang/it.json', 'utf8'));
+    const english = JSON.parse(readFileSync('lang/en.json', 'utf8'));
+    assert.deepEqual(Object.keys(italian).sort(), Object.keys(english).sort());
+
+    for (const key of Object.keys(italian)) {
+        assert.ok(italian[key].trim(), `it: ${key}`);
+        assert.ok(english[key].trim(), `en: ${key}`);
+    }
 });

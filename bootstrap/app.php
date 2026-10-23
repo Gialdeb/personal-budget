@@ -59,10 +59,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             AuthenticateSession::class,
             HandleAppearance::class,
+            SetApplicationLocaleMiddleware::class,
             HandleInertiaRequests::class,
             MaterializePendingTrackedItems::class,
             AddLinkHeadersForPreloadedAssets::class,
-            SetApplicationLocaleMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

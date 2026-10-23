@@ -10,12 +10,20 @@ export function isReferenceDraftRequest(url) {
 
 /** Keep useful validation details while replacing implementation-only identifiers. */
 export function userErrorMessage(message) {
+    const english =
+        typeof document !== 'undefined' &&
+        document.documentElement?.lang?.startsWith('en');
+    const localized = (it, en) => (english ? en : it);
+
     if (typeof message !== 'string') {
         return '';
     }
 
     if (/fetch failed|Failed to fetch|NetworkError/i.test(message)) {
-        return 'Connessione non disponibile. Verifica la rete e riprova.';
+        return localized(
+            'Connessione non disponibile. Verifica la rete e riprova.',
+            'Connection unavailable. Check your network and try again.',
+        );
     }
 
     if (
@@ -23,42 +31,59 @@ export function userErrorMessage(message) {
             message,
         )
     ) {
-        return 'Non è stato possibile completare l’operazione. Riprova; se il problema continua, contatta l’assistenza.';
+        return localized(
+            'Non è stato possibile completare l’operazione. Riprova; se il problema continua, contatta l’assistenza.',
+            'Unable to complete this operation. Try again; if the problem persists, contact support.',
+        );
     }
 
     const labels = {
-        shared_expense_counterparty: 'controparte della spesa condivisa',
-        shared_counterparty: 'controparte',
-        destination_account: 'conto di destinazione',
-        destination: 'destinazione',
-        source: 'origine',
-        tracked_item: 'riferimento',
-        reference: 'riferimento',
-        counterparty: 'controparte',
-        account: 'conto',
-        category: 'categoria',
-        scope: 'ambito',
-        parent: 'riferimento superiore',
-        transaction: 'movimento',
-        recurring_entry: 'ricorrenza',
-        import_format: 'formato di importazione',
+        shared_expense_counterparty: localized(
+            'controparte della spesa condivisa',
+            'shared expense counterparty',
+        ),
+        shared_counterparty: localized('controparte', 'counterparty'),
+        destination_account: localized(
+            'conto di destinazione',
+            'destination account',
+        ),
+        destination: localized('destinazione', 'destination'),
+        source: localized('origine', 'source'),
+        tracked_item: localized('riferimento', 'reference'),
+        reference: localized('riferimento', 'reference'),
+        counterparty: localized('controparte', 'counterparty'),
+        account: localized('conto', 'account'),
+        category: localized('categoria', 'category'),
+        scope: localized('ambito', 'scope'),
+        parent: localized('riferimento superiore', 'parent reference'),
+        transaction: localized('movimento', 'transaction'),
+        recurring_entry: localized('ricorrenza', 'recurring entry'),
+        import_format: localized('formato di importazione', 'import format'),
     };
     let copy = message.replace(
         /\b([a-z_]+)_(?:uuid|id)\b/gi,
-        (_, name) => labels[name.toLowerCase()] ?? 'elemento selezionato',
+        (_, name) =>
+            labels[name.toLowerCase()] ??
+            localized('elemento selezionato', 'selected item'),
     );
     copy = copy.replace(
         /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
-        'elemento selezionato',
+        localized('elemento selezionato', 'selected item'),
     );
 
     copy = copy.replace(
         /Il campo (.+?) deve essere un UUID valido\./gi,
-        'La selezione per $1 non è valida. Seleziona nuovamente l’elemento.',
+        localized(
+            'La selezione per $1 non è valida. Seleziona nuovamente l’elemento.',
+            'The selection for $1 is invalid. Please select the item again.',
+        ),
     );
 
     if (/\buuid\b/i.test(copy)) {
-        return 'La selezione non è valida. Cerca e seleziona nuovamente l’elemento prima di salvare.';
+        return localized(
+            'La selezione non è valida. Cerca e seleziona nuovamente l’elemento prima di salvare.',
+            'The selection is invalid. Search and select the item again before saving.',
+        );
     }
 
     return copy;

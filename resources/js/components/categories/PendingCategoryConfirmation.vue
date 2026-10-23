@@ -7,7 +7,10 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { categoryConfirmation } from '@/lib/pending-category-confirmation';
+
+const copy = useUiCopy();
 function close(): void {
     categoryConfirmation.value?.resolve(false);
 }
@@ -23,12 +26,14 @@ function close(): void {
     >
         <DialogContent @escape-key-down="close">
             <DialogHeader>
-                <DialogTitle>Conferma lo spostamento dei budget</DialogTitle>
-                <DialogDescription
-                    >La nuova sottocategoria riceverà questi budget. Il
-                    movimento, le categorie e i budget saranno salvati insieme.
-                    Annullando non viene salvato nulla.</DialogDescription
-                >
+                <DialogTitle>{{
+                    copy('Conferma lo spostamento dei budget')
+                }}</DialogTitle>
+                <DialogDescription>{{
+                    copy(
+                        'La nuova sottocategoria riceverà questi budget. Il movimento, le categorie e i budget saranno salvati insieme. Annullando non viene salvato nulla.',
+                    )
+                }}</DialogDescription>
             </DialogHeader>
             <ul class="max-h-80 space-y-3 overflow-y-auto text-sm">
                 <li
@@ -48,10 +53,12 @@ function close(): void {
                 </li>
             </ul>
             <div class="flex flex-wrap justify-end gap-2">
-                <Button variant="outline" @click="close">Annulla</Button>
-                <Button @click="categoryConfirmation?.resolve(true)"
-                    >Conferma e salva tutto</Button
-                >
+                <Button variant="outline" @click="close">{{
+                    copy('Annulla')
+                }}</Button>
+                <Button @click="categoryConfirmation?.resolve(true)">{{
+                    copy('Conferma e salva tutto')
+                }}</Button>
             </div>
         </DialogContent>
     </Dialog>

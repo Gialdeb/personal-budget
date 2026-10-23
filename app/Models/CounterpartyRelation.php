@@ -35,12 +35,12 @@ class CounterpartyRelation extends Model
             if ($counterparty === null || $counterparty->user_id !== (int) $relation->user_id || $counterparty->account_id !== null
                 || ((! $counterparty->is_active || ! $counterparty->is_shared_expense_counterpart) && ! self::hasLegacyEvidence($counterparty, $relation->currency_code))
                 || $relation->minor_unit !== CurrencyMinorUnits::precision($relation->currency_code)) {
-                throw ValidationException::withMessages(['relation' => 'Invalid personal counterparty relation.']);
+                throw ValidationException::withMessages(['relation' => __('form_errors.invalid_personal_counterparty_relation')]);
             }
         });
         static::updating(function (self $relation): void {
             if ($relation->isDirty(['user_id', 'counterparty_id', 'currency_code', 'minor_unit', 'uuid'])) {
-                throw ValidationException::withMessages(['relation' => 'Relation identity and precision cannot change.']);
+                throw ValidationException::withMessages(['relation' => __('form_errors.relation_identity_and_precision_cannot_change')]);
             }
         });
     }

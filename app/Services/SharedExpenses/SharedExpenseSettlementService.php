@@ -116,13 +116,13 @@ class SharedExpenseSettlementService
     public function record(User $user, TrackedItem $counterparty, array $validated): SharedExpenseSettlement
     {
         if (app(CounterpartyAuthority::class)->activeRelation($user->id, $counterparty->id, 'EUR') !== null) {
-            throw ValidationException::withMessages(['counterparty' => 'Usa Registra pagamento nel rapporto della controparte.']);
+            throw ValidationException::withMessages(['counterparty' => __('form_errors.use_record_payment_in_the_counterparty_relationship')]);
         }
 
         return DB::transaction(function () use ($user, $counterparty, $validated): SharedExpenseSettlement {
             $counterparty = TrackedItem::query()->whereKey($counterparty->id)->lockForUpdate()->firstOrFail();
             if (app(CounterpartyAuthority::class)->activeRelation($user->id, $counterparty->id, 'EUR') !== null) {
-                throw ValidationException::withMessages(['counterparty' => 'Usa Registra pagamento nel rapporto della controparte.']);
+                throw ValidationException::withMessages(['counterparty' => __('form_errors.use_record_payment_in_the_counterparty_relationship')]);
             }
             $balanceCents = $this->balanceCents($user, $counterparty);
 

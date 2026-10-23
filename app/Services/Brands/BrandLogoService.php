@@ -30,7 +30,7 @@ class BrandLogoService
                 return $this->store($bytes, $match[1]);
             }
         }
-        throw ValidationException::withMessages(['logo' => 'Nessun logo disponibile dal sito. Puoi caricarlo manualmente.']);
+        throw ValidationException::withMessages(['logo' => __('form_errors.no_logo_is_available_from_this_website_you_can_upload_one_manually')]);
     }
 
     /** @return array{logo_path: string, logo_mime_type: string} */
@@ -38,11 +38,11 @@ class BrandLogoService
     {
         $extensions = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif', 'image/x-icon' => 'ico', 'image/vnd.microsoft.icon' => 'ico'];
         if (! isset($extensions[$mime]) || strlen($bytes) > 8_388_608) {
-            throw ValidationException::withMessages(['logo' => 'Formato o dimensione del logo non valido.']);
+            throw ValidationException::withMessages(['logo' => __('form_errors.invalid_logo_format_or_size')]);
         }
         $path = 'tracked-item-logos/'.hash('sha256', $bytes).'.'.$extensions[$mime];
         if (! Storage::disk('public')->exists($path) && ! Storage::disk('public')->put($path, $bytes)) {
-            throw ValidationException::withMessages(['logo' => 'Impossibile salvare il logo. Riprova.']);
+            throw ValidationException::withMessages(['logo' => __('form_errors.unable_to_save_the_logo_please_try_again')]);
         }
 
         return ['logo_path' => $path, 'logo_mime_type' => $mime];

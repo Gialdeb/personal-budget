@@ -129,6 +129,6 @@ class SharedOccurrenceCounterpartyResolver
 
     private function conflict(): never
     {
-        throw ValidationException::withMessages(['occurrence' => 'Le componenti storiche della scadenza hanno identità economiche o valute incompatibili. Nessuna registrazione è stata eseguita.']);
+        throw ValidationException::withMessages(['occurrence' => __('form_errors.the_historical_occurrence_components_have_incompatible_economic_identities_or_currencies_nothing_was')]);
     }
 }

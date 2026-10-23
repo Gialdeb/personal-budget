@@ -58,7 +58,7 @@ class CounterpartyBankMutation
     public function assertGenericMutationAllowed(Transaction $transaction): void
     {
         if (! $this->permitted($transaction) && $this->owns($transaction)) {
-            throw ValidationException::withMessages(['transaction' => 'Questo movimento appartiene a un pagamento della controparte. Usa il suo storico per modificarlo, annullarlo o restituirlo.']);
+            throw ValidationException::withMessages(['transaction' => __('form_errors.this_transaction_belongs_to_a_counterparty_payment_use_its_history_to_edit')]);
         }
     }
 }

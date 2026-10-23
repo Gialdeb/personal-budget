@@ -133,11 +133,14 @@ test(
                         json: {
                             data:
                                 !search ||
-                                ['apple', 'mela', 'apple.com'].some((term) =>
-                                    term.includes(search),
+                                ['apple', 'mela', 'apple.com', 'apple.it'].some(
+                                    (term) => term.includes(search),
                                 )
                                     ? [
-                                          data.brand,
+                                          {
+                                              ...data.brand,
+                                              alternative_domains: ['apple.it'],
+                                          },
                                           {
                                               ...data.brand,
                                               uuid: 'second-brand',
@@ -269,7 +272,8 @@ test(
                     0,
                 );
                 await picker
-                    .getByRole('button', { name: /Apple apple.com/ })
+                    .getByRole('button', { name: 'Apple', exact: true })
+                    .first()
                     .waitFor();
                 assert.equal(searches.at(-1).get('search'), 'apple');
                 assert.ok(
@@ -298,7 +302,8 @@ test(
                 );
                 const personalBox = await personal.boundingBox();
                 const brandBox = await picker
-                    .getByRole('button', { name: /Apple apple.com/ })
+                    .getByRole('button', { name: 'Apple', exact: true })
+                    .first()
                     .boundingBox();
                 assert.ok(personalBox.y < brandBox.y);
                 assert.ok(
@@ -321,19 +326,24 @@ test(
                     ),
                 );
                 await trigger.click();
-                await search.fill('https://www.apple.com/store');
+                await search.fill('https://www.apple.it/store');
                 await picker
-                    .getByRole('button', { name: /Apple apple.com/ })
+                    .getByRole('button', { name: 'Apple', exact: true })
+                    .first()
                     .waitFor();
-                assert.equal(searches.at(-1).get('search'), 'apple.com');
+                assert.equal(searches.at(-1).get('search'), 'apple.it');
+                assert.doesNotMatch(
+                    await picker.innerText(),
+                    /apple\.(com|it|other)|Marchio|Riferimenti esistenti/u,
+                );
                 assert.equal(
                     await picker
-                        .getByRole('button', { name: /Apple apple.other/ })
+                        .getByRole('button', { name: 'Apple', exact: true })
                         .count(),
-                    0,
+                    1,
                 );
                 await picker
-                    .getByRole('button', { name: /Apple apple.com/ })
+                    .getByRole('button', { name: 'Apple', exact: true })
                     .click();
                 await modal.getByLabel('Nome riferimento').waitFor();
                 assert.equal(

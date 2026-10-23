@@ -127,7 +127,7 @@ test('search pagination and admin sort are bounded and stable', function () {
 
 test('catalog aliases prevent duplicate identities and never change personal catalog records', function () {
     Brand::factory()->create(['name' => 'Apple', 'domain' => 'apple.com', 'aliases' => ['Apple Inc']]);
-    $this->actingAs($this->admin)->postJson(route('admin.brands.store'), [...$this->payload, 'name' => 'Apple Inc', 'aliases' => []])->assertUnprocessable()->assertJsonValidationErrors('name');
+    $this->actingAs($this->admin)->postJson(route('admin.brands.store'), [...$this->payload, 'name' => 'Apple Inc', 'aliases' => []])->assertUnprocessable()->assertJsonValidationErrors('domain');
     $this->postJson(route('admin.brands.store'), [...$this->payload, 'name' => 'Apple Music', 'aliases' => ['  music  ', 'MUSIC']])->assertUnprocessable()->assertJsonValidationErrors('aliases.0');
     expect(Brand::count())->toBe(1)->and(TrackedItem::count())->toBe(0);
 });
@@ -180,4 +180,41 @@ test('a managed category is available to subsequent brand forms', function () {
     $this->actingAs($this->admin)->post(route('admin.brands.store'), [...$this->payload, 'category' => 'Nuova categoria', 'is_published' => true])->assertSessionHasNoErrors();
     $this->get(route('admin.brands.index'))->assertInertia(fn (Assert $page) => $page
         ->where('categories', ['Nuova categoria', 'Tecnologia'])->where('brands.data.0.category', 'Nuova categoria')->where('brands.data.0.is_published', true));
+});
+
+test('alternative domains can be added edited removed and searched without changing primary identity', function () {
+    $this->actingAs($this->admin)->postJson(route('admin.brands.store'), [...$this->payload, 'is_published' => true, 'alternative_domains' => ['HTTPS://WWW.APPLE.IT/store/', 'www.apple.de/']])->assertSessionHasNoErrors()->assertRedirect();
+    $brand = Brand::sole();
+    $identity = $brand->identity_key;
+    expect($brand->domain)->toBe('apple.com')->and($brand->alternative_domains)->toBe(['apple.it', 'apple.de'])->and($brand->aliases)->toBe(['Apple Inc', 'Mela']);
+    foreach (['apple.it', 'HTTPS://WWW.APPLE.DE/store/', 'Mela', 'Apple'] as $search) {
+        $this->getJson(route('brands.index', ['search' => $search]))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.uuid', $brand->uuid);
+    }
+    $this->patchJson(route('admin.brands.update', $brand->uuid), [...$this->payload, 'alternative_domains' => ['apple.fr']])->assertSessionHasNoErrors();
+    expect($brand->fresh()->alternative_domains)->toBe(['apple.fr'])->and($brand->fresh()->identity_key)->toBe($identity);
+    $this->post(route('admin.brands.update', $brand->uuid), [...$this->payload, '_method' => 'patch'])->assertSessionHasNoErrors();
+    expect($brand->fresh()->alternative_domains)->toBe([])->and($brand->fresh()->domain)->toBe('apple.com');
+});
+
+test('domains are unique across primary and alternative domains and normalization variants', function () {
+    $brand = Brand::factory()->create(['domain' => 'apple.com', 'alternative_domains' => ['apple.it']]);
+    $this->actingAs($this->admin);
+    foreach ([['domain' => 'HTTPS://WWW.APPLE.IT/'], ['domain' => 'other.example', 'alternative_domains' => ['WWW.APPLE.COM/']], ['domain' => 'other.example', 'alternative_domains' => ['apple.it']]] as $domains) {
+        $this->postJson(route('admin.brands.store'), [...$this->payload, 'name' => 'Other', ...$domains])->assertUnprocessable()->assertJsonValidationErrors('domain');
+    }
+    $this->postJson(route('admin.brands.store'), [...$this->payload, 'domain' => 'other.example', 'alternative_domains' => ['OTHER.EXAMPLE/']])->assertUnprocessable()->assertJsonValidationErrors('alternative_domains.0');
+    $this->postJson(route('admin.brands.store'), [...$this->payload, 'domain' => 'other.example', 'alternative_domains' => ['javascript:alert(1)']])->assertUnprocessable()->assertJsonValidationErrors('alternative_domains.0');
+    $this->patchJson(route('admin.brands.update', $brand->uuid), [...$this->payload, 'alternative_domains' => ['apple.it']])->assertSessionHasNoErrors();
+    expect(Brand::count())->toBe(1);
+});
+
+test('adding alternative domain storage preserves legacy brands and search indexes', function () {
+    $brand = Brand::factory()->published()->create(['domain' => 'apple.com']);
+    expect($brand->alternative_domains)->toBeNull();
+    $before = $brand->fresh()->getAttributes();
+    $migration = require database_path('migrations/2026_10_23_095320_add_alternative_domains_to_brands_table.php');
+    $migration->down();
+    $migration->up();
+    expect($brand->fresh()->getAttributes())->toBe($before);
+    $this->getJson(route('brands.index', ['search' => 'apple.com']))->assertOk()->assertJsonPath('data.0.uuid', $brand->uuid);
 });

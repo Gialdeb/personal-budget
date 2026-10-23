@@ -6,6 +6,7 @@ import { resolveCategoryIcon } from '@/lib/category-appearance';
 type Choice = {
     value: string;
     label: string;
+    reference_name?: string;
     logo_url?: string | null;
     icon?: string | null;
     color?: string | null;
@@ -82,7 +83,11 @@ function categoryStyle(option: Choice) {
                 "
                 aria-hidden="true"
             />
-            {{ option.label }}
+            {{
+                appearance === 'reference'
+                    ? (option.reference_name ?? option.label)
+                    : option.label
+            }}
             <Check
                 v-if="modelValue === option.value"
                 class="size-4 shrink-0"

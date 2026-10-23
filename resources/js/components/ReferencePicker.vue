@@ -40,6 +40,7 @@ import {
 type Option = {
     value: string;
     label: string;
+    reference_name?: string;
     logo_url?: string | null;
     search_terms?: string[];
     domain?: string | null;
@@ -139,6 +140,7 @@ type Brand = {
     uuid: string;
     name: string;
     domain: string;
+    alternative_domains?: string[];
     category: string | null;
     logo_url: string | null;
     aliases: string[];
@@ -241,14 +243,6 @@ const desktopOptions = computed(() => {
     ).map((option) => ({
         ...option,
         logo_url: option.logo_url || initialsLogo(option.label),
-        groupLabel: (props.mobileSuggestions ?? []).some(
-            (suggestion) => suggestion.value === option.value,
-        )
-            ? ui('Suggeriti per questa categoria')
-            : !query.value.trim() &&
-                props.recent?.some((recent) => recent.value === option.value)
-              ? ui('Recenti')
-              : ui('Riferimenti esistenti'),
         search_terms: [...(option.search_terms ?? []), query.value],
     }));
 
@@ -258,8 +252,6 @@ const desktopOptions = computed(() => {
             value: `brand:${brand.uuid}`,
             label: brand.name,
             logo_url: brand.logo_url || initialsLogo(brand.name),
-            groupLabel: ui('Marchi'),
-            badgeLabel: brand.domain,
             search_terms: [...(brand.aliases ?? []), query.value],
         })),
     ];
@@ -364,7 +356,10 @@ async function loadBrands(): Promise<void> {
                             value: brand.uuid,
                             label: brand.name,
                             domain: brand.domain,
-                            search_terms: brand.aliases,
+                            search_terms: [
+                                ...brand.aliases,
+                                ...(brand.alternative_domains ?? []),
+                            ],
                         },
                         search,
                         { domain: true },
@@ -439,7 +434,10 @@ async function suggestLogo(searchValue: string): Promise<void> {
                             value: brand.uuid,
                             label: brand.name,
                             domain: brand.domain,
-                            search_terms: brand.aliases,
+                            search_terms: [
+                                ...brand.aliases,
+                                ...(brand.alternative_domains ?? []),
+                            ],
                         },
                         searchValue,
                         { domain: true },
@@ -696,13 +694,19 @@ async function prepareReference(): Promise<void> {
                     <Button
                         v-for="option in mobileSuggestions"
                         :key="option.value"
+                        :aria-label="option.reference_name ?? option.label"
                         type="button"
                         variant="outline"
                         class="h-auto min-h-9 shrink-0 touch-manipulation rounded-full px-2.5 py-1 text-xs"
                         :disabled="busy"
                         @click="choose(option.value)"
                         ><SearchableSelectOptionContent
-                            :option="option"
+                            :option="{
+                                ...option,
+                                logo_url:
+                                    option.logo_url ||
+                                    initialsLogo(option.label),
+                            }"
                             compact
                     /></Button>
                     <Button
@@ -718,14 +722,10 @@ async function prepareReference(): Promise<void> {
                         "
                     >
                         <img
-                            v-if="brand.logo_url"
-                            :src="brand.logo_url"
+                            :src="brand.logo_url || initialsLogo(brand.name)"
                             alt=""
                             class="mr-2 size-6 object-contain"
                         />{{ brand.name }}
-                        <span class="ml-1 text-muted-foreground">{{
-                            ui('Marchio')
-                        }}</span>
                     </Button>
                 </div>
             </div>
@@ -745,7 +745,12 @@ async function prepareReference(): Promise<void> {
                         :disabled="busy"
                         @click="choose(option.value)"
                         ><SearchableSelectOptionContent
-                            :option="option"
+                            :option="{
+                                ...option,
+                                logo_url:
+                                    option.logo_url ||
+                                    initialsLogo(option.label),
+                            }"
                             compact
                     /></Button>
                 </div>
@@ -823,7 +828,12 @@ async function prepareReference(): Promise<void> {
                         ><span class="min-w-0 truncate"
                             ><SearchableSelectOptionContent
                                 v-if="selected"
-                                :option="selected"
+                                :option="{
+                                    ...selected,
+                                    logo_url:
+                                        selected.logo_url ||
+                                        initialsLogo(selected.label),
+                                }"
                                 compact
                             /><span v-else>{{
                                 ui('Scegli riferimento')
@@ -933,16 +943,7 @@ async function prepareReference(): Promise<void> {
                                     @click="choose('')"
                                     >{{ ui('Nessun riferimento') }}</Button
                                 >
-                                <p
-                                    v-if="mobileResults.length"
-                                    class="text-xs font-medium text-muted-foreground"
-                                >
-                                    {{
-                                        query.trim()
-                                            ? ui('Riferimenti esistenti')
-                                            : ui('Suggeriti e recenti')
-                                    }}
-                                </p>
+
                                 <Button
                                     v-for="option in mobileResults"
                                     :key="option.value"
@@ -950,71 +951,44 @@ async function prepareReference(): Promise<void> {
                                     variant="ghost"
                                     class="h-auto min-h-10 min-w-0 justify-start text-left text-sm"
                                     :disabled="option.is_selectable === false"
-                                    :aria-label="option.label"
+                                    :aria-label="
+                                        option.reference_name ?? option.label
+                                    "
                                     @click="choose(option.value)"
                                     ><div class="min-w-0">
                                         <SearchableSelectOptionContent
-                                            :option="option"
+                                            :option="{
+                                                ...option,
+                                                logo_url:
+                                                    option.logo_url ||
+                                                    initialsLogo(option.label),
+                                            }"
                                             compact
                                         />
-                                        <p
-                                            class="truncate text-xs text-muted-foreground"
-                                        >
-                                            {{
-                                                !query.trim() &&
-                                                mobileSuggestions.some(
-                                                    (suggestion) =>
-                                                        suggestion.value ===
-                                                        option.value,
-                                                )
-                                                    ? ui(
-                                                          'Suggeriti per questa categoria',
-                                                      )
-                                                    : !query.trim() &&
-                                                        mobileRecent.some(
-                                                            ({ value }) =>
-                                                                value ===
-                                                                option.value,
-                                                        )
-                                                      ? ui('Recenti')
-                                                      : ui(
-                                                            'Riferimento esistente',
-                                                        )
-                                            }}<span v-if="option.domain">
-                                                · {{ option.domain }}</span
-                                            >
-                                        </p>
                                     </div>
                                 </Button>
-                                <p
-                                    v-if="brands.length"
-                                    class="pt-2 text-xs font-medium text-muted-foreground"
-                                >
-                                    {{ ui('Marchi') }}
-                                </p>
+
                                 <Button
                                     v-for="brand in brands"
                                     :key="brand.uuid"
+                                    :data-reference-brand="brand.uuid"
                                     type="button"
                                     variant="ghost"
                                     class="h-auto min-h-12 min-w-0 justify-start text-left"
                                     @click="chooseBrand(brand)"
                                 >
                                     <img
-                                        v-if="brand.logo_url"
-                                        :src="brand.logo_url"
+                                        :src="
+                                            brand.logo_url ||
+                                            initialsLogo(brand.name)
+                                        "
                                         alt=""
                                         class="mr-3 size-8 shrink-0 object-contain"
                                     /><span class="min-w-0"
                                         ><span class="block truncate">{{
                                             brand.name
-                                        }}</span
-                                        ><span
-                                            class="block truncate text-xs text-muted-foreground"
-                                            >{{ brand.domain }} ·
-                                            {{ ui('Marchio') }}</span
-                                        ></span
-                                    >
+                                        }}</span>
+                                    </span>
                                 </Button>
                                 <p
                                     v-if="brandLoading"

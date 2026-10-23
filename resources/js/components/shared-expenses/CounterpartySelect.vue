@@ -8,6 +8,8 @@ import { store as storeCounterparty } from '@/routes/shared-expenses/counterpart
 
 const ui = useUiCopy();
 type Option = {
+    reference_name?: string;
+    logo_url?: string | null;
     value?: string;
     label?: string;
     uuid?: string | null;
@@ -16,6 +18,8 @@ type Option = {
     search_terms?: string[];
 };
 type NormalizedOption = {
+    reference_name?: string;
+    logo_url?: string | null;
     value: string;
     label: string;
     is_selectable?: boolean;
@@ -41,6 +45,10 @@ const counterparties = computed(() =>
             (item): NormalizedOption => ({
                 value: item.value ?? ('uuid' in item ? (item.uuid ?? '') : ''),
                 label: item.label ?? ('name' in item ? (item.name ?? '') : ''),
+                reference_name:
+                    item.reference_name ??
+                    ('name' in item ? (item.name ?? undefined) : undefined),
+                logo_url: item.logo_url,
                 is_selectable: item.is_selectable,
                 search_terms: item.search_terms,
             }),

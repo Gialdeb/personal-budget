@@ -306,6 +306,43 @@ test(
                 await dialog
                     .getByLabel('Dominio', { exact: true })
                     .fill('music.apple.com');
+                await dialog
+                    .getByRole('button', {
+                        name: 'Aggiungi dominio',
+                        exact: true,
+                    })
+                    .click();
+                await dialog
+                    .getByLabel('Dominio alternativo 1', { exact: true })
+                    .fill('apple.it');
+                await dialog
+                    .getByRole('button', {
+                        name: 'Aggiungi dominio',
+                        exact: true,
+                    })
+                    .click();
+                await dialog
+                    .getByLabel('Dominio alternativo 2', { exact: true })
+                    .fill('apple.de');
+                await dialog
+                    .getByLabel('Dominio alternativo 1', { exact: true })
+                    .fill('apple.fr');
+                await dialog
+                    .getByRole('button', { name: 'Rimuovi', exact: true })
+                    .last()
+                    .click();
+                assert.equal(
+                    await dialog
+                        .getByLabel('Dominio alternativo 1', { exact: true })
+                        .inputValue(),
+                    'apple.fr',
+                );
+                assert.equal(
+                    await dialog
+                        .getByLabel('Dominio alternativo 2', { exact: true })
+                        .count(),
+                    0,
+                );
                 const preview = dialog.locator('[data-brand-preview]');
                 await preview
                     .getByRole('img', { name: 'Anteprima logo' })
@@ -811,4 +848,27 @@ test('choosing an import reuses the existing form and submits only the source id
     assert.equal(h.form.source_logo_uuid, null);
     assert.equal(h.importSource.value, null);
     assert.equal(h.mode.value, 'website');
+});
+
+test('brand form edits and submits alternative domains separately from aliases without mutating saved props', () => {
+    const h = brandFormHarness();
+    const domains = ['apple.it', 'apple.de'];
+    h.edit({
+        uuid: 'apple',
+        name: 'Apple',
+        domain: 'apple.com',
+        alternative_domains: domains,
+        aliases: ['Mela'],
+        is_published: true,
+    });
+    h.form.alternative_domains.splice(0, 1, 'apple.fr');
+    h.save();
+    assert.deepEqual(
+        [...h.calls[0].data.alternative_domains],
+        ['apple.fr', 'apple.de'],
+    );
+    assert.deepEqual([...h.calls[0].data.aliases], ['Mela']);
+    assert.deepEqual(domains, ['apple.it', 'apple.de']);
+    h.edit(null);
+    assert.deepEqual([...h.form.alternative_domains], []);
 });

@@ -40,18 +40,18 @@ class PendingTrackedItemService
             $matches = $resolver->matchingName($ownerId, $accountId, (string) ($input['name'] ?? ''))->get()
                 ->map(fn (TrackedItem $item): TrackedItem => app(TrackedItemIdentityService::class)->canonicalFor($item))->unique('id');
             if ($matches->count() > 1) {
-                throw ValidationException::withMessages(['name' => 'Esistono più riferimenti con questo nome. Seleziona quello desiderato dall’elenco.']);
+                throw ValidationException::withMessages(['name' => __('form_errors.multiple_references_have_this_name_select_the_desired_one_from_the_list')]);
             }
             $item = $matches->first();
         }
         if ($item !== null && ! $item->is_active) {
-            throw ValidationException::withMessages(['name' => 'Questo riferimento è archiviato. Gestiscilo nelle impostazioni prima di utilizzarlo.']);
+            throw ValidationException::withMessages(['name' => __('form_errors.this_reference_is_archived_manage_it_in_settings_before_using_it')]);
         }
         $assets = app(PendingReferenceLogoService::class);
         $brand = filled($input['logo_brand_uuid'] ?? null) ? $assets->brand($input['logo_brand_uuid']) : null;
         $upload = filled($input['logo_upload_token'] ?? null) ? $assets->temporaryPath($actor, $input['logo_upload_token']) : null;
         if ((int) ($brand !== null) + (int) ($upload !== null) + (int) array_key_exists('logo_identity_uuid', $input) + (int) filled($input['logo_source'] ?? null) > 1) {
-            throw ValidationException::withMessages(['logo_upload_token' => 'Seleziona un solo logo.']);
+            throw ValidationException::withMessages(['logo_upload_token' => __('form_errors.select_only_one_logo')]);
         }
         $preserveLogo = $item !== null && $uuid === null;
         $previewLogo = match (true) {
@@ -68,7 +68,7 @@ class PendingTrackedItemService
         if (filled($input['logo_identity_uuid'] ?? null)) {
             $logo = WebsiteIdentity::query()->where('uuid', $input['logo_identity_uuid'])->first();
             if ($logo === null || ! $logo->hasStoredLogo()) {
-                throw ValidationException::withMessages(['logo_identity_uuid' => 'Il logo selezionato non è disponibile.']);
+                throw ValidationException::withMessages(['logo_identity_uuid' => __('form_errors.the_selected_logo_is_unavailable')]);
             }
         }
         $token = self::PREFIX.Crypt::encryptString(json_encode([
@@ -137,11 +137,11 @@ class PendingTrackedItemService
                 $matches = app(TrackedItemResolver::class)->matchingName($draft['owner_id'], $draft['catalog_account_id'], $draft['name'])->get()
                     ->map(fn (TrackedItem $item): TrackedItem => app(TrackedItemIdentityService::class)->canonicalFor($item))->unique('id');
                 if ($matches->count() > 1) {
-                    throw ValidationException::withMessages([$field => 'Esistono più riferimenti con questo nome. Seleziona quello desiderato dall’elenco.']);
+                    throw ValidationException::withMessages([$field => __('form_errors.multiple_references_have_this_name_select_the_desired_one_from_the_list')]);
                 }
                 $match = $matches->first();
                 if ($match !== null && ! $match->is_active) {
-                    throw ValidationException::withMessages([$field => 'Questo riferimento è stato archiviato. Gestiscilo nelle impostazioni prima di utilizzarlo.']);
+                    throw ValidationException::withMessages([$field => __('form_errors.this_reference_has_been_archived_manage_it_in_settings_before_using_it')]);
                 }
                 $uuid = $match?->uuid;
             }
@@ -189,6 +189,6 @@ class PendingTrackedItemService
 
     private function invalid(string $field = 'tracked_item_uuid'): never
     {
-        throw ValidationException::withMessages([$field => 'La selezione del riferimento non è più valida. Cercalo e selezionalo nuovamente prima di salvare.']);
+        throw ValidationException::withMessages([$field => __('form_errors.the_reference_selection_is_no_longer_valid_find_and_select_it_again')]);
     }
 }

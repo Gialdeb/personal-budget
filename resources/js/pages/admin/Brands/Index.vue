@@ -33,6 +33,7 @@ type Brand = {
     name: string;
     aliases: string[];
     domain: string;
+    alternative_domains?: string[];
     category: string | null;
     logo_url: string | null;
     is_published: boolean;
@@ -102,6 +103,7 @@ const form = useForm({
     name: '',
     aliases: [] as string[],
     domain: '',
+    alternative_domains: [] as string[],
     category: '',
     is_published: true,
     logo: null as File | null,
@@ -210,6 +212,7 @@ function edit(brand: Brand | null): void {
     form.clearErrors();
     form.name = brand?.name ?? '';
     form.domain = brand?.domain ?? '';
+    form.alternative_domains = [...(brand?.alternative_domains ?? [])];
     form.category = brand?.category ?? '';
     form.is_published = brand?.is_published ?? true;
     aliasText.value = brand?.aliases.join('\n') ?? '';
@@ -572,6 +575,13 @@ const aliasErrors = computed(() =>
                                     rows="3"
                                     class="rounded-md border bg-background p-2 text-sm"
                                 /><InputError :message="aliasErrors" />
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        ui(
+                                            'Gli alias sono nomi alternativi, non domini.',
+                                        )
+                                    }}
+                                </p>
                             </div>
                             <div class="grid gap-2">
                                 <Label for="brand-domain">{{
@@ -581,9 +591,56 @@ const aliasErrors = computed(() =>
                                     id="brand-domain"
                                     v-model="form.domain"
                                     :readonly="!!importSource"
-                                    placeholder="apple.com"
+                                    :placeholder="ui('apple.com')"
                                     required
                                 /><InputError :message="form.errors.domain" />
+                            </div>
+                            <div class="grid gap-2">
+                                <Label>{{ ui('Domini alternativi') }}</Label>
+                                <div
+                                    v-for="(
+                                        _, index
+                                    ) in form.alternative_domains"
+                                    :key="index"
+                                    class="grid gap-1"
+                                >
+                                    <div class="flex gap-2">
+                                        <Input
+                                            v-model="
+                                                form.alternative_domains[index]
+                                            "
+                                            :aria-label="`${ui('Dominio alternativo')} ${index + 1}`"
+                                            :placeholder="ui('apple.it')"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            @click="
+                                                form.alternative_domains.splice(
+                                                    index,
+                                                    1,
+                                                )
+                                            "
+                                            >{{ ui('Rimuovi') }}</Button
+                                        >
+                                    </div>
+                                    <InputError
+                                        :message="
+                                            form.errors[
+                                                `alternative_domains.${index}`
+                                            ]
+                                        "
+                                    />
+                                </div>
+                                <InputError
+                                    :message="form.errors.alternative_domains"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    @click="form.alternative_domains.push('')"
+                                    >{{ ui('Aggiungi dominio') }}</Button
+                                >
                             </div>
                             <div class="grid gap-2">
                                 <Label for="brand-category">{{
@@ -651,7 +708,11 @@ const aliasErrors = computed(() =>
                                     @change="fileChanged"
                                 />
                                 <p class="text-xs text-muted-foreground">
-                                    PNG, JPEG, WebP · max 2 MB · 4096 × 4096 px
+                                    {{
+                                        ui(
+                                            'PNG, JPEG, WebP · max 2 MB · 4096 × 4096 px',
+                                        )
+                                    }}
                                 </p>
                                 <InputError
                                     :message="

@@ -288,7 +288,7 @@ class CounterpartyPaymentService
         try {
             $minor = CurrencyMinorUnits::fromDecimal($amount, $relation->currency_code);
         } catch (\InvalidArgumentException|\OverflowException $exception) {
-            throw ValidationException::withMessages(['amount' => 'Importo non rappresentabile nella valuta selezionata.']);
+            throw ValidationException::withMessages(['amount' => __('form_errors.the_amount_cannot_be_represented_in_the_selected_currency')]);
         }
         $this->require($minor > 0, 'amount', 'L’importo deve essere maggiore di zero.');
 
@@ -304,7 +304,7 @@ class CounterpartyPaymentService
     {
         $sort = function (mixed $value) use (&$sort): mixed {
             if (is_float($value)) {
-                throw ValidationException::withMessages(['amount' => 'Usa importi decimali esatti.']);
+                throw ValidationException::withMessages(['amount' => __('form_errors.use_exact_decimal_amounts')]);
             }
             if (! is_array($value)) {
                 return $value;

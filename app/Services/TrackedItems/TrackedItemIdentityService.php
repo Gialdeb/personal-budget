@@ -33,11 +33,11 @@ class TrackedItemIdentityService
         }
         $reference = $uuid !== null ? $catalog->where('uuid', $uuid)->first() : $catalog->find($id);
         if ($reference === null || ($uuid !== null && $id !== null && $reference->id !== $id)) {
-            throw ValidationException::withMessages([$field => 'Il riferimento non è disponibile nel catalogo selezionato.']);
+            throw ValidationException::withMessages([$field => __('form_errors.the_reference_is_unavailable_in_the_selected_catalog')]);
         }
         $canonical = $this->canonicalFor($reference);
         if (! $canonical->is_active) {
-            throw ValidationException::withMessages([$field => 'Il riferimento canonico è archiviato e non può essere usato per nuove operazioni.']);
+            throw ValidationException::withMessages([$field => __('form_errors.the_canonical_reference_is_archived_and_cannot_be_used_for_new_operations')]);
         }
 
         return $canonical;
@@ -66,7 +66,7 @@ class TrackedItemIdentityService
                 $original = $references->find($id);
                 $canonical = $this->resolveIdentity($id, true);
                 if ($original === null || $canonical->id !== $id || ! $canonical->is_active || $canonical->account_id !== $original->account_id || $canonical->user_id !== $original->user_id) {
-                    throw ValidationException::withMessages([$field => 'L’identità del riferimento è cambiata. Riprova il salvataggio.']);
+                    throw ValidationException::withMessages([$field => __('form_errors.the_reference_identity_has_changed_try_saving_again')]);
                 }
             }
 
@@ -148,14 +148,14 @@ class TrackedItemIdentityService
         $visited = [];
         while ($edges->has($id)) {
             if (isset($visited[$id])) {
-                throw ValidationException::withMessages(['identity' => 'Ciclo nelle identità dei riferimenti.']);
+                throw ValidationException::withMessages(['identity' => __('form_errors.cycle_in_reference_identities')]);
             }
             $visited[$id] = true;
             $id = $edges[$id];
         }
         $canonical = $id === $reference->id ? $reference : $targets->get($id);
         if ($canonical === null) {
-            throw ValidationException::withMessages(['identity' => 'Identità canonica non disponibile nel catalogo.']);
+            throw ValidationException::withMessages(['identity' => __('form_errors.canonical_identity_unavailable_in_the_catalog')]);
         }
 
         return ['uuid' => $canonical->uuid, 'name' => $canonical->name, 'original_uuid' => $reference->uuid, 'original_name' => $reference->name,
@@ -209,33 +209,33 @@ class TrackedItemIdentityService
             $source = $references->findOrFail($source->id);
             $destination = $references->findOrFail($destination->id);
             if ($source->account_id !== $catalogAccountId || ($catalogAccountId === null && $source->user_id !== $ownerId)) {
-                throw ValidationException::withMessages(['source_uuid' => 'Il catalogo del riferimento è cambiato. Riprova l’operazione.']);
+                throw ValidationException::withMessages(['source_uuid' => __('form_errors.the_reference_catalog_has_changed_try_the_operation_again')]);
             }
             $this->authorize($actor, $source);
             $this->authorize($actor, $destination);
             $this->ensureSameCatalog($source, $destination);
             if ($source->id === $destination->id) {
-                throw ValidationException::withMessages(['destination_uuid' => 'Origine e destinazione devono essere riferimenti diversi.']);
+                throw ValidationException::withMessages(['destination_uuid' => __('form_errors.source_and_destination_must_be_different_references')]);
             }
 
             $canonical = $this->resolveIdentity($destination->id, true);
             $this->ensureSameCatalog($source, $canonical);
             if ($source->id === $canonical->id) {
-                throw ValidationException::withMessages(['destination_uuid' => 'Il collegamento creerebbe un ciclo tra riferimenti.']);
+                throw ValidationException::withMessages(['destination_uuid' => __('form_errors.this_link_would_create_a_cycle_between_references')]);
             }
             $existing = $source->identityAlias()->lockForUpdate()->first();
             if ($existing !== null) {
                 if ($this->resolveIdentity($existing->canonical_tracked_item_id, true)->id !== $canonical->id) {
-                    throw ValidationException::withMessages(['source_uuid' => 'Il riferimento origine ha già un’identità canonica diversa.']);
+                    throw ValidationException::withMessages(['source_uuid' => __('form_errors.the_source_reference_already_has_a_different_canonical_identity')]);
                 }
 
                 return $existing;
             }
             if (! $canonical->is_active) {
-                throw ValidationException::withMessages(['destination_uuid' => 'La destinazione canonica deve essere attiva.']);
+                throw ValidationException::withMessages(['destination_uuid' => __('form_errors.the_canonical_destination_must_be_active')]);
             }
             if ($source->children()->where('is_active', true)->exists()) {
-                throw ValidationException::withMessages(['source_uuid' => 'Il riferimento origine ha figli attivi. La gerarchia deve essere risolta prima di registrare un alias.']);
+                throw ValidationException::withMessages(['source_uuid' => __('form_errors.the_source_reference_has_active_children_resolve_the_hierarchy_before_recording_an')]);
             }
 
             $source->update(['is_active' => false]);
@@ -256,7 +256,7 @@ class TrackedItemIdentityService
         $visited = [];
         while (true) {
             if (isset($visited[$referenceId])) {
-                throw ValidationException::withMessages(['identity' => 'È stato rilevato un ciclo nelle identità dei riferimenti.']);
+                throw ValidationException::withMessages(['identity' => __('form_errors.a_cycle_was_detected_in_reference_identities')]);
             }
             $visited[$referenceId] = true;
             $reference = TrackedItem::query()->when($lock, fn ($query) => $query->lockForUpdate())->findOrFail($referenceId);
@@ -273,7 +273,7 @@ class TrackedItemIdentityService
     private function ensureSameCatalog(TrackedItem $source, TrackedItem $destination): void
     {
         if ($source->account_id !== $destination->account_id || ($source->account_id === null && $source->user_id !== $destination->user_id)) {
-            throw ValidationException::withMessages(['destination_uuid' => 'Origine e destinazione devono appartenere allo stesso catalogo.']);
+            throw ValidationException::withMessages(['destination_uuid' => __('form_errors.source_and_destination_must_belong_to_the_same_catalog')]);
         }
     }
 
@@ -283,7 +283,7 @@ class TrackedItemIdentityService
             ? $reference->user_id === $actor->id
             : $this->accounts->canEditAccountId($actor, $reference->account_id);
         if (! $authorized) {
-            throw new AuthorizationException('Non puoi modificare l’identità di questo riferimento.');
+            throw new AuthorizationException(__('form_errors.reference_identity_forbidden'));
         }
     }
 }

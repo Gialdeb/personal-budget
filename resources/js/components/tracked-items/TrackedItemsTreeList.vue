@@ -9,7 +9,10 @@ import {
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useUiCopy } from '@/i18n/ui-copy';
 import type { TrackedItemItem } from '@/types';
+
+const copy = useUiCopy();
 
 defineOptions({
     name: 'TrackedItemsTreeList',
@@ -123,7 +126,8 @@ const emit = defineEmits<{
                     </div>
 
                     <Badge v-if="item.canonical_uuid" variant="outline"
-                        >Alias permanente di {{ item.canonical_name }}</Badge
+                        >{{ copy('Alias permanente di') }}
+                        {{ item.canonical_name }}</Badge
                     >
                     <div class="space-y-2">
                         <p
@@ -275,12 +279,17 @@ const emit = defineEmits<{
                         v-if="item.is_active && !item.canonical_uuid"
                         variant="outline"
                         class="h-10 rounded-2xl border-sky-200 bg-sky-50/70 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/20"
-                        :aria-label="'Sposta movimenti da ' + item.name"
+                        :aria-label="
+                            copy('Sposta movimenti da {name}', {
+                                name: item.name,
+                            })
+                        "
                         @click="emit('moveMovements', item)"
                     >
-                        <ArrowRightLeft class="h-4 w-4" />
-                        Sposta movimenti
-                    </Button>
+                        <ArrowRightLeft class="h-4 w-4" />{{
+                            copy('Sposta movimenti')
+                        }}</Button
+                    >
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"

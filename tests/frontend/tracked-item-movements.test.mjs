@@ -267,8 +267,8 @@ test('restore tabs filter on the server and notice requires an available restore
     assert.match(page, /@click.prevent="scrollToMovementHistory"/);
     assert.match(page, /prefers-reduced-motion: reduce/);
     assert.match(page, /'smooth'/);
-    assert.match(history, /label: 'Da ripristinare'/);
-    assert.match(history, /label: 'Ripristinati'/);
+    assert.match(history, /label: copy\('Da ripristinare'\)/);
+    assert.match(history, /label: copy\('Ripristinati'\)/);
     assert.match(history, /status: status.value/);
     assert.match(history, /void load\(1\)/);
     assert.match(history, /role="tabpanel"/);
@@ -282,7 +282,7 @@ test('non restorable moves have a separate red tab and explain the block without
         ),
         'utf8',
     );
-    assert.match(component, /label: 'Non ripristinabili'/);
+    assert.match(component, /label: copy\('Non ripristinabili'\)/);
     assert.match(component, /border-red-300/);
     assert.match(component, /border-emerald-300/);
     assert.match(component, /border-sky-300/);

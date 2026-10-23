@@ -1,4 +1,5 @@
 import { useForm as inertiaUseForm } from '@inertiajs/vue3';
+import { getCurrentLocale } from '@/lib/locale';
 import { userErrorMessage } from '@/lib/notification-feedback.js';
 import { confirmPendingCategory } from '@/lib/pending-category-confirmation';
 
@@ -104,7 +105,9 @@ export const useForm: typeof inertiaUseForm = ((...args: unknown[]) => {
                         userErrorMessage(
                             error instanceof Error
                                 ? error.message
-                                : 'Non è stato possibile confermare i budget. Riprova.',
+                                : getCurrentLocale().startsWith('en')
+                                  ? 'Unable to confirm budgets. Try again.'
+                                  : 'Non è stato possibile confermare i budget. Riprova.',
                         ),
                     );
                 }

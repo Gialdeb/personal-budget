@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiCopy } from '@/i18n/ui-copy';
 import {
     canMoveMovements,
     isCurrentMovementRequest,
@@ -33,6 +34,8 @@ import {
     preview as loadPreview,
     store,
 } from '@/routes/tracked-items/movements';
+
+const copy = useUiCopy();
 
 const props = defineProps<{
     source: { uuid: string; name: string; full_path?: string } | null;
@@ -88,7 +91,7 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
                 .flat()
                 .join(' ') ||
                 payload.message ||
-                'Operazione non disponibile.',
+                copy('Operazione non disponibile.'),
         );
     }
 
@@ -211,18 +214,20 @@ async function move(): Promise<void> {
             @escape-key-down="moving && $event.preventDefault()"
         >
             <DialogHeader>
-                <DialogTitle>Sposta movimenti</DialogTitle>
-                <DialogDescription
-                    >Sposta tutti i collegamenti dal riferimento di origine alla
-                    destinazione, incluse ricorrenze e pianificazioni. Entrambi
-                    i riferimenti resteranno disponibili.</DialogDescription
-                >
+                <DialogTitle>{{ copy('Sposta movimenti') }}</DialogTitle>
+                <DialogDescription>{{
+                    copy(
+                        'Sposta tutti i collegamenti dal riferimento di origine alla destinazione, incluse ricorrenze e pianificazioni. Entrambi i riferimenti resteranno disponibili.',
+                    )
+                }}</DialogDescription>
             </DialogHeader>
             <div class="min-w-0 space-y-4">
                 <div
                     class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70"
                 >
-                    <p class="text-xs font-medium text-muted-foreground">Da</p>
+                    <p class="text-xs font-medium text-muted-foreground">
+                        {{ copy('Da') }}
+                    </p>
                     <p class="mt-1 font-semibold break-words">
                         {{ source?.name }}
                     </p>
@@ -248,9 +253,9 @@ async function move(): Promise<void> {
                         aria-hidden="true"
                     />
                     <div class="space-y-2">
-                        <Label for="movement-destination-search"
-                            >Destinazione</Label
-                        >
+                        <Label for="movement-destination-search">{{
+                            copy('Destinazione')
+                        }}</Label>
                         <div class="relative">
                             <Search
                                 class="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground"
@@ -259,7 +264,9 @@ async function move(): Promise<void> {
                             <Input
                                 id="movement-destination-search"
                                 v-model="search"
-                                placeholder="Cerca un riferimento per nome"
+                                :placeholder="
+                                    copy('Cerca un riferimento per nome')
+                                "
                                 class="h-11 rounded-xl pl-9"
                                 autocomplete="off"
                                 :disabled="loading || moving"
@@ -270,12 +277,12 @@ async function move(): Promise<void> {
                             role="status"
                             class="py-4 text-sm text-muted-foreground"
                         >
-                            Caricamento riferimenti…
+                            {{ copy('Caricamento riferimenti…') }}
                         </p>
                         <div
                             v-else
                             class="max-h-52 space-y-1 overflow-y-auto rounded-2xl border border-slate-200 p-1.5 dark:border-slate-800"
-                            aria-label="Riferimenti di destinazione"
+                            :aria-label="copy('Riferimenti di destinazione')"
                         >
                             <button
                                 v-for="item in matches"
@@ -318,15 +325,17 @@ async function move(): Promise<void> {
                             >
                                 {{
                                     destinations.length === 0
-                                        ? 'Nessun altro riferimento disponibile.'
-                                        : 'Nessun riferimento trovato.'
+                                        ? copy(
+                                              'Nessun altro riferimento disponibile.',
+                                          )
+                                        : copy('Nessun riferimento trovato.')
                                 }}
                             </p>
                         </div>
                     </div>
                     <p v-if="selected" class="text-sm text-muted-foreground">
-                        Destinazione:
-                        <strong class="font-medium text-foreground">{{
+                        {{ copy('Destinazione:')
+                        }}<strong class="font-medium text-foreground">{{
                             selected.label
                         }}</strong>
                     </p>
@@ -335,27 +344,29 @@ async function move(): Promise<void> {
                         role="status"
                         class="flex items-center gap-2 text-sm text-muted-foreground"
                     >
-                        <LoaderCircle class="size-4 animate-spin" />Verifica
-                        movimenti…
+                        <LoaderCircle class="size-4 animate-spin" />{{
+                            copy('Verifica movimenti…')
+                        }}
                     </p>
                     <div v-else-if="preview" class="space-y-3">
                         <p role="status" class="text-sm font-medium">
                             {{ preview.count }}
                             {{
                                 preview.block_reason
-                                    ? 'collegamenti rilevati. L’operazione è bloccata.'
-                                    : 'collegamenti interessati. Verranno spostati tutti, senza selezione individuale.'
+                                    ? copy(
+                                          'collegamenti rilevati. L’operazione è bloccata.',
+                                      )
+                                    : copy(
+                                          'collegamenti interessati. Verranno spostati tutti, senza selezione individuale.',
+                                      )
                             }}
                         </p>
                         <p class="text-xs text-muted-foreground">
-                            Cambiano soltanto i riferimenti. Nomi, descrizioni,
-                            importi e date restano invariati. Le ricorrenze
-                            useranno la destinazione anche per i prossimi
-                            movimenti. Il solo riferimento descrittivo di un
-                            pagamento può cambiare; la controparte del pagamento
-                            resta invariata. Il ripristino entro 30 giorni
-                            riguarda solo i record di questa operazione; quelli
-                            creati dopo restano invariati.
+                            {{
+                                copy(
+                                    'Cambiano soltanto i riferimenti. Nomi, descrizioni, importi e date restano invariati. Le ricorrenze useranno la destinazione anche per i prossimi movimenti. Il solo riferimento descrittivo di un pagamento può cambiare; la controparte del pagamento resta invariata. Il ripristino entro 30 giorni riguarda solo i record di questa operazione; quelli creati dopo restano invariati.',
+                                )
+                            }}
                         </p>
                         <section
                             v-for="group in preview.groups"
@@ -376,9 +387,9 @@ async function move(): Promise<void> {
                                     {{ item.title
                                     }}<span v-if="item.date">
                                         · {{ item.date.slice(0, 10) }}</span
-                                    ><span v-if="item.archived">
-                                        · eliminato</span
-                                    >
+                                    ><span v-if="item.archived">{{
+                                        copy('· eliminato')
+                                    }}</span>
                                 </li>
                             </ul>
                         </section>
@@ -387,12 +398,17 @@ async function move(): Promise<void> {
                             role="alert"
                             class="text-sm text-destructive"
                         >
-                            {{ preview.block_reason }} Nessun collegamento verrà
-                            modificato.
+                            {{ preview.block_reason
+                            }}{{
+                                copy('Nessun collegamento verrà modificato.')
+                            }}
                         </p>
                         <p v-else class="text-sm">
-                            Confermi lo spostamento di tutti questi
-                            collegamenti?
+                            {{
+                                copy(
+                                    'Confermi lo spostamento di tutti questi collegamenti?',
+                                )
+                            }}
                         </p>
                     </div>
                     <p
@@ -411,7 +427,7 @@ async function move(): Promise<void> {
                     class="h-11 rounded-xl"
                     :disabled="moving"
                     @click="open = false"
-                    >{{ result ? 'Chiudi' : 'Annulla' }}</Button
+                    >{{ result ? copy('Chiudi') : copy('Annulla') }}</Button
                 >
                 <Button
                     v-if="!result"
@@ -421,7 +437,11 @@ async function move(): Promise<void> {
                 >
                     <LoaderCircle v-if="moving" class="size-4 animate-spin" />
                     <ArrowRight v-else class="size-4" />
-                    {{ moving ? 'Spostamento…' : 'Conferma spostamento' }}
+                    {{
+                        moving
+                            ? copy('Spostamento…')
+                            : copy('Conferma spostamento')
+                    }}
                 </Button>
             </DialogFooter>
         </DialogContent>

@@ -440,7 +440,7 @@ class CounterpartyLedgerService
     {
         $canonical = function (mixed $value) use (&$canonical): mixed {
             if (is_float($value)) {
-                throw ValidationException::withMessages(['payload' => 'Floating-point values are not allowed in counterparty payloads.']);
+                throw ValidationException::withMessages(['payload' => __('form_errors.floating_point_values_are_not_allowed_in_counterparty_payloads')]);
             }
             if (! is_array($value)) {
                 return $value;

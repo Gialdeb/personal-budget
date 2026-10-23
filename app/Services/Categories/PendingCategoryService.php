@@ -213,12 +213,12 @@ class PendingCategoryService
         $effects = $this->effects($request, $token, true);
         $confirmation = $request->input('inline_budget_confirmation');
         if (($effects['transfers'] !== [] || $confirmation !== null) && (! is_string($confirmation) || ! hash_equals($effects['confirmation'], $confirmation))) {
-            throw ValidationException::withMessages(['category_uuid' => 'I budget interessati richiedono una nuova conferma. Invia nuovamente il form per controllare origine, destinazione e importi aggiornati.']);
+            throw ValidationException::withMessages(['category_uuid' => __('form_errors.the_affected_budgets_require_confirmation_again_resubmit_the_form_to_review_the')]);
         }
     }
 
     private function invalid(): never
     {
-        throw ValidationException::withMessages(['category_uuid' => 'La categoria provvisoria non è più disponibile per questo conto. Selezionala nuovamente.']);
+        throw ValidationException::withMessages(['category_uuid' => __('form_errors.the_provisional_category_is_no_longer_available_for_this_account_select_it')]);
     }
 }

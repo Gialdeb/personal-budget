@@ -238,3 +238,18 @@ test('canonical lookup and new reference selection leave protected shared expens
     $this->actingAs($this->actor)->postJson(route('shared-expenses.counterparties.store'), ['tracked_item_uuid' => $this->source->uuid])->assertSuccessful()->assertJsonPath('uuid', $this->target->uuid);
     expect($ledger->fresh()->getRawOriginal())->toEqual($before)->and($ledger->fresh()->counterparty_id)->toBe($this->source->id);
 });
+
+test('reference options expose names and logos while retaining distinct homonym UUIDs and internal labels', function () {
+    $first = TrackedItem::create(['user_id' => $this->actor->id, 'name' => 'Omonimo', 'slug' => 'first-homonym', 'is_active' => true, 'settings' => ['reference_logo_path' => 'reference-logos/first.png']]);
+    $second = TrackedItem::create(['user_id' => $this->actor->id, 'name' => 'Omonimo', 'slug' => 'second-homonym', 'is_active' => true]);
+    $options = collect(app(TrackedItemResolver::class)->counterpartyOptions($this->actor->id))->keyBy('value');
+    expect($options[$first->uuid]['reference_name'])->toBe('Omonimo')
+        ->and($options[$second->uuid]['reference_name'])->toBe('Omonimo')
+        ->and($options[$first->uuid]['label'])->toBe('Omonimo · first-homonym')
+        ->and($options[$second->uuid]['label'])->toBe('Omonimo · second-homonym')
+        ->and($options[$first->uuid]['logo_url'])->toContain('reference-logos/first.png');
+    $catalog = collect(app(OperationalTransactionCategoryResolver::class)->trackedItemOptionsFromCollection(collect([$first, $second])))->keyBy('value');
+    expect($catalog[$first->uuid]['reference_name'])->toBe('Omonimo')
+        ->and($catalog[$second->uuid]['reference_name'])->toBe('Omonimo')
+        ->and($catalog[$first->uuid]['label'])->not->toBe($catalog[$second->uuid]['label']);
+});

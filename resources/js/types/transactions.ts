@@ -62,6 +62,7 @@ export type MonthlyTransactionSheetSummaryCard = {
 };
 
 export type MonthlyTransactionSheetOption = {
+    reference_name?: string;
     is_selectable?: boolean;
     search_terms?: string[];
     value: string;
@@ -587,6 +588,8 @@ export type RecurringEntriesPagePeriod = {
 };
 
 export type RecurringFormOption = {
+    name?: string;
+    reference_name?: string;
     logo_url?: string | null;
     domain?: string | null;
     value: string;

@@ -126,8 +126,18 @@ test('recurring and installment forms receive the authenticated users active sha
             ->get(route('recurring-entries.index', ['entry_type' => $entryType]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('formOptions.shared_expense_counterparties', [
-                    ['value' => $counterparty->uuid, 'label' => 'Emanuela'],
-                    ['value' => $context['trackedItem']->uuid, 'label' => $context['trackedItem']->name],
+                    [
+                        'value' => $counterparty->uuid,
+                        'label' => 'Emanuela',
+                        'reference_name' => 'Emanuela',
+                        'logo_url' => null,
+                    ],
+                    [
+                        'value' => $context['trackedItem']->uuid,
+                        'label' => $context['trackedItem']->name,
+                        'reference_name' => $context['trackedItem']->name,
+                        'logo_url' => null,
+                    ],
                 ]));
     }
 });

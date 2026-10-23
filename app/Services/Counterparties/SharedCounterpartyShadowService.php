@@ -101,7 +101,7 @@ class SharedCounterpartyShadowService
                 $old = $oldData;
                 $new = $this->sources->describe($target);
                 if ($old['user_id'] !== $new['user_id'] || $old['counterparty_id'] !== $new['counterparty_id'] || $old['currency_code'] !== $new['currency_code']) {
-                    throw ValidationException::withMessages(['identity' => 'Conversion changed economic ownership or currency.']);
+                    throw ValidationException::withMessages(['identity' => __('form_errors.conversion_changed_economic_ownership_or_currency')]);
                 }
                 $relation = $this->ledger->relation(User::query()->findOrFail($old['user_id']), TrackedItem::query()->findOrFail($old['counterparty_id']), $old['currency_code']);
                 $this->link($relation->id, $old);
@@ -182,7 +182,7 @@ class SharedCounterpartyShadowService
     {
         $existing = CounterpartySourceLink::query()->where('source_type', $data['source_type'])->where('source_identity', $data['document_identity'] ?? $data['source_identity'])->first();
         if ($existing !== null && ($existing->relation_id !== $relationId || $existing->economic_identity !== $data['economic_identity'])) {
-            throw ValidationException::withMessages(['identity' => 'Source alias conflicts with its persistent economic identity.']);
+            throw ValidationException::withMessages(['identity' => __('form_errors.source_alias_conflicts_with_its_persistent_economic_identity')]);
         }
 
         return $existing ?? CounterpartySourceLink::query()->create(['relation_id' => $relationId, 'source_type' => $data['source_type'], 'source_identity' => $data['document_identity'] ?? $data['source_identity'], 'economic_identity' => $data['economic_identity']]);
@@ -198,7 +198,7 @@ class SharedCounterpartyShadowService
             }
             $other = $link->source_type === 'shared_transaction_share' ? Transaction::query()->where('uuid', $link->source_identity)->first() : SharedExpenseLedgerEntry::query()->where('uuid', $link->source_identity)->first();
             if ($other !== null && $this->sources->describe($other)['signed_minor'] !== 0) {
-                throw ValidationException::withMessages(['identity' => 'Multiple active documents represent the same economic identity.']);
+                throw ValidationException::withMessages(['identity' => __('form_errors.multiple_active_documents_represent_the_same_economic_identity')]);
             }
         }
     }

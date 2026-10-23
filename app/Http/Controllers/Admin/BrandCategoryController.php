@@ -37,7 +37,7 @@ class BrandCategoryController extends Controller
         DB::transaction(function () use ($brandCategory): void {
             $category = BrandCategory::query()->lockForUpdate()->findOrFail($brandCategory->id);
             if ($category->brands()->exists()) {
-                throw ValidationException::withMessages(['category' => 'Sposta prima i marchi in un’altra categoria.']);
+                throw ValidationException::withMessages(['category' => __('form_errors.move_the_brands_to_another_category_first')]);
             }
             $category->delete();
         });
@@ -54,12 +54,12 @@ class BrandCategoryController extends Controller
             $target = $categories->get($data['category_uuid']);
             $source = isset($data['source_category_uuid']) ? $categories->get($data['source_category_uuid']) : null;
             if (! $target || (isset($data['source_category_uuid']) && ! $source)) {
-                throw ValidationException::withMessages(['category_uuid' => 'Categoria non più disponibile.']);
+                throw ValidationException::withMessages(['category_uuid' => __('form_errors.category_no_longer_available')]);
             }
             $brands = Brand::query()->when($source, fn ($query) => $query->where('category', $source->name),
                 fn ($query) => $query->whereIn('uuid', $data['brand_uuids']))->lockForUpdate()->get(['id']);
             if (! $source && $brands->count() !== count($data['brand_uuids'])) {
-                throw ValidationException::withMessages(['brand_uuids' => 'Uno o più marchi non sono più disponibili.']);
+                throw ValidationException::withMessages(['brand_uuids' => __('form_errors.one_or_more_brands_are_no_longer_available')]);
             }
             DB::table('brands')->whereIn('id', $brands->modelKeys())->update(['category' => $target->name]);
             if ($data['delete_source'] ?? false) {

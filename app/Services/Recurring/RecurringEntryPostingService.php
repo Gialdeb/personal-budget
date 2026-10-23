@@ -64,7 +64,7 @@ class RecurringEntryPostingService
             }
             $paymentCents = $occurrence->remainingPaymentCents();
             if ($paymentCents <= 0 || (isset($metadata['amount']) && (int) round((float) $metadata['amount'] * 100) !== $paymentCents)) {
-                throw ValidationException::withMessages(['amount' => 'Registra l’importo residuo della scadenza.']);
+                throw ValidationException::withMessages(['amount' => __('form_errors.record_the_remaining_occurrence_amount')]);
             }
             $paymentAmount = $paymentCents / 100;
             $automatic = (bool) ($metadata['automatic_posting'] ?? false);
@@ -90,12 +90,12 @@ class RecurringEntryPostingService
                     ->where('accounts.uuid', $metadata['account_uuid'])->where('currency', $entry->currency)
                     ->with('user:id,base_currency_code')->first();
                 if ($account === null) {
-                    throw ValidationException::withMessages(['account_uuid' => 'Seleziona un conto modificabile nella valuta del piano.']);
+                    throw ValidationException::withMessages(['account_uuid' => __('form_errors.select_an_editable_account_in_the_plan_currency')]);
                 }
             }
             $counterparty = $this->counterparties->forPosting($occurrence);
             if ($counterparty !== null && $account->currency !== $entry->currency) {
-                throw ValidationException::withMessages(['occurrence' => 'La valuta del conto non corrisponde all’identità economica della scadenza.']);
+                throw ValidationException::withMessages(['occurrence' => __('form_errors.the_account_currency_does_not_match_the_economic_identity_of_the_occurrence')]);
             }
             $expectedCents = (int) round((float) $occurrence->expected_amount * 100);
             $myShareCents = $counterparty === null ? null : intdiv($paymentCents * ($occurrence->shared_expense_my_share_cents ?? $entry->shared_expense_my_share_cents ?? intdiv($expectedCents, 2)), $expectedCents);

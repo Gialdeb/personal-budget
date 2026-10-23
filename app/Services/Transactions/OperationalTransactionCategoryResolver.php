@@ -321,6 +321,7 @@ class OperationalTransactionCategoryResolver
                         'value' => $trackedItem['uuid'],
                         'uuid' => $trackedItem['uuid'],
                         'name' => $trackedItem['name'],
+                        'reference_name' => $trackedItem['name'],
                         'is_selectable' => $sourceTrackedItem?->is_active && ! $secondaryIds->has($trackedItem['id']) && (! $accountScoped || $sourceTrackedItem->account_id === $account->id),
                         'search_terms' => $searchTerms[$trackedItem['id']] ?? [],
                         'full_path' => $trackedItem['full_path'],

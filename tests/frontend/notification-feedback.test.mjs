@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+    userErrorMessage,
     validationMessages,
     notificationFlash,
     isNotificationPreview,
@@ -372,5 +373,35 @@ test('fetch helper sends read only draft requests and keeps previews quiet but a
     } finally {
         globalThis.fetch = previousFetch;
         delete globalThis.__formFeedbackPush;
+    }
+});
+
+test('error sanitization uses English labels and fallback messages for English pages', () => {
+    const previous = globalThis.document;
+    globalThis.document = { documentElement: { lang: 'en' } };
+
+    try {
+        assert.equal(
+            userErrorMessage('Failed to fetch'),
+            'Connection unavailable. Check your network and try again.',
+        );
+        assert.equal(
+            userErrorMessage('The account_uuid field is required.'),
+            'The account field is required.',
+        );
+        assert.equal(
+            userErrorMessage('Invalid UUID'),
+            'The selection is invalid. Search and select the item again before saving.',
+        );
+        assert.equal(
+            userErrorMessage('TypeError: broken'),
+            'Unable to complete this operation. Try again; if the problem persists, contact support.',
+        );
+    } finally {
+        if (previous === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = previous;
+        }
     }
 });

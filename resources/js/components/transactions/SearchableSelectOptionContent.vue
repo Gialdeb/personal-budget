@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 type SearchableOption = {
     value: string;
     label: string;
+    reference_name?: string;
     groupLabel?: string;
     badgeLabel?: string;
     badgeClass?: string;
@@ -50,12 +51,17 @@ const pathSegments = computed(() =>
 
 const isCategoryLike = computed(
     () =>
-        Boolean(props.option.icon) ||
-        Boolean(props.option.color) ||
-        pathSegments.value.length > 1,
+        !props.option.reference_name &&
+        (Boolean(props.option.icon) ||
+            Boolean(props.option.color) ||
+            pathSegments.value.length > 1),
 );
 
 const title = computed(() => {
+    if (props.option.reference_name) {
+        return props.option.reference_name;
+    }
+
     if (!isCategoryLike.value) {
         return props.option.label;
     }
@@ -110,7 +116,7 @@ const isSelectable = computed(() => props.option.is_selectable !== false);
             @error="failedLogo = option.logo_url"
         />
         <Wallet
-            v-else-if="option.logo_url"
+            v-else-if="option.logo_url || option.reference_name"
             class="size-5 shrink-0 text-muted-foreground"
             aria-hidden="true"
         />
@@ -160,7 +166,7 @@ const isSelectable = computed(() => props.option.is_selectable !== false);
                 </span>
 
                 <span
-                    v-if="option.badgeLabel"
+                    v-if="option.badgeLabel && !option.reference_name"
                     :class="
                         cn(
                             'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',

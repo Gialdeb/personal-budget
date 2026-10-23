@@ -10,12 +10,19 @@ import { useUiCopy } from '@/i18n/ui-copy';
 const ui = useUiCopy();
 
 type Option = {
+    reference_name?: string;
+    logo_url?: string | null;
     value?: string;
     label?: string;
     uuid?: string | null;
     name?: string | null;
 };
-type NormalizedOption = { value: string; label: string };
+type NormalizedOption = {
+    value: string;
+    label: string;
+    reference_name?: string;
+    logo_url?: string | null;
+};
 const props = withDefaults(
     defineProps<{
         counterparties: Option[];
@@ -48,6 +55,10 @@ const counterparties = computed(() =>
             (item): NormalizedOption => ({
                 value: item.value ?? ('uuid' in item ? (item.uuid ?? '') : ''),
                 label: item.label ?? ('name' in item ? (item.name ?? '') : ''),
+                reference_name:
+                    item.reference_name ??
+                    ('name' in item ? (item.name ?? undefined) : undefined),
+                logo_url: item.logo_url,
             }),
         )
         .filter((item) => item.value !== '' && item.label !== '')
@@ -64,7 +75,10 @@ const selected = computed(() =>
 );
 const hasCounterparty = computed(() => selected.value !== undefined);
 const counterpartyLabel = computed(
-    () => selected.value?.label ?? ui('Controparte'),
+    () =>
+        selected.value?.reference_name ??
+        selected.value?.label ??
+        ui('Controparte'),
 );
 function cents(value: string): number | null {
     const normalized = value.replace(',', '.');

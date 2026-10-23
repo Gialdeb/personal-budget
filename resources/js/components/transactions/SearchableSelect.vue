@@ -21,6 +21,7 @@ const ui = useUiCopy();
 type SearchableOption = {
     value: string;
     label: string;
+    reference_name?: string;
     groupLabel?: string;
     badgeLabel?: string;
     badgeClass?: string;

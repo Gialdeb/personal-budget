@@ -36,6 +36,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { destroy, edit, toggleActive } from '@/routes/tracked-items';
@@ -44,6 +45,8 @@ import type {
     TrackedItemItem,
     TrackedItemsPageProps,
 } from '@/types';
+
+const copy = useUiCopy();
 
 type FeedbackState = {
     variant: 'default' | 'destructive';
@@ -527,16 +530,18 @@ onMounted(() => {
                         class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100"
                     >
                         <p>
-                            Hai spostamenti che puoi ripristinare entro 30
-                            giorni.
+                            {{
+                                copy(
+                                    'Hai spostamenti che puoi ripristinare entro 30 giorni.',
+                                )
+                            }}
                         </p>
                         <a
                             href="#tracked-item-movement-history"
                             @click.prevent="scrollToMovementHistory"
                             class="rounded-sm font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
+                            >{{ copy('Vai allo storico e ai ripristini') }}</a
                         >
-                            Vai allo storico e ai ripristini
-                        </a>
                     </div>
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <article

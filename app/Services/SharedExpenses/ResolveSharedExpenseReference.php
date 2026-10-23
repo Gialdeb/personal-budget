@@ -31,7 +31,7 @@ class ResolveSharedExpenseReference
             TrackedItem::query()->whereIn('id', array_filter([$source->$field, $party->id]))->orderBy('id')->lockForUpdate()->get();
             $source = $query->lockForUpdate()->firstOrFail();
             if ($expectedPartyId !== $source->$field && $party->id !== $source->$field) {
-                throw ValidationException::withMessages(['reference_uuid' => 'Il movimento è stato modificato nel frattempo. Riaprilo prima di confermare il riferimento.']);
+                throw ValidationException::withMessages(['reference_uuid' => __('form_errors.the_transaction_has_changed_reopen_it_before_confirming_the_reference')]);
             }
             abort_if($source instanceof Transaction && $source->shared_expense_paid_by === null, 404);
             if ($source instanceof Transaction) {
@@ -44,10 +44,10 @@ class ResolveSharedExpenseReference
                     || CounterpartyLedgerEntry::where('source_type', $type)->where('source_identity', $uuid)->exists();
                 $payments = $before !== null && SharedExpenseSettlement::where('user_id', $user->id)->where('counterparty_id', $before)->exists();
                 if ($captured || $payments) {
-                    throw ValidationException::withMessages(['reference_uuid' => 'Questo movimento ha pagamenti o uno storico già collegato. Il riferimento non può essere cambiato: verifica prima i collegamenti nella situazione completa.']);
+                    throw ValidationException::withMessages(['reference_uuid' => __('form_errors.this_transaction_already_has_linked_payments_or_history_its_reference_cannot_be')]);
                 }
                 if ($source->recurring_entry_occurrence_id !== null) {
-                    throw ValidationException::withMessages(['reference_uuid' => 'Il riferimento proviene da una ricorrenza. Correggilo nel piano prima di registrare nuovamente il movimento.']);
+                    throw ValidationException::withMessages(['reference_uuid' => __('form_errors.the_reference_comes_from_a_recurring_entry_correct_it_in_the_plan')]);
                 }
             }
             if (! $party->is_shared_expense_counterpart) {

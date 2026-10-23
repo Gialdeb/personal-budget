@@ -41,20 +41,20 @@ test('transaction and recurring forms expose all active personal references as s
         ->assertInertia(fn (Assert $page) => $page
             ->where('monthlySheet.editor.tracked_items', fn ($options): bool => collect($options)->contains('value', $amazon->uuid))
             ->where('monthlySheet.editor.shared_expense_counterparties', [
-                ['value' => $alice->uuid, 'label' => 'Alice'],
-                ['value' => $amazon->uuid, 'label' => 'Amazon'],
-                ['value' => $emanuela->uuid, 'label' => 'Emanuela'],
-                ['value' => $legacy->uuid, 'label' => 'Legacy disabilitata'],
+                ['value' => $alice->uuid, 'reference_name' => 'Alice', 'logo_url' => null, 'label' => 'Alice'],
+                ['value' => $amazon->uuid, 'reference_name' => 'Amazon', 'logo_url' => null, 'label' => 'Amazon'],
+                ['value' => $emanuela->uuid, 'reference_name' => 'Emanuela', 'logo_url' => null, 'label' => 'Emanuela'],
+                ['value' => $legacy->uuid, 'reference_name' => 'Legacy disabilitata', 'logo_url' => null, 'label' => 'Legacy disabilitata'],
             ]));
 
     $this->actingAs($user)
         ->get(route('recurring-entries.index'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('formOptions.shared_expense_counterparties', [
-                ['value' => $alice->uuid, 'label' => 'Alice'],
-                ['value' => $amazon->uuid, 'label' => 'Amazon'],
-                ['value' => $emanuela->uuid, 'label' => 'Emanuela'],
-                ['value' => $legacy->uuid, 'label' => 'Legacy disabilitata'],
+                ['value' => $alice->uuid, 'reference_name' => 'Alice', 'logo_url' => null, 'label' => 'Alice'],
+                ['value' => $amazon->uuid, 'reference_name' => 'Amazon', 'logo_url' => null, 'label' => 'Amazon'],
+                ['value' => $emanuela->uuid, 'reference_name' => 'Emanuela', 'logo_url' => null, 'label' => 'Emanuela'],
+                ['value' => $legacy->uuid, 'reference_name' => 'Legacy disabilitata', 'logo_url' => null, 'label' => 'Legacy disabilitata'],
             ]));
 });
 

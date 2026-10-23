@@ -42,7 +42,8 @@ test('admin candidates deduplicate website logos across users without exposing p
 
 test('candidates exclude existing domains unavailable files missing images and unsupported images', function () {
     brandImportLogo('apple.com');
-    Brand::factory()->create(['domain' => 'apple.com', 'is_published' => false]);
+    Brand::factory()->create(['domain' => 'apple.com', 'alternative_domains' => ['apple.it'], 'is_published' => false]);
+    brandImportLogo('www.APPLE.it');
     $missing = brandImportLogo('missing.example.com');
     Storage::disk('public')->delete($missing->logo_path);
     brandImportLogo('www.missing.example.com');
@@ -89,7 +90,7 @@ test('repeat imports and equivalent domain sources cannot create duplicate brand
     $payload = ['name' => 'Apple', 'domain' => 'apple.com', 'is_published' => false, 'source_logo_uuid' => $logo->uuid];
     $this->actingAs($this->admin)->post(route('admin.brands.store'), $payload)->assertSessionHasNoErrors();
     $this->postJson(route('admin.brands.store'), [...$payload, 'name' => 'Altro nome', 'source_logo_uuid' => $alternate->uuid])
-        ->assertUnprocessable()->assertJsonValidationErrors('source_logo_uuid');
+        ->assertUnprocessable()->assertJsonValidationErrors('domain');
     expect(Brand::count())->toBe(1);
 });
 

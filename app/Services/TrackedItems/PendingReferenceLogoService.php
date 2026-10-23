@@ -115,6 +115,6 @@ class PendingReferenceLogoService
 
     private function invalid(string $field = 'logo_upload_token'): never
     {
-        throw ValidationException::withMessages([$field => 'Il logo non è più disponibile. Selezionalo nuovamente.']);
+        throw ValidationException::withMessages([$field => __('form_errors.the_logo_is_no_longer_available_select_it_again')]);
     }
 }

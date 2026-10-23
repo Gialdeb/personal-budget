@@ -62,16 +62,18 @@ class TrackedItemResolver
     }
 
     /**
-     * @return array<int, array{value: string, label: string}>
+     * @return array<int, array{value: string, label: string, reference_name: string, logo_url: ?string, search_terms?: list<string>}>
      */
     public function counterpartyOptions(int $userId): array
     {
-        $items = TrackedItem::query()->ownedBy($userId)->where('is_active', true)->orderBy('name')->get(['id', 'user_id', 'account_id', 'uuid', 'name', 'slug']);
+        $items = TrackedItem::query()->ownedBy($userId)->where('is_active', true)->with('websiteIdentity')->orderBy('name')->get(['id', 'user_id', 'account_id', 'uuid', 'name', 'slug', 'settings', 'website_identity_id']);
         $searchTerms = app(TrackedItemIdentityService::class)->searchTermsFor($items);
         $counts = $items->countBy(fn (TrackedItem $item): string => self::normalizeName($item->name));
 
         return $items->map(fn (TrackedItem $item): array => [
             'value' => $item->uuid,
+            'reference_name' => $item->name,
+            'logo_url' => $item->logoUrl(),
             'label' => $item->name.($counts[self::normalizeName($item->name)] > 1 ? ' · '.$item->slug : ''),
             ...(isset($searchTerms[$item->id]) ? ['search_terms' => $searchTerms[$item->id]] : []),
         ])->all();
@@ -113,12 +115,12 @@ class TrackedItemResolver
                     $item = app(TrackedItemIdentityService::class)->canonicalFor($item);
                 }
                 if (! $item instanceof TrackedItem || ! $item->is_active) {
-                    throw ValidationException::withMessages(['tracked_item_uuid' => 'Il riferimento selezionato non è disponibile in questo catalogo.']);
+                    throw ValidationException::withMessages(['tracked_item_uuid' => __('form_errors.the_selected_reference_is_unavailable_in_this_catalog')]);
                 }
             } else {
                 $normalized = self::normalizeName((string) $name);
                 if ($normalized === '') {
-                    throw ValidationException::withMessages(['name' => 'Inserisci il nome del riferimento.']);
+                    throw ValidationException::withMessages(['name' => __('form_errors.enter_the_reference_name')]);
                 }
                 $sourceUuid = $attributes['settings']['source_personal_tracked_item_uuid'] ?? null;
                 $matches = $sourceUuid === null ? collect() : $items->filter(
@@ -130,7 +132,7 @@ class TrackedItemResolver
                 $resolvedFromAlias = $matches->contains(fn (TrackedItem $match): bool => $match->identityAlias()->exists());
                 $matches = $matches->map(fn (TrackedItem $match): TrackedItem => app(TrackedItemIdentityService::class)->canonicalFor($match))->unique('id');
                 if ($matches->count() > 1) {
-                    throw ValidationException::withMessages(['name' => 'Esistono più riferimenti con questo nome. Cerca e seleziona il riferimento esistente prima di continuare.']);
+                    throw ValidationException::withMessages(['name' => __('form_errors.multiple_references_have_this_name_find_and_select_the_existing_reference_before')]);
                 }
                 $item = $matches->first();
                 if (! $item instanceof TrackedItem) {
@@ -154,11 +156,11 @@ class TrackedItemResolver
             }
 
             if (! $item->is_active && $resolvedFromAlias) {
-                throw ValidationException::withMessages(['name' => 'Il riferimento canonico è archiviato. Riattivalo esplicitamente nelle impostazioni.']);
+                throw ValidationException::withMessages(['name' => __('form_errors.the_canonical_reference_is_archived_reactivate_it_explicitly_in_settings')]);
             }
 
             if (! $item->is_active && $item->parent_id !== null && ! $items->firstWhere('id', $item->parent_id)?->is_active) {
-                throw ValidationException::withMessages(['name' => 'Il riferimento esistente ha un padre archiviato. Riattiva prima il padre nelle impostazioni.']);
+                throw ValidationException::withMessages(['name' => __('form_errors.the_existing_reference_has_an_archived_parent_reactivate_the_parent_in_settings')]);
             }
 
             $settings = $item->settings ?? [];

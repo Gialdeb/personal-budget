@@ -31,11 +31,11 @@ const actualFixture = realData
     ? /* language=TEXT */ `<script setup>import {ref} from 'vue';import Form from '@/components/transactions/TransactionFormSheet.vue';const open=ref(true);const sheet=${JSON.stringify(realData.data)};</script><template><Form v-model:open="open" :year="2026" :month="10" :sheet="sheet" /></template>`
     : '';
 const fixture = /* language=TEXT */ `<script setup>
-import {ref} from 'vue';import Picker from '@/components/ReferencePicker.vue';import {Sheet,SheetContent,SheetTitle,SheetDescription} from '@/components/ui/sheet';
+import Quick from '@/components/transactions/MobileQuickChoices.vue';import Content from '@/components/transactions/SearchableSelectOptionContent.vue';import {ref} from 'vue';import Picker from '@/components/ReferencePicker.vue';import {Sheet,SheetContent,SheetTitle,SheetDescription} from '@/components/ui/sheet';
 const selected=ref('scope:one'),parent=ref(true),busy=ref(false),context=ref('account:category');
 const options=[...Array.from({length:20},(_,index)=>({value:'tracked_item:extra'+index,label:'Altro '+index})),...Array.from({length:6},(_,index)=>({value:'tracked_item:amazon'+index,label:'Amazon altro '+index,domain:'amazon.com'})),{value:'scope:one',label:'Progetto'},{value:'tracked_item:one',label:'Amazon',domain:'amazon.it',search_terms:['vecchio nome']},{value:'tracked_item:two',label:'Amazon · secondo'},{value:'tracked_item:locked',label:'Archiviato',is_selectable:false}];
 async function prepare(draft){busy.value=true;await fetch('/draft',{method:'POST',body:JSON.stringify(draft)});options.push({value:'tracked_item:pending-reference:test',label:draft.name});selected.value='tracked_item:pending-reference:test';busy.value=false;return true;}
-</script><template><Sheet v-model:open="parent"><SheetContent><SheetTitle>Transazione test</SheetTitle><SheetDescription>Form esterno</SheetDescription><Picker v-model="selected" :options="options" :recent="options.slice(0,2)" :mobile-suggestions="options.filter(option=>option.value==='tracked_item:one')" :mobile-recent="[options.find(option=>option.value==='scope:one'),...options.slice(0,3).map(option=>({...option,label:'Riferimento recente molto lungo '+option.value}))]" :busy="busy" :prepare="prepare" :context-key="context"/><p data-selected>{{selected}}</p><button type="button" data-save>Salva transazione</button></SheetContent></Sheet></template>`;
+</script><template><Sheet v-model:open="parent"><SheetContent><SheetTitle>Transazione test</SheetTitle><SheetDescription>Form esterno</SheetDescription><div data-shared-reference><Content :option="{value:'homonym',label:'Acme · secret-slug',reference_name:'Acme',full_path:'Parent > Acme',badgeLabel:'https://acme.example',logo_url:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}"/></div><div data-reference-quick><Quick model-value="homonym" appearance="reference" :options="[{value:'homonym',label:'Acme · secret-slug',reference_name:'Acme'}]"/></div><div data-unchanged-category><Content :option="{value:'category',label:'Parent > Child',full_path:'Parent > Child'}"/></div><Picker v-model="selected" :options="options" :recent="options.slice(0,2)" :mobile-suggestions="options.filter(option=>option.value==='tracked_item:one')" :mobile-recent="[options.find(option=>option.value==='scope:one'),...options.slice(0,3).map(option=>({...option,label:'Riferimento recente molto lungo '+option.value}))]" :busy="busy" :prepare="prepare" :context-key="context"/><p data-selected>{{selected}}</p><button type="button" data-save>Salva transazione</button></SheetContent></Sheet></template>`;
 test(
     'mobile picker supports aliases scope values provisional logos keyboard and nested focus',
     { skip: !process.env.BROWSER_MODULE_PATH, timeout: 90000 },
@@ -238,6 +238,22 @@ test(
                 await page.goto(
                     `http://127.0.0.1:${server.httpServer.address().port}/reference-test`,
                 );
+                assert.equal(
+                    await page.locator('[data-shared-reference]').innerText(),
+                    'Acme',
+                );
+                assert.equal(
+                    await page.locator('[data-reference-quick]').innerText(),
+                    'Acme',
+                );
+                assert.equal(
+                    await page.locator('[data-shared-reference] img').count(),
+                    1,
+                );
+                assert.match(
+                    await page.locator('[data-unchanged-category]').innerText(),
+                    /Parent[\s\S]*Child/i,
+                );
                 const trigger = page
                     .locator(
                         '[data-reference-picker] button[aria-haspopup="dialog"]',
@@ -357,10 +373,7 @@ test(
                         await search.fill(variant);
                         const domainSearch = variant.includes('.');
                         await modal
-                            .getByRole('button', {
-                                name: 'Amazon amazon.it · Marchio',
-                                exact: true,
-                            })
+                            .locator('[data-reference-brand="brand-amazon"]')
                             .waitFor();
                         const rows = modal.locator(
                             '[data-mobile-reference-results] .max-h-60 > button',
@@ -372,30 +385,25 @@ test(
                         );
                         assert.equal(
                             await modal
-                                .getByRole('button', {
-                                    name: 'Amazon',
-                                    exact: true,
-                                })
+                                .locator('button[aria-label="Amazon"]')
                                 .count(),
                             1,
                             variant,
                         );
                         assert.equal(
                             await modal
-                                .getByRole('button', {
-                                    name: 'Amazon amazon.com · Marchio',
-                                    exact: true,
-                                })
+                                .locator(
+                                    '[data-reference-brand="brand-homonym"]',
+                                )
                                 .count(),
                             domainSearch ? 0 : 1,
                             variant,
                         );
                         assert.equal(
                             await modal
-                                .getByRole('button', {
-                                    name: 'Amazonas amazonas.example · Marchio',
-                                    exact: true,
-                                })
+                                .locator(
+                                    '[data-reference-brand="brand-similar"]',
+                                )
                                 .count(),
                             domainSearch ? 0 : 1,
                             variant,
@@ -404,22 +412,23 @@ test(
                         if (domainSearch) {
                             assert.equal(
                                 await modal
-                                    .getByRole('button', {
-                                        name: 'Not Amazon notamazon.it · Marchio',
-                                        exact: true,
-                                    })
+                                    .locator(
+                                        '[data-reference-brand="brand-lookalike"]',
+                                    )
                                     .count(),
                                 0,
                             );
                         }
 
+                        assert.doesNotMatch(
+                            await modal.innerText(),
+                            /amazon\.(it|com)|amazonas\.example|notamazon\.it|Marchio/,
+                        );
                         assert.equal(drafts.length, 0);
                     }
 
                     assert.equal(brandSearches.at(-1), 'amazon.it');
-                    await modal
-                        .getByRole('button', { name: 'Amazon', exact: true })
-                        .tap();
+                    await modal.locator('button[aria-label="Amazon"]').tap();
                     assert.equal(
                         await page.locator('[data-selected]').innerText(),
                         'tracked_item:one',
