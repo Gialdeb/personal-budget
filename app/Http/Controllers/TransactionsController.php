@@ -77,7 +77,7 @@ class TransactionsController extends Controller
         ['year' => $year, 'month' => $month] = $this->managementContextResolver->resolveTransactions($request, $user);
         $highlight = $request->query('highlight');
         $focusedTransaction = is_string($highlight)
-            ? Transaction::query()->where('uuid', $highlight)
+            ? Transaction::query()->notRectified()->where('uuid', $highlight)
                 ->whereIn('account_id', $this->accessibleAccountsQuery->ids($user))->first()
             : null;
 
@@ -342,7 +342,9 @@ class TransactionsController extends Controller
             ]);
         }
 
-        if ($transaction->recurring_entry_occurrence_id !== null && $transaction->payment_verification_started_at === null) {
+        $isVariableManualPayment = $transaction->kind === TransactionKindEnum::MANUAL
+            && $transaction->recurringOccurrence?->recurringEntry?->is_amount_variable;
+        if ($transaction->recurring_entry_occurrence_id !== null && $transaction->payment_verification_started_at === null && ! $isVariableManualPayment) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.recurring_transaction_update_from_plan'),
             ]);

@@ -238,6 +238,41 @@ export type DashboardMonthlyRecap = {
     insights: DashboardMonthlyRecapInsight[];
 };
 
+export type PaymentManagement = {
+    occurrence_uuid: string;
+    entry_uuid: string;
+    reference: string;
+    expected_amount: number;
+    expected_date: string;
+    estimated_date: string | null;
+    actual_amount: number | null;
+    actual_date: string | null;
+    state: string;
+    has_automatic_transaction: boolean;
+    can_rectify: boolean;
+    accounts?: { uuid: string; name: string }[];
+    history: {
+        id: string | number;
+        reason: string;
+        action: string;
+        created_at: string;
+        notes: string | null;
+        before?: PaymentTimelineSnapshot;
+        after?: PaymentTimelineSnapshot;
+        rectified_amount?: number | string | null;
+    }[];
+};
+
+export type PaymentTimelineSnapshot = {
+    expected_amount: number | null;
+    expected_date: string | null;
+    estimated_date: string | null;
+    reminder_date: string | null;
+    actual_amount: number | null;
+    actual_date: string | null;
+    account?: string | null;
+};
+
 export type DashboardPendingActionItem = {
     id: string;
     title: string;
@@ -250,7 +285,13 @@ export type DashboardPendingActionItem = {
     occurrence_uuid?: string;
     requires_amount_confirmation?: boolean;
     requires_payment_confirmation?: boolean;
+    payment_management?: PaymentManagement;
+    can_manage?: boolean;
     can_verify_payment?: boolean;
+    can_confirm_manual?: boolean;
+    automatic_payment_missing?: boolean;
+    is_future?: boolean;
+    recurrence_mode?: 'automatic' | 'manual';
     transaction_uuid?: string;
     plan_title?: string;
     plan_url?: string;

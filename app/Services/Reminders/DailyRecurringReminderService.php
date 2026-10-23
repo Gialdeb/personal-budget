@@ -7,10 +7,12 @@ use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\ScheduledEntryStatusEnum;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\ReminderDelivery;
 use App\Models\ScheduledEntry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\DB;
 
 class DailyRecurringReminderService
 {
@@ -39,6 +41,7 @@ class DailyRecurringReminderService
                 'recurringEntry.trackedItem',
                 'convertedTransaction.refundTransaction',
             ])
+            ->whereNull('payment_management_state')
             ->whereNull('matched_transaction_id')
             ->where(function ($query): void {
                 $query
@@ -80,6 +83,24 @@ class DailyRecurringReminderService
                 }
             });
 
+        RecurringEntryOccurrence::query()
+            ->with(['recurringEntry.user.settings', 'recurringEntry.trackedItem'])
+            ->whereIn('payment_management_state', ['pending', 'processing', 'corrected'])
+            ->whereNull('payment_resolved_at')
+            ->whereNotNull('payment_reminder_date')
+            ->whereDate('payment_reminder_date', '<=', $today->toDateString())
+            ->whereNotIn('status', [
+                RecurringOccurrenceStatusEnum::CANCELLED->value,
+                RecurringOccurrenceStatusEnum::REFUNDED->value,
+                RecurringOccurrenceStatusEnum::SKIPPED->value,
+            ])
+            ->chunkById(100, function ($occurrences) use (&$result, $today): void {
+                foreach ($occurrences as $occurrence) {
+                    $result['scanned']++;
+                    $this->applyDispatchResult($result, $this->dispatchPaymentFollowup($occurrence, $today));
+                }
+            });
+
         ScheduledEntry::query()
             ->with(['user.settings', 'trackedItem'])
             ->whereIn('status', [
@@ -103,7 +124,45 @@ class DailyRecurringReminderService
     /**
      * @return array{status: string, pushed: int}
      */
-    protected function dispatchOccurrence(RecurringEntryOccurrence $occurrence, Carbon $today): array
+    protected function dispatchPaymentFollowup(RecurringEntryOccurrence $occurrence, Carbon $today): array
+    {
+        return DB::transaction(function () use ($occurrence, $today): array {
+            $lockedOccurrence = RecurringEntryOccurrence::query()
+                ->with(['recurringEntry.user.settings', 'recurringEntry.trackedItem'])
+                ->whereKey($occurrence->id)
+                ->whereIn('payment_management_state', ['pending', 'processing', 'corrected'])
+                ->whereNull('payment_resolved_at')
+                ->whereNotNull('payment_reminder_date')
+                ->whereDate('payment_reminder_date', '<=', $today->toDateString())
+                ->whereNotIn('status', [
+                    RecurringOccurrenceStatusEnum::CANCELLED->value,
+                    RecurringOccurrenceStatusEnum::REFUNDED->value,
+                    RecurringOccurrenceStatusEnum::SKIPPED->value,
+                ])
+                ->lockForUpdate()
+                ->first();
+
+            if (! $lockedOccurrence) {
+                return ['status' => 'skipped', 'pushed' => 0];
+            }
+
+            if (ReminderDelivery::query()
+                ->where('remindable_type', $lockedOccurrence->getMorphClass())
+                ->where('remindable_id', $lockedOccurrence->id)
+                ->where('reminder_type', 'occurrence_payment_followup')
+                ->whereDate('delivery_date', $lockedOccurrence->payment_reminder_date->toDateString())
+                ->exists()) {
+                return ['status' => 'duplicate', 'pushed' => 0];
+            }
+
+            return $this->dispatchOccurrence($lockedOccurrence, $today, true);
+        });
+    }
+
+    /**
+     * @return array{status: string, pushed: int}
+     */
+    protected function dispatchOccurrence(RecurringEntryOccurrence $occurrence, Carbon $today, bool $isPaymentFollowup = false): array
     {
         $entry = $occurrence->recurringEntry;
         $dueDate = Carbon::parse(
@@ -120,13 +179,13 @@ class DailyRecurringReminderService
             && $entry->trial_duration > 0
             && $occurrence->expected_date->isSameDay($entry->firstBillingDate());
 
-        if ($daysBefore !== 0 && ! $isTrialFirstChargeReminder && ! in_array($daysBefore, $customReminderDays, true)) {
+        if (! $isPaymentFollowup && $daysBefore !== 0 && ! $isTrialFirstChargeReminder && ! in_array($daysBefore, $customReminderDays, true)) {
             return ['status' => 'skipped', 'pushed' => 0];
         }
 
         $status = $this->statusForDate($dueDate, $today);
         $planType = $entry->auto_create_transaction ? 'automatic' : 'manual';
-        $isVariableAmountDue = $daysBefore === 0 && (bool) $entry->is_amount_variable;
+        $isVariableAmountDue = ! $isPaymentFollowup && $daysBefore === 0 && (bool) $entry->is_amount_variable;
         $locale = $entry->user->preferredLocale();
         $previousLocale = App::getLocale();
 
@@ -143,7 +202,7 @@ class DailyRecurringReminderService
                 ? 'notifications.reminders.recurring.variable_amount_due'
                 : ($status === 'overdue'
                 ? 'notifications.reminders.recurring.overdue'
-                : ($planType === 'automatic'
+                : ($planType === 'automatic' && ! $isPaymentFollowup
                     ? 'notifications.reminders.recurring.automatic'
                     : ($status === 'upcoming'
                         ? 'notifications.reminders.recurring.manual_upcoming'
@@ -156,7 +215,7 @@ class DailyRecurringReminderService
                 'reminders.recurring_due',
                 'recurring_due_reminder_database',
                 'recurring_due_reminder',
-                $daysBefore === 0 ? 'recurring_due_today' : 'recurring_advance_'.$daysBefore,
+                $isPaymentFollowup ? 'occurrence_payment_followup' : ($daysBefore === 0 ? 'recurring_due_today' : 'recurring_advance_'.$daysBefore),
                 $dueDate,
                 __($translationBase.'.title'),
                 __($translationBase.'.body', [
@@ -179,8 +238,8 @@ class DailyRecurringReminderService
                     'currency_code' => $entry->currency,
                     'target_url' => $targetUrl,
                 ],
-                $daysBefore > 0 || $isVariableAmountDue,
-                $today,
+                ! $isPaymentFollowup && ($daysBefore > 0 || $isVariableAmountDue),
+                $isPaymentFollowup ? Carbon::parse($occurrence->payment_reminder_date->toDateString(), config('app.timezone')) : $today,
             );
         } finally {
             App::setLocale($previousLocale);

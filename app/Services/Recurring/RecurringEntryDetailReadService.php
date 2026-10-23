@@ -199,8 +199,8 @@ class RecurringEntryDetailReadService
         $rows = $query->offset($offset)->limit(self::PAGE_SIZE + 1)->get();
         $hasMore = $rows->count() > self::PAGE_SIZE;
         $rows = new Collection($rows->take(self::PAGE_SIZE)->all());
-        $rows->load(['account', 'sharedExpenseLedgerEntry.counterparty', 'convertedTransaction.refundTransaction', 'matchedTransaction.refundTransaction',
-            'paymentAllocations.transaction.account', 'paymentAllocations.transaction.trackedItem', 'paymentAllocations.transaction.refundTransaction', 'settlementTransactions.refundTransaction']);
+        $rows->load(['paymentEvents', 'account', 'sharedExpenseLedgerEntry.counterparty', 'convertedTransaction.refundTransaction', 'matchedTransaction.refundTransaction',
+            'paymentAllocations.transaction.account', 'paymentAllocations.transaction.trackedItem', 'paymentAllocations.transaction.refundTransaction', 'settlementTransactions.refundTransaction', 'settlementTransactions.account', 'settlementTransactions.trackedItem', 'convertedTransaction.account', 'convertedTransaction.trackedItem', 'matchedTransaction.account', 'matchedTransaction.trackedItem']);
         $refundedPayments = RecurringPlanRefundPayment::query()->whereIn('occurrence_id', $rows->modelKeys())
             ->get(['occurrence_id', 'transaction_id'])->groupBy('occurrence_id');
         foreach ($rows as $row) {

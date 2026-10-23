@@ -1,3 +1,4 @@
+import type { PaymentManagement } from './dashboard';
 import type { TransactionTemplatePrefill } from './transaction-templates';
 
 export type TransactionNavigationMonth = {
@@ -499,6 +500,9 @@ export type RecurringLinkedTransaction = {
 };
 
 export type RecurringMonthlyOccurrence = {
+    occurrence_url?: string;
+    payments?: RecurringEntryShowPayload['occurrences'][number]['payments'];
+    payment_history?: RecurringEntryShowPayload['occurrences'][number]['payment_history'];
     is_settled?: boolean;
     remaining_amount?: number;
     external_payment?: RecurringEntryShowPayload['occurrences'][number]['external_payment'];
@@ -826,7 +830,14 @@ export type RecurringEntryShowPayload = {
             | null;
         allocated_amount?: number;
         can_register_payment: boolean;
+        is_amount_variable?: boolean;
+        occurrence_url?: string;
+        payment_management?: PaymentManagement | null;
         payment_history?: Array<{
+            rectified?: boolean;
+            status: string | null;
+            account: string | null;
+            reference: string | null;
             uuid: string;
             date: string;
             amount: number;

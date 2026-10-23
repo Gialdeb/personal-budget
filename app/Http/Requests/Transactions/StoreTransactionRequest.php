@@ -56,6 +56,7 @@ class StoreTransactionRequest extends FormRequest
 
         return [
             'payment_occurrence_uuid' => ['nullable', 'uuid', Rule::exists('recurring_entry_occurrences', 'uuid')->whereIn('recurring_entry_id', RecurringEntry::query()->where('user_id', $userId)->select('id'))],
+            'payment_is_partial' => ['sometimes', 'boolean'],
             'transaction_template_uuid' => ['nullable', 'uuid', Rule::exists('transaction_templates', 'uuid')->where('user_id', $this->user()->id)->where('is_active', true)],
             'transaction_day' => ['required', 'integer', 'between:1,'.$daysInMonth],
             'target_month' => ['nullable', 'integer', 'between:1,12'],
@@ -333,7 +334,7 @@ class StoreTransactionRequest extends FormRequest
             }
 
             $calendarDate = $this->selectedCalendarDate();
-            if ($calendarDate !== null && $calendarDate->year !== (int) $this->route('year')) {
+            if ($calendarDate !== null && $calendarDate->year !== (int) $this->route('year') && ! $this->isRecurringDateCorrection()) {
                 $validator->errors()->add('selected_date', __('transactions.validation.calendar_year_fixed', ['year' => (int) $this->route('year')]));
 
                 return;
@@ -355,6 +356,7 @@ class StoreTransactionRequest extends FormRequest
 
                     if (
                         $this->input('type_key') !== self::MOVE_TYPE_KEY
+                        && ! $this->isRecurringDateCorrection()
                         && (
                             $parsedDate->year !== $routeYear
                             || (! $this->filled('selected_date') && $parsedDate->month !== $routeMonth)
@@ -391,7 +393,7 @@ class StoreTransactionRequest extends FormRequest
             if ($calendarDate !== null && $calendarDate->month !== $routeMonth && $this->isMethod('PATCH')
                 && $this->input('type_key') !== self::MOVE_TYPE_KEY) {
                 $transaction = $this->resolvedRouteTransaction();
-                if ($transaction === null || ! $this->isMoveTransactionEligible($transaction)
+                if ($transaction === null || (! $this->isMoveTransactionEligible($transaction) && ! $this->isRecurringDateCorrection())
                     || in_array($this->input('type_key'), [CategoryGroupTypeEnum::TRANSFER->value, self::BALANCE_ADJUSTMENT_TYPE_KEY], true)) {
                     $validator->errors()->add('selected_date', __('transactions.validation.move_unavailable'));
                 }
@@ -615,6 +617,15 @@ class StoreTransactionRequest extends FormRequest
             CategoryGroupTypeEnum::TRANSFER->value => CategoryDirectionTypeEnum::TRANSFER->value,
             default => CategoryDirectionTypeEnum::EXPENSE->value,
         };
+    }
+
+    private function isRecurringDateCorrection(): bool
+    {
+        $transaction = $this->resolvedRouteTransaction();
+
+        return $this->isMethod('PATCH') && $transaction?->recurring_entry_occurrence_id !== null
+            && ($transaction->payment_verification_started_at !== null
+                || ($transaction->kind === TransactionKindEnum::MANUAL && $transaction->recurringOccurrence?->recurringEntry?->is_amount_variable));
     }
 
     private function selectedCalendarDate(): ?CarbonImmutable

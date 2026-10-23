@@ -129,6 +129,7 @@ const props = defineProps<{
     transaction?: MonthlyTransactionSheetTransaction | null;
     template?: TransactionTemplatePrefill | null;
     paymentOccurrence?: {
+        is_amount_variable?: boolean;
         uuid: string;
         account_uuid: string;
         category_uuid: string | null;
@@ -139,6 +140,13 @@ const props = defineProps<{
     } | null;
 }>();
 
+const isRecurringDateCorrection = computed(() =>
+    Boolean(
+        props.transaction?.is_recurring_transaction &&
+        props.transaction?.can_edit,
+    ),
+);
+
 const emit = defineEmits<{
     'update:open': [value: boolean];
     saved: [message: string];
@@ -146,6 +154,7 @@ const emit = defineEmits<{
 }>();
 
 const form = useForm({
+    payment_is_partial: false,
     selected_date: '',
     transaction_day: '',
     target_month: '',
@@ -1423,6 +1432,7 @@ watch(
 
         if (props.paymentOccurrence) {
             const payment = props.paymentOccurrence;
+            form.payment_is_partial = false;
             form.transaction_date = `${props.year}-${String(props.month).padStart(2, '0')}-${String(form.transaction_day).padStart(2, '0')}`;
             form.account_uuid = payment.account_uuid;
             form.type_key = payment.direction;
@@ -1823,6 +1833,7 @@ function submit(): void {
     if (
         !isMoveMode.value &&
         !props.paymentOccurrence &&
+        !isRecurringDateCorrection.value &&
         !transactionCalendarDate(form.transaction_date, props.year)
     ) {
         form.setError(
@@ -1989,6 +2000,7 @@ function submit(): void {
     const payload = {
         selected_date: props.paymentOccurrence ? null : form.transaction_date,
         payment_occurrence_uuid: props.paymentOccurrence?.uuid ?? null,
+        payment_is_partial: form.payment_is_partial,
         transaction_template_uuid: !isEditing.value
             ? (props.template?.uuid ?? null)
             : null,
@@ -2126,14 +2138,22 @@ function submit(): void {
                             >
                                 <div class="grid min-w-0 gap-2">
                                     <Label
-                                        v-if="isMoveMode || paymentOccurrence"
+                                        v-if="
+                                            isMoveMode ||
+                                            paymentOccurrence ||
+                                            isRecurringDateCorrection
+                                        "
                                         :for="
-                                            isMoveMode || paymentOccurrence
+                                            isMoveMode ||
+                                            paymentOccurrence ||
+                                            isRecurringDateCorrection
                                                 ? 'transaction_date'
                                                 : 'transaction_day'
                                         "
                                         >{{
-                                            isMoveMode || paymentOccurrence
+                                            isMoveMode ||
+                                            paymentOccurrence ||
+                                            isRecurringDateCorrection
                                                 ? t(
                                                       'transactions.form.labels.moveDate',
                                                   )
@@ -2143,9 +2163,15 @@ function submit(): void {
                                         }}</Label
                                     >
                                     <AppDatePicker
-                                        v-if="isMoveMode || paymentOccurrence"
+                                        v-if="
+                                            isMoveMode ||
+                                            paymentOccurrence ||
+                                            isRecurringDateCorrection
+                                        "
                                         :id="
-                                            isMoveMode || paymentOccurrence
+                                            isMoveMode ||
+                                            paymentOccurrence ||
+                                            isRecurringDateCorrection
                                                 ? 'transaction_date'
                                                 : 'transaction_day'
                                         "
@@ -2533,6 +2559,29 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-5">
+                                <label
+                                    v-if="paymentOccurrence?.is_amount_variable"
+                                    class="flex items-center gap-2 text-sm"
+                                >
+                                    <input
+                                        v-model="form.payment_is_partial"
+                                        type="checkbox"
+                                    />
+                                    {{ ui('Registra come acconto esplicito') }}
+                                </label>
+                                <p
+                                    v-if="
+                                        paymentOccurrence?.is_amount_variable &&
+                                        !form.payment_is_partial
+                                    "
+                                    class="text-sm text-muted-foreground"
+                                >
+                                    {{
+                                        ui(
+                                            'L’importo inserito è il pagamento effettivo di questa occorrenza, senza residui automatici.',
+                                        )
+                                    }}
+                                </p>
                                 <div class="grid gap-2">
                                     <MobileAmountInput
                                         v-if="!isBalanceAdjustment"

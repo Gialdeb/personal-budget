@@ -367,64 +367,30 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                         )
                                     }}
                                 </dt>
-                                <dd v-if="occurrence.external_payment">
+                                <dd
+                                    v-if="
+                                        occurrence.external_payment ||
+                                        occurrence.payments?.length ||
+                                        occurrence.payment_history?.length
+                                    "
+                                >
                                     <OccurrencePayments
-                                        :payments="[]"
+                                        :payments="occurrence.payments ?? []"
+                                        :history="occurrence.payment_history"
                                         :external-payment="
                                             occurrence.external_payment
                                         "
                                         :currency="occurrence.currency"
+                                        :occurrence-url="
+                                            occurrence.occurrence_url
+                                        "
+                                        :sequence-number="
+                                            occurrence.sequence_number
+                                        "
+                                        :expected-date="
+                                            occurrence.expected_date
+                                        "
                                     />
-                                </dd>
-                                <dd
-                                    v-else-if="occurrence.converted_transaction"
-                                    class="space-y-1"
-                                >
-                                    <Link
-                                        v-if="
-                                            occurrence.converted_transaction
-                                                .show_url
-                                        "
-                                        :href="
-                                            occurrence.converted_transaction
-                                                .show_url
-                                        "
-                                        class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.actions.openTransaction',
-                                            )
-                                        }}
-                                    </Link>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            occurrence.converted_transaction
-                                                .transaction_date
-                                        }}
-                                    </p>
-                                    <p
-                                        v-if="
-                                            occurrence.converted_transaction
-                                                .refund_transaction
-                                                ?.transaction_date
-                                        "
-                                        class="text-xs text-amber-700 dark:text-amber-300"
-                                    >
-                                        {{
-                                            t(
-                                                'transactions.recurring.table.refundReference',
-                                                {
-                                                    date: occurrence
-                                                        .converted_transaction
-                                                        .refund_transaction
-                                                        .transaction_date,
-                                                },
-                                            )
-                                        }}
-                                    </p>
                                 </dd>
                                 <dd
                                     v-else

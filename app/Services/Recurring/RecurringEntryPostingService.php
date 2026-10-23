@@ -44,6 +44,13 @@ class RecurringEntryPostingService
             $entry = $occurrence->recurringEntry()->lockForUpdate()->firstOrFail();
             $entry->ensureComponentIsMutable();
             $occurrence->setRelation('recurringEntry', $entry);
+            if ($entry->is_amount_variable
+                && $occurrence->convertedTransaction instanceof Transaction
+                && $occurrence->convertedTransaction->activeAmountCents() > 0
+                && $occurrence->convertedTransaction->refundTransaction === null
+                && ! $occurrence->paymentAllocations()->exists()) {
+                return $occurrence->convertedTransaction;
+            }
             if ($occurrence->isRetiredRefundedHistory()) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_converted_in_its_current_state_b799ab22')]);
             }

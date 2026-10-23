@@ -33,12 +33,15 @@ class UpdateRecurringOccurrenceService
             }
 
             $entry = $lockedOccurrence->recurringEntry;
+            $history = app(ManageOccurrencePaymentService::class);
+            $before = $history->snapshot($lockedOccurrence);
             $this->userYearService->ensureDateYearIsOpen($entry->user, $dueDate, 'occurrence');
 
             $lockedOccurrence->forceFill([
                 'due_date' => $dueDate,
                 'account_id' => $account->id === $entry->account_id ? null : $account->id,
             ])->save();
+            $history->recordChange($lockedOccurrence, $actor, $before, 'forecast');
 
             return $lockedOccurrence->fresh(['account', 'recurringEntry.account', 'convertedTransaction.refundTransaction']);
         });

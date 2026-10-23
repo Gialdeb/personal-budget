@@ -66,7 +66,9 @@ test('recurring and installment arrears are aggregated once and link to their pl
     expect($dashboard['credits_debts']['credits_open_total_raw'])->toBe(500.0)
         ->and($dashboard['credits_debts']['debts_open_total_raw'])->toBe(500.0)
         ->and($dashboard['credits_debts']['arrears'])->toHaveCount(2)
-        ->and($dashboard['pending_actions']['items'])->toBe([]);
+        ->and($dashboard['pending_actions']['items'])->toHaveCount(2)
+        ->and(collect($dashboard['pending_actions']['items'])->pluck('occurrence_uuid')->unique())->toHaveCount(2)
+        ->and(collect($dashboard['pending_actions']['items'])->pluck('status_key')->unique()->all())->toBe(['overdue']);
     foreach ($dashboard['credits_debts']['arrears'] as $item) {
         expect($item['source_url'])->toContain('/recurring-entries/');
     }

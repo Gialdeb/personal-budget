@@ -655,7 +655,18 @@ class RecurringEntryController extends Controller
                 'recurringEntry.trackedItem.websiteIdentity',
                 'recurringEntry.sharedExpenseCounterparty:id,uuid,name',
                 'sharedExpenseLedgerEntry.counterparty',
-                'convertedTransaction:id,uuid,transaction_date,amount,currency,kind',
+                'paymentAllocations.transaction.refundTransaction',
+                'paymentAllocations.transaction.account',
+                'paymentAllocations.transaction.trackedItem',
+                'settlementTransactions.refundTransaction',
+                'settlementTransactions.account',
+                'settlementTransactions.trackedItem',
+                'matchedTransaction.refundTransaction',
+                'matchedTransaction.account',
+                'matchedTransaction.trackedItem',
+                'convertedTransaction:id,uuid,transaction_date,amount,currency,kind,status,account_id,tracked_item_id',
+                'convertedTransaction.account',
+                'convertedTransaction.trackedItem',
                 'convertedTransaction.refundTransaction:id,uuid,transaction_date,amount,currency,refunded_transaction_id',
             ])
             ->orderByRaw('COALESCE(due_date, expected_date)')
@@ -697,6 +708,7 @@ class RecurringEntryController extends Controller
                         }
 
                         return [
+                            ...(new RecurringEntryOccurrenceResource($occurrence))->paymentDetails(),
                             'uuid' => $occurrence->uuid,
                             'sequence_number' => $occurrence->sequence_number,
                             'status' => $status,

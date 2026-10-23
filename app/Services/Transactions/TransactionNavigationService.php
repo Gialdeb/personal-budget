@@ -174,7 +174,7 @@ class TransactionNavigationService
 
     protected function accessibleTransactionQuery(User $user)
     {
-        return Transaction::query()
+        return Transaction::query()->notRectified()
             ->whereIn('account_id', $this->accessibleAccountsQuery->ids($user));
     }
 }

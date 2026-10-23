@@ -168,7 +168,8 @@ test('aggregated actions reuse ordinary occurrence permissions and child highlig
         ->where('recurringEntry.occurrences.0.uuid', $row->uuid)
         ->where('recurringEntry.occurrences.0.can_update_occurrence', true)
         ->where('recurringEntry.occurrences.0.can_update_amount', true)
-        ->where('recurringEntry.occurrences.0.can_register_payment', false));
+        ->where('recurringEntry.occurrences.0.can_register_payment', true));
+    expect(Transaction::count())->toBe(0);
     $this->travelTo(now()->setDate(2026, 6, 16));
     app(UpdateRecurringOccurrenceAmountService::class)->update($row, $this->compoundUser, 315);
     $this->get(route('recurring-entries.show', $parent->uuid))->assertInertia(fn (Assert $page) => $page

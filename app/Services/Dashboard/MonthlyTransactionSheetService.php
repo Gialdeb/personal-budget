@@ -172,7 +172,7 @@ class MonthlyTransactionSheetService
      */
     protected function getMonthlyTransactions(User $user, int $year, int $month): Collection
     {
-        return Transaction::query()
+        return Transaction::query()->notRectified()
             ->whereIn('account_id', $this->accessibleAccountsQuery->ids($user))
             ->whereYear('transaction_date', $year)
             ->whereMonth('transaction_date', $month)
@@ -213,7 +213,7 @@ class MonthlyTransactionSheetService
      */
     protected function getDeletedMonthlyTransactions(User $user, int $year, int $month): Collection
     {
-        return Transaction::onlyTrashed()
+        return Transaction::onlyTrashed()->notRectified()
             ->whereIn('account_id', $this->accessibleAccountsQuery->ids($user))
             ->whereYear('transaction_date', $year)
             ->whereMonth('transaction_date', $month)
@@ -1063,11 +1063,13 @@ class MonthlyTransactionSheetService
             'can_refund' => $canRefund,
             'requires_payment_confirmation' => $transaction->payment_verification_started_at !== null
                 && $transaction->payment_verified_at === null
-                && $transaction->payment_verification_due_at?->isFuture(),
+                && $transaction->payment_rectified_at === null,
             'can_report_payment_problem' => $canMutate
                 && in_array((int) $transaction->recurringOccurrence?->recurringEntry?->account_id, $editableAccountIds, true)
                 && ! $transaction->trashed()
                 && $transaction->payment_verification_started_at !== null
+                && $transaction->payment_rectified_at === null
+                && $transaction->payment_verification_method !== 'manual'
                 && $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id
                 && ! $hasLinkedRefund,
             'can_undo_refund' => $canUndoRefund,
@@ -1234,7 +1236,7 @@ class MonthlyTransactionSheetService
 
     protected function resolveActualOpeningDate(Account $account): ?CarbonImmutable
     {
-        $openingTransactionDate = Transaction::query()
+        $openingTransactionDate = Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
             ->orderBy('transaction_date')
@@ -1259,7 +1261,7 @@ class MonthlyTransactionSheetService
     protected function resolveDerivedYearOpeningBalance(Account $account, int $year): float
     {
         $yearStart = CarbonImmutable::create($year, 1, 1);
-        $openingTransaction = Transaction::query()
+        $openingTransaction = Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
             ->whereYear('transaction_date', $year)
@@ -1275,7 +1277,7 @@ class MonthlyTransactionSheetService
                 : $amount;
         }
 
-        $latestOpeningBeforeYear = Transaction::query()
+        $latestOpeningBeforeYear = Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
             ->whereDate('transaction_date', '<', $yearStart->toDateString())
@@ -1296,7 +1298,7 @@ class MonthlyTransactionSheetService
                 END
             ), 0) as net_total';
 
-        $netBeforeYear = (float) Transaction::query()
+        $netBeforeYear = (float) Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->where('kind', '!=', TransactionKindEnum::OPENING_BALANCE->value)
             ->when(
@@ -1399,7 +1401,7 @@ class MonthlyTransactionSheetService
         $accountsById = $accounts->keyBy('id');
         $balances = [];
 
-        $transactions = Transaction::query()
+        $transactions = Transaction::query()->notRectified()
             ->whereIn('account_id', $accountsById->keys()->all())
             ->whereDate('transaction_date', '<=', $periodEnd->toDateString())
             ->whereNotNull('balance_after')
@@ -1450,7 +1452,7 @@ class MonthlyTransactionSheetService
 
     protected function resolveAccountBalanceAt(Account $account, CarbonImmutable $date): float
     {
-        $latestBalance = Transaction::query()
+        $latestBalance = Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->whereDate('transaction_date', '<=', $date->toDateString())
             ->whereNotNull('balance_after')
@@ -1556,7 +1558,7 @@ class MonthlyTransactionSheetService
             return $this->resolveAccountBalanceAt($account, $date);
         }
 
-        $transactions = Transaction::query()
+        $transactions = Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->whereDate('transaction_date', '<=', $date->toDateString())
             ->orderBy('transaction_date')

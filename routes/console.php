@@ -10,7 +10,6 @@ use App\Jobs\Automation\RunRecurringMonthlySummaryJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
 use App\Jobs\Automation\RunRecurringWeeklySummaryJob;
 use App\Jobs\Automation\RunUserBackupJob;
-use App\Services\Recurring\AutomaticPaymentVerificationService;
 use App\Services\Support\SupportTicketInactivityService;
 use App\Services\TrackedItems\PendingReferenceLogoService;
 use Illuminate\Foundation\Inspiring;
@@ -21,11 +20,6 @@ Schedule::command('maintenance:archive-old-data')
     ->withoutOverlapping()
     ->onOneServer()
     ->name('technical-archive-maintenance');
-
-Schedule::call(fn () => app(AutomaticPaymentVerificationService::class)->confirmExpired())
-    ->everyMinute()
-    ->name('automatic-payment-confirmation')
-    ->withoutOverlapping();
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

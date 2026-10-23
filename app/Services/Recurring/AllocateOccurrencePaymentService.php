@@ -12,6 +12,37 @@ use Illuminate\Validation\ValidationException;
 
 class AllocateOccurrencePaymentService
 {
+    public function recordVariablePayment(RecurringEntryOccurrence $occurrence, Transaction $transaction, User $actor): void
+    {
+        DB::transaction(function () use ($occurrence, $transaction, $actor): void {
+            $transaction = Transaction::query()->lockForUpdate()->findOrFail($transaction->id);
+            $occurrence = RecurringEntryOccurrence::query()->with('recurringEntry')->lockForUpdate()->findOrFail($occurrence->id);
+            $entry = $occurrence->recurringEntry;
+            $entry->ensureComponentIsMutable();
+            abort_unless($entry->user_id === $actor->id && $transaction->user_id === $actor->id, 404);
+            if (! $entry->is_amount_variable || $entry->salarySchedule !== null
+                || ! in_array($occurrence->status?->value, ['pending', 'generated'], true)
+                || ($occurrence->converted_transaction_id !== null && $occurrence->convertedTransaction?->payment_rectified_at === null) || $occurrence->matched_transaction_id !== null
+                || $occurrence->paymentAllocations()->exists() || $occurrence->personalSettlementTransactions()->exists()
+                || $occurrence->sharedExpenseLedgerEntry()->exists() || $entry->shared_expense_counterparty_id !== null
+                || $transaction->recurring_entry_occurrence_id !== null || $transaction->occurrencePaymentAllocations()->exists()
+                || $transaction->direction !== $entry->direction || $transaction->currency !== $entry->currency
+                || $transaction->kind?->value !== 'manual' || $transaction->status?->value !== 'confirmed'
+                || $transaction->is_transfer || $transaction->shared_expense_counterparty_id !== null
+                || $transaction->refunded_transaction_id !== null || $transaction->related_transaction_id !== null
+                || $transaction->creditDebtPayment()->exists() || $transaction->sharedExpenseSettlement()->exists()
+                || CounterpartyPayment::query()->where('transaction_id', $transaction->id)->exists()
+                || $transaction->refundTransaction()->exists()) {
+                throw ValidationException::withMessages(['payment_occurrence_uuid' => __('ui.this_transaction_or_occurrence_cannot_be_allocated_1c160612')]);
+            }
+
+            $occurrence->forceFill(['payment_actual_amount' => $transaction->amount, 'payment_actual_date' => $transaction->transaction_date, 'amount_confirmed_at' => now()])->save();
+            $transaction->forceFill(['recurring_entry_occurrence_id' => $occurrence->id])->save();
+            $occurrence->forceFill(['converted_transaction_id' => $transaction->id])->save();
+            $occurrence->synchronizeSettlementState();
+        });
+    }
+
     public function allocate(RecurringEntryOccurrence $occurrence, Transaction $transaction, User $actor, string $amount): RecurringOccurrencePaymentAllocation
     {
         return DB::transaction(function () use ($occurrence, $transaction, $actor, $amount): RecurringOccurrencePaymentAllocation {

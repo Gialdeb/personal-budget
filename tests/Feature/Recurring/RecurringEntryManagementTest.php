@@ -1853,7 +1853,8 @@ test('dashboard confirms a due variable occurrence without changing its plan', f
         'return_to_dashboard' => true,
     ])->assertRedirect(route('dashboard'));
     expect($occurrence->fresh()->amount_confirmed_at)->not->toBeNull()
-        ->and($occurrence->fresh()->expected_amount)->toBe($amount)
+        ->and($occurrence->fresh()->expected_amount)->toBe('50.00')
+        ->and($occurrence->fresh()->payment_actual_amount)->toBe($amount)
         ->and($entry->fresh()->expected_amount)->toBe('50.00');
     $items = $this->getJson($dashboardUrl)->assertSuccessful()->json('pending_actions.items');
     expect(collect($items)->firstWhere('transaction_uuid', $occurrence->fresh()->convertedTransaction->uuid)['requires_payment_confirmation'])->toBeTrue();
@@ -1976,7 +1977,8 @@ test('variable recurring plan synchronizes a converted transaction amount snapsh
 
     $transaction->refresh();
 
-    expect($occurrence->fresh()->expected_amount)->toBe('72.30')
+    expect($occurrence->fresh()->expected_amount)->toBe('50.00')
+        ->and($occurrence->fresh()->payment_actual_amount)->toBe('72.30')
         ->and($transaction->amount)->toBe('72.30')
         ->and($transaction->converted_base_amount)->toBe('72.30')
         ->and($transaction->exchange_rate)->toBe('1.00000000')
@@ -2379,7 +2381,7 @@ test('future occurrence conversion requires explicit confirmation', function () 
     expect($occurrence->fresh()->converted_transaction_id)->toBeNull();
 });
 
-test('undo conversion permanently removes the scheduled transaction and resets the occurrence', function () {
+test('undo conversion protects a manually recorded payment and preserves its accounting links', function () {
     $context = recurringManagementContext();
     $entry = createManagedRecurringEntry($context, [
         'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
@@ -2396,13 +2398,15 @@ test('undo conversion permanently removes the scheduled transaction and resets t
     $transaction = $occurrence->fresh()->convertedTransaction;
 
     $this->actingAs($context['user'])
+        ->from(route('recurring-entries.show', $entry->uuid))
         ->delete(route('recurring-entries.occurrences.undo-conversion', [$entry->uuid, $occurrence->uuid]))
         ->assertRedirect(route('recurring-entries.show', $entry->uuid))
-        ->assertSessionHas('success', __('transactions.flash.recurring_conversion_undone'));
+        ->assertSessionHasErrors('payment');
 
-    expect(Transaction::withTrashed()->where('uuid', $transaction->uuid)->exists())->toBeFalse()
-        ->and($occurrence->fresh()->converted_transaction_id)->toBeNull()
-        ->and($occurrence->fresh()->status->value)->toBe('pending');
+    expect(Transaction::withTrashed()->where('uuid', $transaction->uuid)->exists())->toBeTrue()
+        ->and($transaction->fresh()->amount)->toBe('50.00')
+        ->and($occurrence->fresh()->converted_transaction_id)->toBe($transaction->id)
+        ->and($context['account']->fresh()->current_balance)->toBe('950.00');
 });
 
 test('undo conversion is blocked when the scheduled transaction has already been refunded', function () {

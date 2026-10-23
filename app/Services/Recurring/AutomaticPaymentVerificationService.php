@@ -6,54 +6,45 @@ use App\Enums\TransactionKindEnum;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AutomaticPaymentVerificationService
 {
-    public function __construct(protected UndoRecurringOccurrenceConversionService $undoConversionService) {}
-
     public function confirm(Transaction $transaction): void
     {
         DB::transaction(function () use ($transaction): void {
-            $this->lockedOccurrence($transaction);
+            $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($transaction->recurring_entry_occurrence_id);
             $current = Transaction::query()->lockForUpdate()->findOrFail($transaction->id);
-            if ($current->payment_verified_at === null) {
-                $current->forceFill([
-                    'payment_verified_at' => now(),
-                    'payment_verification_method' => 'manual',
-                ])->save();
+            $this->lockedOccurrence($current);
+            if (($occurrence->due_date ?? $occurrence->expected_date)->isFuture()) {
+                throw ValidationException::withMessages(['payment' => __('payment_management.future_confirmation')]);
             }
+            if ($current->payment_verified_at !== null && $occurrence->payment_resolved_at !== null) {
+                return;
+            }
+            app(ManageOccurrencePaymentService::class)->manage($occurrence, auth()->user() ?? $occurrence->recurringEntry->user, [
+                'request_id' => (string) Str::uuid(), 'reason' => 'already_paid', 'action' => 'confirm',
+            ]);
         });
     }
 
-    public function reportProblem(Transaction $transaction): RecurringEntryOccurrence
+    public function reportProblem(Transaction $transaction, bool $confirmed = false): RecurringEntryOccurrence
     {
-        return DB::transaction(function () use ($transaction): RecurringEntryOccurrence {
-            $occurrence = $this->lockedOccurrence($transaction);
-            $current = Transaction::query()->lockForUpdate()->findOrFail($transaction->id);
-            if ($current->refundTransaction()->exists() || $current->matchedRecurringOccurrences()->exists()) {
-                throw ValidationException::withMessages(['payment' => __('ui.the_posting_has_other_links_and_cannot_be_invalidated_3dfeed15')]);
-            }
-            $occurrence = $this->undoConversionService->undo($occurrence);
-            $occurrence->forceFill([
-                'automatic_posting_blocked_at' => now(),
-                'payment_failed_at' => now(),
-            ])->save();
+        if (! $confirmed) {
+            throw ValidationException::withMessages(['payment' => __('payment_management.confirmation_required')]);
+        }
+        $occurrence = $this->lockedOccurrence($transaction);
 
-            return $occurrence;
-        });
+        return app(ManageOccurrencePaymentService::class)->manage($occurrence, auth()->user() ?? $occurrence->recurringEntry->user, [
+            'request_id' => (string) Str::uuid(), 'reason' => 'not_charged', 'action' => 'pending',
+            'confirm_rectification' => true,
+        ]);
     }
 
     public function confirmExpired(): int
     {
-        return Transaction::query()
-            ->whereNotNull('payment_verification_started_at')
-            ->whereNull('payment_verified_at')
-            ->where('payment_verification_due_at', '<=', now())
-            ->update([
-                'payment_verified_at' => now(),
-                'payment_verification_method' => 'automatic',
-            ]);
+        return 0;
     }
 
     protected function lockedOccurrence(Transaction $transaction): RecurringEntryOccurrence
@@ -63,6 +54,8 @@ class AutomaticPaymentVerificationService
         if ($occurrence === null
             || $occurrence->converted_transaction_id !== $transaction->id
             || $occurrence->matched_transaction_id !== null
+            || $transaction->payment_rectified_at !== null
+            || $transaction->status?->value !== 'confirmed'
             || $transaction->kind !== TransactionKindEnum::SCHEDULED
             || $transaction->payment_verification_started_at === null) {
             throw ValidationException::withMessages(['payment' => __('ui.this_transaction_is_not_an_automatic_posting_that_can_be_verifie_b94a80ff')]);

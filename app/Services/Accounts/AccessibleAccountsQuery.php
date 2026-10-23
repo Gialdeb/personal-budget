@@ -196,6 +196,10 @@ class AccessibleAccountsQuery
 
     public function canEditAccountId(User|int $user, int $accountId): bool
     {
+        if (request()->isMethod('GET') && request()->route() !== null) {
+            return (bool) $this->get($user)->firstWhere('id', $accountId)?->getAttribute('can_edit');
+        }
+
         return $this->editable($user)
             ->where('accounts.id', $accountId)
             ->exists();

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\FinancialIndexRequest;
 use App\Http\Requests\Recurring\AllocateOccurrencePaymentRequest;
 use App\Http\Requests\Recurring\ConvertRecurringOccurrenceRequest;
+use App\Http\Requests\Recurring\ManageOccurrencePaymentRequest;
 use App\Http\Requests\Recurring\UpdateRecurringOccurrenceAmountRequest;
 use App\Http\Requests\Recurring\UpdateRecurringOccurrenceRequest;
 use App\Models\CounterpartyPayment;
@@ -13,6 +14,7 @@ use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Recurring\AllocateOccurrencePaymentService;
+use App\Services\Recurring\ManageOccurrencePaymentService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
@@ -38,12 +40,28 @@ class RecurringEntryOccurrenceController extends Controller
         protected AccessibleAccountsQuery $accessibleAccountsQuery
     ) {}
 
+    public function manage(ManageOccurrencePaymentRequest $request, RecurringEntry $recurringEntry, RecurringEntryOccurrence $occurrence, ManageOccurrencePaymentService $service): RedirectResponse
+    {
+        $service->manage($this->accessibleOccurrence($request, $recurringEntry, $occurrence, true), $request->user(), $request->validated());
+
+        return back()->with('success', __('payment_management.updated'));
+    }
+
     public function convert(
         ConvertRecurringOccurrenceRequest $request,
         RecurringEntry $recurringEntry,
         RecurringEntryOccurrence $occurrence
     ): RedirectResponse {
         $ownedOccurrence = $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true);
+
+        if ($request->boolean('return_to_dashboard')) {
+            if ($recurringEntry->auto_create_transaction) {
+                throw ValidationException::withMessages(['payment' => __('payment_management.automatic_confirmation_only')]);
+            }
+            if ($this->occurrenceDate($ownedOccurrence)?->isFuture()) {
+                throw ValidationException::withMessages(['payment' => __('payment_management.future_confirmation')]);
+            }
+        }
 
         if ($this->occurrenceDate($ownedOccurrence)?->isFuture() && ! $request->boolean('confirm_future_date')) {
             throw ValidationException::withMessages([
@@ -60,6 +78,10 @@ class RecurringEntryOccurrenceController extends Controller
         }
 
         $transaction = $this->postingService->post($ownedOccurrence, $request->user(), $request->validated());
+
+        if ($request->boolean('return_to_dashboard')) {
+            return back()->with('success', __('ui.payment_confirmed_e61f0af5'));
+        }
 
         return to_route('transactions.show', [
             'year' => $transaction->transaction_date->year,
@@ -80,6 +102,7 @@ class RecurringEntryOccurrenceController extends Controller
             ->where('status', 'confirmed')->whereIn('kind', ['manual', 'scheduled'])
             ->where('direction', $recurringEntry->direction)->where('currency', $recurringEntry->currency)
             ->where('is_transfer', false)->whereNull('recurring_entry_occurrence_id')->whereNull('shared_expense_counterparty_id')
+            ->whereNull('refunded_transaction_id')->whereNull('related_transaction_id')
             ->whereDoesntHave('occurrencePaymentAllocations')->whereDoesntHave('creditDebtPayment')->whereDoesntHave('sharedExpenseSettlement')
             ->whereDoesntHave('refundTransaction', fn ($refund) => $refund->where('status', 'confirmed'))
             ->whereNotIn('id', CounterpartyPayment::query()->whereNotNull('transaction_id')->select('transaction_id'))

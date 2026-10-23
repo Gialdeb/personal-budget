@@ -26,7 +26,7 @@ class AutomaticPaymentVerificationController extends Controller
     public function problem(Request $request, Transaction $transaction): RedirectResponse
     {
         $this->authorizeTransaction($request, $transaction);
-        $occurrence = $this->verificationService->reportProblem($transaction);
+        $occurrence = $this->verificationService->reportProblem($transaction, $request->boolean('confirm_rectification'));
 
         return to_route('recurring-entries.show', $occurrence->recurringEntry->uuid)
             ->with('success', __('ui.posting_removed_the_occurrence_is_awaiting_payment_099900a8'));

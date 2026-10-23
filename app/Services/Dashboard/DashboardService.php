@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\CreditDebts\DerivedObligationsService;
+use App\Services\Recurring\ManageOccurrencePaymentService;
 use App\Services\Recurring\RecurringOccurrenceReadService;
 use App\Services\UserYearService;
 use App\Support\Banks\BankNamePresenter;
@@ -215,21 +216,24 @@ class DashboardService
     {
         $today = CarbonImmutable::today();
 
-        $paymentItems = Transaction::query()
+        $paymentItems = Transaction::query()->notRectified()
             ->whereIn('account_id', $accountContext['account_ids'])
             ->whereNotNull('payment_verification_started_at')
             ->whereNull('payment_verified_at')
-            ->where('payment_verification_due_at', '>', now())
+            ->where('status', 'confirmed')->whereNull('payment_rectified_at')
             ->whereDoesntHave('refundTransaction')
             ->with('recurringOccurrence.recurringEntry')
             ->orderBy('payment_verification_due_at')->get()
-            ->filter(fn (Transaction $transaction): bool => $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id)
+            ->filter(fn (Transaction $transaction): bool => $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id
+                && ($transaction->recurringOccurrence->due_date ?? $transaction->recurringOccurrence->expected_date)->lte($today))
             ->map(fn (Transaction $transaction): array => [
-                'id' => 'payment-'.$transaction->uuid,
+                'id' => 'recurring-'.$transaction->recurring_entry_occurrence_id,
                 'title' => $transaction->description,
                 'date' => $transaction->transaction_date->toDateString(),
                 'amount' => (float) $transaction->amount,
                 'currency' => $transaction->currency,
+                'is_future' => false,
+                'recurrence_mode' => $transaction->recurringOccurrence->recurringEntry->auto_create_transaction ? 'automatic' : 'manual',
                 'status_key' => 'to_record',
                 'action_url' => route('transactions.show', [
                     'year' => $transaction->transaction_date->year,
@@ -239,38 +243,55 @@ class DashboardService
                 'plan_title' => $transaction->recurringOccurrence->recurringEntry->title,
                 'plan_url' => route('recurring-entries.show', $transaction->recurringOccurrence->recurringEntry->uuid),
                 'transaction_uuid' => $transaction->uuid,
+                'payment_management' => app(ManageOccurrencePaymentService::class)->presentation($transaction->recurringOccurrence, $user),
+                'can_manage' => $this->accessibleAccountsQuery->canEditAccountId($user, (int) $transaction->account_id) && $this->accessibleAccountsQuery->canEditAccountId($user, (int) $transaction->recurringOccurrence->recurringEntry->account_id),
                 'requires_payment_confirmation' => true,
                 'can_verify_payment' => $this->accessibleAccountsQuery->canEditAccountId($user, (int) $transaction->account_id)
                     && $this->accessibleAccountsQuery->canEditAccountId($user, (int) $transaction->recurringOccurrence->recurringEntry->account_id),
                 'entry_kind' => 'recurring',
             ]);
 
-        $recurringItems = $this->baseRecurringOccurrencePeriodQuery(
-            $accountContext['account_ids'],
-            $accountContext['owner_ids'],
-            $year,
-            $month,
-        )
+        $recurringItems = RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()
+            ->whereHas('recurringEntry', function (Builder $query) use ($accountContext): void {
+                $query->whereIn('account_id', $accountContext['account_ids']);
+                $this->applyTrackedItemOwnershipConstraintForOwners($query, 'recurring_entries.tracked_item_id', $accountContext['owner_ids']);
+            })
+            ->where(function (Builder $query) use ($year, $month, $today): void {
+                $query->where(fn (Builder $period) => $period->whereYear('expected_date', $year)->when($month !== null, fn (Builder $period) => $period->whereMonth('expected_date', $month)))
+                    ->orWhereDate('expected_date', '<=', $today)
+                    ->orWhere(fn (Builder $managed) => $managed->whereNotNull('payment_management_state')->whereNull('payment_resolved_at'));
+            })
             ->with([
                 'recurringEntry.merchant:id,name',
                 'recurringEntry.trackedItem:id,name',
                 'recurringEntry.category:id,name,name_is_custom,slug,foundation_key',
                 'recurringEntry.account:id,uuid',
+                'paymentEvents',
+                'paymentAllocations',
             ])
-            ->whereIn('status', [
-                RecurringOccurrenceStatusEnum::PENDING->value,
-                RecurringOccurrenceStatusEnum::GENERATED->value,
-            ])
+            ->where(function (Builder $query): void {
+                $query->whereIn('status', ['pending', 'generated'])
+                    ->orWhere(fn (Builder $managed) => $managed->whereNotNull('payment_management_state')->whereNull('payment_resolved_at'));
+            })
             ->orderBy('expected_date')
             ->get()
             ->tap(fn (Collection $occurrences) => app(RecurringOccurrenceReadService::class)->prepare($occurrences))
-            ->filter(fn (RecurringEntryOccurrence $occurrence): bool => app(RecurringOccurrenceReadService::class)->remaining($occurrence) > 0)
-            ->map(function (RecurringEntryOccurrence $occurrence) use ($today): array {
+            ->filter(fn (RecurringEntryOccurrence $occurrence): bool => app(RecurringOccurrenceReadService::class)->remaining($occurrence) > 0 || ($occurrence->payment_management_state !== null && $occurrence->payment_resolved_at === null))
+            ->map(function (RecurringEntryOccurrence $occurrence) use ($today, $user): array {
+                $payments = app(RecurringOccurrenceReadService::class);
+                $future = ($occurrence->due_date ?? $occurrence->expected_date)->gt($today);
+                $automatic = (bool) $occurrence->recurringEntry->auto_create_transaction;
+                $canEdit = $this->accessibleAccountsQuery->canEditAccountId($user, (int) $occurrence->recurringEntry->account_id);
+                $amount = $payments->remaining($occurrence);
+                if ($amount === 0 && $occurrence->payment_management_state === 'review') {
+                    $amount = $payments->paid($occurrence);
+                }
+
                 return [
                     'id' => 'recurring-'.$occurrence->id,
                     'title' => $this->resolveAgendaRecurringLabel($occurrence),
                     'date' => ($occurrence->due_date ?? $occurrence->expected_date)?->toDateString(),
-                    'amount' => app(RecurringOccurrenceReadService::class)->remaining($occurrence) / 100,
+                    'amount' => $amount / 100,
                     'status_key' => $this->resolvePendingActionStatusKey(
                         $occurrence->expected_date,
                         $occurrence->status->value,
@@ -280,6 +301,20 @@ class DashboardService
                     'action_url' => route('recurring-entries.show', $occurrence->recurringEntry->uuid),
                     'recurring_entry_uuid' => $occurrence->recurringEntry->uuid,
                     'occurrence_uuid' => $occurrence->uuid,
+                    'is_future' => $future,
+                    'recurrence_mode' => $automatic ? 'automatic' : 'manual',
+                    'plan_url' => route('recurring-entries.show', $occurrence->recurringEntry->uuid),
+                    'plan_title' => $occurrence->recurringEntry->title,
+                    'can_confirm_manual' => ! $future && ! $automatic && $canEdit
+                        && $payments->paid($occurrence) === 0
+                        && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null
+                        && $occurrence->paymentAllocations->isEmpty()
+                        && $occurrence->payment_management_state === null,
+                    'automatic_payment_missing' => ! $future && $automatic
+                        && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null
+                        && $occurrence->automatic_posting_blocked_at === null,
+                    'can_manage' => ! $future && $canEdit,
+                    'payment_management' => app(ManageOccurrencePaymentService::class)->presentation($occurrence, $user),
                     'requires_amount_confirmation' => $occurrence->recurringEntry->is_amount_variable
                         && ! $occurrence->recurringEntry->auto_create_transaction
                         && $occurrence->amount_confirmed_at === null
@@ -326,15 +361,15 @@ class DashboardService
 
         $items = $scheduledItems
             ->concat($recurringItems->all())
-            ->concat($paymentItems->all())
+            ->concat($paymentItems->all())->unique('id')
             ->filter(fn (array $item): bool => filled($item['date']))
             ->sortBy('date')
             ->values();
 
         return [
             'total_count' => $items->count(),
-            'items' => $items->filter(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false))
-                ->concat($items->reject(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false))->take(3)->all())
+            'items' => $items->filter(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false) || isset($item['payment_management']))
+                ->concat($items->reject(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false) || isset($item['payment_management']))->take(3)->all())
                 ->values()->all(),
         ];
     }
@@ -768,7 +803,7 @@ class DashboardService
         int $year,
         ?int $month,
     ): Builder {
-        $query = Transaction::query()
+        $query = Transaction::query()->notRectified()
             ->whereIn('transactions.account_id', $accountIds !== [] ? $accountIds : [0])
             ->where('transactions.kind', TransactionKindEnum::MANUAL->value)
             ->where('transactions.is_transfer', false)
@@ -1050,7 +1085,7 @@ class DashboardService
 
     protected function baseTransactionYearsQuery(int $userId): Builder
     {
-        $query = Transaction::query()
+        $query = Transaction::query()->notRectified()
             ->where('transactions.user_id', $userId);
 
         $this->applyTrackedItemOwnershipConstraint(
@@ -1378,7 +1413,7 @@ class DashboardService
             return $this->resolveAccountBalanceAt($account, $date);
         }
 
-        $transactions = Transaction::query()
+        $transactions = Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->whereDate('transaction_date', '<=', $date->toDateString())
             ->orderBy('transaction_date')
@@ -1505,7 +1540,7 @@ class DashboardService
             return [];
         }
 
-        return Transaction::query()
+        return Transaction::query()->notRectified()
             ->whereIn('account_id', $accountContext['shared_account_ids'])
             ->where('kind', TransactionKindEnum::MANUAL->value)
             ->where('is_transfer', false)
@@ -1690,7 +1725,7 @@ class DashboardService
 
     protected function calculateAccountOpeningBalance(Account $account, CarbonImmutable $date): float
     {
-        $openingBalanceTransaction = Transaction::query()
+        $openingBalanceTransaction = Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
             ->whereDate('transaction_date', '<=', $date->toDateString())
@@ -1760,7 +1795,7 @@ class DashboardService
         ?CarbonImmutable $fromDate,
         CarbonImmutable $toDate
     ): float {
-        $query = Transaction::query()
+        $query = Transaction::query()->notRectified()
             ->where('user_id', $userId)
             ->where('account_id', $accountId)
             ->where('kind', '!=', TransactionKindEnum::OPENING_BALANCE->value)

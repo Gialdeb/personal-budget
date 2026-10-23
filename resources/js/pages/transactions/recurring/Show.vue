@@ -393,6 +393,7 @@ if (
 const paymentFormOpen = ref(false);
 const paymentLoading = ref(false);
 const paymentOccurrence = ref<{
+    is_amount_variable?: boolean;
     uuid: string;
     account_uuid: string;
     category_uuid: string | null;
@@ -416,6 +417,11 @@ function registerPayment(
         only: ['transactionSheet'],
         onSuccess: () => {
             paymentOccurrence.value = {
+                is_amount_variable:
+                    Boolean(
+                        occurrence.is_amount_variable ??
+                        entry.value.is_amount_variable,
+                    ) && !occurrence.payments?.length,
                 uuid: occurrence.uuid,
                 account_uuid:
                     occurrence.resource?.uuid ??
@@ -3409,7 +3415,8 @@ function isFutureOccurrence(
                                     v-if="
                                         occurrence.payments?.length ||
                                         occurrence.external_payment ||
-                                        occurrence.payment_history?.length
+                                        occurrence.payment_history?.length ||
+                                        occurrence.payment_management
                                     "
                                     class="min-w-0 text-sm"
                                 >
@@ -3419,6 +3426,18 @@ function isFutureOccurrence(
                                         {{ ui('Dettagli pagamenti') }}
                                     </summary>
                                     <OccurrencePayments
+                                        :management="
+                                            occurrence.payment_management
+                                        "
+                                        :occurrence-url="
+                                            occurrence.occurrence_url
+                                        "
+                                        :sequence-number="
+                                            occurrence.sequence_number
+                                        "
+                                        :expected-date="
+                                            occurrence.expected_date
+                                        "
                                         :payments="occurrence.payments"
                                         :external-payment="
                                             occurrence.external_payment
@@ -3985,7 +4004,8 @@ function isFutureOccurrence(
                                                         ?.length ||
                                                     occurrence.external_payment ||
                                                     occurrence.payment_history
-                                                        ?.length
+                                                        ?.length ||
+                                                    occurrence.payment_management
                                                 "
                                                 class="min-w-0 text-sm"
                                             >
@@ -3997,6 +4017,18 @@ function isFutureOccurrence(
                                                     }}
                                                 </summary>
                                                 <OccurrencePayments
+                                                    :management="
+                                                        occurrence.payment_management
+                                                    "
+                                                    :occurrence-url="
+                                                        occurrence.occurrence_url
+                                                    "
+                                                    :sequence-number="
+                                                        occurrence.sequence_number
+                                                    "
+                                                    :expected-date="
+                                                        occurrence.expected_date
+                                                    "
                                                     :history="
                                                         occurrence.payment_history
                                                     "

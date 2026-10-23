@@ -2471,72 +2471,32 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         <td class="px-4 py-4">
                                             <OccurrencePayments
                                                 v-if="
-                                                    occurrence.external_payment
+                                                    occurrence.external_payment ||
+                                                    occurrence.payments
+                                                        ?.length ||
+                                                    occurrence.payment_history
+                                                        ?.length
                                                 "
-                                                :payments="[]"
+                                                :payments="
+                                                    occurrence.payments ?? []
+                                                "
+                                                :history="
+                                                    occurrence.payment_history
+                                                "
                                                 :external-payment="
                                                     occurrence.external_payment
                                                 "
                                                 :currency="occurrence.currency"
-                                            />
-                                            <div
-                                                v-else-if="
-                                                    occurrence.converted_transaction
+                                                :occurrence-url="
+                                                    occurrence.occurrence_url
                                                 "
-                                                class="space-y-2"
-                                            >
-                                                <div
-                                                    class="space-y-1 text-xs text-slate-600 dark:text-slate-300"
-                                                >
-                                                    <p>
-                                                        {{
-                                                            occurrence
-                                                                .converted_transaction
-                                                                .transaction_date
-                                                        }}
-                                                    </p>
-                                                    <p
-                                                        v-if="
-                                                            occurrence
-                                                                .converted_transaction
-                                                                .refund_transaction
-                                                                ?.transaction_date
-                                                        "
-                                                        class="text-amber-700 dark:text-amber-300"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.recurring.table.refundReference',
-                                                                {
-                                                                    date: occurrence
-                                                                        .converted_transaction
-                                                                        .refund_transaction
-                                                                        .transaction_date,
-                                                                },
-                                                            )
-                                                        }}
-                                                    </p>
-                                                    <Link
-                                                        v-if="
-                                                            occurrence
-                                                                .converted_transaction
-                                                                .show_url
-                                                        "
-                                                        :href="
-                                                            occurrence
-                                                                .converted_transaction
-                                                                .show_url
-                                                        "
-                                                        class="inline-flex items-center text-xs font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'transactions.recurring.actions.openTransaction',
-                                                            )
-                                                        }}
-                                                    </Link>
-                                                </div>
-                                            </div>
+                                                :sequence-number="
+                                                    occurrence.sequence_number
+                                                "
+                                                :expected-date="
+                                                    occurrence.expected_date
+                                                "
+                                            />
                                             <span
                                                 v-else
                                                 class="text-xs text-slate-500 dark:text-slate-400"

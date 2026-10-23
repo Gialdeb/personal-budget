@@ -6,17 +6,15 @@ import {
     ChevronLeft,
     ChevronRight,
     CircleAlert,
+    Clock3,
     Landmark,
     Sparkles,
     WalletCards,
 } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import {
-    confirm as confirmPayment,
-    problem as paymentProblem,
-} from '@/actions/App/Http/Controllers/AutomaticPaymentVerificationController';
-import { updateAmount } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
+import { confirm as confirmPayment } from '@/actions/App/Http/Controllers/AutomaticPaymentVerificationController';
+import { convert } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
 import BudgetVsActual from '@/components/dashboard/BudgetVsActual.vue';
 import CategoryTargets from '@/components/dashboard/CategoryTargets.vue';
 import EconomicCommitmentCard from '@/components/dashboard/EconomicCommitmentCard.vue';
@@ -24,19 +22,27 @@ import FinancialAgenda from '@/components/dashboard/FinancialAgenda.vue';
 import FinancialTimeline from '@/components/dashboard/FinancialTimeline.vue';
 import ForecastExpensesPanel from '@/components/dashboard/ForecastExpensesPanel.vue';
 import LegacyOverviewCards from '@/components/dashboard/LegacyOverviewCards.vue';
+import ManagePaymentDialog from '@/components/dashboard/ManagePaymentDialog.vue';
 import MonthDetailSheet from '@/components/dashboard/MonthDetailSheet.vue';
 import MonthlyRecapPanel from '@/components/dashboard/MonthlyRecapPanel.vue';
 import SpendingCapacityCard from '@/components/dashboard/SpendingCapacityCard.vue';
-import InputError from '@/components/InputError.vue';
-import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { useForm } from '@/composables/useNotifiedForm';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import { buildDashboardMonthCallout } from '@/lib/dashboard-month-callout';
+import { paymentStateLabel } from '@/lib/payment-management';
 import { dashboard as dashboardRoute } from '@/routes';
 import type {
     BreadcrumbItem,
@@ -48,50 +54,50 @@ import type { DashboardPendingActionItem } from '@/types/dashboard';
 const ui = useUiCopy();
 
 const props = defineProps<DashboardPageProps>();
-const amountConfirmationId = ref<string | null>(null);
+const manualPayment = ref<DashboardPendingActionItem | null>(null);
+const manualOpen = ref(false);
+const manualRegistration = useForm<Record<string, boolean>>({
+    return_to_dashboard: true,
+    confirm_payment: true,
+});
 const paymentVerification = useForm<Record<string, string>>({});
-function verifyPayment(item: DashboardPendingActionItem, failed = false): void {
+const managedPayment = ref<DashboardPendingActionItem | null>(null);
+const managementOpen = ref(false);
+function managePayment(item: DashboardPendingActionItem): void {
+    managedPayment.value = item;
+    managementOpen.value = true;
+}
+function verifyPayment(item: DashboardPendingActionItem): void {
     if (!item.transaction_uuid) {
         return;
     }
 
+    paymentVerification.post(confirmPayment.url(item.transaction_uuid), {
+        preserveScroll: true,
+    });
+}
+function askManualPayment(item: DashboardPendingActionItem): void {
+    manualRegistration.clearErrors();
+    manualPayment.value = item;
+    manualOpen.value = true;
+}
+function registerManualPayment(): void {
+    const item = manualPayment.value;
+
     if (
-        failed &&
-        !window.confirm(
-            ui(
-                'Il pagamento non è avvenuto? La registrazione contabile verrà rimossa.',
-            ),
-        )
+        !item?.can_confirm_manual ||
+        !item.recurring_entry_uuid ||
+        !item.occurrence_uuid
     ) {
         return;
     }
 
-    paymentVerification.post(
-        (failed ? paymentProblem : confirmPayment).url(item.transaction_uuid),
-        { preserveScroll: true },
-    );
-}
-const amountConfirmation = useForm({ amount: '', return_to_dashboard: true });
-function editConfirmation(item: DashboardPendingActionItem): void {
-    amountConfirmationId.value = item.id;
-    amountConfirmation.amount = String(item.amount_raw);
-    amountConfirmation.clearErrors();
-}
-function confirmAmount(item: DashboardPendingActionItem, edited = false): void {
-    if (!item.recurring_entry_uuid || !item.occurrence_uuid) {
-        return;
-    }
-
-    if (!edited) {
-        editConfirmation(item);
-    }
-
-    amountConfirmation.patch(
-        updateAmount.url([item.recurring_entry_uuid, item.occurrence_uuid]),
+    manualRegistration.post(
+        convert.url([item.recurring_entry_uuid, item.occurrence_uuid]),
         {
             preserveScroll: true,
             onSuccess: () => {
-                amountConfirmationId.value = null;
+                manualOpen.value = false;
             },
         },
     );
@@ -1143,90 +1149,121 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                                 "
                             />
                         </Link>
-                        <template v-if="item.requires_payment_confirmation">
-                            <Badge class="mt-3 bg-primary/10 text-primary">{{
-                                ui('Pagamento da confermare')
-                            }}</Badge>
-                            <Link
-                                v-if="item.plan_url"
-                                :href="item.plan_url"
-                                class="mt-2 block text-xs text-muted-foreground underline"
-                                >{{ item.plan_title }}</Link
+                        <p
+                            v-if="item.recurrence_mode"
+                            class="mt-3 text-xs text-muted-foreground"
+                        >
+                            {{
+                                ui(
+                                    item.recurrence_mode === 'automatic'
+                                        ? 'Ricorrenza automatica'
+                                        : 'Ricorrenza manuale',
+                                )
+                            }}
+                        </p>
+                        <Link
+                            v-if="item.plan_url"
+                            :href="item.plan_url"
+                            class="mt-2 block text-xs text-muted-foreground underline"
+                        >
+                            {{ ui('Vai al piano') }}
+                        </Link>
+                        <template v-if="!item.is_future">
+                            <Badge
+                                v-if="item.automatic_payment_missing"
+                                variant="outline"
+                                class="mt-3 gap-1.5 border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200"
                             >
+                                <CircleAlert class="size-3.5 shrink-0" />{{
+                                    ui('Movimento automatico mancante')
+                                }}
+                            </Badge>
+                            <Badge
+                                v-else-if="item.payment_management"
+                                variant="outline"
+                                class="mt-3 max-w-full gap-1.5 border-primary/20 bg-primary/5 px-2.5 py-1 whitespace-normal text-primary"
+                            >
+                                <Clock3
+                                    v-if="
+                                        item.payment_management.state ===
+                                        'pending'
+                                    "
+                                    class="size-3.5 shrink-0"
+                                />
+                                {{
+                                    ui(
+                                        item.payment_management.state ===
+                                            'pending'
+                                            ? 'Pagamento ancora non avvenuto'
+                                            : paymentStateLabel(
+                                                  item.payment_management.state,
+                                              ),
+                                    )
+                                }}
+                            </Badge>
+                            <p
+                                v-if="item.automatic_payment_missing"
+                                class="mt-2 max-w-64 text-xs text-muted-foreground"
+                            >
+                                {{
+                                    ui(
+                                        'La transazione prevista non è presente. Verifica da Gestisci pagamento.',
+                                    )
+                                }}
+                            </p>
                             <div
-                                v-if="item.can_verify_payment"
+                                v-if="
+                                    item.can_verify_payment ||
+                                    item.can_confirm_manual ||
+                                    (item.payment_management && item.can_manage)
+                                "
                                 class="mt-3 flex flex-wrap gap-2"
                             >
                                 <Button
+                                    v-if="
+                                        item.can_verify_payment &&
+                                        item.transaction_uuid
+                                    "
                                     size="sm"
                                     :disabled="paymentVerification.processing"
                                     @click="verifyPayment(item)"
                                     >{{ ui('Conferma') }}</Button
                                 >
                                 <Button
+                                    v-else-if="item.can_confirm_manual"
+                                    size="sm"
+                                    :disabled="manualRegistration.processing"
+                                    @click="askManualPayment(item)"
+                                    >{{ ui('Conferma pagamento') }}</Button
+                                >
+                                <Button
+                                    v-if="
+                                        item.payment_management &&
+                                        item.can_manage
+                                    "
                                     size="sm"
                                     variant="outline"
-                                    :disabled="paymentVerification.processing"
-                                    @click="verifyPayment(item, true)"
-                                    >{{ ui('Problema pagamento') }}</Button
+                                    @click="managePayment(item)"
+                                    >{{ ui('Gestisci pagamento') }}</Button
                                 >
                             </div>
                             <p
-                                v-if="paymentVerification.errors.payment"
+                                v-if="
+                                    paymentVerification.errors.payment &&
+                                    item.can_verify_payment
+                                "
                                 role="alert"
                                 class="mt-2 text-xs text-destructive"
                             >
                                 {{ paymentVerification.errors.payment }}
                             </p>
                         </template>
-                        <template v-else-if="item.requires_amount_confirmation">
-                            <Badge class="mt-3 bg-primary/10 text-primary">{{
-                                ui('Importo da confermare')
-                            }}</Badge>
-                            <form
-                                v-if="amountConfirmationId === item.id"
-                                class="mt-3 grid gap-2"
-                                @submit.prevent="confirmAmount(item, true)"
-                            >
-                                <label
-                                    :for="`confirm-amount-${item.id}`"
-                                    class="text-xs font-medium"
-                                    >{{
-                                        ui('Importo della singola occorrenza')
-                                    }}</label
-                                >
-                                <MobileAmountInput
-                                    :id="`confirm-amount-${item.id}`"
-                                    v-model="amountConfirmation.amount"
-                                    :currency-code="item.currency ?? currency"
-                                    min="0.01"
-                                    required
-                                />
-                                <InputError
-                                    :message="amountConfirmation.errors.amount"
-                                />
-                                <Button
-                                    type="submit"
-                                    size="sm"
-                                    :disabled="amountConfirmation.processing"
-                                    >{{ ui('Conferma importo') }}</Button
-                                >
-                            </form>
-                            <div v-else class="mt-3 flex flex-wrap gap-2">
-                                <Button
-                                    size="sm"
-                                    :disabled="amountConfirmation.processing"
-                                    @click="confirmAmount(item)"
-                                    >{{ ui('Conferma previsto') }}</Button
-                                >
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    @click="editConfirmation(item)"
-                                    >{{ ui('Modifica importo') }}</Button
-                                >
-                            </div>
-                        </template>
+                        <Badge
+                            v-else
+                            variant="outline"
+                            class="mt-3 text-muted-foreground"
+                            >{{ ui('Previsione') }}</Badge
+                        >
                     </article>
                 </div>
                 <p
@@ -1236,6 +1273,64 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                     {{ t('dashboard.metrics.noPendingActions') }}
                 </p>
             </section>
+            <Dialog v-model:open="manualOpen">
+                <DialogContent class="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{{
+                            ui('Il pagamento è realmente avvenuto?')
+                        }}</DialogTitle>
+                        <DialogDescription>{{
+                            ui(
+                                'Il movimento verrà registrato con importo e data previsti. Per correggerli, usa Gestisci pagamento.',
+                            )
+                        }}</DialogDescription>
+                    </DialogHeader>
+                    <div
+                        v-if="manualPayment"
+                        class="rounded-xl border bg-muted/25 p-4"
+                    >
+                        <p class="font-medium">{{ manualPayment.title }}</p>
+                        <SensitiveValue
+                            class="mt-2 block font-semibold"
+                            :value="money(manualPayment.amount_raw)"
+                        />
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            {{ dateLabel(manualPayment.date) }}
+                        </p>
+                    </div>
+                    <p
+                        v-if="
+                            manualRegistration.errors.payment ||
+                            manualRegistration.errors.occurrence
+                        "
+                        role="alert"
+                        class="text-sm text-destructive"
+                    >
+                        {{
+                            manualRegistration.errors.payment ||
+                            manualRegistration.errors.occurrence
+                        }}
+                    </p>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            :disabled="manualRegistration.processing"
+                            @click="manualOpen = false"
+                            >{{ ui('Non ancora') }}</Button
+                        >
+                        <Button
+                            :disabled="manualRegistration.processing"
+                            @click="registerManualPayment"
+                            >{{ ui('Sì, registra pagamento') }}</Button
+                        >
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <ManagePaymentDialog
+                v-model:open="managementOpen"
+                :item="managedPayment"
+                :currency="currency"
+            />
 
             <section
                 class="grid gap-4 2xl:grid-cols-[minmax(18rem,0.8fr)_minmax(0,1.45fr)_minmax(20rem,0.95fr)]"

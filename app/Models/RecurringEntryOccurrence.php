@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class RecurringEntryOccurrence extends Model
@@ -39,7 +40,18 @@ class RecurringEntryOccurrence extends Model
         });
     }
 
+    public function paymentEvents(): HasMany
+    {
+        return $this->hasMany(RecurringPaymentEvent::class, 'occurrence_id');
+    }
+
+    public function paymentTargetCents(): int
+    {
+        return (int) round((float) ($this->payment_actual_amount ?? $this->expected_amount) * 100);
+    }
+
     protected $fillable = [
+        'payment_management_state', 'payment_estimated_date', 'payment_reminder_date', 'payment_resolved_at', 'payment_actual_amount', 'payment_actual_date',
         'recurring_entry_id',
         'account_id',
         'sequence_number',
@@ -56,6 +68,7 @@ class RecurringEntryOccurrence extends Model
     ];
 
     protected $casts = [
+        'payment_estimated_date' => 'date', 'payment_reminder_date' => 'date', 'payment_resolved_at' => 'datetime', 'payment_actual_amount' => 'decimal:2', 'payment_actual_date' => 'date',
         'automatic_posting_blocked_at' => 'datetime',
         'payment_failed_at' => 'datetime',
         'sequence_number' => 'integer',
@@ -122,7 +135,7 @@ class RecurringEntryOccurrence extends Model
                 ->orWhereDoesntHave('convertedTransaction.refundTransaction', fn (Builder $refund) => $refund->where('status', 'confirmed'));
         })
             ->whereIn('status', ['pending', 'generated', 'refunded'])
-            ->whereRaw('ROUND('.$this->qualifyColumn('expected_amount').' * 100) > ('.$allocated->toSql().') + ('.$external->toSql().') + ('.$personal->toSql().')', [...$allocated->getBindings(), ...$external->getBindings(), ...$personal->getBindings()])
+            ->whereRaw('ROUND('.'COALESCE('.$this->qualifyColumn('payment_actual_amount').', '.$this->qualifyColumn('expected_amount').') * 100) > ('.$allocated->toSql().') + ('.$external->toSql().') + ('.$personal->toSql().')', [...$allocated->getBindings(), ...$external->getBindings(), ...$personal->getBindings()])
             ->where('expected_amount', '>', 0)
             ->where(function (Builder $dates): void {
                 $dates->whereDate('due_date', '<=', today())
@@ -173,7 +186,7 @@ class RecurringEntryOccurrence extends Model
 
     public function remainingPaymentCents(): int
     {
-        return max(0, (int) round((float) $this->expected_amount * 100)
+        return max(0, $this->paymentTargetCents()
             - $this->allocatedPaymentCents() - $this->externalPaymentCents() - $this->personalPaymentCents());
     }
 
@@ -194,6 +207,13 @@ class RecurringEntryOccurrence extends Model
             'status' => $settled ? RecurringOccurrenceStatusEnum::COMPLETED : RecurringOccurrenceStatusEnum::PENDING,
             'automatic_posting_blocked_at' => $settled ? $this->automatic_posting_blocked_at : now(),
         ])->save();
+        if ($settled && $this->payment_management_state !== null && $this->payment_management_state !== 'review' && $this->payment_resolved_at === null) {
+            $this->forceFill(['payment_management_state' => 'paid', 'payment_resolved_at' => now(), 'payment_reminder_date' => null])->save();
+            $this->paymentEvents()->create([
+                'request_id' => (string) Str::uuid(), 'actor_id' => auth()->id() ?? $this->recurringEntry->user_id,
+                'reason' => 'payment_recorded', 'action' => 'resolved', 'details' => ['paid_cents' => $this->paymentTargetCents()],
+            ]);
+        }
         $entry = $this->recurringEntry;
         if (! $settled && $entry !== null) {
             if ($entry->status === RecurringEntryStatusEnum::COMPLETED) {

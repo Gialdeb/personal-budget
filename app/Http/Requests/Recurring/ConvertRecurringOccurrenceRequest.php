@@ -26,6 +26,8 @@ class ConvertRecurringOccurrenceRequest extends FormRequest
             'shared_expense_paid_by' => ['nullable', 'in:self,counterparty'],
             'amount' => ['nullable', 'numeric', 'decimal:0,2', 'gt:0'],
             'confirm_future_date' => ['nullable', 'boolean'],
+            'return_to_dashboard' => ['sometimes', 'boolean'],
+            'confirm_payment' => ['required_if:return_to_dashboard,true', 'accepted_if:return_to_dashboard,true'],
         ];
     }
 

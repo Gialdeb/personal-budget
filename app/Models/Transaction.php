@@ -34,12 +34,18 @@ class Transaction extends Model
             app(CounterpartySourceGuard::class)->assertRefund($transaction);
         });
         static::deleting(function (self $transaction): void {
+            if ($transaction->payment_rectified_at !== null) {
+                throw ValidationException::withMessages(['payment' => __('payment_management.rectified_locked')]);
+            }
             $transaction->ensureNoPlanRefund();
             app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction);
             app(CounterpartySourceGuard::class)->assertChange($transaction, true);
         });
         static::restoring(fn (self $transaction) => app(CounterpartyBankMutation::class)->assertGenericMutationAllowed($transaction));
         static::updating(function (self $transaction): void {
+            if ($transaction->getRawOriginal('payment_rectified_at') !== null && array_diff(array_keys($transaction->getDirty()), ['balance_after', 'updated_at']) !== []) {
+                throw ValidationException::withMessages(['payment' => __('payment_management.rectified_locked')]);
+            }
             if (array_diff(array_keys($transaction->getDirty()), ['balance_after', 'updated_at']) !== []) {
                 $transaction->ensureNoPlanRefund();
             }
@@ -128,12 +134,18 @@ class Transaction extends Model
             - ($refund?->status === TransactionStatusEnum::CONFIRMED ? (int) round((float) $refund->amount * 100) : 0));
     }
 
+    public function scopeNotRectified(Builder $query): Builder
+    {
+        return $query->whereNull($this->qualifyColumn('payment_rectified_at'));
+    }
+
     public function occurrencePaymentAllocations(): HasMany
     {
         return $this->hasMany(RecurringOccurrencePaymentAllocation::class);
     }
 
     protected $fillable = [
+        'payment_original_amount', 'payment_rectified_at', 'payment_rectification_reason',
         'payment_verification_started_at',
         'payment_verification_due_at',
         'user_id',
@@ -186,6 +198,8 @@ class Transaction extends Model
     ];
 
     protected $casts = [
+        'payment_original_amount' => 'decimal:2',
+        'payment_rectified_at' => 'datetime',
         'payment_verification_started_at' => 'datetime',
         'payment_verification_due_at' => 'datetime',
         'payment_verified_at' => 'datetime',

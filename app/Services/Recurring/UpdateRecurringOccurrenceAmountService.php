@@ -24,6 +24,37 @@ class UpdateRecurringOccurrenceAmountService
         protected SharedExpenseAllocation $sharedExpenseAllocation,
     ) {}
 
+    public function synchronizeTransactionAmount(Transaction $transaction): void
+    {
+        if (! $transaction->isDirty(['amount', 'transaction_date']) || $transaction->recurring_entry_occurrence_id === null) {
+            return;
+        }
+
+        $occurrence = RecurringEntryOccurrence::query()->with('recurringEntry')
+            ->lockForUpdate()->findOrFail($transaction->recurring_entry_occurrence_id);
+        $entry = $occurrence->recurringEntry;
+        if (! $entry->is_amount_variable || $entry->entry_type !== RecurringEntryTypeEnum::RECURRING || $entry->salarySchedule !== null) {
+            return;
+        }
+
+        if ($occurrence->converted_transaction_id !== $transaction->id
+            || $occurrence->matched_transaction_id !== null
+            || $occurrence->paymentAllocations()->exists()
+            || $occurrence->sharedExpenseLedgerEntry()->exists()
+            || $occurrence->personalSettlementTransactions()->count() !== 1
+            || $transaction->refundTransaction()->exists()) {
+            throw ValidationException::withMessages(['amount' => __('transactions.validation.recurring_occurrence_amount_locked')]);
+        }
+
+        $occurrence->forceFill([
+            'payment_actual_amount' => $transaction->amount,
+            'payment_actual_date' => $transaction->transaction_date,
+            'amount_confirmed_at' => now(),
+            'shared_expense_my_share_cents' => $transaction->shared_expense_my_share_cents,
+            'shared_expense_counterparty_share_cents' => $transaction->shared_expense_counterparty_share_cents,
+        ])->save();
+    }
+
     public function update(
         RecurringEntryOccurrence $occurrence,
         User $actor,
@@ -48,6 +79,8 @@ class UpdateRecurringOccurrenceAmountService
             }
 
             $transaction = $this->lockedConvertedTransaction($lockedOccurrence);
+            $history = app(ManageOccurrencePaymentService::class);
+            $before = $history->snapshot($lockedOccurrence);
             $effectiveDate = $transaction?->transaction_date?->toDateString()
                 ?? $lockedOccurrence->due_date?->toDateString()
                 ?? $lockedOccurrence->expected_date->toDateString();
@@ -69,7 +102,7 @@ class UpdateRecurringOccurrenceAmountService
 
             $lockedOccurrence->forceFill([
                 ...$sharedAttributes,
-                'expected_amount' => $salaryDetail && $transaction !== null ? $salaryDetail->expectedTotal() : $normalizedAmount,
+                ...($transaction === null ? ['expected_amount' => $normalizedAmount] : ['payment_actual_amount' => $normalizedAmount, 'payment_actual_date' => $transaction->transaction_date]),
                 'amount_confirmed_at' => now(),
             ])->save();
 
@@ -101,7 +134,12 @@ class UpdateRecurringOccurrenceAmountService
 
                 $this->transactionMutationService->recalculateAccount($account);
                 $this->transactionMutationService->reconcileProcessedCreditCardCyclesForTransactions([$transaction]);
+                if ($salaryDetail === null) {
+                    $lockedOccurrence->refresh()->synchronizeSettlementState();
+                }
             }
+
+            $history->recordChange($lockedOccurrence, $actor, $before, $transaction === null ? 'forecast' : 'correct');
 
             return $lockedOccurrence->fresh([
                 'recurringEntry',
@@ -163,9 +201,20 @@ class UpdateRecurringOccurrenceAmountService
             ]);
         }
 
+        if ($transaction->payment_rectified_at !== null) {
+            return null;
+        }
+
         if ($transaction->refundTransaction instanceof Transaction) {
             throw ValidationException::withMessages([
                 'amount' => __('transactions.validation.recurring_occurrence_amount_refunded'),
+            ]);
+        }
+
+        if ($occurrence->paymentAllocations()->exists()
+            || $occurrence->personalSettlementTransactions()->count() !== 1) {
+            throw ValidationException::withMessages([
+                'amount' => __('transactions.validation.recurring_occurrence_amount_locked'),
             ]);
         }
 

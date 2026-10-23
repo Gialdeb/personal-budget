@@ -7,6 +7,7 @@ use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
+use App\Services\Recurring\ManageOccurrencePaymentService;
 use App\Services\Recurring\RecurringOccurrenceReadService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -28,7 +29,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
             RecurringOccurrenceStatusEnum::PENDING,
             RecurringOccurrenceStatusEnum::GENERATED,
         ], true);
-        $canUpdateConvertedAmount = $this->status === RecurringOccurrenceStatusEnum::COMPLETED
+        $canUpdateConvertedAmount = in_array($this->status, [RecurringOccurrenceStatusEnum::PENDING, RecurringOccurrenceStatusEnum::GENERATED, RecurringOccurrenceStatusEnum::COMPLETED], true)
             && $this->convertedTransaction !== null
             && $this->convertedTransaction->recurring_entry_occurrence_id === $this->id
             && $this->convertedTransaction->refundTransaction === null;
@@ -47,29 +48,12 @@ class RecurringEntryOccurrenceResource extends JsonResource
         $allocatedCents = app(RecurringOccurrenceReadService::class)->paid($this->resource);
         $ledger = $this->sharedExpenseLedgerEntry;
         $remainingCents = app(RecurringOccurrenceReadService::class)->remaining($this->resource);
-        $paidCents = 0;
-        $payments = $this->resource->paymentAllocations->filter(fn ($allocation): bool => $allocation->transaction !== null
-            && $allocation->transaction->status?->value === 'confirmed'
-            && $allocation->transaction->refundTransaction?->status?->value !== 'confirmed')
-            ->sortBy(fn ($allocation): string => $allocation->transaction->transaction_date->toDateString().'-'.str_pad((string) $allocation->id, 20, '0', STR_PAD_LEFT))
-            ->map(function ($allocation) use (&$paidCents): array {
-                $transaction = $allocation->transaction;
-                $paidCents += $allocation->amount_cents;
-
-                return [
-                    'uuid' => $transaction->uuid,
-                    'date' => $transaction->transaction_date->toDateString(),
-                    'amount' => $allocation->amount_cents / 100,
-                    'classification' => $paidCents >= (int) round((float) $this->expected_amount * 100) ? 'balance' : 'advance',
-                    'account' => $transaction->account?->name,
-                    'reference' => $transaction->trackedItem?->name,
-                    'show_url' => $this->transactionShowUrl($transaction),
-                ];
-            })->values()->all();
 
         return [
             'uuid' => $this->uuid,
             'entry_uuid' => $entry?->uuid,
+            'payment_management' => $request->user() === null ? null : app(ManageOccurrencePaymentService::class)->presentation($this->resource, $request->user(), false),
+            'is_amount_variable' => (bool) $entry?->is_amount_variable,
             'component_name' => $entry?->compoundComponent?->displayName(),
             'payment_defaults' => $entry?->compoundComponent === null ? null : [
                 'category_uuid' => $entry->category?->uuid,
@@ -96,13 +80,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'status' => $this->status?->value,
             'is_refunded' => $aggregateRefundedIds !== [] || $this->convertedTransaction?->refundTransaction !== null || $this->status?->value === 'refunded',
             'allocated_amount' => $allocatedCents / 100,
-            'payments' => $payments,
-            'payment_history' => ($this->resource->relationLoaded('settlementTransactions') ? $this->resource->settlementTransactions : $this->resource->settlementTransactions()->with('refundTransaction')->get())->concat(collect([$this->matchedTransaction])->filter())->unique('id')->where('id', '!=', $this->converted_transaction_id ?? 0)->sortBy('id')->values()->map(fn (Transaction $transaction): array => [
-                'uuid' => $transaction->uuid, 'date' => $transaction->transaction_date->toDateString(),
-                'amount' => (float) $transaction->amount, 'show_url' => $this->transactionShowUrl($transaction),
-                'refunded' => $transaction->refundTransaction !== null,
-                'refund_url' => $transaction->refundTransaction === null ? null : $this->transactionShowUrl($transaction->refundTransaction),
-            ])->all(),
+            ...$this->paymentDetails(),
             'external_payment' => $ledger === null ? null : [
                 'uuid' => $ledger->uuid,
                 'payer' => $ledger->counterparty?->name,
@@ -115,7 +93,10 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'can_register_payment' => $canEdit
                 && $entry?->user_id === $request->user()?->id
                 && $entry?->shared_expense_counterparty_id === null
-                && ($this->read_can_register_payment ?? $this->resource->newQuery()->openObligations()->whereKey($this->id)->exists()),
+                && (($this->read_can_register_payment ?? $this->resource->newQuery()->openObligations()->whereKey($this->id)->exists())
+                    || ($entry?->is_amount_variable && $entry?->salarySchedule === null
+                        && $this->converted_transaction_id === null && $this->matched_transaction_id === null
+                        && in_array($this->status?->value, ['pending', 'generated'], true))),
             'remaining_amount' => $remainingCents / 100,
             'settlement_status' => $remainingCents === 0 ? 'settled' : ($allocatedCents > 0 ? 'partial' : ($isDue ? ($requiresAmountConfirmation ? 'amount_confirmation' : 'due') : null)),
             'automatic_posting_blocked_at' => $this->automatic_posting_blocked_at?->toJSON(),
@@ -154,8 +135,11 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 && $this->status?->value === 'skipped',
             'can_undo_conversion' => $canEdit && ($ledger !== null || ($this->convertedTransaction !== null
                 && $this->convertedTransaction->kind?->value === 'scheduled'
+                && $this->convertedTransaction->payment_verification_started_at !== null
+                && $this->convertedTransaction->payment_verification_method !== 'manual'
+                && $this->convertedTransaction->payment_rectified_at === null
                 && $this->convertedTransaction->refundTransaction === null)),
-            'converted_transaction' => $this->convertedTransaction === null ? null : [
+            'converted_transaction' => $this->convertedTransaction === null || $this->convertedTransaction->payment_rectified_at !== null ? null : [
                 'payer' => $this->convertedTransaction->shared_expense_paid_by === 'self' ? 'Io' : null,
                 'uuid' => $this->convertedTransaction->uuid,
                 'kind' => $this->convertedTransaction->kind?->value,
@@ -165,6 +149,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 'show_url' => $this->transactionShowUrl($this->convertedTransaction),
                 'is_refunded' => $this->convertedTransaction->refundTransaction !== null || in_array((int) $this->converted_transaction_id, $aggregateRefundedIds, true),
                 'can_refund' => $canEdit
+                    && $this->convertedTransaction->payment_rectified_at === null
                     && $this->canRefundFromRecurringContext()
                     && in_array($this->convertedTransaction->kind?->value, ['manual', 'scheduled'], true)
                     && $this->convertedTransaction->refundTransaction === null,
@@ -174,6 +159,57 @@ class RecurringEntryOccurrenceResource extends JsonResource
                     'show_url' => $this->transactionShowUrl($this->convertedTransaction->refundTransaction),
                 ],
             ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function paymentDetails(): array
+    {
+        $paidCents = 0;
+        $payments = $this->resource->paymentAllocations->filter(fn ($allocation): bool => $allocation->transaction !== null
+            && $allocation->transaction->status?->value === 'confirmed'
+            && $allocation->transaction->refundTransaction?->status?->value !== 'confirmed')
+            ->sortBy(fn ($allocation): string => $allocation->transaction->transaction_date->toDateString().'-'.str_pad((string) $allocation->id, 20, '0', STR_PAD_LEFT))
+            ->map(function ($allocation) use (&$paidCents): array {
+                $transaction = $allocation->transaction;
+                $paidCents += $allocation->amount_cents;
+
+                return [
+                    'uuid' => $transaction->uuid,
+                    'date' => $transaction->transaction_date->toDateString(),
+                    'amount' => $allocation->amount_cents / 100,
+                    'classification' => $paidCents >= (int) round((float) $this->expected_amount * 100) ? 'balance' : 'advance',
+                    'account' => $transaction->account?->name,
+                    'reference' => $transaction->trackedItem?->name,
+                    'show_url' => $this->transactionShowUrl($transaction),
+                ];
+            })->values()->all();
+
+        $transactions = ($this->resource->relationLoaded('settlementTransactions')
+            ? $this->resource->settlementTransactions
+            : $this->resource->settlementTransactions()->with(['refundTransaction', 'account', 'trackedItem'])->get())
+            ->concat(collect([$this->convertedTransaction, $this->matchedTransaction])->filter())
+            ->unique('id')->reject(fn (Transaction $transaction): bool => $this->resource->paymentAllocations->contains('transaction_id', $transaction->id))
+            ->sortBy(fn (Transaction $transaction): string => $transaction->transaction_date->toDateString().'-'.str_pad((string) $transaction->id, 20, '0', STR_PAD_LEFT));
+
+        return [
+            'payments' => $payments,
+            'occurrence_url' => route('recurring-entries.show', [
+                'recurringEntry' => $this->recurringEntry->compoundComponent?->compoundRecurringEntry?->uuid ?? $this->recurringEntry->uuid,
+                'highlight' => $this->uuid,
+            ]),
+            'payment_history' => $transactions->values()->map(fn (Transaction $transaction): array => [
+                'uuid' => $transaction->uuid,
+                'date' => $transaction->transaction_date->toDateString(),
+                'amount' => (float) ($transaction->payment_original_amount ?? $transaction->amount),
+                'rectified' => $transaction->payment_rectified_at !== null,
+                'show_url' => $this->transactionShowUrl($transaction),
+                'status' => $transaction->status?->value,
+                'account' => $transaction->account?->name,
+                'reference' => $transaction->trackedItem?->name,
+                'refunded' => $transaction->refundTransaction !== null,
+                'refund_url' => $transaction->refundTransaction === null ? null : $this->transactionShowUrl($transaction->refundTransaction),
+            ])->all(),
         ];
     }
 

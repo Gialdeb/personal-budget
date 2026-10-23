@@ -23,6 +23,8 @@ use App\Services\Categories\CategoryFoundationService;
 use App\Services\Counterparties\CounterpartyBankMutation;
 use App\Services\Counterparties\SharedCounterpartyShadowService;
 use App\Services\Recurring\AllocateOccurrencePaymentService;
+use App\Services\Recurring\ManageOccurrencePaymentService;
+use App\Services\Recurring\UpdateRecurringOccurrenceAmountService;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -110,7 +112,15 @@ class TransactionMutationService
                     ->where('uuid', $validated['payment_occurrence_uuid'])
                     ->whereHas('recurringEntry', fn ($query) => $query->where('user_id', $user->id))
                     ->firstOrFail();
-                app(AllocateOccurrencePaymentService::class)->allocate($occurrence, $transaction, $user, (string) $validated['amount']);
+                $payments = app(AllocateOccurrencePaymentService::class);
+                if ($occurrence->recurringEntry->is_amount_variable
+                    && $occurrence->recurringEntry->salarySchedule === null
+                    && ! ($validated['payment_is_partial'] ?? false)
+                    && ! $occurrence->paymentAllocations()->exists()) {
+                    $payments->recordVariablePayment($occurrence, $transaction, $user);
+                } else {
+                    $payments->allocate($occurrence, $transaction, $user, (string) $validated['amount']);
+                }
             }
 
             return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
@@ -241,6 +251,10 @@ class TransactionMutationService
                 ignoreTransactionId: $transaction->id,
             );
 
+            $paymentOccurrence = $transaction->recurring_entry_occurrence_id === null ? null : $transaction->recurringOccurrence;
+            $paymentHistory = app(ManageOccurrencePaymentService::class);
+            $paymentBefore = $paymentOccurrence === null ? null : $paymentHistory->snapshot($paymentOccurrence);
+
             $transaction->fill([
                 'user_id' => $account->user_id,
                 'updated_by_user_id' => $user->id,
@@ -263,7 +277,11 @@ class TransactionMutationService
             if (! empty($validated['confirm_shared_review']) && $transaction->shared_expense_counterparty_id !== null && in_array($transaction->status, [TransactionStatusEnum::DRAFT, TransactionStatusEnum::AUTO_CATEGORIZED, TransactionStatusEnum::REVIEW_NEEDED], true)) {
                 $transaction->status = TransactionStatusEnum::CONFIRMED;
             }
+            app(UpdateRecurringOccurrenceAmountService::class)->synchronizeTransactionAmount($transaction);
             $transaction->save();
+            if ($paymentOccurrence !== null && $paymentBefore !== null && $transaction->wasChanged(['amount', 'transaction_date', 'account_id'])) {
+                $paymentHistory->recordChange($paymentOccurrence, $user, $paymentBefore, 'correct');
+            }
 
             if ($originalAccountId !== $account->id) {
                 $this->recalculateAffectedAccounts([
@@ -1041,7 +1059,7 @@ class TransactionMutationService
 
     protected function recalculateAccountBalances(Account $account): void
     {
-        $hasOpeningBalanceTransaction = Transaction::query()
+        $hasOpeningBalanceTransaction = Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
             ->exists();
@@ -1049,7 +1067,7 @@ class TransactionMutationService
             ? 0.0
             : (float) ($account->opening_balance ?? 0.0);
 
-        $transactions = Transaction::query()
+        $transactions = Transaction::query()->notRectified()
             ->where('account_id', $account->id)
             ->orderBy('transaction_date')
             ->orderByRaw(

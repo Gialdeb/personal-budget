@@ -93,7 +93,7 @@ test('automatic confirmation is separate from problem reporting and remains idem
     $this->post(route('transactions.payment-confirmation', $transaction->uuid))->assertRedirect();
     expect(Transaction::count())->toBe($count)->and($account->fresh()->current_balance)->toBe($balance)
         ->and(actionRow($user, $transaction)['can_confirm_payment'])->toBeFalse()
-        ->and(actionRow($user, $transaction)['can_report_payment_problem'])->toBeTrue();
+        ->and(actionRow($user, $transaction)['can_report_payment_problem'])->toBeFalse();
 });
 
 test('matched automatic postings and manual recurring settlements do not advertise forbidden actions', function () {

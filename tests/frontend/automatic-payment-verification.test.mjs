@@ -17,31 +17,32 @@ const source = (path) =>
 
 test('payment verification remains distinct from amount confirmation in dashboard rendering', () => {
     const page = source('resources/js/pages/dashboard/Analysis.vue');
-    assert.match(page, /v-if="item\.requires_payment_confirmation"/);
-    assert.match(page, /v-else-if="item\.requires_amount_confirmation"/);
-    assert.match(page, /Pagamento da confermare/);
-    assert.match(page, /verifyPayment\(item, true\)/);
+    assert.match(
+        page,
+        /item\.can_verify_payment\s*&&\s*item\.transaction_uuid/,
+    );
+    assert.match(page, /v-else-if="item\.can_confirm_manual"/);
+    assert.match(page, /v-if="!item\.is_future"/);
+    assert.doesNotMatch(
+        page,
+        /amountConfirmation|confirmAmount|editConfirmation|MobileAmountInput/,
+    );
+    assert.match(page, /managePayment\(item\)/);
+    assert.doesNotMatch(page, /paymentProblem|window\.confirm/);
     assert.match(page, /verifyPayment\(item\)/);
-    assert.match(page, /item\.plan_title/);
+    assert.match(page, /item\.plan_url/);
     assert.match(page, /:href="item\.action_url"/);
     assert.match(page, /AutomaticPaymentVerificationController/);
 });
 
 test('desktop and mobile transaction actions allow reporting problems beyond the confirmation window', () => {
     const page = source('resources/js/pages/transactions/Show.vue');
-    assert.equal(
-        (
-            page.match(
-                /v-if="\s*transaction\.can_report_payment_problem\s*"/g,
-            ) ?? []
-        ).length,
-        2,
+    const actions = source(
+        'resources/js/components/transactions/TransactionRowActions.vue',
     );
-    assert.equal(
-        (page.match(/transactions\.sheet\.paymentProblem\.trigger/g) ?? [])
-            .length,
-        2,
-    );
+    assert.match(page, /<TransactionRowActions/);
+    assert.match(actions, /show: editable && row\.can_report_payment_problem/);
+    assert.match(actions, /transactions\.sheet\.paymentProblem\.trigger/);
     assert.match(
         page,
         /paymentProblemForm\.post\(\s*paymentProblem\.url\(paymentProblemTransaction\.value\.uuid\)/,
@@ -85,3 +86,120 @@ for (const path of [
         assert.deepEqual(template.errors, []);
     });
 }
+
+test('dashboard cards render only actions appropriate to due date and payment mode', async () => {
+    const Vue = await import('vue');
+    const { compile } = await import('@vue/compiler-dom');
+    const { renderToString } = await import('vue/server-renderer');
+    const page = source('resources/js/pages/dashboard/Analysis.vue');
+    const start = page.indexOf(
+        '                    <article\n',
+        page.indexOf('dashboard.pending_actions.items.length'),
+    );
+    const end = page.indexOf('</article>', start) + '</article>'.length;
+    assert.ok(start > 0 && end > start);
+    const { code } = compile(`<div>${page.slice(start, end)}</div>`, {
+        mode: 'function',
+    });
+    const render = new Function('Vue', code)(Vue);
+    const element = (tag) => ({
+        inheritAttrs: false,
+        setup:
+            (_, { slots, attrs }) =>
+            () =>
+                Vue.h(tag, attrs, slots.default?.()),
+    });
+    async function card(item) {
+        const app = Vue.createSSRApp({
+            components: {
+                Link: element('a'),
+                Button: element('button'),
+                Badge: element('span'),
+                SensitiveValue: {
+                    props: ['value'],
+                    setup: (props) => () => Vue.h('span', props.value),
+                },
+                WalletCards: element('svg'),
+                Clock3: element('svg'),
+                CircleAlert: element('svg'),
+            },
+            setup: () => ({
+                dashboard: {
+                    pending_actions: {
+                        items: [
+                            {
+                                id: 'one',
+                                title: 'Plan',
+                                date: '2026-10-09',
+                                amount_raw: 15,
+                                action_url: '/plan',
+                                ...item,
+                            },
+                        ],
+                    },
+                },
+                ui: (value) => value,
+                t: (value) => value,
+                dateLabel: (value) => value,
+                money: (value) => `€ ${value}`,
+                formatCurrency: (value) => `€ ${value}`,
+                currency: 'EUR',
+                paymentStateLabel: (value) =>
+                    value === 'to_verify' ? 'Pagamento da confermare' : value,
+                paymentVerification: { processing: false, errors: {} },
+                manualRegistration: { processing: false },
+                verifyPayment() {},
+                askManualPayment() {},
+                managePayment() {},
+            }),
+            render,
+        });
+
+        return renderToString(app);
+    }
+    const automatic = await card({
+        can_verify_payment: true,
+        transaction_uuid: 'txn',
+        can_manage: true,
+        payment_management: { state: 'to_verify' },
+        recurrence_mode: 'automatic',
+    });
+    assert.match(automatic, />Conferma<\/button>/);
+    assert.match(automatic, /Gestisci pagamento/);
+    assert.doesNotMatch(automatic, /Conferma pagamento|<input/);
+    const manual = await card({
+        can_confirm_manual: true,
+        can_manage: true,
+        payment_management: { state: 'pending' },
+        recurrence_mode: 'manual',
+    });
+    assert.match(manual, />Conferma pagamento<\/button>/);
+    assert.match(manual, /Pagamento ancora non avvenuto/);
+    assert.match(manual, /border-primary\/20/);
+    assert.doesNotMatch(manual, /<input/);
+    const future = await card({
+        is_future: true,
+        can_verify_payment: true,
+        transaction_uuid: 'txn',
+        can_confirm_manual: true,
+        can_manage: true,
+        payment_management: { state: 'pending' },
+        plan_url: '/plan',
+        recurrence_mode: 'automatic',
+    });
+    assert.doesNotMatch(
+        future,
+        /<button|Gestisci pagamento|Pagamento ancora non avvenuto/,
+    );
+    assert.match(future, /Ricorrenza automatica/);
+    assert.match(future, /Previsione/);
+    assert.match(future, /Vai al piano/);
+    const missing = await card({
+        automatic_payment_missing: true,
+        can_manage: true,
+        payment_management: { state: 'pending' },
+    });
+    assert.match(missing, /Movimento automatico mancante/);
+    assert.match(missing, /Gestisci pagamento/);
+    assert.doesNotMatch(missing, />Conferma/);
+});

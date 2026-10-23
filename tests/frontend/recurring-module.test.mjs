@@ -51,7 +51,10 @@ test('recurring base amount stays editable after occurrences have been registere
     )?.[0];
     assert.ok(amountField);
     assert.match(amountField, /v-model="form.expected_amount"/);
-    assert.match(amountField, /:disabled="form.processing"/);
+    assert.match(
+        amountField,
+        /:disabled="\s*form.processing\s*\|\|\s*creatingTrackedItem\s*"/,
+    );
     assert.doesNotMatch(amountField, /:disabled="structuralLocked"/);
 });
 
@@ -97,6 +100,19 @@ test('open occurrences use the normal transaction form and share payment history
         /payment\.classification === 'balance'\s*\? 'Saldo'\s*: 'Acconto'/,
     );
     assert.match(payments, /payment\.date/);
+    assert.match(payments, /payment\.status === 'confirmed'/);
+    assert.match(payments, /:href="occurrenceUrl"/);
+    assert.doesNotMatch(payments, /Pagamento precedent/);
+    assert.match(transaction, /v-model="form.payment_is_partial"/);
+    assert.match(transaction, /payment_is_partial: form.payment_is_partial/);
+
+    for (const source of [indexSource, mobileSource, show]) {
+        assert.match(source, /:history="\s*occurrence.payment_history\s*"/);
+        assert.match(
+            source,
+            /:occurrence-url="\s*occurrence.occurrence_url\s*"/,
+        );
+    }
 });
 
 test('recurring index exposes the plan type filter and visible labels for filter selects', () => {
@@ -232,10 +248,7 @@ test('recurring pages close the sheet on saved and use the updated convert label
     assert.match(showSource, /transactions\.recurring\.actions\.backToIndex/);
     assert.match(showSource, /href="\/recurring-entries"/);
     assert.match(showSource, /show_url/);
-    assert.match(
-        indexSource,
-        /transactions\.recurring\.actions\.openTransaction/,
-    );
+    assert.match(indexSource, /<OccurrencePayments/);
     assert.match(
         showSource,
         /transactions\.recurring\.actions\.openTransaction/,
@@ -320,15 +333,21 @@ test('recurring form surfaces required-field validation and enforces end date af
 });
 
 test('recurring form supports up to three localized advance reminders', () => {
-    assert.match(formSource, /reminder_days_before: \[] as number\[]/);
-    assert.match(
-        formSource,
-        /function toggleReminderDay\(daysBefore: number\)/,
+    const reminders = readFileSync(
+        new URL(
+            '../../resources/js/components/recurring/RecurringReminderFields.vue',
+            import.meta.url,
+        ),
+        'utf8',
     );
-    assert.match(formSource, /reminderLimitReached/);
-    assert.match(formSource, /max_custom_alerts/);
-    assert.match(formSource, /max_days_before/);
-    assert.match(formSource, /v-for="daysBefore in reminderDayOptions"/);
+    assert.match(formSource, /<RecurringReminderFields/);
+    assert.match(formSource, /v-model="form.reminder_days_before"/);
+    assert.match(formSource, /reminder_days_before: \[] as number\[]/);
+    assert.match(reminders, /function toggleReminderDay\(daysBefore: number\)/);
+    assert.match(reminders, /reminderLimitReached/);
+    assert.match(reminders, /max_custom_alerts/);
+    assert.match(reminders, /max_days_before/);
+    assert.match(reminders, /v-for="daysBefore in reminderDayOptions"/);
     assert.match(
         transactionsMessagesSource,
         /Il promemoria del giorno stesso segue le preferenze globali/,
