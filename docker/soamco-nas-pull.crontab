@@ -1,0 +1,5 @@
+# Install only in Alex's user crontab on the NAS, after explicit activation.
+# Minute 15 of every hour leaves time for the VPS backup at minute 00.
+SHELL=/bin/sh
+PATH=/home/Alex/.local/bin:/usr/local/bin:/usr/bin:/bin
+15 * * * * /home/Alex/.local/bin/soamco-pull-postgres

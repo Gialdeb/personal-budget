@@ -1,0 +1,308 @@
+#!/usr/bin/env python3
+"""Pull published Soamco PostgreSQL artifacts using unprivileged SFTP."""
+
+from __future__ import annotations
+
+import datetime as dt
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+
+
+REMOTE = "soamco-backup@100.73.11.75"
+REMOTE_ROOT = "/var/backups/soamco"
+SOURCE = REMOTE + ":" + REMOTE_ROOT
+NAME = re.compile(r"postgres-(\d{8}T\d{6}Z)-[A-Za-z0-9]{10}")
+CHECKSUMS = re.compile(rb"([a-f0-9]{64})  database.dump\n([a-f0-9]{64})  database.list\n")
+ARTIFACTS = ("SHA256SUMS", "database.dump", "database.list")
+RECEIPT = ".soamco-nas-receipt.json"
+
+
+class PullError(Exception):
+    pass
+
+
+def secure_path(path: Path, directory: bool = False, private: bool = False) -> None:
+    info = path.lstat()
+    expected = stat.S_ISDIR if directory else stat.S_ISREG
+    if not expected(info.st_mode) or info.st_uid != os.geteuid():
+        raise PullError("Path must belong to the current user and must not be a symlink")
+    if info.st_mode & (0o077 if private else 0o022):
+        raise PullError("Unsafe permissions; no ownership or permission changes were attempted")
+    if not directory and info.st_nlink != 1:
+        raise PullError("Hard-linked files are not managed")
+
+
+def digest(path: Path) -> str:
+    result = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            result.update(chunk)
+    return result.hexdigest()
+
+
+def backup_time(name: str) -> dt.datetime:
+    match = NAME.fullmatch(name)
+    if match is None:
+        raise PullError("Unrecognized backup name")
+    try:
+        return dt.datetime.strptime(match[1], "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc)
+    except ValueError as error:
+        raise PullError("Invalid backup timestamp") from error
+
+
+def verify(directory: Path, receipt: bool = True) -> None:
+    secure_path(directory, directory=True)
+    expected = set(ARTIFACTS) | ({RECEIPT} if receipt else set())
+    if {entry.name for entry in directory.iterdir()} != expected:
+        raise PullError("Unexpected or missing files in backup")
+    for name in expected:
+        secure_path(directory / name)
+        if (directory / name).stat().st_size == 0:
+            raise PullError("Empty backup file")
+    if (directory / "SHA256SUMS").stat().st_size > 512:
+        raise PullError("Invalid checksum file")
+    manifest = (directory / "SHA256SUMS").read_bytes()
+    match = CHECKSUMS.fullmatch(manifest)
+    if match is None:
+        raise PullError("Checksum file must contain exactly the two expected filenames")
+    for index, name in enumerate(("database.dump", "database.list"), start=1):
+        if digest(directory / name) != match[index].decode("ascii"):
+            raise PullError("SHA-256 verification failed")
+    with (directory / "database.dump").open("rb") as stream:
+        if stream.read(5) != b"PGDMP":
+            raise PullError("Not a PostgreSQL custom archive")
+    if receipt:
+        backup_time(directory.name)
+        if (directory / RECEIPT).stat().st_size > 1024:
+            raise PullError("Invalid NAS receipt")
+        try:
+            record = json.loads((directory / RECEIPT).read_text(encoding="utf-8"))
+        except (ValueError, UnicodeError) as error:
+            raise PullError("Invalid NAS receipt") from error
+        if record != {
+            "schema": 1,
+            "source": SOURCE,
+            "backup": directory.name,
+            "checksums_sha256": hashlib.sha256(manifest).hexdigest(),
+        }:
+            raise PullError("Backup was not published by this NAS pull script")
+
+
+def sync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def quote(path: str) -> str:
+    if any(ord(character) < 32 for character in path):
+        raise PullError("Control characters are not allowed in SFTP paths")
+    return '"' + path.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+class Pull:
+    def __init__(self) -> None:
+        root = Path(os.environ.get("SOAMCO_NAS_BACKUP_ROOT", "/volume1/Web Backups/Soamco Budget"))
+        self.identity = Path(os.environ.get("SOAMCO_SSH_IDENTITY", "/home/Alex/.ssh/soamco_backup_ed25519"))
+        self.known_hosts = Path(os.environ.get("SOAMCO_SSH_KNOWN_HOSTS", "/home/Alex/.ssh/known_hosts"))
+        for path in (root, self.identity, self.known_hosts):
+            if not path.is_absolute():
+                raise PullError("All configured paths must be absolute")
+            quote(str(path))
+        if root.is_symlink() or not root.is_dir():
+            raise PullError("The configured NAS directory must already exist and must not be a symlink")
+        self.storage = root / "postgresql"
+        self.storage.mkdir(mode=0o700, exist_ok=True)
+        secure_path(self.storage, directory=True)
+        self.log_file = self.open_private(".pull.log")
+        self.lock = self.open_private(".pull.lock")
+
+    def open_private(self, name: str):
+        path = self.storage / name
+        descriptor = os.open(path, os.O_CREAT | os.O_APPEND | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        try:
+            secure_path(path, private=True)
+            return os.fdopen(descriptor, "a", encoding="utf-8", buffering=1)
+        except BaseException:
+            os.close(descriptor)
+            raise
+
+    def log(self, level: str, message: str) -> None:
+        timestamp = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        line = f"{timestamp} {level} {message}\n"
+        self.log_file.write(line)
+        self.log_file.flush()
+        print(line, file=sys.stderr, end="", flush=True)
+
+    def sftp(self, batch: str) -> str:
+        options = [
+            "BatchMode=yes", "StrictHostKeyChecking=yes", "IdentitiesOnly=yes",
+            "IdentityAgent=none", "PreferredAuthentications=publickey",
+            "PasswordAuthentication=no", "KbdInteractiveAuthentication=no",
+            "GlobalKnownHostsFile=/dev/null", "ConnectTimeout=15",
+            "ServerAliveInterval=15", "ServerAliveCountMax=3", "ClearAllForwardings=yes",
+            "UserKnownHostsFile=" + quote(str(self.known_hosts)),
+        ]
+        command = ["sftp", "-q", "-F", "/dev/null", "-P", "22", "-i", str(self.identity), "-b", "-"]
+        for option in options:
+            command.extend(("-o", option))
+        command.append(REMOTE)
+        try:
+            result = subprocess.run(command, input=batch, text=True, capture_output=True, timeout=1800, check=False)
+        except subprocess.TimeoutExpired as error:
+            raise PullError("SFTP timed out; existing backups preserved") from error
+        if result.returncode != 0:
+            raise PullError(f"SFTP failed (exit={result.returncode}); existing backups preserved")
+        return result.stdout
+
+    def download(self, name: str) -> None:
+        destination = self.storage / name
+        if os.path.lexists(destination):
+            verify(destination)
+            self.log("SKIP", f"Already verified locally: {name}")
+            return
+        stage = Path(tempfile.mkdtemp(prefix=".pull-incomplete-", dir=self.storage))
+        try:
+            batch = "".join(
+                f"@get {quote(REMOTE_ROOT + '/' + name + '/' + file)} {quote(str(stage / (file + '.part')))}\n"
+                for file in ARTIFACTS
+            )
+            self.sftp(batch)
+            for file in ARTIFACTS:
+                partial = stage / (file + ".part")
+                secure_path(partial)
+                partial.rename(stage / file)
+                (stage / file).chmod(0o600)
+            verify(stage, receipt=False)
+            record = {
+                "schema": 1,
+                "source": SOURCE,
+                "backup": name,
+                "checksums_sha256": digest(stage / "SHA256SUMS"),
+            }
+            with (stage / RECEIPT).open("x", encoding="utf-8") as stream:
+                json.dump(record, stream, sort_keys=True)
+            for file in (*ARTIFACTS, RECEIPT):
+                with (stage / file).open("rb") as stream:
+                    os.fsync(stream.fileno())
+            sync_directory(stage)
+            if os.path.lexists(destination):
+                raise PullError("Destination appeared during transfer; refusing to overwrite it")
+            stage.rename(destination)
+            stage = None
+            sync_directory(self.storage)
+            self.log("SUCCESS", f"Verified and published: {name}")
+        finally:
+            if stage is not None:
+                shutil.rmtree(stage)
+
+    def retain(self) -> None:
+        valid = []
+        for directory in self.storage.iterdir():
+            if NAME.fullmatch(directory.name) is None:
+                continue
+            try:
+                timestamp = backup_time(directory.name)
+                verify(directory)
+            except (PullError, OSError):
+                self.log("WARNING", f"Retention skipped unverified path: {directory.name}")
+                continue
+            valid.append((timestamp, directory.name, directory))
+        if not valid:
+            self.log("WARNING", "Retention skipped: no verified NAS copy")
+            return
+        valid.sort(reverse=True)
+        keeper = valid[0][2]
+        verify(keeper)
+        cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=10)
+        for timestamp, name, directory in valid[1:]:
+            if timestamp >= cutoff:
+                continue
+            verify(directory)
+            # Exact files only. An unexpected entry prevents rmdir; never recurse.
+            for file in (*ARTIFACTS, RECEIPT):
+                (directory / file).unlink()
+            directory.rmdir()
+            self.log("RETENTION", f"Removed expired NAS copy: {name}")
+        sync_directory(self.storage)
+        self.log("SUCCESS", f"Retention completed: days=10 keeper={keeper.name}")
+
+    def run(self, check_only: bool = False) -> int:
+        try:
+            fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            self.log("SKIP", "Another NAS pull is running")
+            return 75
+        self.log("START", "Pulling published PostgreSQL backups over Tailscale SFTP")
+        secure_path(self.identity, private=True)
+        secure_path(self.known_hosts)
+        if self.identity.stat().st_size == 0 or self.known_hosts.stat().st_size == 0:
+            raise PullError("SSH identity and pinned known_hosts must not be empty")
+        if shutil.which("sftp") is None:
+            raise PullError("OpenSSH sftp is required; no installation was attempted")
+        if check_only:
+            self.log("SUCCESS", "Local preflight passed; no SFTP connection made or remote access verified")
+            return 0
+        listing = self.sftp("@ls -1 " + quote(REMOTE_ROOT + "/") + "\n")
+        names = set()
+        for line in listing.splitlines():
+            name = line
+            if line.startswith(REMOTE_ROOT + "/"):
+                name = line[len(REMOTE_ROOT) + 1:]
+            if NAME.fullmatch(name):
+                backup_time(name)
+                names.add(name)
+        for name in sorted(names, reverse=True):
+            self.download(name)
+        # Network/verification failures above prevent all retention for this run.
+        self.retain()
+        self.log("SUCCESS", f"Pull completed: remote_backups={len(names)}")
+        return 0
+
+
+def interrupted(signum: int, frame) -> None:
+    raise PullError("Pull interrupted; existing backups preserved")
+
+
+def main() -> int:
+    if sys.argv[1:] not in ([], ["--check"]):
+        print("Usage: pull-postgres-backups-nas [--check]", file=sys.stderr)
+        return 2
+    os.umask(0o077)
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
+    pull = None
+    try:
+        pull = Pull()
+        return pull.run(check_only=sys.argv[1:] == ["--check"])
+    except (PullError, OSError, ValueError) as error:
+        # Do not log SFTP stderr, key material, or remote file contents.
+        message = str(error) if isinstance(error, PullError) else f"Local operation failed ({type(error).__name__})"
+        if pull is not None:
+            try:
+                pull.log("ERROR", message)
+            except OSError:
+                print("ERROR " + message, file=sys.stderr)
+        else:
+            print("ERROR " + message, file=sys.stderr)
+        return 1
+    finally:
+        if pull is not None:
+            pull.lock.close()
+            pull.log_file.close()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

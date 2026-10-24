@@ -1,0 +1,327 @@
+#!/usr/bin/env python3
+"""Restore only into a newly created, offline PostgreSQL 17 sandbox."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import secrets
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+
+
+IMAGE = "postgres:17-alpine"
+DATABASE = "soamco_restore"
+LABEL = "io.soamco.isolated-restore"
+FILES = ("database.dump", "database.list", "SHA256SUMS")
+NAME = re.compile(r"postgres-(\d{8}T\d{6}Z)-[A-Za-z0-9]{10}")
+SUMS = re.compile(rb"([a-f0-9]{64})  database.dump\n([a-f0-9]{64})  database.list\n")
+IDENTIFIER = re.compile(r"[a-f0-9]{64}")
+CONNECTION = ["--host=/var/run/postgresql", "--username=" + DATABASE, "--no-password"]
+
+
+class RestoreError(Exception):
+    pass
+
+
+def log(message: str) -> None:
+    print(dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds") + " " + message, file=sys.stderr, flush=True)
+
+
+def checksum(path: Path) -> str:
+    result = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            result.update(chunk)
+    return result.hexdigest()
+
+
+def toc(data: bytes) -> list[str]:
+    try:
+        text = data.decode("utf-8")
+    except UnicodeError as error:
+        raise RestoreError("Archive index must be UTF-8") from error
+    for field in ("Dumped from database version", "Dumped by pg_dump version"):
+        versions = re.findall(r"^;\s*" + field + r":\s*(\S+)", text, re.MULTILINE)
+        if len(versions) != 1 or re.match(r"17(?:\.|$)", versions[0]) is None:
+            raise RestoreError("Only PostgreSQL 17 sources and pg_dump 17 are accepted")
+    if re.search(r"^;\s*Format:\s*CUSTOM\s*$", text, re.MULTILINE) is None:
+        raise RestoreError("Only pg_dump custom archives are accepted")
+    return [line for line in text.splitlines() if line.strip() and not line.startswith(";")]
+
+
+def validate(directory: Path) -> list[str]:
+    manifest = directory / "SHA256SUMS"
+    if manifest.stat().st_size > 512:
+        raise RestoreError("Invalid checksum manifest")
+    match = SUMS.fullmatch(manifest.read_bytes())
+    if match is None:
+        raise RestoreError("Manifest must contain exactly database.dump and database.list")
+    for index, name in enumerate(FILES[:2], start=1):
+        if checksum(directory / name) != match[index].decode("ascii"):
+            raise RestoreError("SHA-256 verification failed")
+    with (directory / "database.dump").open("rb") as stream:
+        if stream.read(5) != b"PGDMP":
+            raise RestoreError("Not a PostgreSQL custom archive")
+    return toc((directory / "database.list").read_bytes())
+
+
+def snapshot(source: Path, destination: Path) -> list[str]:
+    match = NAME.fullmatch(source.name)
+    if source.is_symlink() or not source.is_dir() or match is None:
+        raise RestoreError("Select a completed postgres-<UTC timestamp>-<suffix> directory")
+    try:
+        dt.datetime.strptime(match[1], "%Y%m%dT%H%M%SZ")
+    except ValueError as error:
+        raise RestoreError("Invalid backup timestamp") from error
+    entries = {entry.name for entry in source.iterdir()}
+    if entries not in (set(FILES), set(FILES) | {".soamco-nas-receipt.json"}):
+        raise RestoreError("Unexpected or missing backup files")
+    for name in FILES:
+        descriptor = os.open(source / name, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "rb") as incoming:
+            info = os.fstat(incoming.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size == 0 or info.st_mode & 0o022:
+                raise RestoreError("Backup files must be regular, nonempty and not group/world writable")
+            with (destination / name).open("xb") as outgoing:
+                shutil.copyfileobj(incoming, outgoing, length=1024 * 1024)
+    return validate(destination)
+
+
+class Sandbox:
+    def __init__(self) -> None:
+        self.token = secrets.token_hex(16)
+        self.name = "soamco-pg-restore-" + self.token
+        self.container = ""
+        self.image = ""
+        self.host = ""
+        self.environment = {key: value for key, value in os.environ.items() if not key.startswith(("DOCKER_", "PG"))}
+
+    def command(self, arguments: list[str], *, stream=None, output=None, required: bool = True, timeout: int = 1800):
+        prefix = ["docker"] + (["--host", self.host] if self.host else [])
+        try:
+            result = subprocess.run(prefix + arguments, stdin=stream, stdout=output or subprocess.PIPE,
+                                    stderr=subprocess.PIPE, env=self.environment, timeout=timeout, check=False)
+        except subprocess.TimeoutExpired as error:
+            raise RestoreError("Docker operation timed out") from error
+        if required and result.returncode != 0:
+            raise RestoreError(f"Docker operation {arguments[0]} failed (exit={result.returncode}); diagnostics withheld")
+        return result
+
+    def inspect(self, reference: str):
+        result = self.command(["inspect", "--format", "{{json .}}", reference], required=False, timeout=30)
+        if result.returncode != 0:
+            return None
+        return json.loads(result.stdout)
+
+    def assert_isolated(self) -> None:
+        data = self.inspect(self.container)
+        if data is None:
+            raise RestoreError("Sandbox container is missing")
+        config = data.get("Config", {})
+        host = data.get("HostConfig", {})
+        networks = data.get("NetworkSettings", {})
+        mounts = data.get("Mounts", [])
+        volumes = [mount for mount in mounts if mount.get("Type") == "volume"]
+        temporary = [mount for mount in mounts if mount.get("Type") == "tmpfs"]
+        safe = (
+            data.get("Id") == self.container
+            and data.get("Name") == "/" + self.name
+            and config.get("Labels", {}).get(LABEL) == self.token
+            and config.get("Image") == self.image
+            and config.get("User") == "postgres"
+            and host.get("NetworkMode") == "none"
+            and not host.get("PortBindings") and not host.get("PublishAllPorts")
+            and not host.get("Binds") and not host.get("Links") and not host.get("Devices")
+            and not host.get("Privileged") and host.get("ReadonlyRootfs") is True
+            and "ALL" in host.get("CapDrop", [])
+            and "no-new-privileges:true" in host.get("SecurityOpt", [])
+            and host.get("PidMode", "") == "" and host.get("IpcMode") == "private"
+            and set(networks.get("Networks", {})) <= {"none"}
+            and not networks.get("Ports")
+            and len(volumes) == 1 and len(mounts) == len(volumes) + len(temporary)
+            and IDENTIFIER.fullmatch(volumes[0].get("Name", "")) is not None
+            and volumes[0].get("Destination") == "/var/lib/postgresql/data"
+            and volumes[0].get("RW") is True
+            and {mount.get("Destination") for mount in temporary} <= {"/tmp", "/var/run/postgresql"}
+            and set(host.get("Tmpfs", {})) == {"/tmp", "/var/run/postgresql"}
+        )
+        if not safe:
+            raise RestoreError("Ownership or isolation check failed; refusing to use the destination")
+
+    def execute(self, arguments: list[str], *, stream=None, output=None):
+        self.assert_isolated()
+        return self.command(["exec", "-i", "--user", "postgres", self.container] + arguments, stream=stream, output=output)
+
+    def psql(self, sql: str, database: str = DATABASE) -> str:
+        return self.execute(["psql", "-X", *CONNECTION, "--dbname=" + database,
+                             "--set=ON_ERROR_STOP=1", "--tuples-only", "--no-align", "--command=" + sql]).stdout.decode().strip()
+
+    def create(self) -> None:
+        endpoint = json.loads(self.command(["context", "inspect", "default", "--format", "{{json .Endpoints.docker}}"], timeout=30).stdout)
+        host = endpoint.get("Host", "")
+        if not host.startswith("unix:///") or any(ord(character) < 32 for character in host):
+            raise RestoreError("A local Docker Unix socket is required; remote contexts are refused")
+        self.host = host
+        self.image = self.command(["image", "inspect", IMAGE, "--format", "{{.Id}}"], timeout=30).stdout.decode().strip()
+        if re.fullmatch(r"sha256:[a-f0-9]{64}", self.image) is None:
+            raise RestoreError("The local PostgreSQL 17 image could not be pinned")
+        result = self.command([
+            "create", "--pull=never", "--name", self.name, "--label", LABEL + "=" + self.token,
+            "--network", "none", "--ipc", "private", "--read-only", "--user", "postgres",
+            "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
+            "--memory", "1g", "--cpus", "1", "--pids-limit", "256",
+            "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m,mode=1777",
+            "--tmpfs", "/var/run/postgresql:rw,noexec,nosuid,size=16m,mode=1777",
+            "--mount", "type=volume,destination=/var/lib/postgresql/data",
+            "--env", "POSTGRES_USER=" + DATABASE, "--env", "POSTGRES_DB=" + DATABASE,
+            "--env", "POSTGRES_PASSWORD=" + secrets.token_hex(32),
+            "--env", "POSTGRES_HOST_AUTH_METHOD=reject",
+            self.image, "postgres", "-c", "listen_addresses=",
+        ], timeout=60)
+        self.container = result.stdout.decode().strip()
+        if IDENTIFIER.fullmatch(self.container) is None:
+            self.container = ""
+            raise RestoreError("Docker did not return a valid new container ID")
+        self.assert_isolated()
+        self.command(["start", self.container], timeout=30)
+        deadline = time.monotonic() + 60
+        while True:
+            self.assert_isolated()
+            ready = self.command(["exec", "--user", "postgres", self.container, "sh", "-eu", "-c",
+                                  'test "$(cat /proc/1/comm)" = postgres; exec pg_isready --host=/var/run/postgresql --username=soamco_restore --dbname=soamco_restore'],
+                                 required=False, timeout=10)
+            if ready.returncode == 0:
+                break
+            if time.monotonic() >= deadline:
+                raise RestoreError("PostgreSQL sandbox did not become ready within 60 seconds")
+            time.sleep(1)
+        if re.fullmatch(r"soamco_restore\|17[0-9]{4}\|false", self.psql(
+            "SELECT current_database() || '|' || current_setting('server_version_num') || '|' || pg_is_in_recovery()::text"
+        )) is None:
+            raise RestoreError("The sandbox is not the expected PostgreSQL 17 destination")
+        version = self.execute(["pg_restore", "--version"]).stdout.decode()
+        if not version.startswith("pg_restore (PostgreSQL) 17."):
+            raise RestoreError("pg_restore 17 is required")
+        log("ISOLATED container=" + self.container + " name=" + self.name + " database=" + DATABASE)
+
+    def restore(self, directory: Path, expected_toc: list[str]) -> None:
+        with (directory / "database.dump").open("rb") as stream:
+            actual_toc = self.execute(["pg_restore", "--list"], stream=stream).stdout
+        if toc(actual_toc) != expected_toc:
+            raise RestoreError("Archive TOC does not match the verified database.list")
+        log("VERIFIED manifest, SHA-256, PostgreSQL 17 compatibility and archive TOC")
+        with (directory / "database.dump").open("rb") as stream:
+            self.execute(["pg_restore", *CONNECTION, "--dbname=" + DATABASE,
+                          "--no-owner", "--no-privileges", "--no-tablespaces",
+                          "--exit-on-error", "--single-transaction"], stream=stream)
+        self.psql("ANALYZE")
+        self.execute(["pg_amcheck", *CONNECTION, "--database=" + DATABASE, "--install-missing"])
+        summary = self.psql("SELECT json_build_object('tables', count(*) FILTER (WHERE c.relkind IN ('r','p')), "
+                            "'sequences', count(*) FILTER (WHERE c.relkind='S')) "
+                            "FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+                            "WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'")
+        log("SUCCESS restore, ANALYZE and pg_amcheck completed: " + summary)
+
+    def synthetic_archive(self, directory: Path) -> list[str]:
+        self.execute(["createdb", *CONNECTION, "--template=template0", "fixture_source"])
+        self.psql("""
+            CREATE TABLE restore_parent (id integer PRIMARY KEY, label text NOT NULL);
+            CREATE TABLE restore_child (id integer PRIMARY KEY, parent_id integer REFERENCES restore_parent(id), amount numeric(10,2));
+            CREATE SEQUENCE restore_sequence START 41;
+            INSERT INTO restore_parent VALUES (1, 'synthetic');
+            INSERT INTO restore_child VALUES (1, 1, 12.34), (2, 1, 56.78);
+            SELECT nextval('restore_sequence');
+            CREATE VIEW restore_view AS SELECT * FROM restore_child;
+            CREATE FUNCTION restore_function(integer) RETURNS integer IMMUTABLE LANGUAGE sql AS 'SELECT $1 + 1';
+        """, database="fixture_source")
+        with (directory / "database.dump").open("xb") as output:
+            self.execute(["pg_dump", "-Fc", *CONNECTION, "--dbname=fixture_source"], output=output)
+        with (directory / "database.dump").open("rb") as stream:
+            (directory / "database.list").write_bytes(self.execute(["pg_restore", "--list"], stream=stream).stdout)
+        (directory / "SHA256SUMS").write_text("".join(checksum(directory / name) + "  " + name + "\n" for name in FILES[:2]))
+        # Remove the source before restoring: success cannot come from source data.
+        self.execute(["dropdb", *CONNECTION, "fixture_source"])
+        return validate(directory)
+
+    def cleanup(self) -> None:
+        if not self.image or not self.host:
+            return
+        if not self.container:
+            data = self.inspect(self.name)
+            if data is None:
+                return
+            self.container = data.get("Id", "")
+            if IDENTIFIER.fullmatch(self.container) is None:
+                raise RestoreError("Cannot identify sandbox for cleanup")
+        self.assert_isolated()
+        self.command(["rm", "--force", "--volumes", self.container], timeout=60)
+        log("CLEANUP isolated container and anonymous data volume removed")
+        self.container = ""
+
+
+def interrupted(signum: int, frame) -> None:
+    raise RestoreError("Restore interrupted")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("backup", nargs="?", type=Path, help="Completed backup directory copied from the VPS or NAS")
+    parser.add_argument("--keep", action="store_true", help="Keep the isolated database only after all checks succeed")
+    parser.add_argument("--self-test", action="store_true", help="Generate and restore synthetic data only; no backup input")
+    args = parser.parse_args()
+    if (args.backup is None) == (not args.self_test) or (args.self_test and args.keep):
+        parser.error("Provide either one backup directory or --self-test; --self-test cannot use --keep")
+    os.umask(0o077)
+    signal.signal(signal.SIGINT, interrupted)
+    signal.signal(signal.SIGTERM, interrupted)
+    sandbox = None
+    success = False
+    status = 0
+    try:
+        with tempfile.TemporaryDirectory(prefix="soamco-restore-input-") as temporary:
+            directory = Path(temporary)
+            expected = snapshot(args.backup, directory) if args.backup is not None else None
+            sandbox = Sandbox()
+            sandbox.create()
+            if args.self_test:
+                expected = sandbox.synthetic_archive(directory)
+            sandbox.restore(directory, expected)
+            if args.self_test:
+                result = sandbox.psql("SELECT (SELECT label FROM restore_parent WHERE id=1) || '|' || "
+                                      "(SELECT count(*) FROM restore_view)::text || '|' || "
+                                      "nextval('restore_sequence')::text || '|' || restore_function(8)::text || '|' || "
+                                      "(SELECT count(*) FROM pg_constraint WHERE conrelid='restore_child'::regclass "
+                                      "AND contype='f' AND convalidated)::text")
+                if result != "synthetic|2|42|9|1":
+                    raise RestoreError("Synthetic data verification failed")
+                log("SUCCESS synthetic restore verified: rows, view, sequence, function and foreign key")
+            success = True
+    except (RestoreError, OSError, ValueError) as error:
+        log("ERROR " + (str(error) if isinstance(error, RestoreError) else type(error).__name__))
+        status = 1
+    finally:
+        if sandbox is not None:
+            if success and args.keep:
+                log("KEPT isolated container=" + sandbox.container + " name=" + sandbox.name + " database=" + DATABASE)
+            else:
+                try:
+                    sandbox.cleanup()
+                except (RestoreError, OSError, ValueError) as error:
+                    log("ERROR cleanup refused or failed; inspect sandbox " + sandbox.name + " manually")
+                    status = 1
+    return status
+
+
+if __name__ == "__main__":
+    sys.exit(main())
