@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly Soamco Budget PostgreSQL backup in UTC
+
+[Timer]
+OnCalendar=*-*-* *:00:00 UTC
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=false
+Unit=soamco-postgres-backup.service
+
+[Install]
+WantedBy=timers.target

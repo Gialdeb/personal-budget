@@ -1,0 +1,15 @@
+[Unit]
+Description=Soamco Budget PostgreSQL 17 backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+ExecStart=/usr/local/sbin/soamco-backup-postgres
+TimeoutStartSec=infinity
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=soamco-postgres-backup

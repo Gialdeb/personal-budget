@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+export LC_ALL=C
+
+backup_root=/var/backups/soamco
+lock_file=/tmp/soamco-production-deploy.lock
+container_name="${DB_CONTAINER_NAME:-soamco-budget-db}"
+minimum_free_mib="${SOAMCO_BACKUP_MIN_FREE_MIB:-1024}"
+stage=''
+published=''
+phase=preflight
+
+log() {
+    local entry
+    entry="$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"
+    printf '%s\n' "$entry" >&2
+    logger -t soamco-postgres-backup -- "$entry" || true
+}
+
+cleanup() {
+    local status=$?
+    trap - EXIT
+    if [[ -n "$stage" ]]; then
+        rm -rf -- "$stage"
+    fi
+    if (( status != 0 )); then
+        if [[ -n "$published" ]]; then
+            log "ERROR phase=$phase exit=$status; completed backup preserved: $published"
+        else
+            log "ERROR phase=$phase exit=$status; no incomplete backup published"
+        fi
+    fi
+    exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+for command in docker flock getent stat sha256sum mktemp mv logger df awk date rmdir; do
+    command -v "$command" >/dev/null || { printf 'Missing required command: %s\n' "$command" >&2; exit 1; }
+done
+[[ "$(id -u)" == 0 ]] || { log 'ERROR root is required'; exit 1; }
+getent group soamco-backup >/dev/null || { log 'ERROR create the soamco-backup group before running'; exit 1; }
+[[ "$minimum_free_mib" =~ ^[1-9][0-9]{0,8}$ ]] || { log 'ERROR SOAMCO_BACKUP_MIN_FREE_MIB must be a positive integer of at most 9 digits'; exit 1; }
+
+# Only this exact, flat artifact layout is eligible for retention. Never recurse.
+managed_backup() {
+    local directory="$1" path permissions line count=0
+    local -a entries
+    [[ "${directory##*/}" =~ ^postgres-[0-9]{8}T[0-9]{6}Z-[a-zA-Z0-9]{10}$ ]] || return 1
+    [[ -d "$directory" && ! -L "$directory" ]] || return 1
+    for path in "$directory" "$directory/database.dump" "$directory/database.list" "$directory/SHA256SUMS"; do
+        [[ ! -L "$path" && "$(stat -c %u "$path" 2>/dev/null)" == 0 ]] || return 1
+        permissions="$(stat -c %a "$path" 2>/dev/null)" || return 1
+        (( (8#$permissions & 0022) == 0 )) || return 1
+    done
+    entries=("$directory"/* "$directory"/.[!.]* "$directory"/..?*)
+    (( ${#entries[@]} == 3 )) || return 1
+    for path in "$directory/database.dump" "$directory/database.list" "$directory/SHA256SUMS"; do
+        [[ -f "$path" && -s "$path" && "$(stat -c %h "$path")" == 1 ]] || return 1
+    done
+    while IFS= read -r line; do
+        case "$count" in
+            0) [[ "$line" =~ ^[a-f0-9]{64}'  database.dump'$ ]] || return 1 ;;
+            1) [[ "$line" =~ ^[a-f0-9]{64}'  database.list'$ ]] || return 1 ;;
+            *) return 1 ;;
+        esac
+        count=$((count + 1))
+    done < "$directory/SHA256SUMS"
+    (( count == 2 )) || return 1
+    (cd "$directory" && sha256sum --check --status SHA256SUMS) 2>/dev/null
+}
+
+# Preserve the deployment lock inode and its existing ownership/permissions.
+# Opening an existing file read-only also works with Linux protected_regular.
+if [[ ! -e "$lock_file" && ! -L "$lock_file" ]]; then
+    (set -o noclobber; : > "$lock_file") 2>/dev/null || true
+fi
+[[ -f "$lock_file" && ! -L "$lock_file" ]] || { log 'ERROR unsafe deployment lock'; exit 1; }
+exec 9<"$lock_file"
+flock -n 9 || { log 'ERROR deployment or another database backup holds the lock'; exit 75; }
+[[ "$(stat -Lc '%d:%i' "$lock_file")" == "$(stat -Lc '%d:%i' /proc/$$/fd/9)" ]] || { log 'ERROR deployment lock changed'; exit 1; }
+
+# Do not follow symlinks or write inside an existing untrusted directory.
+for directory in "$(dirname "$backup_root")" "$backup_root"; do
+    [[ ! -L "$directory" ]] || { log 'ERROR backup directory must not be a symlink'; exit 1; }
+    if [[ -e "$directory" ]]; then
+        [[ -d "$directory" && "$(stat -c %u "$directory")" == 0 ]] || { log 'ERROR backup directory must belong to root'; exit 1; }
+        permissions="$(stat -c %a "$directory")"
+        (( (8#$permissions & 0022) == 0 )) || { log 'ERROR backup directory is writable by group or others'; exit 1; }
+    fi
+done
+install -d -o root -g soamco-backup -m 0750 -- "$backup_root"
+stage="$(mktemp -d "$backup_root/.postgres-incomplete.XXXXXXXXXX")"
+chmod 0700 "$stage"
+log 'START PostgreSQL database backup'
+
+# Pin the running container ID so a name replacement cannot change the source.
+phase=container
+container_id="$(docker inspect --format '{{.Id}}' "$container_name" 2>"$stage/diagnostics")"
+[[ "$container_id" =~ ^[a-f0-9]{64}$ ]] || exit 1
+[[ "$(docker inspect --format '{{.State.Running}}' "$container_id" 2>"$stage/diagnostics")" == true ]] || exit 1
+[[ "$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$container_id" 2>"$stage/diagnostics")" == db ]] || exit 1
+
+phase=version
+server_version="$(docker exec --user postgres "$container_id" sh -eu -c '
+    exec psql -X --no-password --host=/var/run/postgresql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align --command="SHOW server_version_num"
+' 2>"$stage/diagnostics")"
+[[ "$server_version" =~ ^17[0-9]{4}$ ]] || exit 1
+[[ "$(docker exec --user postgres "$container_id" pg_dump --version 2>"$stage/diagnostics")" == 'pg_dump (PostgreSQL) 17.'* ]] || exit 1
+[[ "$(docker exec --user postgres "$container_id" pg_restore --version 2>"$stage/diagnostics")" == 'pg_restore (PostgreSQL) 17.'* ]] || exit 1
+
+phase=space
+database_bytes="$(docker exec --user postgres "$container_id" sh -eu -c '
+    exec psql -X --no-password --host=/var/run/postgresql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align --command="SELECT pg_database_size(current_database())"
+' 2>"$stage/diagnostics")"
+available_bytes="$(df --block-size=1 --output=avail -- "$backup_root" | awk 'NR == 2 { print $1 }')"
+[[ "$database_bytes" =~ ^[1-9][0-9]{0,14}$ && "$available_bytes" =~ ^(0|[1-9][0-9]{0,14})$ ]] || { log 'ERROR cannot determine database size or available disk space'; exit 1; }
+required_bytes=$((database_bytes * 2 + minimum_free_mib * 1024 * 1024))
+log "SPACE available_bytes=$available_bytes required_bytes=$required_bytes reserve_mib=$minimum_free_mib"
+(( available_bytes >= required_bytes )) || { log 'ERROR insufficient disk space; existing backups left untouched'; exit 1; }
+
+phase=dump
+docker exec --user postgres "$container_id" sh -eu -c '
+    exec pg_dump -Fc --no-password --host=/var/run/postgresql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"
+' > "$stage/database.dump" 2>"$stage/diagnostics"
+[[ -s "$stage/database.dump" ]] || exit 1
+if [[ -s "$stage/diagnostics" ]]; then
+    log 'WARNING pg_dump emitted diagnostics; content omitted from operational logs'
+fi
+
+phase=archive-list
+docker exec -i --user postgres "$container_id" pg_restore --list \
+    < "$stage/database.dump" > "$stage/database.list" 2>"$stage/diagnostics"
+[[ -s "$stage/database.list" ]] || exit 1
+rm -- "$stage/diagnostics"
+
+phase=checksum
+(
+    cd "$stage"
+    sha256sum database.dump database.list > SHA256SUMS
+    sha256sum --check --status SHA256SUMS
+) 2>/dev/null
+chown root:soamco-backup "$stage" "$stage/database.dump" "$stage/database.list" "$stage/SHA256SUMS"
+chmod 0640 "$stage/database.dump" "$stage/database.list" "$stage/SHA256SUMS"
+chmod 0750 "$stage"
+
+phase=publish
+destination="$backup_root/postgres-$(date -u +%Y%m%dT%H%M%SZ)-${stage##*.}"
+[[ ! -e "$destination" && ! -L "$destination" ]] || exit 1
+# Both directories are on the same filesystem; GNU mv -T performs one rename.
+mv -T -- "$stage" "$destination" 2>/dev/null
+stage=''
+published="$destination"
+log "SUCCESS PostgreSQL 17 backup published: $destination"
+
+phase=retention
+shopt -s nullglob
+# A failed dump or a full disk never triggers deletion. Recheck the new keeper
+# before removing anything, even when all previous backups are over ten days old.
+managed_backup "$published" || { log 'ERROR retention refused: new backup checksum/layout verification failed'; exit 1; }
+docker exec -i --user postgres "$container_id" pg_restore --list < "$published/database.dump" >/dev/null 2>&1
+cutoff=$(( $(date -u +%s) - 10 * 24 * 60 * 60 ))
+removed=0
+for candidate in "$backup_root"/postgres-*; do
+    [[ "$candidate" != "$published" ]] || continue
+    [[ "${candidate##*/}" =~ ^postgres-([0-9]{8}T[0-9]{6}Z)-[a-zA-Z0-9]{10}$ ]] || continue
+    timestamp="${BASH_REMATCH[1]}"
+    created="$(date -u -d "${timestamp:0:4}-${timestamp:4:2}-${timestamp:6:2} ${timestamp:9:2}:${timestamp:11:2}:${timestamp:13:2}" +%s 2>/dev/null)" || continue
+    (( created < cutoff )) || continue
+    if ! managed_backup "$candidate"; then
+        log "WARNING retention skipped unverified backup: $candidate"
+        continue
+    fi
+    # Explicit files only: no rm -rf, wildcards, or deletion of unexpected data.
+    rm -- "$candidate/database.dump" "$candidate/database.list" "$candidate/SHA256SUMS"
+    rmdir -- "$candidate"
+    removed=$((removed + 1))
+    log "RETENTION removed expired managed backup: $candidate"
+done
+log "SUCCESS retention completed: days=10 removed=$removed keeper=$published"
