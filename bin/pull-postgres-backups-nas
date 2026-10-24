@@ -21,8 +21,9 @@ from postgres_backup_format import parse_checksums, verify_directory
 
 
 REMOTE = "soamco-backup@100.73.11.75"
-REMOTE_ROOT = "/var/backups/soamco"
+REMOTE_ROOT = "/soamco"
 SOURCE = REMOTE + ":" + REMOTE_ROOT
+LEGACY_SOURCE = REMOTE + ":/var/backups/soamco"
 NAME = re.compile(r"postgres-(\d{8}T\d{6}Z)-[A-Za-z0-9]{10}")
 RECEIPT = ".soamco-nas-receipt.json"
 
@@ -80,12 +81,12 @@ def verify(directory: Path, receipt: bool = True) -> tuple[str, ...]:
             record = json.loads((directory / RECEIPT).read_text(encoding="utf-8"))
         except (ValueError, UnicodeError) as error:
             raise PullError("Invalid NAS receipt") from error
-        if record != {
+        if record not in [{
             "schema": 1,
-            "source": SOURCE,
+            "source": source,
             "backup": directory.name,
             "checksums_sha256": hashlib.sha256(manifest).hexdigest(),
-        }:
+        } for source in (SOURCE, LEGACY_SOURCE)]:
             raise PullError("Backup was not published by this NAS pull script")
     return files
 
@@ -107,6 +108,8 @@ def quote(path: str) -> str:
 class Pull:
     storage_name = "postgresql"
     description = "PostgreSQL"
+    summary_label = "PostgreSQL"
+    maximum_age = dt.timedelta(hours=2)
     name_pattern = NAME
     verify = staticmethod(verify)
     parse_checksums = staticmethod(parse_checksums)
@@ -218,6 +221,26 @@ class Pull:
     def verify_staging(self, stage: Path, name: str) -> None:
         self.verify(stage, receipt=False)
 
+    def final_summary(self, now: dt.datetime) -> str:
+        from zoneinfo import ZoneInfo
+
+        latest = None
+        for directory in self.storage.iterdir():
+            if self.name_pattern.fullmatch(directory.name) is None:
+                continue
+            try:
+                timestamp = self.backup_time(directory.name)
+                self.verify(directory)
+            except (PullError, OSError, ValueError):
+                continue
+            if latest is None or timestamp > latest:
+                latest = timestamp
+        if latest is None:
+            return f"{self.summary_label}: MANCANTE | ultimo backup verificato sul NAS: nessuno"
+        status = "NON AGGIORNATO" if now - latest > self.maximum_age else "OK"
+        local = latest.astimezone(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y %H:%M:%S %Z")
+        return f"{self.summary_label}: {status} | ultimo backup verificato sul NAS: {local} (Europe/Rome)"
+
     def retain(self) -> None:
         valid = []
         for directory in self.storage.iterdir():
@@ -285,6 +308,8 @@ class Pull:
 class FilesPull(Pull):
     storage_name = "files"
     description = "encrypted files/configuration"
+    summary_label = "File/configurazioni"
+    maximum_age = dt.timedelta(hours=48)
 
     def __init__(self) -> None:
         import files_backup_format as file_format
@@ -320,15 +345,26 @@ def main() -> int:
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     pull = None
+    summaries = []
     try:
         for collection in (Pull, FilesPull):
             pull = collection()
             result = pull.run(check_only=sys.argv[1:] == ["--check"])
             if result:
                 return result
+            if sys.argv[1:] != ["--check"]:
+                try:
+                    summaries.append(pull.final_summary(dt.datetime.now(dt.timezone.utc)))
+                except (ImportError, KeyError, OSError, ValueError) as error:
+                    # Reporting must not change transfer/retention outcomes or exit status.
+                    summaries.append(f"{pull.summary_label}: riepilogo non disponibile ({type(error).__name__})")
             pull.lock.close()
             pull.log_file.close()
             pull = None
+        if summaries:
+            print("\nRiepilogo NAS", file=sys.stderr)
+            for summary in summaries:
+                print(summary, file=sys.stderr)
         return 0
     except (PullError, OSError, ValueError) as error:
         # Do not log SFTP stderr, key material, or remote file contents.

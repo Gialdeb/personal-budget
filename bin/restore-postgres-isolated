@@ -308,10 +308,13 @@ def main() -> int:
     parser.add_argument("backup", nargs="?", type=Path, help="Completed backup directory copied from the VPS or NAS")
     parser.add_argument("--keep", action="store_true", help="Keep the isolated database only after all checks succeed")
     parser.add_argument("--self-test", action="store_true", help="Generate and restore synthetic data only; no backup input")
+    parser.add_argument("--verify-only", action="store_true", help="Verify and decrypt privately without accessing Docker or restoring a database")
     parser.add_argument("--age-identity", type=Path, help="Private age identity on the recovery machine only; required for encrypted backups")
     args = parser.parse_args()
-    if (args.backup is None) == (not args.self_test) or (args.self_test and (args.keep or args.age_identity)):
-        parser.error("Provide either one backup directory or --self-test; --self-test cannot use --keep or --age-identity")
+    if ((args.backup is None) == (not args.self_test) or
+            (args.self_test and (args.keep or args.age_identity or args.verify_only)) or
+            (args.verify_only and args.keep)):
+        parser.error("Provide a backup or --self-test; --verify-only cannot use --keep or --self-test")
     os.umask(0o077)
     signal.signal(signal.SIGINT, interrupted)
     signal.signal(signal.SIGTERM, interrupted)
@@ -322,6 +325,9 @@ def main() -> int:
         with tempfile.TemporaryDirectory(prefix="soamco-restore-input-") as temporary:
             directory = Path(temporary)
             expected = snapshot(args.backup, directory, args.age_identity) if args.backup is not None else None
+            if args.verify_only:
+                log("SUCCESS verification only: checksums, available manifest, decryption and recorded PostgreSQL 17 TOC; no Docker access or restore")
+                return 0
             sandbox = Sandbox()
             sandbox.create()
             if args.self_test:

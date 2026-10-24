@@ -351,3 +351,69 @@ it('restores synthetic rows schema constraints sequence and function on a real i
     expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
         ->and($process->getErrorOutput())->toContain('synthetic restore verified', 'CLEANUP');
 })->group('postgres-restore-integration');
+
+it('verifies encrypted or legacy backups without contacting Docker or retaining plaintext', function (bool $encrypted) {
+    $arguments = [$this->backup, '--verify-only'];
+    if ($encrypted) {
+        $arguments = [...$arguments, '--age-identity', ($this->encryptFixture)()];
+    }
+    $process = ($this->runRestore)('', $arguments);
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+        ->and($process->getErrorOutput())->toContain('verification only', 'no Docker access or restore')
+        ->and(file_exists($this->fixture.'/calls'))->toBeFalse()
+        ->and(glob($this->fixture.'/soamco-restore-input-*'))->toBe([]);
+    if ($encrypted) {
+        expect(file_exists($this->backup.'/database.dump'))->toBeFalse()
+            ->and(is_file($this->backup.'/database.dump.age'))->toBeTrue();
+    }
+})->with([true, false]);
+
+it('rejects verification options that could retain data or start a self test', function (string $option) {
+    $process = ($this->runRestore)('', $option === '--keep'
+        ? [$this->backup, '--verify-only', $option]
+        : ['--verify-only', $option]);
+    expect($process->getExitCode())->toBe(2)
+        ->and(file_exists($this->fixture.'/calls'))->toBeFalse();
+})->with(['--keep', '--self-test']);
+
+it('guides local verification or an isolated restore without a configurable database target', function (string $choice) {
+    $input = $choice."\n".$this->backup."\n\n".($choice === '2' ? "PROVA ISOLATA\n" : '')."0\n";
+    $process = new Process(['bash', dirname(__DIR__, 2).'/bin/restore-postgres-guided'], env: [
+        'PATH' => $this->fixture.'/commands:'.getenv('PATH'),
+        'RESTORE_FIXTURE' => $this->fixture,
+        'DOCKER_HOST' => 'ssh://production',
+        'PGHOST' => 'production',
+        'TMPDIR' => dirname(__DIR__, 2),
+    ]);
+    $process->setInput($input);
+    $process->setTimeout(15);
+    $process->run();
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+        ->and($process->getOutput())->toContain('Operazione completata', 'Nessun database Soamco esistente');
+    if ($choice === '1') {
+        expect(file_exists($this->fixture.'/calls'))->toBeFalse();
+    } else {
+        expect($process->getErrorOutput())->toContain('ISOLATED', 'CLEANUP')
+            ->and(file_exists($this->fixture.'/container.json'))->toBeFalse()
+            ->and(file_get_contents($this->fixture.'/calls'))->not->toContain('soamco-budget-db', '--publish', 'soamco_budget_postgres_data');
+    }
+})->with(['1', '2']);
+
+it('shows production instructions without running a restore and requires an unequivocal future authorization', function () {
+    $process = new Process(['bash', dirname(__DIR__, 2).'/bin/restore-postgres-guided']);
+    $process->setInput("3\n0\n");
+    $process->mustRun();
+    expect($process->getOutput())->toContain('AUTORIZZO IL RIPRISTINO REALE', 'STOP obbligatorio', 'nuova autorizzazione')
+        ->and(file_exists($this->fixture.'/calls'))->toBeFalse();
+});
+
+it('cancels the isolated wizard trial when its confirmation is missing or generic', function () {
+    $process = new Process(['bash', dirname(__DIR__, 2).'/bin/restore-postgres-guided'], env: [
+        'PATH' => $this->fixture.'/commands:'.getenv('PATH'),
+        'RESTORE_FIXTURE' => $this->fixture,
+    ]);
+    $process->setInput("2\n".$this->backup."\n\nsi\n0\n");
+    $process->mustRun();
+    expect($process->getOutput())->toContain('Prova annullata')
+        ->and(file_exists($this->fixture.'/calls'))->toBeFalse();
+});

@@ -31,7 +31,7 @@ beforeEach(function () {
         }
         foreach (scandir($root.'/remote') as $name) {
             if ($name !== '.' && $name !== '..') {
-                echo '/var/backups/soamco/'.$name."\n";
+                echo '/soamco/'.$name."\n";
             }
         }
         exit(0);
@@ -41,10 +41,10 @@ beforeEach(function () {
             exit(43);
         }
         [$remote, $local] = str_getcsv(substr($line, 5), ' ', '"', '\\');
-        if (! str_starts_with($remote, '/var/backups/soamco/')) {
+        if (! str_starts_with($remote, '/soamco/')) {
             exit(44);
         }
-        $source = $root.'/remote/'.substr($remote, strlen('/var/backups/soamco/'));
+        $source = $root.'/remote/'.substr($remote, strlen('/soamco/'));
         if ($failure === 'network') {
             file_put_contents($local, 'incomplete download');
             fwrite(STDERR, 'PRIVATE-SFTP-DIAGNOSTIC');
@@ -94,7 +94,7 @@ beforeEach(function () {
         if ($local) {
             file_put_contents($directory.'/.soamco-nas-receipt.json', json_encode([
                 'schema' => 1,
-                'source' => 'soamco-backup@100.73.11.75:/var/backups/soamco',
+                'source' => 'soamco-backup@100.73.11.75:/soamco',
                 'backup' => $name,
                 'checksums_sha256' => hash_file('sha256', $directory.'/SHA256SUMS'),
             ]));
@@ -123,7 +123,7 @@ beforeEach(function () {
         );
         if ($local) {
             file_put_contents($directory.'/.soamco-nas-receipt.json', json_encode([
-                'schema' => 1, 'source' => 'soamco-backup@100.73.11.75:/var/backups/soamco',
+                'schema' => 1, 'source' => 'soamco-backup@100.73.11.75:/soamco',
                 'backup' => $name, 'checksums_sha256' => hash_file('sha256', $directory.'/SHA256SUMS'),
             ]));
         }
@@ -146,6 +146,25 @@ beforeEach(function () {
         ]);
         $process->setTimeout(10);
         $process->run();
+
+        return $process;
+    };
+    $this->runSummary = function (bool $files, DateTimeImmutable $now): Process {
+        $code = <<<'PY'
+        import datetime as dt, pathlib, runpy, sys
+        sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
+        module = runpy.run_path(sys.argv[1])
+        pull = module[sys.argv[2]]()
+        try:
+            print(pull.final_summary(dt.datetime.fromisoformat(sys.argv[3])))
+        finally:
+            pull.lock.close()
+            pull.log_file.close()
+        PY;
+        $process = new Process(['python3', '-B', '-c', $code, dirname(__DIR__, 2).'/bin/pull-postgres-backups-nas', $files ? 'FilesPull' : 'Pull', $now->format('c')], env: [
+            'SOAMCO_NAS_BACKUP_ROOT' => $this->nasRoot,
+        ]);
+        $process->mustRun();
 
         return $process;
     };
@@ -439,4 +458,104 @@ it('refuses overlapping files pulls and never replaces a damaged files destinati
     file_put_contents($storage.'/'.$name.'/files.tar.gz.age', 'do not overwrite');
     expect(($this->runPull)()->isSuccessful())->toBeFalse()
         ->and(file_get_contents($storage.'/'.$name.'/files.tar.gz.age'))->toBe('do not overwrite');
+});
+
+it('uses only the SFTP chroot path and writes matching receipts for both backup collections', function () {
+    $name = ($this->makeFilesBackup)();
+    $process = ($this->runPull)();
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+    foreach ([$this->storage.'/'.$this->remoteName, $this->nasRoot.'/files/'.$name] as $directory) {
+        $receipt = json_decode(file_get_contents($directory.'/.soamco-nas-receipt.json'), true);
+        expect($receipt['source'])->toBe('soamco-backup@100.73.11.75:/soamco')
+            ->and($receipt['checksums_sha256'])->toBe(hash_file('sha256', $directory.'/SHA256SUMS'));
+    }
+    $calls = array_map(fn (string $line): array => json_decode($line, true), file($this->fixture.'/calls'));
+    expect(implode("\n", array_column($calls, 'batch')))->toContain('@ls -1 "/soamco/"', '/soamco/'.$name, '/soamco/'.$this->remoteName)
+        ->not->toContain('/var/backups/soamco');
+});
+
+it('accepts the exact legacy receipt source without downloading existing copies again', function () {
+    $name = ($this->makeFilesBackup)();
+    expect(($this->runPull)()->getExitCode())->toBe(0);
+    foreach ([$this->storage.'/'.$this->remoteName, $this->nasRoot.'/files/'.$name] as $directory) {
+        $path = $directory.'/.soamco-nas-receipt.json';
+        $receipt = json_decode(file_get_contents($path), true);
+        $receipt['source'] = 'soamco-backup@100.73.11.75:/var/backups/soamco';
+        file_put_contents($path, json_encode($receipt));
+    }
+    $before = substr_count(file_get_contents($this->fixture.'/calls'), '@get ');
+    $process = ($this->runPull)();
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+        ->and(substr_count(file_get_contents($this->fixture.'/calls'), '@get '))->toBe($before);
+});
+
+it('rejects foreign or mismatched receipts after changing the SFTP root', function (bool $files, string $field, string $value) {
+    $name = ($this->makeFilesBackup)();
+    expect(($this->runPull)()->getExitCode())->toBe(0);
+    $directory = $files ? $this->nasRoot.'/files/'.$name : $this->storage.'/'.$this->remoteName;
+    $path = $directory.'/.soamco-nas-receipt.json';
+    $receipt = json_decode(file_get_contents($path), true);
+    $receipt['source'] = 'soamco-backup@100.73.11.75:/var/backups/soamco';
+    $receipt[$field] = $value;
+    file_put_contents($path, json_encode($receipt));
+    $hash = hash_file('sha256', $directory.'/SHA256SUMS');
+    expect(($this->runPull)()->isSuccessful())->toBeFalse()
+        ->and(hash_file('sha256', $directory.'/SHA256SUMS'))->toBe($hash);
+})->with([true, false])->with([
+    ['source', 'soamco-backup@100.73.11.75:/soamco/other'],
+    ['source', 'soamco-backup@100.73.11.76:/soamco'],
+    ['checksums_sha256', 'invalid'],
+    ['backup', 'another-backup'],
+]);
+
+it('reports the latest verified NAS backup in Italian time with exact freshness boundaries', function (bool $files, int $seconds, string $status) {
+    $name = $files ? ($this->makeFilesBackup)(0, true) : ($this->makeBackup)(0, true);
+    preg_match('/(\d{8}T\d{6}Z)/', $name, $match);
+    $timestamp = DateTimeImmutable::createFromFormat('!Ymd\THis\Z', $match[1], new DateTimeZone('UTC'));
+    $now = $timestamp->modify('+'.$seconds.' seconds');
+    $process = ($this->runSummary)($files, $now);
+    $local = $timestamp->setTimezone(new DateTimeZone('Europe/Rome'))->format('d/m/Y H:i:s T');
+    expect($process->getOutput())->toBe(($files ? 'File/configurazioni' : 'PostgreSQL').': '.$status.' | ultimo backup verificato sul NAS: '.$local." (Europe/Rome)\n")
+        ->and(file_exists($this->fixture.'/calls'))->toBeFalse();
+})->with([
+    [false, 0, 'OK'], [false, 7200, 'OK'], [false, 7201, 'NON AGGIORNATO'],
+    [true, 0, 'OK'], [true, 172800, 'OK'], [true, 172801, 'NON AGGIORNATO'],
+]);
+
+it('reports missing when no local backup can actually be verified', function (bool $files, bool $corrupt) {
+    if ($corrupt) {
+        $name = $files ? ($this->makeFilesBackup)(0, true) : ($this->makeBackup)(0, true);
+        $directory = ($files ? $this->nasRoot.'/files' : $this->storage).'/'.$name;
+        unlink($directory.'/.soamco-nas-receipt.json');
+    }
+    $process = ($this->runSummary)($files, new DateTimeImmutable('now', new DateTimeZone('UTC')));
+    expect($process->getOutput())->toContain(': MANCANTE | ultimo backup verificato sul NAS: nessuno')
+        ->and(file_exists($this->fixture.'/calls'))->toBeFalse();
+})->with([true, false])->with([true, false]);
+
+it('ignores newer corrupted NAS copies and file modification times in the summary', function (bool $files) {
+    $keeper = $files ? ($this->makeFilesBackup)(20, true) : ($this->makeBackup)(20, true);
+    $invalid = $files ? ($this->makeFilesBackup)(0, true) : ($this->makeBackup)(0, true);
+    $root = $files ? $this->nasRoot.'/files' : $this->storage;
+    $artifact = $files ? 'files.tar.gz.age' : 'database.dump';
+    file_put_contents($root.'/'.$invalid.'/'.$artifact, 'corrupt');
+    touch($root.'/'.$keeper);
+    preg_match('/(\d{8}T\d{6}Z)/', $keeper, $match);
+    $timestamp = DateTimeImmutable::createFromFormat('!Ymd\THis\Z', $match[1], new DateTimeZone('UTC'));
+    $local = $timestamp->setTimezone(new DateTimeZone('Europe/Rome'))->format('d/m/Y H:i:s T');
+    $hash = hash_file('sha256', $root.'/'.$keeper.'/'.$artifact);
+    $process = ($this->runSummary)($files, new DateTimeImmutable('now', new DateTimeZone('UTC')));
+    expect($process->getOutput())->toContain(': NON AGGIORNATO', $local)
+        ->and(hash_file('sha256', $root.'/'.$keeper.'/'.$artifact))->toBe($hash)
+        ->and(is_dir($root.'/'.$invalid))->toBeTrue();
+})->with([true, false]);
+
+it('prints the final summary for both collections only after a normal pull', function () {
+    ($this->makeFilesBackup)();
+    $process = ($this->runPull)();
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+        ->and($process->getErrorOutput())->toContain('Riepilogo NAS', 'PostgreSQL: OK', 'File/configurazioni: OK', '(Europe/Rome)');
+    $check = ($this->runPull)('', ['--check']);
+    expect($check->getExitCode())->toBe(0)
+        ->and($check->getErrorOutput())->not->toContain('Riepilogo NAS');
 });

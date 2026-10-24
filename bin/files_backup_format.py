@@ -15,7 +15,8 @@ NAME = re.compile(r"files-encrypted-(\d{8}T\d{6}Z)-[a-f0-9]{10}")
 FILES = ("files.tar.gz.age", "manifest.json", "SHA256SUMS")
 SUMS = re.compile(rb"([a-f0-9]{64})  files.tar.gz.age\n([a-f0-9]{64})  manifest.json\n")
 RECEIPT = ".soamco-nas-receipt.json"
-SOURCE = "soamco-backup@100.73.11.75:/var/backups/soamco"
+SOURCE = "soamco-backup@100.73.11.75:/soamco"
+LEGACY_SOURCE = "soamco-backup@100.73.11.75:/var/backups/soamco"
 
 
 def backup_time(name: str) -> dt.datetime:
@@ -62,9 +63,9 @@ def verify(directory: Path, receipt: bool = True, expected_name: str | None = No
     if receipt:
         if (directory / RECEIPT).stat().st_size > 1024:
             raise ValueError("Oversized NAS receipt")
-        if json.loads((directory / RECEIPT).read_text()) != {
-            "schema": 1, "source": SOURCE, "backup": name,
+        if json.loads((directory / RECEIPT).read_text()) not in [{
+            "schema": 1, "source": source, "backup": name,
             "checksums_sha256": hashlib.sha256(checksum_bytes).hexdigest(),
-        }:
+        } for source in (SOURCE, LEGACY_SOURCE)]:
             raise ValueError("Encrypted files backup has no valid NAS receipt")
     return FILES

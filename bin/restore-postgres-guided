@@ -1,0 +1,77 @@
+#!/bin/bash
+# Bash 3.2 compatible; no production or application database destination exists.
+set -eu
+umask 077
+scripts="$(cd "$(dirname "$0")" && pwd -P)"
+if ! command -v python3 >/dev/null 2>&1; then
+    printf 'Errore: serve Python 3. Su macOS: brew install python age\n' >&2
+    exit 1
+fi
+[ "$#" -eq 0 ] || { printf 'Uso: bash bin/restore-postgres-guided\n' >&2; exit 2; }
+trap 'printf "\nInterrotto.\n" >&2; exit 130' INT
+trap 'exit 143' TERM
+while true; do
+    printf '\nRipristino PostgreSQL Soamco\n1) Seleziona e verifica backup (senza Docker)\n2) Prova ripristino in un nuovo container isolato\n3) Preparazione produzione: solo istruzioni\n0) Esci\nScelta: '
+    IFS= read -r choice || exit 0
+    case "$choice" in
+        0) exit 0 ;;
+        1|2) ;;
+        3)
+            cat "$scripts/../docs/GUIDED_POSTGRES_RESTORE.md"
+            continue ;;
+        *) printf 'Scelta non valida.\n'; continue ;;
+    esac
+    printf 'Cartella locale completa del backup (percorso assoluto, senza virgolette): '
+    IFS= read -r backup || exit 0
+    printf 'Chiave privata age (percorso assoluto; Invio solo per backup precedenti in chiaro): '
+    IFS= read -r identity || exit 0
+    # Canonicalize paths and keep identities/temporary plaintext outside repositories.
+    if ! python3 -B - "$scripts/.." "$backup" "$identity" <<'PY'
+import os
+from pathlib import Path
+import sys
+try:
+    repository = Path(sys.argv[1]).resolve()
+    for value in sys.argv[2:]:
+        if not value:
+            continue
+        path = Path(value)
+        if not path.is_absolute():
+            raise ValueError()
+        path = path.resolve(strict=True)
+        if repository == path or repository in path.parents or any((parent / '.git').exists() for parent in (path, *path.parents)):
+            raise ValueError()
+except (OSError, ValueError):
+    print('Errore: scegli percorsi assoluti esistenti, fuori dai repository.', file=sys.stderr)
+    sys.exit(1)
+PY
+    then
+        continue
+    fi
+    if [ -z "$backup" ]; then
+        printf 'Errore: seleziona una cartella backup.\n' >&2
+        continue
+    fi
+    set -- python3 -B "$scripts/restore-postgres-isolated" "$backup"
+    if [ -n "$identity" ]; then
+        set -- "$@" --age-identity "$identity"
+    fi
+    if [ "$choice" = 1 ]; then
+        set -- "$@" --verify-only
+    else
+        printf 'La prova crea un nuovo volume e container senza rete o porte. Al termine li elimina.\nDigita PROVA ISOLATA per continuare: '
+        IFS= read -r confirmation || exit 0
+        if [ "$confirmation" != 'PROVA ISOLATA' ]; then
+            printf 'Prova annullata.\n'
+            continue
+        fi
+    fi
+    # Ignore caller TMPDIR, including checkout-relative paths. No plaintext in Git.
+    temporary_root=/tmp
+    [ ! -d /private/tmp ] || temporary_root=/private/tmp
+    if TMPDIR="$temporary_root" PYTHONDONTWRITEBYTECODE=1 "$@"; then
+        printf 'Operazione completata. Nessun database Soamco esistente è stato modificato.\n'
+    else
+        printf 'Operazione non riuscita. Controlla backup, chiave e prerequisiti locali.\n' >&2
+    fi
+done
