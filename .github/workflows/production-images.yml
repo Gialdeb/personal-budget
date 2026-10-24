@@ -1,0 +1,83 @@
+name: Prepare private production images
+
+# To expose Run workflow, this file must also exist on the default branch.
+# Select main or release/3.5.4-beta manually. This workflow never deploys to the VPS.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialize all publications, including reruns, to protect existing SHA tags.
+# GHCR administrators can still retag images; immutable references use the
+# verified digests reported in the summary. This workflow never overwrites tags.
+concurrency:
+  group: soamco-private-production-images
+  cancel-in-progress: false
+
+jobs:
+  images:
+    if: (github.ref == 'refs/heads/release/3.5.4-beta' || github.ref == 'refs/heads/main') && !github.event.repository.fork
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # These values are browser-public repository variables, never secrets.
+      VITE_APP_NAME: ${{ vars.VITE_APP_NAME }}
+      VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_VAPID_PUBLIC_KEY: ${{ vars.VITE_FIREBASE_VAPID_PUBLIC_KEY }}
+      VITE_REVERB_APP_KEY: ${{ vars.VITE_REVERB_APP_KEY }}
+      VITE_REVERB_HOST: ${{ vars.VITE_REVERB_HOST }}
+      VITE_REVERB_PORT: ${{ vars.VITE_REVERB_PORT }}
+      VITE_REVERB_SCHEME: ${{ vars.VITE_REVERB_SCHEME }}
+      DOCKER_BUILD_RECORD_UPLOAD: 'false'
+    steps:
+      - name: Checkout selected commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify private packages and unused commit tags
+        id: prepare
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { prepare } = await import(`${process.env.GITHUB_WORKSPACE}/bin/production-images-ci.mjs`);
+            await prepare({ github, context, core });
+
+      - name: Set up Buildx on GitHub runner
+        uses: docker/setup-buildx-action@v4
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build PHP frontend and web images for the VPS
+        id: build
+        uses: docker/bake-action@v7
+        with:
+          source: .
+          files: ${{ steps.prepare.outputs.bake-file }}
+          push: true
+          provenance: mode=min
+          sbom: false
+
+      - name: Verify private publication and report immutable digests
+        uses: actions/github-script@v9
+        env:
+          BUILD_METADATA: ${{ steps.build.outputs.metadata }}
+        with:
+          script: |
+            const { verifyPublished } = await import(`${process.env.GITHUB_WORKSPACE}/bin/production-images-ci.mjs`);
+            await verifyPublished({ github, context, core }, JSON.parse(process.env.BUILD_METADATA));

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Proposed replacement for the external VPS wrapper. Apply manually after review.
+set -euo pipefail
+cd /var/www/soamco-budget
+export SOAMCO_COMPOSE_ENV_FILE=.env.docker
+# Optional one-time activation AFTER review (keep commented until enabled):
+# export SOAMCO_DEPLOY_SELECTION=github
+# export SOAMCO_IMAGE_REPOSITORY=owner/repository
+# Pull as soamco under the lock through an in-memory bootstrap, then run the updated script.
+exec bin/deploy-production --pull-user soamco --pull-branch main "$@"

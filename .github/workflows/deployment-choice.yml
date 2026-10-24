@@ -1,0 +1,46 @@
+name: Select deployment mode for main
+
+# Manual metadata selection only. Existing preparation workflows run separately.
+# This workflow must be available on the default branch before manual dispatch.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Modalità per questo commit esatto di main (immagini già preparate per ghcr/ssh)
+        required: true
+        type: choice
+        options:
+          - ghcr
+          - ssh
+          - local
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soamco-deploy-choice-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  select:
+    if: github.ref == 'refs/heads/main' && !github.event.repository.fork
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate preparation and record immutable commit selection
+        uses: actions/github-script@v9
+        env:
+          SELECTED_MODE: ${{ inputs.mode }}
+        with:
+          script: |
+            const { selectDeployment } = await import(`${process.env.GITHUB_WORKSPACE}/bin/deployment-choice-ci.mjs`);
+            await selectDeployment({ github, context, core }, process.env.SELECTED_MODE);
