@@ -1,0 +1,465 @@
+#!/usr/bin/env python3
+"""Create an encrypted hot copy of Soamco files, independent of PostgreSQL dumps."""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import datetime as dt
+import fcntl
+import grp
+import gzip
+import hashlib
+import io
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import secrets
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import tarfile
+import tempfile
+
+
+ROOT = Path("/var/backups/soamco")
+LOCK = Path("/tmp/soamco-production-deploy.lock")
+SCHEMA = "soamco-encrypted-files-v1"
+NAME = re.compile(r"files-encrypted-(\d{8}T\d{6}Z)-[a-f0-9]{10}")
+ARTIFACTS = {"files.tar.gz.age", "manifest.json", "SHA256SUMS"}
+SUMS = re.compile(rb"([a-f0-9]{64})  files.tar.gz.age\n([a-f0-9]{64})  manifest.json\n")
+
+
+class BackupError(Exception):
+    pass
+
+
+def log(message: str) -> None:
+    print(dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds") + " " + message, file=sys.stderr, flush=True)
+
+
+def root_owned(info) -> bool:
+    return info.st_uid == 0
+
+
+def trusted(path: Path, directory: bool = False) -> None:
+    info = path.lstat()
+    if not root_owned(info) or info.st_mode & 0o022 or not (stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)):
+        raise BackupError("Expected a root-owned, non-symlink path not writable by group/others")
+    if not directory and info.st_nlink != 1:
+        raise BackupError("Hard-linked configuration/artifact files are refused")
+
+
+def trusted_ancestors(path: Path) -> None:
+    for parent in path.parents:
+        info = parent.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or not root_owned(info) or
+                (info.st_mode & 0o022 and not info.st_mode & stat.S_ISVTX)):
+            raise BackupError("Backup configuration and destination require protected root-owned ancestors")
+
+
+def open_source(path: Path) -> int:
+    descriptor = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for component in path.parts[1:-1]:
+            child = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+        return os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def digest(path: Path) -> str:
+    result = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            result.update(chunk)
+    return result.hexdigest()
+
+
+def command(args: list[str]) -> bytes:
+    environment = {key: value for key, value in os.environ.items() if not key.startswith(("DOCKER_", "PG", "AGE_", "GIT_"))}
+    try:
+        result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=environment, timeout=1800, check=False)
+    except subprocess.TimeoutExpired as error:
+        raise BackupError("External command timed out") from error
+    if result.returncode:
+        raise BackupError(f"{Path(args[0]).name} failed (exit={result.returncode}); diagnostic contents withheld")
+    return result.stdout
+
+
+def docker(*args: str):
+    return json.loads(command(["docker", "--host", "unix:///var/run/docker.sock", *args, "--format", "{{json .}}"] if args[0] != "info" else
+                              ["docker", "--host", "unix:///var/run/docker.sock", "info", "--format", "{{json .}}"]))
+
+
+def sync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def relative(value: str) -> str:
+    path = PurePosixPath(value)
+    if not value or path.is_absolute() or ".." in path.parts or str(path) != value or value == ".":
+        raise BackupError("Exclusions must be canonical relative directories")
+    return value
+
+
+def sources(config: dict):
+    checkout = Path(config["checkout"])
+    if not checkout.is_absolute() or not checkout.is_dir() or checkout.is_symlink():
+        raise BackupError("Configured checkout is not a real absolute directory")
+    app = docker("inspect", "soamco-budget-app")
+    proxy = docker("inspect", "soamco-budget-proxy")
+    project = app.get("Config", {}).get("Labels", {}).get("com.docker.compose.project")
+    for data, service in ((app, "app"), (proxy, "proxy")):
+        labels = data.get("Config", {}).get("Labels", {})
+        if not project or labels.get("com.docker.compose.project") != project or labels.get("com.docker.compose.service") != service:
+            raise BackupError("Unexpected Compose project or service")
+    environment = dict(entry.split("=", 1) for entry in app["Config"]["Env"] if "=" in entry)
+    if environment.get("APP_ENV") != "production":
+        raise BackupError("The inspected application is not configured for production")
+    docker_root = Path(docker("info")["DockerRootDir"]).resolve(strict=True)
+    mounts = {mount["Destination"]: mount for mount in app["Mounts"]}
+    roots = {}
+    metadata = {}
+    for disk in ("public", "private"):
+        mount = mounts.get("/var/www/html/storage/app/" + disk, {})
+        if mount.get("Type") != "volume":
+            raise BackupError("Only the expected named storage volumes are allowed")
+        volume = docker("volume", "inspect", mount["Name"])
+        labels = volume.get("Labels") or {}
+        source = Path(volume["Mountpoint"])
+        expected = docker_root / "volumes" / mount["Name"] / "_data"
+        if (volume.get("Driver") != "local" or volume.get("Options") or
+                labels.get("com.docker.compose.project") != project or
+                labels.get("com.docker.compose.volume") != "soamco_budget_" + disk + "_storage" or
+                source != expected or source.is_symlink() or source.resolve(strict=True) != expected):
+            raise BackupError("Unexpected volume identity, driver or host mountpoint")
+        roots[disk] = source
+        metadata[disk] = mount["Name"]
+    caddy = [mount for mount in proxy["Mounts"] if mount["Destination"] == "/etc/caddy/Caddyfile"]
+    if len(caddy) != 1 or caddy[0].get("Type") != "bind":
+        raise BackupError("Production Caddyfile bind mount could not be identified")
+    files = {
+        "configuration/runtime.env": Path(config["runtime_env_file"]),
+        "configuration/Caddyfile": Path(caddy[0]["Source"]),
+        "configuration/docker-compose.yml": checkout / "docker-compose.yml",
+        "configuration/docker-compose.production.yml": checkout / "docker-compose.production.yml",
+    }
+    if config["compose_env_file"] is not None:
+        files["configuration/compose.env"] = Path(config["compose_env_file"])
+    for path in files.values():
+        if not path.is_absolute():
+            raise BackupError("Configuration paths must be absolute")
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_mode & 0o022 or
+                (not root_owned(info) and info.st_uid != checkout.stat().st_uid) or
+                path.resolve() == docker_root or docker_root in path.resolve().parents):
+            raise BackupError("Configuration must be a protected regular file outside Docker data, owned by root or the checkout owner")
+    revision = command(["git", "-C", str(checkout), "rev-parse", "HEAD"]).decode().strip()
+    if re.fullmatch(r"[a-f0-9]{40,64}", revision) is None:
+        raise BackupError("Cannot identify the checkout revision")
+    exclusions = {"public": ["backups", "tmp", "temp", "cache", ".cache"],
+                  "private": ["backups", "pending-reference-logos", "tmp", "temp", "cache", ".cache"]}
+    backup_directories = [relative(environment.get(key, default).strip("/")) for key, default in (
+        ("AUTOMATION_FULL_BACKUP_DIRECTORY", "backups/full"), ("AUTOMATION_USER_BACKUP_DIRECTORY", "backups/users"))]
+    for disk in exclusions:
+        exclusions[disk] += backup_directories
+    inventory = dict(files)
+    for disk, root in roots.items():
+        for current, directories, names in os.walk(root, followlinks=False, onerror=lambda error: (_ for _ in ()).throw(error)):
+            def excluded(path: Path) -> bool:
+                value = path.relative_to(root).as_posix()
+                return any(value == prefix or value.startswith(prefix + "/") for prefix in exclusions[disk])
+            directories[:] = sorted(name for name in directories if not excluded(Path(current) / name))
+            for name in directories:
+                if (Path(current) / name).is_symlink():
+                    raise BackupError("Symlinks inside storage are refused")
+            for name in sorted(names):
+                path = Path(current) / name
+                if excluded(path):
+                    continue
+                if not stat.S_ISREG(path.lstat().st_mode):
+                    raise BackupError("Only regular files are allowed inside storage")
+                inventory["storage/" + disk + "/" + path.relative_to(root).as_posix()] = path
+    generated = json.dumps({"environment": environment}, sort_keys=True).encode()
+    details = {"revision": revision, "app_image": app["Image"], "app_image_reference": app["Config"]["Image"],
+               "proxy_image": proxy["Image"], "proxy_image_reference": proxy["Config"]["Image"],
+               "compose_project": project, "volumes": metadata, "exclusions": exclusions,
+               "configuration_files": {name: str(path) for name, path in files.items()}}
+    return inventory, generated, details
+
+
+class HashReader:
+    def __init__(self, stream) -> None:
+        self.stream = stream
+        self.hash = hashlib.sha256()
+
+    def read(self, size: int) -> bytes:
+        chunk = self.stream.read(size)
+        self.hash.update(chunk)
+        return chunk
+
+
+def make_archive(path: Path, inventory: dict, generated: bytes, details: dict) -> dict:
+    records = {}
+    with tarfile.open(path, "x:gz", format=tarfile.PAX_FORMAT) as archive:
+        for name in ("storage/public", "storage/private", "configuration"):
+            info = tarfile.TarInfo(name)
+            info.type, info.mode = tarfile.DIRTYPE, 0o700
+            archive.addfile(info)
+        for name, source in sorted(inventory.items()):
+            descriptor = open_source(source)
+            with os.fdopen(descriptor, "rb") as stream:
+                before = os.fstat(stream.fileno())
+                if not stat.S_ISREG(before.st_mode):
+                    raise BackupError("Source changed type during backup")
+                info = tarfile.TarInfo(name)
+                info.size, info.mode = before.st_size, stat.S_IMODE(before.st_mode)
+                info.uid, info.gid, info.mtime = before.st_uid, before.st_gid, before.st_mtime
+                reader = HashReader(stream)
+                archive.addfile(info, reader)
+                after = os.fstat(stream.fileno())
+                if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+                    raise BackupError("Source changed while being copied; retry on a later run")
+                records[name] = {"bytes": before.st_size, "sha256": reader.hash.hexdigest()}
+        info = tarfile.TarInfo("configuration/live-runtime-environment.json")
+        info.size, info.mode = len(generated), 0o600
+        archive.addfile(info, io.BytesIO(generated))
+        records[info.name] = {"bytes": len(generated), "sha256": hashlib.sha256(generated).hexdigest()}
+        manifest = {"schema": SCHEMA, "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                    "database_files_atomic": False, "mode": "hot-copy", "sources": details, "files": records}
+        data = json.dumps(manifest, sort_keys=True).encode()
+        info = tarfile.TarInfo("manifest.json")
+        info.size, info.mode = len(data), 0o600
+        archive.addfile(info, io.BytesIO(data))
+    return manifest
+
+
+def verify_archive(path: Path, expected: dict) -> None:
+    # Drain gzip fully as TAR may stop before the compressed stream's CRC trailer.
+    with gzip.open(path, "rb") as compressed:
+        for chunk in iter(lambda: compressed.read(1024 * 1024), b""):
+            pass
+    records = expected["files"]
+    required = set(records) | {"storage/public", "storage/private", "configuration", "manifest.json"}
+    seen = set()
+    with tarfile.open(path, "r:gz") as archive:
+        for info in archive:
+            if info.name not in required or info.name in seen or not (info.isdir() or info.isfile()):
+                raise BackupError("Unexpected entry in the TAR archive")
+            seen.add(info.name)
+            if info.isfile():
+                stream = archive.extractfile(info)
+                if info.name == "manifest.json":
+                    if json.load(stream) != expected:
+                        raise BackupError("Internal manifest verification failed")
+                else:
+                    result = hashlib.sha256()
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        result.update(chunk)
+                    if {"bytes": info.size, "sha256": result.hexdigest()} != records[info.name]:
+                        raise BackupError("Internal file checksum verification failed")
+    if seen != required:
+        raise BackupError("Incomplete TAR archive")
+
+
+def verify_cipher(path: Path, plaintext_bytes: int) -> None:
+    with path.open("rb") as stream:
+        if stream.readline(128) != b"age-encryption.org/v1\n":
+            raise BackupError("age did not produce an encrypted v1 file")
+        header_size, x25519 = stream.tell(), False
+        while header_size < 65536:
+            line = stream.readline(256)
+            header_size = stream.tell()
+            if line.startswith(b"-> X25519 "):
+                x25519 = True
+            if re.fullmatch(rb"--- [A-Za-z0-9+/]{43}\n", line):
+                if len(base64.b64decode(line[4:-1] + b"=", validate=True)) != 32:
+                    raise BackupError("Malformed age header")
+                break
+            if not line.endswith(b"\n"):
+                raise BackupError("Malformed age header")
+        else:
+            raise BackupError("Oversized age header")
+    payload_size = 16 + plaintext_bytes + 16 * max(1, (plaintext_bytes + 65535) // 65536)
+    if not x25519 or path.stat().st_size != header_size + payload_size:
+        raise BackupError("Unexpected or truncated encrypted payload")
+
+
+def managed(directory: Path) -> dict:
+    trusted(directory, directory=True)
+    if NAME.fullmatch(directory.name) is None or {entry.name for entry in directory.iterdir()} != ARTIFACTS:
+        raise BackupError("Unrecognized encrypted backup layout")
+    for file in ARTIFACTS:
+        trusted(directory / file)
+    if (directory / "SHA256SUMS").stat().st_size > 512 or (directory / "manifest.json").stat().st_size > 4096:
+        raise BackupError("Oversized backup metadata")
+    match = SUMS.fullmatch((directory / "SHA256SUMS").read_bytes())
+    if match is None:
+        raise BackupError("Invalid encrypted backup checksums")
+    for index, name in enumerate(("files.tar.gz.age", "manifest.json"), 1):
+        if digest(directory / name) != match[index].decode():
+            raise BackupError("Encrypted backup checksum mismatch")
+    record = json.loads((directory / "manifest.json").read_text())
+    if (record.get("schema") != SCHEMA or record.get("backup") != directory.name or
+            record.get("archive_verified") is not True or record.get("database_files_atomic") is not False or
+            not isinstance(record.get("plaintext_bytes"), int) or record["plaintext_bytes"] < 1):
+        raise BackupError("Unrecognized backup manifest")
+    verify_cipher(directory / "files.tar.gz.age", record["plaintext_bytes"])
+    return record
+
+
+def retain(keeper: Path) -> None:
+    managed(keeper)
+    cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=10)
+    for candidate in sorted(ROOT.iterdir()):
+        match = NAME.fullmatch(candidate.name)
+        if candidate == keeper or match is None:
+            continue
+        try:
+            created = dt.datetime.strptime(match[1], "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc)
+            if created >= cutoff:
+                continue
+            managed(candidate)
+        except (BackupError, OSError, ValueError):
+            log("WARNING retention skipped unverified encrypted backup")
+            continue
+        for name in ARTIFACTS:
+            (candidate / name).unlink()
+        candidate.rmdir()
+        log("RETENTION removed " + candidate.name)
+    sync_directory(ROOT)
+
+
+def interrupted(signum: int, frame) -> None:
+    raise BackupError("Backup interrupted")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=Path("/etc/soamco-backup/files.json"))
+    args = parser.parse_args()
+    os.umask(0o077)
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
+    stage, published, lock = None, None, None
+    try:
+        if os.geteuid() != 0:
+            raise BackupError("Run as root on the VPS; no privilege escalation is attempted")
+        if not args.config.is_absolute():
+            raise BackupError("The backup configuration path must be absolute")
+        trusted_ancestors(args.config)
+        trusted(args.config)
+        config = json.loads(args.config.read_text())
+        if set(config) != {"checkout", "runtime_env_file", "compose_env_file", "recipient_file", "minimum_free_mib"}:
+            raise BackupError("Unexpected or missing configuration fields")
+        reserve = config["minimum_free_mib"]
+        if type(reserve) is not int or not 1 <= reserve <= 999999999:
+            raise BackupError("minimum_free_mib must be a positive integer")
+        recipient_path = Path(config["recipient_file"])
+        if not recipient_path.is_absolute():
+            raise BackupError("recipient_file must be an absolute path")
+        trusted_ancestors(recipient_path)
+        trusted(recipient_path)
+        if recipient_path.stat().st_size > 128:
+            raise BackupError("Recipient file must contain only one age X25519 public key")
+        recipient = recipient_path.read_text().strip()
+        if re.fullmatch(r"age1[023456789acdefghjklmnpqrstuvwxyz]{58}", recipient) is None:
+            raise BackupError("Only one native age X25519 public recipient is accepted; no private identities")
+        for tool in ("age", "docker", "git"):
+            if shutil.which(tool) is None:
+                raise BackupError("Required host tool unavailable: " + tool)
+        group = grp.getgrnam("soamco-backup").gr_gid
+        try:
+            descriptor = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_RDONLY | os.O_NOFOLLOW, 0o600)
+        except FileExistsError:
+            descriptor = os.open(LOCK, os.O_RDONLY | os.O_NOFOLLOW)
+        lock = os.fdopen(descriptor, "rb")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            log("ERROR deployment or another backup holds the lock")
+            return 75
+        held, current = os.fstat(lock.fileno()), LOCK.lstat()
+        if not stat.S_ISREG(current.st_mode) or (held.st_dev, held.st_ino) != (current.st_dev, current.st_ino):
+            raise BackupError("Deployment lock identity changed")
+        trusted(ROOT.parent, directory=True)
+        trusted_ancestors(ROOT)
+        ROOT.mkdir(mode=0o750, exist_ok=True)
+        trusted(ROOT, directory=True)
+        os.chown(ROOT, 0, group)
+        ROOT.chmod(0o750)
+        log("START encrypted files backup; hot copy is NOT atomic with PostgreSQL")
+        inventory, generated, details = sources(config)
+        estimate = sum(path.stat().st_size + 4096 for path in inventory.values()) + len(generated) + 1024 * 1024
+        required = estimate * 3 + reserve * 1024 * 1024
+        available = shutil.disk_usage(ROOT).free
+        if available < required:
+            raise BackupError("Insufficient free space for temporary archive, encryption and safety reserve; no retention performed")
+        log(f"SPACE available_bytes={available} required_bytes={required} reserve_mib={reserve}")
+        stage = Path(tempfile.mkdtemp(prefix=".files-incomplete-", dir=ROOT))
+        plaintext = stage / "files.tar.gz"
+        internal = make_archive(plaintext, inventory, generated, details)
+        verify_archive(plaintext, internal)
+        plaintext_bytes, plaintext_hash = plaintext.stat().st_size, digest(plaintext)
+        cipher = stage / "files.tar.gz.age"
+        command(["age", "--encrypt", "--recipient", recipient, "--output", str(cipher), str(plaintext)])
+        verify_cipher(cipher, plaintext_bytes)
+        name = "files-encrypted-" + dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(5)
+        record = {"schema": SCHEMA, "backup": name, "cipher": "age-X25519", "archive_verified": True,
+                  "database_files_atomic": False, "decryption_verified_on_vps": False,
+                  "recipient_sha256": hashlib.sha256(recipient.encode()).hexdigest(),
+                  "plaintext_bytes": plaintext_bytes, "plaintext_sha256": plaintext_hash}
+        (stage / "manifest.json").write_text(json.dumps(record, sort_keys=True))
+        (stage / "SHA256SUMS").write_text("".join(digest(stage / file) + "  " + file + "\n" for file in ("files.tar.gz.age", "manifest.json")))
+        plaintext.unlink()
+        for file in ARTIFACTS:
+            os.chown(stage / file, 0, group)
+            (stage / file).chmod(0o640)
+            with (stage / file).open("rb") as stream:
+                os.fsync(stream.fileno())
+        os.chown(stage, 0, group)
+        stage.chmod(0o750)
+        sync_directory(stage)
+        destination = ROOT / name
+        if os.path.lexists(destination):
+            raise BackupError("Publication destination already exists")
+        # Validate under the final basename before publishing the complete set.
+        check = stage / name
+        check.mkdir(mode=0o700)
+        for file in ARTIFACTS:
+            (stage / file).rename(check / file)
+        managed(check)
+        os.chown(check, 0, group)
+        check.chmod(0o750)
+        sync_directory(check)
+        check.rename(destination)
+        published = destination
+        stage.rmdir()
+        stage = None
+        sync_directory(ROOT)
+        log("SUCCESS encrypted files backup published: " + name)
+        retain(destination)
+        return 0
+    except (BackupError, OSError, ValueError, KeyError, TypeError, EOFError, tarfile.TarError) as error:
+        message = str(error) if isinstance(error, BackupError) else type(error).__name__
+        log("ERROR " + message + ("; completed encrypted backup preserved" if published else "; no backup published"))
+        return 1
+    finally:
+        if stage is not None:
+            shutil.rmtree(stage)
+        if lock is not None:
+            lock.close()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

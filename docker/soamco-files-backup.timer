@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily encrypted Soamco Budget persistent files backup in UTC
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=false
+Unit=soamco-files-backup.service
+
+[Install]
+WantedBy=timers.target

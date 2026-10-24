@@ -151,6 +151,42 @@ beforeEach(function () {
     PHP;
     file_put_contents($this->fixture.'/commands/docker', '#!'.PHP_BINARY."\n".$mock);
     chmod($this->fixture.'/commands/docker', 0700);
+    $age = <<<'PHP'
+    <?php
+    $root = getenv('RESTORE_FIXTURE');
+    $args = array_slice($argv, 1);
+    file_put_contents($root.'/age-calls', json_encode($args)."\n", FILE_APPEND);
+    $output = $args[array_search('--output', $args, true) + 1];
+    if (getenv('RESTORE_FAILURE') === 'decryption') {
+        file_put_contents($output, 'partial decryption');
+        fwrite(STDERR, 'PRIVATE-IDENTITY-DIAGNOSTICS');
+        exit(42);
+    }
+    file_put_contents($output, getenv('RESTORE_FAILURE') === 'plaintext-hash' ? 'PGDMP-wrong' : 'PGDMP-synthetic-fixture');
+    PHP;
+    file_put_contents($this->fixture.'/commands/age', '#!'.PHP_BINARY."\n".$age);
+    chmod($this->fixture.'/commands/age', 0700);
+    $this->encryptFixture = function (): string {
+        $plain = file_get_contents($this->backup.'/database.dump');
+        $header = "age-encryption.org/v1\n-> X25519 ".str_repeat('A', 43)."\n".str_repeat('A', 43)."\n--- ".str_repeat('A', 43)."\n";
+        file_put_contents($this->backup.'/database.dump.age', $header.str_repeat('x', 16 + strlen($plain) + 16));
+        file_put_contents($this->backup.'/manifest.json', json_encode([
+            'schema' => 'soamco-postgres-age-v1', 'postgres_major' => 17,
+            'pg_restore_list_verified' => true, 'decryption_verified_on_vps' => false,
+            'plaintext_bytes' => strlen($plain), 'plaintext_sha256' => hash('sha256', $plain),
+            'recipient_sha256' => str_repeat('a', 64),
+        ]));
+        unlink($this->backup.'/database.dump');
+        file_put_contents($this->backup.'/SHA256SUMS', implode('', array_map(fn (string $file): string => hash_file('sha256', $this->backup.'/'.$file).'  '.$file."\n", ['database.dump.age', 'database.list', 'manifest.json'])));
+        foreach (glob($this->backup.'/*') as $file) {
+            chmod($file, 0600);
+        }
+        $identity = $this->fixture.'/offline-recovery-identity';
+        file_put_contents($identity, 'synthetic identity placeholder, not a real private key');
+        chmod($identity, 0600);
+
+        return $identity;
+    };
     $this->runRestore = function (string $failure = '', ?array $arguments = null): Process {
         $process = new Process(['python3', '-B', dirname(__DIR__, 2).'/bin/restore-postgres-isolated', ...($arguments ?? [$this->backup])], env: [
             'PATH' => $this->fixture.'/commands:'.getenv('PATH'),
@@ -272,6 +308,38 @@ it('rejects an unsuccessful synthetic data check and removes that sandbox', func
         ->not->toContain('SUCCESS synthetic restore verified')
         ->and(file_exists($this->fixture.'/container.json'))->toBeFalse();
 });
+
+it('decrypts the new format only in private recovery staging and keeps encrypted input unchanged', function () {
+    $identity = ($this->encryptFixture)();
+    $before = hash_file('sha256', $this->backup.'/database.dump.age');
+    $process = ($this->runRestore)('', [$this->backup, '--age-identity', $identity]);
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+        ->and($process->getErrorOutput())->toContain('VERIFIED age decryption/authentication', 'CLEANUP')
+        ->and(file_exists($this->backup.'/database.dump'))->toBeFalse()
+        ->and(hash_file('sha256', $this->backup.'/database.dump.age'))->toBe($before)
+        ->and(glob($this->fixture.'/soamco-restore-input-*'))->toBe([])
+        ->and(file_get_contents($this->fixture.'/restored-input'))->toBe('PGDMP-synthetic-fixture');
+});
+
+it('refuses encrypted inputs without usable identities and before any Docker operation', function (string $kind) {
+    $identity = ($this->encryptFixture)();
+    $arguments = [$this->backup];
+    if ($kind !== 'missing-identity') {
+        $arguments = [...$arguments, '--age-identity', $identity];
+    }
+    if ($kind === 'identity-permissions') {
+        chmod($identity, 0644);
+    } elseif ($kind === 'cipher-checksum') {
+        file_put_contents($this->backup.'/database.dump.age', 'damaged');
+    } elseif ($kind === 'mixed') {
+        file_put_contents($this->backup.'/database.dump', 'must not be accepted');
+    }
+    $process = ($this->runRestore)(in_array($kind, ['decryption', 'plaintext-hash'], true) ? $kind : '', $arguments);
+    expect($process->isSuccessful())->toBeFalse()
+        ->and(file_exists($this->fixture.'/calls'))->toBeFalse()
+        ->and(glob($this->fixture.'/soamco-restore-input-*'))->toBe([])
+        ->and($process->getErrorOutput())->not->toContain('PRIVATE-IDENTITY-DIAGNOSTICS');
+})->with(['missing-identity', 'identity-permissions', 'cipher-checksum', 'mixed', 'decryption', 'plaintext-hash']);
 
 it('restores synthetic rows schema constraints sequence and function on a real isolated PostgreSQL 17 instance', function () {
     if (getenv('RUN_POSTGRES_RESTORE_INTEGRATION') !== '1') {

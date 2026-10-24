@@ -4,10 +4,30 @@ use Illuminate\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 
 beforeEach(function () {
-    $this->fixture = sys_get_temp_dir().'/soamco-pg-backup-'.bin2hex(random_bytes(8));
+    $this->fixture = realpath(sys_get_temp_dir()).'/soamco-pg-backup-'.bin2hex(random_bytes(8));
     $this->backupTimestamp = time();
     mkdir($this->fixture, 0700);
     mkdir($this->fixture.'/commands', 0700);
+    $python = new Process(['which', 'python3']);
+    $python->mustRun();
+    $this->python = trim($python->getOutput());
+    copy(dirname(__DIR__, 2).'/bin/postgres_backup_format.py', $this->fixture.'/postgres_backup_format.py');
+    file_put_contents($this->fixture.'/recipient', 'age1'.str_repeat('q', 58));
+    file_put_contents($this->fixture.'/files.json', json_encode(['recipient_file' => $this->fixture.'/recipient']));
+    chmod($this->fixture.'/recipient', 0600);
+    chmod($this->fixture.'/files.json', 0600);
+    file_put_contents($this->fixture.'/format-runner.py', <<<'PY'
+    import os, pathlib, runpy, sys
+    target, *arguments = sys.argv[1:]
+    scope = runpy.run_path(target)['main'].__globals__
+    scope['root_owned'] = lambda info: True
+    os.geteuid = lambda: 0
+    failure = os.environ.get('BACKUP_FAILURE')
+    if arguments[0] == 'verify' and pathlib.Path(arguments[1]).name.startswith('postgres-') and failure == 'keeper-checksum':
+        sys.exit(42)
+    sys.argv = [target, *arguments]
+    sys.exit(scope['main']())
+    PY);
     $source = file_get_contents(dirname(__DIR__, 2).'/bin/backup-production-db');
     file_put_contents($this->fixture.'/backup', str_replace(
         ['/var/backups/soamco', '/tmp/soamco-production-deploy.lock'],
@@ -26,6 +46,25 @@ beforeEach(function () {
         exit(42);
     };
     switch ($name) {
+        case 'python3':
+            $command = [getenv('BACKUP_PYTHON'), '-B', getenv('BACKUP_FIXTURE').'/format-runner.py', ...$args];
+            passthru(implode(' ', array_map('escapeshellarg', $command)), $status);
+            exit($status);
+        case 'age':
+            $output = $args[array_search('--output', $args, true) + 1];
+            $input = end($args);
+            if ($failure === 'age') {
+                file_put_contents($output, 'partial');
+                $fail();
+            }
+            if ($failure === 'unencrypted') {
+                copy($input, $output);
+                break;
+            }
+            $bytes = filesize($input);
+            $header = "age-encryption.org/v1\n-> X25519 ".str_repeat('A', 43)."\n".str_repeat('A', 43)."\n--- ".str_repeat('A', 43)."\n";
+            file_put_contents($output, $header.str_repeat('x', $failure === 'truncated' ? 1 : 16 + $bytes + 16 * max(1, (int) ceil($bytes / 65536))));
+            break;
         case 'id':
             echo $failure === 'nonroot' ? '1000' : '0';
             break;
@@ -160,7 +199,7 @@ beforeEach(function () {
     PHP;
     file_put_contents($this->fixture.'/commands/mock', '#!'.PHP_BINARY."\n".$mock);
     chmod($this->fixture.'/commands/mock', 0700);
-    foreach (['docker', 'flock', 'getent', 'stat', 'sha256sum', 'mv', 'logger', 'chown', 'install', 'id', 'df', 'date'] as $command) {
+    foreach (['docker', 'flock', 'getent', 'stat', 'sha256sum', 'mv', 'logger', 'chown', 'install', 'id', 'df', 'date', 'age', 'python3'] as $command) {
         symlink('mock', $this->fixture.'/commands/'.$command);
     }
     $this->backupEnvironment = [];
@@ -171,6 +210,8 @@ beforeEach(function () {
             'BACKUP_FAILURE' => $failure,
             'SOAMCO_BACKUP_MIN_FREE_MIB' => '1024',
             'BACKUP_NOW' => (string) $this->backupTimestamp,
+            'BACKUP_PYTHON' => $this->python,
+            'SOAMCO_FILES_BACKUP_CONFIG' => $this->fixture.'/files.json',
             ...$this->backupEnvironment,
         ]);
         $process->setTimeout(10);
@@ -207,16 +248,24 @@ it('publishes only a verified custom archive and checksums through one directory
         ->and(glob($this->fixture.'/output/.postgres-incomplete.*'))->toBe([]);
     $directory = $directories[0];
     expect(fileperms($directory) & 0777)->toBe(0750);
-    foreach (['database.dump', 'database.list', 'SHA256SUMS'] as $file) {
+    foreach (['database.dump.age', 'database.list', 'manifest.json', 'SHA256SUMS'] as $file) {
         expect(fileperms($directory.'/'.$file) & 0777)->toBe(0640);
     }
     expect(file_get_contents($directory.'/SHA256SUMS'))->toBe(
-        hash_file('sha256', $directory.'/database.dump')."  database.dump\n".
-        hash_file('sha256', $directory.'/database.list')."  database.list\n",
+        hash_file('sha256', $directory.'/database.dump.age')."  database.dump.age\n".
+        hash_file('sha256', $directory.'/database.list')."  database.list\n".
+        hash_file('sha256', $directory.'/manifest.json')."  manifest.json\n",
     );
+    expect(file_exists($directory.'/database.dump'))->toBeFalse()
+        ->and(file_get_contents($directory.'/database.dump.age'))->not->toContain('PGDMP-fixture');
+    $manifest = json_decode(file_get_contents($directory.'/manifest.json'), true);
+    expect($manifest['plaintext_sha256'])->toBe(hash('sha256', 'PGDMP-fixture'))
+        ->and($manifest['recipient_sha256'])->toBe(hash_file('sha256', $this->fixture.'/recipient'))
+        ->and($manifest['decryption_verified_on_vps'])->toBeFalse();
     $calls = file_get_contents($this->fixture.'/calls');
     expect(strpos($calls, 'exec pg_dump -Fc'))->toBeLessThan(strpos($calls, 'pg_restore --list'))
         ->and(strpos($calls, 'sha256sum --check --status'))->toBeLessThan(strpos($calls, 'mv -T'))
+        ->and(strpos($calls, 'pg_restore --list'))->toBeLessThan(strpos($calls, 'age --encrypt'))
         ->and($calls)->toContain('chown root:soamco-backup', 'flock -n 9', '--user postgres')
         ->not->toContain('artisan', 'compose', 'docker stop', 'docker pause', 'POSTGRES_PASSWORD')
         ->and($process->getErrorOutput())->toContain('START', 'SUCCESS');
@@ -232,7 +281,7 @@ it('never publishes partial output and cleans staging after a failure', function
     if (in_array($failure, ['lock', 'nonroot', 'group', 'inode'], true)) {
         expect(file_get_contents($this->fixture.'/calls'))->not->toContain('docker ');
     }
-})->with(['dump', 'empty', 'list', 'checksum', 'publish', 'stopped', 'service', 'version', 'lock', 'nonroot', 'group', 'inode', 'df', 'database-size', 'full']);
+})->with(['dump', 'empty', 'list', 'checksum', 'publish', 'stopped', 'service', 'version', 'lock', 'nonroot', 'group', 'inode', 'df', 'database-size', 'full', 'age', 'unencrypted', 'truncated']);
 
 it('cleans incomplete output on termination without stopping application services', function () {
     $process = ($this->runBackup)('signal');
@@ -327,6 +376,28 @@ it('preserves the last valid backup even when expired if a new backup cannot com
     }
 })->with(['space', 'dump', 'full', 'list', 'publish', 'signal']);
 
+it('prunes an expired encrypted backup only after publishing its verified replacement', function () {
+    expect(($this->runBackup)()->getExitCode())->toBe(0);
+    $first = glob($this->fixture.'/output/postgres-*')[0];
+    $expired = $this->fixture.'/output/postgres-'.gmdate('Ymd\THis\Z', $this->backupTimestamp - 11 * 86400).'-abcdefghij';
+    rename($first, $expired);
+
+    $process = ($this->runBackup)();
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+    clearstatcache();
+    expect(file_exists($expired))->toBeFalse()
+        ->and(glob($this->fixture.'/output/postgres-*'))->toHaveCount(1)
+        ->and($process->getErrorOutput())->toContain('days=10 removed=1');
+});
+
+it('refuses to dump when the public recipient configuration is invalid', function () {
+    file_put_contents($this->fixture.'/recipient', 'invalid-public-recipient');
+    $process = ($this->runBackup)();
+    expect($process->isSuccessful())->toBeFalse()
+        ->and(file_get_contents($this->fixture.'/calls'))->not->toContain('docker ', 'age --encrypt')
+        ->and(glob($this->fixture.'/output/postgres-*'))->toBe([]);
+});
+
 it('refuses retention if the published keeper cannot be reverified', function (string $failure) {
     $old = ($this->createBackup)(20);
     $process = ($this->runBackup)($failure);
@@ -336,7 +407,7 @@ it('refuses retention if the published keeper cannot be reverified', function (s
         ->and(glob($this->fixture.'/output/postgres-*'))->toHaveCount(2)
         ->and($process->getErrorOutput())->toContain('completed backup preserved')
         ->not->toContain('RETENTION removed');
-})->with(['keeper-checksum', 'keeper-list']);
+})->with(['keeper-checksum']);
 
 it('retains suspicious paths instead of deleting unexpected files', function (string $kind) {
     $old = ($this->createBackup)(20);
@@ -390,15 +461,15 @@ it('retains suspicious paths instead of deleting unexpected files', function (st
     }
 })->with(['symlink', 'file-symlink', 'extra-file', 'nested-directory', 'corrupt', 'checksum-path', 'hardlink', 'writable', 'name', 'invalid-date']);
 
-it('requires the configured reserve plus twice the database size before starting the dump', function (string $available, bool $succeeds) {
+it('requires reserve plus space for both plaintext and encrypted database copies before the dump', function (string $available, bool $succeeds) {
     $this->backupEnvironment = ['SOAMCO_BACKUP_MIN_FREE_MIB' => '1', 'BACKUP_AVAILABLE_BYTES' => $available];
     $process = ($this->runBackup)();
     expect($process->isSuccessful())->toBe($succeeds)
-        ->and($process->getErrorOutput())->toContain('required_bytes=3145728 reserve_mib=1');
+        ->and($process->getErrorOutput())->toContain('required_bytes=5242880 reserve_mib=1');
     if (! $succeeds) {
         expect(file_get_contents($this->fixture.'/calls'))->not->toContain('exec pg_dump -Fc');
     }
-})->with([['3145728', true], ['3145727', false], ['0', false]]);
+})->with([['5242880', true], ['5242879', false], ['0', false]]);
 
 it('fails closed for invalid disk-space configuration or unreadable free-space output', function (string $reserve, string $available) {
     $this->backupEnvironment = ['SOAMCO_BACKUP_MIN_FREE_MIB' => $reserve, 'BACKUP_AVAILABLE_BYTES' => $available];

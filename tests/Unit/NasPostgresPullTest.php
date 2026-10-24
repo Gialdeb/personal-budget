@@ -67,16 +67,27 @@ beforeEach(function () {
     file_put_contents($this->fixture.'/commands/sftp', '#!'.PHP_BINARY."\n".$mock);
     chmod($this->fixture.'/commands/sftp', 0700);
 
-    $this->makeBackup = function (int $days = 0, bool $local = false): string {
+    $this->makeBackup = function (int $days = 0, bool $local = false, bool $encrypted = false): string {
         $name = 'postgres-'.gmdate('Ymd\THis\Z', time() - $days * 86400).'-'.bin2hex(random_bytes(5));
         $directory = ($local ? $this->storage : $this->fixture.'/remote').'/'.$name;
         mkdir($directory, 0700, true);
         file_put_contents($directory.'/database.dump', 'PGDMP-fixture');
         file_put_contents($directory.'/database.list', "; PostgreSQL 17 archive\n1; TABLE public.example\n");
-        file_put_contents($directory.'/SHA256SUMS',
-            hash_file('sha256', $directory.'/database.dump')."  database.dump\n".
-            hash_file('sha256', $directory.'/database.list')."  database.list\n",
-        );
+        $files = ['database.dump', 'database.list'];
+        if ($encrypted) {
+            $plain = file_get_contents($directory.'/database.dump');
+            $header = "age-encryption.org/v1\n-> X25519 ".str_repeat('A', 43)."\n".str_repeat('A', 43)."\n--- ".str_repeat('A', 43)."\n";
+            file_put_contents($directory.'/database.dump.age', $header.str_repeat('x', 16 + strlen($plain) + 16));
+            file_put_contents($directory.'/manifest.json', json_encode([
+                'schema' => 'soamco-postgres-age-v1', 'postgres_major' => 17,
+                'pg_restore_list_verified' => true, 'decryption_verified_on_vps' => false,
+                'plaintext_bytes' => strlen($plain), 'plaintext_sha256' => hash('sha256', $plain),
+                'recipient_sha256' => str_repeat('a', 64),
+            ]));
+            unlink($directory.'/database.dump');
+            $files = ['database.dump.age', 'database.list', 'manifest.json'];
+        }
+        file_put_contents($directory.'/SHA256SUMS', implode('', array_map(fn (string $file): string => hash_file('sha256', $directory.'/'.$file).'  '.$file."\n", $files)));
         if ($local) {
             file_put_contents($directory.'/.soamco-nas-receipt.json', json_encode([
                 'schema' => 1,
@@ -130,7 +141,7 @@ it('pulls only published PostgreSQL artifacts into an atomic verified NAS copy a
         ->and($second->getErrorOutput())->toContain('Already verified locally')
         ->and(fileinode($directory.'/database.dump'))->toBe($inode);
     $calls = array_map(fn (string $line): array => json_decode($line, true), file($this->fixture.'/calls'));
-    expect(array_filter($calls, fn (array $call): bool => str_starts_with($call['batch'], '@get ')))->toHaveCount(1);
+    expect(array_filter($calls, fn (array $call): bool => str_starts_with($call['batch'], '@get ')))->toHaveCount(2);
     foreach ($calls as $call) {
         expect($call['args'])->toContain('soamco-backup@100.73.11.75', '22', 'StrictHostKeyChecking=yes', 'BatchMode=yes', 'IdentitiesOnly=yes')
             ->and($call['batch'])->not->toContain('@put ', '@rm ', '@rename ', '@mkdir ', 'user-backup');
@@ -248,4 +259,41 @@ it('checks NAS prerequisites without connecting or activating any schedule', fun
         ->and($process->getErrorOutput())->toContain('Local preflight passed', 'no SFTP connection')
         ->and(file_exists($this->fixture.'/calls'))->toBeFalse()
         ->and(glob($this->storage.'/postgres-*'))->toBe([]);
+});
+
+it('pulls mixed encrypted and legacy backups without any age identity or plaintext conversion', function () {
+    $encrypted = ($this->makeBackup)(0, false, true);
+    $first = ($this->runPull)();
+    expect($first->getExitCode())->toBe(0, $first->getErrorOutput())
+        ->and(is_file($this->storage.'/'.$encrypted.'/database.dump.age'))->toBeTrue()
+        ->and(is_file($this->storage.'/'.$encrypted.'/manifest.json'))->toBeTrue()
+        ->and(file_exists($this->storage.'/'.$encrypted.'/database.dump'))->toBeFalse()
+        ->and(is_file($this->storage.'/'.$this->remoteName.'/database.dump'))->toBeTrue();
+    $before = file_get_contents($this->fixture.'/calls');
+    expect(($this->runPull)()->getExitCode())->toBe(0);
+    $after = file_get_contents($this->fixture.'/calls');
+    expect(substr_count($after, '@get '))->toBe(substr_count($before, '@get '))
+        ->and($after)->not->toContain('--decrypt', '--identity', '@rm ', '@put ')
+        ->and(glob($this->storage.'/.pull-incomplete-*'))->toBe([]);
+});
+
+it('refuses a damaged encrypted transfer and does not publish its plaintext', function () {
+    $name = ($this->makeBackup)(0, false, true);
+    file_put_contents($this->fixture.'/remote/'.$name.'/database.dump.age', 'damaged');
+    $process = ($this->runPull)();
+    expect($process->isSuccessful())->toBeFalse()
+        ->and(is_dir($this->storage.'/'.$name))->toBeFalse()
+        ->and(glob($this->storage.'/.pull-incomplete-*'))->toBe([]);
+});
+
+it('preserves the last expired encrypted copy while applying retention to legacy copies', function () {
+    (new Filesystem)->deleteDirectory($this->fixture.'/remote');
+    mkdir($this->fixture.'/remote');
+    $keeper = ($this->makeBackup)(20, true, true);
+    $expired = ($this->makeBackup)(30, true);
+    $process = ($this->runPull)();
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+    clearstatcache();
+    expect(is_file($this->storage.'/'.$keeper.'/database.dump.age'))->toBeTrue()
+        ->and(is_dir($this->storage.'/'.$expired))->toBeFalse();
 });

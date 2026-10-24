@@ -19,6 +19,8 @@ import sys
 import tempfile
 import time
 
+from postgres_backup_format import ENCRYPTED, LEGACY, verify_directory
+
 
 IMAGE = "postgres:17-alpine"
 DATABASE = "soamco_restore"
@@ -76,7 +78,7 @@ def validate(directory: Path) -> list[str]:
     return toc((directory / "database.list").read_bytes())
 
 
-def snapshot(source: Path, destination: Path) -> list[str]:
+def snapshot(source: Path, destination: Path, identity: Path | None = None) -> list[str]:
     match = NAME.fullmatch(source.name)
     if source.is_symlink() or not source.is_dir() or match is None:
         raise RestoreError("Select a completed postgres-<UTC timestamp>-<suffix> directory")
@@ -85,9 +87,11 @@ def snapshot(source: Path, destination: Path) -> list[str]:
     except ValueError as error:
         raise RestoreError("Invalid backup timestamp") from error
     entries = {entry.name for entry in source.iterdir()}
-    if entries not in (set(FILES), set(FILES) | {".soamco-nas-receipt.json"}):
+    layouts = (set(LEGACY), set(ENCRYPTED))
+    entries.discard(".soamco-nas-receipt.json")
+    if entries not in layouts:
         raise RestoreError("Unexpected or missing backup files")
-    for name in FILES:
+    for name in sorted(entries):
         descriptor = os.open(source / name, os.O_RDONLY | os.O_NOFOLLOW)
         with os.fdopen(descriptor, "rb") as incoming:
             info = os.fstat(incoming.fileno())
@@ -95,7 +99,32 @@ def snapshot(source: Path, destination: Path) -> list[str]:
                 raise RestoreError("Backup files must be regular, nonempty and not group/world writable")
             with (destination / name).open("xb") as outgoing:
                 shutil.copyfileobj(incoming, outgoing, length=1024 * 1024)
-    return validate(destination)
+    files, metadata = verify_directory(destination)
+    if files == LEGACY:
+        return validate(destination)
+    if identity is None:
+        raise RestoreError("Encrypted backup: supply --age-identity on the recovery machine, never on the VPS")
+    info = identity.lstat()
+    if (not identity.is_absolute() or not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or
+            info.st_nlink != 1 or info.st_mode & 0o077 or info.st_size == 0):
+        raise RestoreError("The recovery identity must be an absolute private regular file owned by the current user")
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("AGE_")}
+    try:
+        result = subprocess.run(["age", "--decrypt", "--identity", str(identity), "--output", str(destination / "database.dump"),
+                                 str(destination / "database.dump.age")], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, env=environment, timeout=1800, check=False)
+    except subprocess.TimeoutExpired as error:
+        raise RestoreError("age decryption timed out") from error
+    if result.returncode:
+        raise RestoreError(f"age decryption/authentication failed (exit={result.returncode}); diagnostics withheld")
+    plain = destination / "database.dump"
+    if plain.is_symlink() or not plain.is_file() or plain.stat().st_size != metadata["plaintext_bytes"] or checksum(plain) != metadata["plaintext_sha256"]:
+        raise RestoreError("Decrypted dump does not match the verified plaintext manifest")
+    with plain.open("rb") as stream:
+        if stream.read(5) != b"PGDMP":
+            raise RestoreError("Decrypted data is not a PostgreSQL custom archive")
+    log("VERIFIED age decryption/authentication and plaintext SHA-256 in private recovery staging")
+    return toc((destination / "database.list").read_bytes())
 
 
 class Sandbox:
@@ -279,9 +308,10 @@ def main() -> int:
     parser.add_argument("backup", nargs="?", type=Path, help="Completed backup directory copied from the VPS or NAS")
     parser.add_argument("--keep", action="store_true", help="Keep the isolated database only after all checks succeed")
     parser.add_argument("--self-test", action="store_true", help="Generate and restore synthetic data only; no backup input")
+    parser.add_argument("--age-identity", type=Path, help="Private age identity on the recovery machine only; required for encrypted backups")
     args = parser.parse_args()
-    if (args.backup is None) == (not args.self_test) or (args.self_test and args.keep):
-        parser.error("Provide either one backup directory or --self-test; --self-test cannot use --keep")
+    if (args.backup is None) == (not args.self_test) or (args.self_test and (args.keep or args.age_identity)):
+        parser.error("Provide either one backup directory or --self-test; --self-test cannot use --keep or --age-identity")
     os.umask(0o077)
     signal.signal(signal.SIGINT, interrupted)
     signal.signal(signal.SIGTERM, interrupted)
@@ -291,7 +321,7 @@ def main() -> int:
     try:
         with tempfile.TemporaryDirectory(prefix="soamco-restore-input-") as temporary:
             directory = Path(temporary)
-            expected = snapshot(args.backup, directory) if args.backup is not None else None
+            expected = snapshot(args.backup, directory, args.age_identity) if args.backup is not None else None
             sandbox = Sandbox()
             sandbox.create()
             if args.self_test:

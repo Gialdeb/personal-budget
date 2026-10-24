@@ -1,0 +1,7 @@
+{
+    "checkout": "/opt/soamco-budget",
+    "runtime_env_file": "/opt/soamco-budget/.env",
+    "compose_env_file": "/opt/soamco-budget/.env.docker",
+    "recipient_file": "/etc/soamco-backup/files.recipient",
+    "minimum_free_mib": 1024
+}

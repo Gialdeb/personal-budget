@@ -17,13 +17,13 @@ import subprocess
 import sys
 import tempfile
 
+from postgres_backup_format import parse_checksums, verify_directory
+
 
 REMOTE = "soamco-backup@100.73.11.75"
 REMOTE_ROOT = "/var/backups/soamco"
 SOURCE = REMOTE + ":" + REMOTE_ROOT
 NAME = re.compile(r"postgres-(\d{8}T\d{6}Z)-[A-Za-z0-9]{10}")
-CHECKSUMS = re.compile(rb"([a-f0-9]{64})  database.dump\n([a-f0-9]{64})  database.list\n")
-ARTIFACTS = ("SHA256SUMS", "database.dump", "database.list")
 RECEIPT = ".soamco-nas-receipt.json"
 
 
@@ -60,27 +60,18 @@ def backup_time(name: str) -> dt.datetime:
         raise PullError("Invalid backup timestamp") from error
 
 
-def verify(directory: Path, receipt: bool = True) -> None:
+def verify(directory: Path, receipt: bool = True) -> tuple[str, ...]:
     secure_path(directory, directory=True)
-    expected = set(ARTIFACTS) | ({RECEIPT} if receipt else set())
-    if {entry.name for entry in directory.iterdir()} != expected:
-        raise PullError("Unexpected or missing files in backup")
+    try:
+        files, _ = verify_directory(directory, receipt=receipt)
+    except ValueError as error:
+        raise PullError("Backup format or checksum verification failed") from error
+    expected = set(files) | ({RECEIPT} if receipt else set())
     for name in expected:
         secure_path(directory / name)
         if (directory / name).stat().st_size == 0:
             raise PullError("Empty backup file")
-    if (directory / "SHA256SUMS").stat().st_size > 512:
-        raise PullError("Invalid checksum file")
     manifest = (directory / "SHA256SUMS").read_bytes()
-    match = CHECKSUMS.fullmatch(manifest)
-    if match is None:
-        raise PullError("Checksum file must contain exactly the two expected filenames")
-    for index, name in enumerate(("database.dump", "database.list"), start=1):
-        if digest(directory / name) != match[index].decode("ascii"):
-            raise PullError("SHA-256 verification failed")
-    with (directory / "database.dump").open("rb") as stream:
-        if stream.read(5) != b"PGDMP":
-            raise PullError("Not a PostgreSQL custom archive")
     if receipt:
         backup_time(directory.name)
         if (directory / RECEIPT).stat().st_size > 1024:
@@ -96,6 +87,7 @@ def verify(directory: Path, receipt: bool = True) -> None:
             "checksums_sha256": hashlib.sha256(manifest).hexdigest(),
         }:
             raise PullError("Backup was not published by this NAS pull script")
+    return files
 
 
 def sync_directory(path: Path) -> None:
@@ -175,12 +167,20 @@ class Pull:
             return
         stage = Path(tempfile.mkdtemp(prefix=".pull-incomplete-", dir=self.storage))
         try:
+            self.sftp(f"@get {quote(REMOTE_ROOT + '/' + name + '/SHA256SUMS')} {quote(str(stage / 'SHA256SUMS.part'))}\n")
+            secure_path(stage / "SHA256SUMS.part")
+            if (stage / "SHA256SUMS.part").stat().st_size > 512:
+                raise PullError("Oversized checksum manifest")
+            files, _ = parse_checksums((stage / "SHA256SUMS.part").read_bytes())
+            (stage / "SHA256SUMS.part").rename(stage / "SHA256SUMS")
             batch = "".join(
                 f"@get {quote(REMOTE_ROOT + '/' + name + '/' + file)} {quote(str(stage / (file + '.part')))}\n"
-                for file in ARTIFACTS
+                for file in files if file != "SHA256SUMS"
             )
             self.sftp(batch)
-            for file in ARTIFACTS:
+            for file in files:
+                if file == "SHA256SUMS":
+                    continue
                 partial = stage / (file + ".part")
                 secure_path(partial)
                 partial.rename(stage / file)
@@ -194,7 +194,7 @@ class Pull:
             }
             with (stage / RECEIPT).open("x", encoding="utf-8") as stream:
                 json.dump(record, stream, sort_keys=True)
-            for file in (*ARTIFACTS, RECEIPT):
+            for file in (*files, RECEIPT):
                 with (stage / file).open("rb") as stream:
                     os.fsync(stream.fileno())
             sync_directory(stage)
@@ -230,9 +230,9 @@ class Pull:
         for timestamp, name, directory in valid[1:]:
             if timestamp >= cutoff:
                 continue
-            verify(directory)
+            files = verify(directory)
             # Exact files only. An unexpected entry prevents rmdir; never recurse.
-            for file in (*ARTIFACTS, RECEIPT):
+            for file in (*files, RECEIPT):
                 (directory / file).unlink()
             directory.rmdir()
             self.log("RETENTION", f"Removed expired NAS copy: {name}")
