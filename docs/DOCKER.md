@@ -157,3 +157,130 @@ Tests are configured in `phpunit.xml` to use SQLite in memory:
 ```
 
 This keeps `RefreshDatabase` away from the local PostgreSQL development database.
+
+## Explicit production deployment modes
+
+`bin/deploy-production` keeps `local` as its default. Select a mode explicitly with
+`bin/deploy-production local`, `bin/deploy-production ghcr`, or
+`bin/deploy-production ssh` (`--mode MODE` is equivalent). No mode falls back to
+another. `--skip-pull` remains available for an already prepared checkout.
+
+- `local`: the existing VPS build/resource preflight and deployment sequence.
+  Both builds receive the full checkout commit as an image revision label.
+- `ghcr`: pulls only `ghcr.io/OWNER/REPOSITORY/{php,web}:sha-FULL_COMMIT` for the
+  actual checkout HEAD. First authenticate Docker on the VPS using private-package
+  read access; the script never logs in, requests a write token or prints credentials.
+- `ssh`: uses only `soamco-budget-{php,web}:sha-FULL_COMMIT`, already loaded by the
+  manual SSH workflow. It never pulls or loads missing images during deployment.
+
+For both prepared modes, set `SOAMCO_IMAGE_REPOSITORY=owner/repository` in the
+wrapper environment. Use the manual workflow on **main** if deploying main: a
+merge commit has a different SHA from its source release branch and needs its own
+image preparation. Workflow files must also be available on the default branch
+before manual dispatch. Neither workflow starts a deployment.
+
+Configure public `VITE_*` repository variables to match the production Compose
+build arguments. Prepared images carry a hash of these public inputs: mismatches
+stop deployment before maintenance, including mismatches caused by changed
+repository variables. Never place application secrets in `VITE_*` variables.
+
+Prepared modes require Python 3, a clean tracked checkout, linux/amd64 Docker and
+at least 8 GiB/50000 free inodes in Docker storage. They verify the commit,
+repository, architecture, frontend configuration and image IDs, then pin all PHP
+services and web to those IDs. A temporary Compose override removes build
+instructions and sets `pull_policy: never`; no automatic rebuild/pull is possible.
+Production environment and existing Firebase credentials are checked before
+maintenance. DB/Redis volumes and the migration/health-check/recovery sequence
+remain unchanged. Existing recovery preserves previous images and reopens only
+healthy services; it does **not** automatically undo database migrations.
+
+### External VPS wrapper — proposed manual update
+
+Review `docker/deploy.sh.example` and apply it manually to the external VPS
+`deploy.sh` **only after the integrated script is available on main**. Do not
+execute the example during review. Keep a copy of the existing external wrapper.
+The proposed wrapper retains `/var/www/soamco-budget`, `.env.docker` and the
+`soamco` Git identity, but delegates the main pull to the script inside its existing
+deployment/backup lock. It forwards the explicit mode, for example `deploy.sh ghcr`
+or `deploy.sh ssh`; no arguments still selects the existing local-build workflow.
+Supply `SOAMCO_IMAGE_REPOSITORY` through the external wrapper environment before
+selecting a prepared mode. The script refuses a checkout on a different branch
+instead of merging main into it accidentally. No VPS file is updated by the
+repository changes or by the image-preparation workflows.
+
+## GitHub selection with no VPS command arguments (opt-in)
+
+Until activation, `./deploy.sh` continues to use the existing local-build mode.
+The new `Select deployment mode for main` workflow is manual only: select `main`
+and choose `ghcr`, `ssh` or explicit `local`. It neither prepares images nor starts
+a deployment. For GHCR/SSH, first run the existing preparation workflow on the
+same exact main commit. The selector requires a completed successful preparation
+run **and successful final verification steps**, not a skipped job or the most
+recent run on another commit/branch. Images are checked again by the existing VPS
+preflight; missing/changed images still stop before maintenance.
+
+The selector creates an annotated Git tag `soamco-deploy-FULL_SHA`, pointing
+exactly to that main commit, with the mode and preparation run/attempt recorded in
+its JSON message. This is Git metadata, not a new source commit. Creation is
+atomic; the workflow never updates or overwrites an existing choice. One commit
+has one choice. A failed prerequisite creates no choice; after preparation, retry
+the selector. Changing an already registered choice requires an explicit reviewed
+administrative decision outside this workflow; no automatic replacement exists.
+
+### Manual activation — do not apply during implementation
+
+After review, make the integrated scripts and workflow available on main/default
+branch, update the external wrapper from `docker/deploy.sh.example`, then enable
+these two exports in its server-only environment:
+
+```bash
+export SOAMCO_DEPLOY_SELECTION=github
+export SOAMCO_IMAGE_REPOSITORY=owner/repository
+```
+
+Keep them disabled until ready. No VPS file is edited by this change. With
+activation, the operator still executes only `./deploy.sh`: it pulls main under
+the existing lock, fetches **only the selection tag for the resulting HEAD**, and
+validates tag type, target commit, repository, schema, mode and preparation proof.
+It uses the existing Git read access; no Actions API token is required on the VPS.
+An unavailable origin, absent tag, malformed/foreign choice, wrong branch or
+missing preparation stops the deployment **before maintenance**. Cached tags are
+not a fallback. Explicit CLI modes are rejected while GitHub control is enabled;
+choose `local` explicitly in the workflow instead. An invalid activation value
+also stops rather than silently disabling the control.
+
+A new main commit always needs its own choice; an earlier commit's choice or a
+later workflow run never applies to it. Activation does not grant permission for
+an automatic deployment. The actual deployment remains a separate manual VPS
+command. Disabling the flag restores the legacy behavior by explicit operator
+configuration; it is never done automatically on failure.
+
+
+## Deployment preflight corrections
+
+The pull phase runs in an immutable in-memory Bash bootstrap, not in the script
+Git is replacing. After a successful pull it executes the updated
+`bin/deploy-production --inherit-lock --skip-pull`, preserving the original
+arguments and the same locked descriptor 9. The updated script verifies its
+identity before reusing it; it never closes/reopens the lock or unlinks it. An
+unsupported lock-protocol version stops before deployment. When first updating
+the external VPS wrapper, verify that the local checkout already contains this
+protocol before applying the proposed wrapper; availability on remote main alone
+is not sufficient for that initial installation. No VPS wrapper is modified here.
+
+All modes, including legacy local with `--skip-pull`, now require committed
+tracked inputs and no untracked source files, both before preparation and again
+before maintenance. Existing server-only files explicitly excluded by
+`.dockerignore` (`.env.*` except `.env.example`, `deploy.sh`, the emergency override
+and production Caddyfile) remain allowed. Nothing is stashed, committed or deleted
+automatically. A clean checkout keeps the existing mode and deployment behavior.
+
+Before maintenance, the selected app image runs
+`docker/php/postgres-connection-check.php` as `www-data`. It loads Laravel database
+configuration without booting application providers, resolves DB_URL and the
+writer configuration, creates a fresh nonpersistent connection, and executes
+`SELECT 1`. Connection and session statement timeouts are limited to five seconds.
+Only the probe session's timeout is changed; no data, migration, role or database
+configuration is written. Failures expose a generic diagnostic without PDO/DSN
+or password details and stop every mode before maintenance. Tests mock PDO and
+Docker; no real production/local database connection is made during verification.

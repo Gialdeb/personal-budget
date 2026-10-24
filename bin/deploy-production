@@ -1,12 +1,72 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# SOAMCO_DEPLOY_LOCK_PROTOCOL=1
+original_args=("$@")
+inherited_lock=false
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+mode=local
+mode_selected=false
+skip_pull=false
+pull_user=''
+pull_branch=''
+selection_source="${SOAMCO_DEPLOY_SELECTION:-legacy}"
+[[ "$selection_source" == legacy || "$selection_source" == github ]] || { echo 'Invalid deployment selection source; no fallback.' >&2; exit 2; }
+while (( $# )); do
+    case "$1" in
+        local|ghcr|ssh)
+            $mode_selected && { echo 'Select one deployment mode only.' >&2; exit 2; }
+            mode="$1"; mode_selected=true; shift ;;
+        --mode)
+            (( $# >= 2 )) || { echo '--mode requires local, ghcr or ssh.' >&2; exit 2; }
+            $mode_selected && { echo 'Select one deployment mode only.' >&2; exit 2; }
+            mode="$2"; mode_selected=true; shift 2 ;;
+        --skip-pull) skip_pull=true; shift ;;
+        --inherit-lock) inherited_lock=true; shift ;;
+        --pull-user|--pull-branch)
+            (( $# >= 2 )) || { echo 'Missing pull option value.' >&2; exit 2; }
+            if [[ "$1" == --pull-user ]]; then pull_user="$2"; else pull_branch="$2"; fi
+            shift 2 ;;
+        *) echo 'Usage: deploy-production [local|ghcr|ssh] [--skip-pull] [--pull-user USER] [--pull-branch BRANCH]' >&2; exit 2 ;;
+    esac
+done
+[[ "$mode" == local || "$mode" == ghcr || "$mode" == ssh ]] || { echo 'Invalid deployment mode; no fallback.' >&2; exit 2; }
+if [[ "$selection_source" == github ]] && $mode_selected; then
+    echo 'GitHub selection is active; choose the mode on GitHub, not via CLI.' >&2; exit 2
+fi
+[[ -z "$pull_user" || "$pull_user" =~ ^[a-z_][a-z0-9_-]*$ ]] || exit 2
+[[ -z "$pull_branch" || "$pull_branch" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ ]] || exit 2
+git_checkout() {
+    if [[ -n "$pull_user" ]]; then sudo -u "$pull_user" git "$@"; else git "$@"; fi
+}
+
+assert_clean_checkout() {
+    git_checkout diff --quiet && git_checkout diff --cached --quiet || return 1
+    # Server-only files already excluded from production images are not source.
+    # All other untracked inputs must be committed (NUL-delimited for safe names).
+    git_checkout ls-files --others --exclude-standard -z | while IFS= read -r -d '' path; do
+        case "$path" in
+            .env.example) return 1 ;;
+            .env.*) grep -Fxq '.env.*' .dockerignore || return 1 ;;
+            deploy.sh|docker-compose.emergency.yml|docker/caddy/Caddyfile.production)
+                grep -Fxq "$path" .dockerignore || return 1 ;;
+            *) return 1 ;;
+        esac
+    done
+}
 
 # Hold the lock for the whole deploy, including git pull and all image builds.
 # Never unlink it: a second process must lock the same inode after we exit.
 command -v flock >/dev/null || { echo 'Deployment requires flock (util-linux) on the VPS.' >&2; exit 1; }
-(umask 077; touch /tmp/soamco-production-deploy.lock)
-exec 9<>/tmp/soamco-production-deploy.lock
+lock_file=/tmp/soamco-production-deploy.lock
+if $inherited_lock; then
+    lock_identity="$(stat -Lc '%d:%i' "$lock_file" 2>/dev/null)" || { echo 'Invalid inherited deployment lock.' >&2; exit 1; }
+    inherited_identity="$(stat -Lc '%d:%i' /proc/$$/fd/9 2>/dev/null)" || { echo 'Invalid inherited deployment lock.' >&2; exit 1; }
+    [[ -f "$lock_file" && ! -L "$lock_file" && "$lock_identity" =~ ^[0-9]+:[0-9]+$ && "$lock_identity" == "$inherited_identity" ]] || { echo 'Invalid inherited deployment lock.' >&2; exit 1; }
+else
+    (umask 077; touch "$lock_file")
+    exec 9<>"$lock_file"
+fi
 flock -n 9 || { echo 'Another Soamco production deployment is running. Nothing was changed.' >&2; exit 1; }
 
 # Compose limits service builds; disabling Bake keeps that limit authoritative.
@@ -52,19 +112,56 @@ check_resources() {
     done
 }
 
-if [[ "${1:-}" != '--skip-pull' ]]; then
-    git diff --quiet && git diff --cached --quiet || { echo 'Commit or stash tracked changes before deployment.' >&2; exit 1; }
-    git pull --ff-only
+if ! $skip_pull; then
+    # Replace this process BEFORE Git can replace the script it is reading.
+    # The update program is immutable in memory and carries the same open FD 9.
+    bootstrap="$(declare -f git_checkout assert_clean_checkout)"
+    bootstrap+=$'\n'
+    bootstrap+='set -euo pipefail
+trap "exit 130" INT
+trap "exit 143" TERM
+repository="$1"; pull_user="$2"; pull_branch="$3"; shift 3
+cd "$repository"
+assert_clean_checkout || { echo "Commit or remove uncommitted deployment inputs before pulling." >&2; exit 1; }
+if [[ -n "$pull_branch" ]]; then
+    [[ "$(git_checkout symbolic-ref --quiet --short HEAD)" == "$pull_branch" ]] || { echo "Checkout branch differs from the requested deployment branch." >&2; exit 1; }
+    git_checkout pull --ff-only origin "$pull_branch"
+else
+    git_checkout pull --ff-only
 fi
-release="$(git rev-parse --short=12 HEAD)-$(date -u +%Y%m%d%H%M%S)"
-export SOAMCO_PHP_IMAGE="${SOAMCO_PHP_IMAGE:-soamco-budget-php:$release}"
-export SOAMCO_WEB_IMAGE="${SOAMCO_WEB_IMAGE:-soamco-budget-web:$release}"
+grep -Fxq "# SOAMCO_DEPLOY_LOCK_PROTOCOL=1" bin/deploy-production || { echo "Updated deployment script does not support the inherited-lock protocol; stopped." >&2; exit 1; }
+exec bash bin/deploy-production --inherit-lock --skip-pull "$@"
+'
+    if (( ${#original_args[@]} )); then
+        exec bash -c "$bootstrap" soamco-deploy-update "$PWD" "$pull_user" "$pull_branch" "${original_args[@]}"
+    else
+        exec bash -c "$bootstrap" soamco-deploy-update "$PWD" "$pull_user" "$pull_branch"
+    fi
+fi
+assert_clean_checkout || { echo 'Commit or remove uncommitted deployment inputs before deployment.' >&2; exit 1; }
+commit="$(git_checkout rev-parse --verify 'HEAD^{commit}')"
+[[ "$commit" =~ ^[a-f0-9]{40}$ ]] || { echo 'Cannot determine the deployed commit.' >&2; exit 1; }
+if [[ "$selection_source" == github ]]; then
+    [[ "$(git_checkout symbolic-ref --quiet --short HEAD)" == main ]] || { echo 'GitHub deployment selection requires main.' >&2; exit 1; }
+    command -v python3 >/dev/null || { echo 'GitHub selection requires Python 3.' >&2; exit 1; }
+    selection_ref="refs/tags/soamco-deploy-$commit"
+    git_checkout fetch --quiet --no-tags origin "$selection_ref" 2>/dev/null || { echo 'No accessible GitHub choice for this main commit; no fallback.' >&2; exit 1; }
+    selection_object="$(git_checkout rev-parse --verify 'FETCH_HEAD^{tag}' 2>/dev/null)" || { echo 'Selection must be an annotated tag; no fallback.' >&2; exit 1; }
+    mode="$(git_checkout cat-file tag "$selection_object" | python3 -B bin/deployment-choice.py "$commit" "${SOAMCO_IMAGE_REPOSITORY:-}")"
+    printf 'GitHub selection: mode=%s commit=%s\n' "$mode" "$commit"
+fi
+release="${commit:0:12}-$(date -u +%Y%m%d%H%M%S)"
+if [[ "$mode" == local ]]; then
+    export SOAMCO_PHP_IMAGE="${SOAMCO_PHP_IMAGE:-soamco-budget-php:$release}"
+    export SOAMCO_WEB_IMAGE="${SOAMCO_WEB_IMAGE:-soamco-budget-web:$release}"
+fi
 env_file="${SOAMCO_ENV_FILE:-.env}"
 env_args=(--env-file "$env_file")
 if [[ -n "${SOAMCO_COMPOSE_ENV_FILE:-}" ]]; then
     env_args+=(--env-file "$SOAMCO_COMPOSE_ENV_FILE")
 fi
-compose() { docker compose --parallel 1 "${env_args[@]}" -f docker-compose.yml -f docker-compose.production.yml "$@"; }
+compose_files=(-f docker-compose.yml -f docker-compose.production.yml)
+compose() { docker compose --parallel 1 "${env_args[@]}" "${compose_files[@]}" "$@"; }
 maintenance=false
 proxy_maintenance=false
 scratch="$(mktemp -d)"
@@ -95,8 +192,27 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+if [[ "$mode" == local ]]; then
+    # Build labels bind both locally built images to this checkout without changing
+    # the default build, tags, resource preflight or runtime service definitions.
+    printf 'services:\n  app:\n    build:\n      labels:\n        org.opencontainers.image.revision: "%s"\n  web:\n    build:\n      labels:\n        org.opencontainers.image.revision: "%s"\n' "$commit" "$commit" > "$scratch/local-build.yml"
+    compose_files+=(-f "$scratch/local-build.yml")
+else
+    command -v python3 >/dev/null || { echo 'Prepared deployment modes require Python 3.' >&2; exit 1; }
+    # Validate server configuration before contacting GHCR. The resolver only
+    # pulls in ghcr mode; ssh mode inspects previously imported local tags.
+    (umask 077; compose config --format json > "$scratch/compose-before-images.json")
+    python3 -B bin/deployment-images.py resolve "$mode" "$commit" "$scratch"
+    read -r SOAMCO_PHP_IMAGE SOAMCO_WEB_IMAGE < "$scratch/image-ids"
+    export SOAMCO_PHP_IMAGE SOAMCO_WEB_IMAGE
+    compose_files+=(-f "$scratch/prepared.yml")
+fi
 compose config --quiet
-check_resources
+if [[ "$mode" == local ]]; then
+    check_resources
+else
+    compose config --format json | python3 -B bin/deployment-images.py config "$SOAMCO_PHP_IMAGE" "$SOAMCO_WEB_IMAGE"
+fi
 for service in app web; do
     previous="$(compose ps --status running -q "$service")"
     if [[ -n "$previous" ]]; then
@@ -104,13 +220,21 @@ for service in app web; do
         docker inspect --format '{{.Image}}' "$previous"
     fi
 done
-compose build app web
+if [[ "$mode" == local ]]; then
+    compose build app web
+    for image in "$SOAMCO_PHP_IMAGE" "$SOAMCO_WEB_IMAGE"; do
+        [[ "$(docker image inspect --format '{{.Os}}|{{.Architecture}}|{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" == "linux|amd64|$commit" ]] || { echo 'Local image platform or commit verification failed.' >&2; exit 1; }
+    done
+fi
 compose run --rm --no-deps --entrypoint sh app -c 'test -f artisan && test -f vendor/autoload.php && test -s public/build/manifest.json'
 # Initialize permissions only after every image (including frontend) has built successfully.
 compose run --rm --no-deps logs-init
 # Inspect the existing private volume as the runtime user before any downtime.
 # Never import host credentials, overwrite files or print credential contents.
 compose run --rm --no-deps --user www-data --entrypoint php app docker/php/firebase-credentials-check.php
+compose run --rm --no-deps --user www-data --entrypoint php app docker/php/postgres-connection-check.php
+[[ "$(git_checkout rev-parse --verify 'HEAD^{commit}')" == "$commit" ]] || { echo 'Checkout commit changed during preparation; deployment stopped.' >&2; exit 1; }
+assert_clean_checkout || { echo 'Checkout changed during preparation.' >&2; exit 1; }
 # Prepare the unchanged Soamco view and the proxy switch before entering maintenance.
 if compose exec -T proxy test -s /config/soamco-deploy-normal.json; then
     # A failed deploy may still be serving this container: do not recreate it.

@@ -5,6 +5,7 @@ import {
     mkdtempSync,
     writeFileSync,
     chmodSync,
+    mkdirSync,
     rmSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -52,11 +53,39 @@ for (const failure of [
         const log = join(root, 'calls');
 
         try {
+            mkdirSync(join(root, 'bin'));
+            writeFileSync(
+                join(root, 'bin/deploy-production'),
+                read('bin/deploy-production')
+                    .replaceAll(
+                        '/tmp/soamco-production-deploy.lock',
+                        join(root, 'deploy.lock'),
+                    )
+                    .replace(
+                        '    check_resources\n',
+                        '    : # Linux resource inspection is outside this mocked lifecycle test\n',
+                    ),
+            );
+
+            for (const [name, body] of [
+                [
+                    'git',
+                    '#!/bin/sh\nif [ "$1" = rev-parse ]; then printf "%s\\n" "' +
+                        'a'.repeat(40) +
+                        '"; fi\n',
+                ],
+                ['flock', '#!/bin/sh\nexit 0\n'],
+            ]) {
+                writeFileSync(join(root, name), body);
+                chmodSync(join(root, name), 0o755);
+            }
+
             const docker = join(root, 'docker');
             writeFileSync(
                 docker,
                 `#!/usr/bin/env bash
 echo "$*" >> "$MOCK_LOG"
+if [[ "$*" == *"image inspect --format"* ]]; then echo "linux|amd64|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; fi
 if [[ "$*" == *"exec -T proxy test -s"* ]]; then exit 1; fi
 if [[ "$*" == *"exec -T app application-healthcheck"* && "$MOCK_FAIL" == health ]]; then exit 1; fi
 if [[ "$*" == *"firebase-credentials-check.php"* && "$MOCK_FAIL" == credentials ]]; then exit 10; fi
@@ -69,7 +98,7 @@ if [[ "$*" == *"ps --status running -q app"* ]]; then echo mock-app; fi
             chmodSync(docker, 0o755);
             const result = spawnSync(
                 'bash',
-                ['bin/deploy-production', '--skip-pull'],
+                [join(root, 'bin/deploy-production'), '--skip-pull'],
                 {
                     cwd: new URL('../..', import.meta.url),
                     env: {
