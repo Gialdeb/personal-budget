@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pull published Soamco PostgreSQL artifacts using unprivileged SFTP."""
+"""Pull published Soamco PostgreSQL and encrypted files artifacts using SFTP."""
 
 from __future__ import annotations
 
@@ -105,6 +105,13 @@ def quote(path: str) -> str:
 
 
 class Pull:
+    storage_name = "postgresql"
+    description = "PostgreSQL"
+    name_pattern = NAME
+    verify = staticmethod(verify)
+    parse_checksums = staticmethod(parse_checksums)
+    backup_time = staticmethod(backup_time)
+
     def __init__(self) -> None:
         root = Path(os.environ.get("SOAMCO_NAS_BACKUP_ROOT", "/volume1/Web Backups/Soamco Budget"))
         self.identity = Path(os.environ.get("SOAMCO_SSH_IDENTITY", "/home/Alex/.ssh/soamco_backup_ed25519"))
@@ -115,7 +122,7 @@ class Pull:
             quote(str(path))
         if root.is_symlink() or not root.is_dir():
             raise PullError("The configured NAS directory must already exist and must not be a symlink")
-        self.storage = root / "postgresql"
+        self.storage = root / self.storage_name
         self.storage.mkdir(mode=0o700, exist_ok=True)
         secure_path(self.storage, directory=True)
         self.log_file = self.open_private(".pull.log")
@@ -162,7 +169,7 @@ class Pull:
     def download(self, name: str) -> None:
         destination = self.storage / name
         if os.path.lexists(destination):
-            verify(destination)
+            self.verify(destination)
             self.log("SKIP", f"Already verified locally: {name}")
             return
         stage = Path(tempfile.mkdtemp(prefix=".pull-incomplete-", dir=self.storage))
@@ -171,7 +178,7 @@ class Pull:
             secure_path(stage / "SHA256SUMS.part")
             if (stage / "SHA256SUMS.part").stat().st_size > 512:
                 raise PullError("Oversized checksum manifest")
-            files, _ = parse_checksums((stage / "SHA256SUMS.part").read_bytes())
+            files, _ = self.parse_checksums((stage / "SHA256SUMS.part").read_bytes())
             (stage / "SHA256SUMS.part").rename(stage / "SHA256SUMS")
             batch = "".join(
                 f"@get {quote(REMOTE_ROOT + '/' + name + '/' + file)} {quote(str(stage / (file + '.part')))}\n"
@@ -185,7 +192,7 @@ class Pull:
                 secure_path(partial)
                 partial.rename(stage / file)
                 (stage / file).chmod(0o600)
-            verify(stage, receipt=False)
+            self.verify_staging(stage, name)
             record = {
                 "schema": 1,
                 "source": SOURCE,
@@ -208,14 +215,17 @@ class Pull:
             if stage is not None:
                 shutil.rmtree(stage)
 
+    def verify_staging(self, stage: Path, name: str) -> None:
+        self.verify(stage, receipt=False)
+
     def retain(self) -> None:
         valid = []
         for directory in self.storage.iterdir():
-            if NAME.fullmatch(directory.name) is None:
+            if self.name_pattern.fullmatch(directory.name) is None:
                 continue
             try:
-                timestamp = backup_time(directory.name)
-                verify(directory)
+                timestamp = self.backup_time(directory.name)
+                self.verify(directory)
             except (PullError, OSError):
                 self.log("WARNING", f"Retention skipped unverified path: {directory.name}")
                 continue
@@ -225,12 +235,12 @@ class Pull:
             return
         valid.sort(reverse=True)
         keeper = valid[0][2]
-        verify(keeper)
+        self.verify(keeper)
         cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=10)
         for timestamp, name, directory in valid[1:]:
             if timestamp >= cutoff:
                 continue
-            files = verify(directory)
+            files = self.verify(directory)
             # Exact files only. An unexpected entry prevents rmdir; never recurse.
             for file in (*files, RECEIPT):
                 (directory / file).unlink()
@@ -245,7 +255,7 @@ class Pull:
         except BlockingIOError:
             self.log("SKIP", "Another NAS pull is running")
             return 75
-        self.log("START", "Pulling published PostgreSQL backups over Tailscale SFTP")
+        self.log("START", f"Pulling published {self.description} backups over Tailscale SFTP")
         secure_path(self.identity, private=True)
         secure_path(self.known_hosts)
         if self.identity.stat().st_size == 0 or self.known_hosts.stat().st_size == 0:
@@ -261,8 +271,8 @@ class Pull:
             name = line
             if line.startswith(REMOTE_ROOT + "/"):
                 name = line[len(REMOTE_ROOT) + 1:]
-            if NAME.fullmatch(name):
-                backup_time(name)
+            if self.name_pattern.fullmatch(name):
+                self.backup_time(name)
                 names.add(name)
         for name in sorted(names, reverse=True):
             self.download(name)
@@ -270,6 +280,32 @@ class Pull:
         self.retain()
         self.log("SUCCESS", f"Pull completed: remote_backups={len(names)}")
         return 0
+
+
+class FilesPull(Pull):
+    storage_name = "files"
+    description = "encrypted files/configuration"
+
+    def __init__(self) -> None:
+        import files_backup_format as file_format
+        self.name_pattern = file_format.NAME
+        self.parse_checksums = file_format.parse_checksums
+        self.backup_time = file_format.backup_time
+        self.file_format = file_format
+        super().__init__()
+
+    def verify(self, directory: Path, receipt: bool = True, expected_name: str | None = None) -> tuple[str, ...]:
+        try:
+            files = self.file_format.verify(directory, receipt=receipt, expected_name=expected_name)
+            secure_path(directory, directory=True)
+            for name in (*files, *((RECEIPT,) if receipt else ())):
+                secure_path(directory / name)
+            return files
+        except ValueError as error:
+            raise PullError("Encrypted files manifest, format or checksum verification failed") from error
+
+    def verify_staging(self, stage: Path, name: str) -> None:
+        self.verify(stage, receipt=False, expected_name=name)
 
 
 def interrupted(signum: int, frame) -> None:
@@ -285,8 +321,15 @@ def main() -> int:
     signal.signal(signal.SIGINT, interrupted)
     pull = None
     try:
-        pull = Pull()
-        return pull.run(check_only=sys.argv[1:] == ["--check"])
+        for collection in (Pull, FilesPull):
+            pull = collection()
+            result = pull.run(check_only=sys.argv[1:] == ["--check"])
+            if result:
+                return result
+            pull.lock.close()
+            pull.log_file.close()
+            pull = None
+        return 0
     except (PullError, OSError, ValueError) as error:
         # Do not log SFTP stderr, key material, or remote file contents.
         message = str(error) if isinstance(error, PullError) else f"Local operation failed ({type(error).__name__})"

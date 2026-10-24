@@ -20,6 +20,9 @@ beforeEach(function () {
     $root = getenv('PULL_FIXTURE');
     $failure = getenv('PULL_FAILURE');
     $batch = stream_get_contents(STDIN);
+    if (str_starts_with($failure, 'files-')) {
+        $failure = str_contains($batch, '/files-encrypted-') ? substr($failure, 6) : '';
+    }
     file_put_contents($root.'/calls', json_encode(['args' => array_slice($argv, 1), 'batch' => $batch])."\n", FILE_APPEND);
     if (str_starts_with($batch, '@ls ')) {
         if ($failure === 'listing') {
@@ -103,6 +106,33 @@ beforeEach(function () {
         return $name;
     };
     $this->remoteName = ($this->makeBackup)();
+    $this->makeFilesBackup = function (int $days = 0, bool $local = false): string {
+        $name = 'files-encrypted-'.gmdate('Ymd\THis\Z', time() - $days * 86400).'-'.bin2hex(random_bytes(5));
+        $directory = ($local ? $this->nasRoot.'/files' : $this->fixture.'/remote').'/'.$name;
+        mkdir($directory, 0700, true);
+        $header = "age-encryption.org/v1\n-> X25519 ".str_repeat('A', 43)."\n".str_repeat('A', 43)."\n--- ".str_repeat('A', 43)."\n";
+        file_put_contents($directory.'/files.tar.gz.age', $header.str_repeat('x', 16 + 42 + 16));
+        file_put_contents($directory.'/manifest.json', json_encode([
+            'schema' => 'soamco-encrypted-files-v1', 'backup' => $name, 'cipher' => 'age-X25519',
+            'archive_verified' => true, 'database_files_atomic' => false, 'decryption_verified_on_vps' => false,
+            'plaintext_bytes' => 42, 'plaintext_sha256' => str_repeat('a', 64), 'recipient_sha256' => str_repeat('b', 64),
+        ]));
+        file_put_contents($directory.'/SHA256SUMS',
+            hash_file('sha256', $directory.'/files.tar.gz.age')."  files.tar.gz.age\n".
+            hash_file('sha256', $directory.'/manifest.json')."  manifest.json\n",
+        );
+        if ($local) {
+            file_put_contents($directory.'/.soamco-nas-receipt.json', json_encode([
+                'schema' => 1, 'source' => 'soamco-backup@100.73.11.75:/var/backups/soamco',
+                'backup' => $name, 'checksums_sha256' => hash_file('sha256', $directory.'/SHA256SUMS'),
+            ]));
+        }
+        foreach (glob($directory.'/*') as $file) {
+            chmod($file, 0600);
+        }
+
+        return $name;
+    };
     $this->environment = [];
     $this->runPull = function (string $failure = '', array $arguments = []): Process {
         $process = new Process(['python3', '-B', dirname(__DIR__, 2).'/bin/pull-postgres-backups-nas', ...$arguments], env: [
@@ -296,4 +326,117 @@ it('preserves the last expired encrypted copy while applying retention to legacy
     clearstatcache();
     expect(is_file($this->storage.'/'.$keeper.'/database.dump.age'))->toBeTrue()
         ->and(is_dir($this->storage.'/'.$expired))->toBeFalse();
+});
+
+it('pulls encrypted files with the existing SFTP settings without decrypting or changing PostgreSQL copies', function () {
+    $name = ($this->makeFilesBackup)();
+    mkdir($this->fixture.'/remote/.files-incomplete-abc');
+    $remote = $this->fixture.'/remote/'.$name;
+    $directory = $this->nasRoot.'/files/'.$name;
+    $process = ($this->runPull)();
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+        ->and(hash_file('sha256', $directory.'/files.tar.gz.age'))->toBe(hash_file('sha256', $remote.'/files.tar.gz.age'))
+        ->and(is_file($directory.'/manifest.json'))->toBeTrue()
+        ->and(is_file($directory.'/.soamco-nas-receipt.json'))->toBeTrue()
+        ->and(glob($this->nasRoot.'/files/.pull-incomplete-*'))->toBe([])
+        ->and(fileperms($directory) & 0777)->toBe(0700)
+        ->and(fileperms($directory.'/files.tar.gz.age') & 0777)->toBe(0600)
+        ->and(file_get_contents($this->storage.'/'.$this->remoteName.'/database.dump'))->toBe('PGDMP-fixture');
+    $before = file_get_contents($this->fixture.'/calls');
+    $inode = fileinode($directory.'/files.tar.gz.age');
+    expect(($this->runPull)()->getExitCode())->toBe(0)
+        ->and(substr_count(file_get_contents($this->fixture.'/calls'), '@get '))->toBe(substr_count($before, '@get '))
+        ->and(fileinode($directory.'/files.tar.gz.age'))->toBe($inode)
+        ->and($before)->not->toContain('--decrypt', 'age ', '@rm ', '@put ', '@rename ', '.files-incomplete')
+        ->and(file_get_contents($this->nasRoot.'/files/.pull.log'))->toContain('SUCCESS', 'SKIP');
+});
+
+it('rejects incomplete or invalid files backups and preserves the last NAS copy', function (string $kind) {
+    $name = ($this->makeFilesBackup)();
+    $keeper = ($this->makeFilesBackup)(20, true);
+    $old = $this->nasRoot.'/files/'.$keeper.'/files.tar.gz.age';
+    $hash = hash_file('sha256', $old);
+    $remote = $this->fixture.'/remote/'.$name;
+    $failure = '';
+    if (in_array($kind, ['network', 'signal'], true)) {
+        $failure = 'files-'.$kind;
+    } elseif ($kind === 'missing') {
+        unlink($remote.'/manifest.json');
+    } elseif ($kind === 'checksum') {
+        file_put_contents($remote.'/files.tar.gz.age', 'corrupted');
+    } elseif ($kind === 'checksum-path') {
+        file_put_contents($remote.'/SHA256SUMS', str_repeat('a', 64)."  ../../identity\n");
+    } else {
+        $manifest = json_decode(file_get_contents($remote.'/manifest.json'), true);
+        if ($kind === 'backup-name') {
+            $manifest['backup'] = 'files-encrypted-20000101T000000Z-abcdefghij';
+        } elseif ($kind === 'schema') {
+            $manifest['schema'] = 'unknown';
+        } elseif ($kind === 'unverified') {
+            $manifest['archive_verified'] = false;
+        } else {
+            file_put_contents($remote.'/files.tar.gz.age', 'not-age-ciphertext');
+        }
+        file_put_contents($remote.'/manifest.json', json_encode($manifest));
+        file_put_contents($remote.'/SHA256SUMS',
+            hash_file('sha256', $remote.'/files.tar.gz.age')."  files.tar.gz.age\n".
+            hash_file('sha256', $remote.'/manifest.json')."  manifest.json\n",
+        );
+    }
+    $process = ($this->runPull)($failure);
+    expect($process->isSuccessful())->toBeFalse()
+        ->and(is_dir($this->nasRoot.'/files/'.$name))->toBeFalse()
+        ->and(hash_file('sha256', $old))->toBe($hash)
+        ->and(glob($this->nasRoot.'/files/.pull-incomplete-*'))->toBe([])
+        ->and(file_get_contents($this->nasRoot.'/files/.pull.log'))->toContain('ERROR')
+        ->not->toContain('RETENTION', 'PRIVATE-SFTP-DIAGNOSTIC');
+})->with(['network', 'signal', 'missing', 'checksum', 'checksum-path', 'backup-name', 'schema', 'unverified', 'ciphertext']);
+
+it('retains ten days of files copies and never prunes unverified paths or PostgreSQL files', function () {
+    ($this->makeFilesBackup)();
+    $expired = ($this->makeFilesBackup)(11, true);
+    $recent = ($this->makeFilesBackup)(9, true);
+    $unmanaged = ($this->makeFilesBackup)(20, true);
+    unlink($this->nasRoot.'/files/'.$unmanaged.'/.soamco-nas-receipt.json');
+    $extra = ($this->makeFilesBackup)(20, true);
+    file_put_contents($this->nasRoot.'/files/'.$extra.'/.keep', 'unmanaged');
+    $process = ($this->runPull)();
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+    clearstatcache();
+    expect(is_dir($this->nasRoot.'/files/'.$expired))->toBeFalse()
+        ->and(is_dir($this->nasRoot.'/files/'.$recent))->toBeTrue()
+        ->and(is_dir($this->nasRoot.'/files/'.$unmanaged))->toBeTrue()
+        ->and(file_get_contents($this->nasRoot.'/files/'.$extra.'/.keep'))->toBe('unmanaged')
+        ->and(is_file($this->storage.'/'.$this->remoteName.'/database.dump'))->toBeTrue();
+});
+
+it('preserves the latest valid files backup even if every files copy is expired', function () {
+    $keeper = ($this->makeFilesBackup)(20, true);
+    $expired = ($this->makeFilesBackup)(30, true);
+    $corrupt = ($this->makeFilesBackup)(15, true);
+    file_put_contents($this->nasRoot.'/files/'.$corrupt.'/files.tar.gz.age', 'corrupt');
+    $process = ($this->runPull)();
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+    clearstatcache();
+    expect(is_file($this->nasRoot.'/files/'.$keeper.'/files.tar.gz.age'))->toBeTrue()
+        ->and(is_dir($this->nasRoot.'/files/'.$expired))->toBeFalse()
+        ->and(is_dir($this->nasRoot.'/files/'.$corrupt))->toBeTrue();
+});
+
+it('refuses overlapping files pulls and never replaces a damaged files destination', function () {
+    $name = ($this->makeFilesBackup)();
+    expect(($this->runPull)()->getExitCode())->toBe(0);
+    $storage = $this->nasRoot.'/files';
+    $lock = fopen($storage.'/.pull.lock', 'a');
+    flock($lock, LOCK_EX);
+    try {
+        $before = file_get_contents($this->fixture.'/calls');
+        expect(($this->runPull)()->getExitCode())->toBe(75)
+            ->and(substr_count(file_get_contents($this->fixture.'/calls'), '@get '))->toBe(substr_count($before, '@get '));
+    } finally {
+        fclose($lock);
+    }
+    file_put_contents($storage.'/'.$name.'/files.tar.gz.age', 'do not overwrite');
+    expect(($this->runPull)()->isSuccessful())->toBeFalse()
+        ->and(file_get_contents($storage.'/'.$name.'/files.tar.gz.age'))->toBe('do not overwrite');
 });
