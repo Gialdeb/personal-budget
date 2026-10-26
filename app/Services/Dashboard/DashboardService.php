@@ -3,6 +3,7 @@
 namespace App\Services\Dashboard;
 
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\RecurringEntryStatusEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\ScheduledEntryStatusEnum;
 use App\Enums\TransactionDirectionEnum;
@@ -226,6 +227,7 @@ class DashboardService
             ->whereNull('payment_verified_at')
             ->where('status', 'confirmed')->whereNull('payment_rectified_at')
             ->whereDoesntHave('refundTransaction')
+            ->whereHas('recurringOccurrence.recurringEntry', fn (Builder $query) => $query->where('status', '!=', RecurringEntryStatusEnum::CANCELLED->value))
             ->with('recurringOccurrence.recurringEntry.trackedItem.websiteIdentity')
             ->orderBy('payment_verification_due_at')->get()
             ->filter(fn (Transaction $transaction): bool => $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id
@@ -258,7 +260,8 @@ class DashboardService
 
         $recurringItems = RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()
             ->whereHas('recurringEntry', function (Builder $query) use ($accountContext): void {
-                $query->whereIn('account_id', $accountContext['account_ids']);
+                $query->whereIn('account_id', $accountContext['account_ids'])
+                    ->where('status', '!=', RecurringEntryStatusEnum::CANCELLED->value);
                 $this->applyTrackedItemOwnershipConstraintForOwners($query, 'recurring_entries.tracked_item_id', $accountContext['owner_ids']);
             })
             ->where(function (Builder $query) use ($year, $month, $today): void {
@@ -376,7 +379,7 @@ class DashboardService
         return [
             'total_count' => $items->count(),
             'items' => $items->filter(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false) || isset($item['payment_management']))
-                ->concat($items->reject(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false) || isset($item['payment_management']))->take(3)->all())
+                ->concat($items->reject(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false) || isset($item['payment_management']))->all())
                 ->values()->all(),
         ];
     }

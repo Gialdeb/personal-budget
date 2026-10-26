@@ -67,12 +67,14 @@ function fixture(t) {
     assert.equal(install.status, 0, install.stdout + install.stderr);
     assert.equal(git('config', '--get', 'core.hooksPath'), '.husky/_');
 
-    // Always stop Git after pre-commit, even if Husky is disabled externally.
     writeFileSync(
-        join(directory, '.husky/_/prepare-commit-msg'),
-        '#!/bin/sh\necho reached > .hook-verified\nexit 1\n',
-        { mode: 0o755 },
+        join(directory, 'tsconfig.json'),
+        JSON.stringify({
+            compilerOptions: { types: [], skipLibCheck: true },
+            include: ['hook-typecheck.ts', 'resources/js/hook test.ts'],
+        }),
     );
+    writeFileSync(join(directory, 'hook-typecheck.ts'), 'export {};\n');
     const head = git('rev-parse', 'HEAD');
 
     function write(file, content) {
@@ -81,8 +83,12 @@ function fixture(t) {
     }
 
     function commit() {
-        const result = run('git', ['commit', '-m', 'Hook verification']);
-        assert.equal(result.status, 1, result.stdout + result.stderr);
+        const result = run('git', ['hook', 'run', 'pre-commit']);
+
+        if (result.status === 0) {
+            writeFileSync(join(directory, '.hook-verified'), 'reached');
+        }
+
         assert.equal(git('rev-parse', 'HEAD'), head);
 
         return result;
@@ -111,7 +117,11 @@ test('git commit formats and stages only matching frontend files', (t) => {
     );
     const result = commit();
     assert.match(result.stdout + result.stderr, /prettier --write/);
-    assert.ok(existsSync(join(directory, '.hook-verified')));
+    assert.match(result.stdout + result.stderr, /vue-tsc --noEmit/);
+    assert.ok(
+        existsSync(join(directory, '.hook-verified')),
+        result.stdout + result.stderr,
+    );
     const formatted = "export const hook = { value: 'staged' };\n";
     assert.equal(git('show', `:${frontend}`), formatted.trim());
     assert.equal(readFileSync(join(directory, frontend), 'utf8'), formatted);
@@ -240,6 +250,7 @@ test('nonfixable ESLint errors stop the commit and roll back fixes to staged fil
     git('add', '--', invalid, valid);
     const result = commit();
     assert.match(result.stdout + result.stderr, /no-unused-vars/);
+    assert.doesNotMatch(result.stdout + result.stderr, /vue-tsc --noEmit/);
     assert.ok(!existsSync(join(directory, '.hook-verified')));
 
     for (const [file, content] of [
@@ -274,4 +285,15 @@ test('hook installation safely skips CI and production without dev dependencies'
         assert.equal(result.status, 0, result.stdout + result.stderr);
         assert.ok(!existsSync(join(directory, '.husky')));
     }
+});
+
+test('TypeScript errors block pre-commit after staged checks pass', (t) => {
+    const { directory, git, write, commit } = fixture(t);
+    write('hook-outside.txt', 'untouched text\n');
+    write('hook-typecheck.ts', 'export const value: number = "invalid";\n');
+    git('add', '--', 'hook-outside.txt');
+    const result = commit();
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout + result.stderr, /TS2322/);
+    assert.ok(!existsSync(join(directory, '.hook-verified')));
 });

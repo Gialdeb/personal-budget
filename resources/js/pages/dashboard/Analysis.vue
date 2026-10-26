@@ -19,6 +19,7 @@ import { confirm as confirmPayment } from '@/actions/App/Http/Controllers/Automa
 import { convert } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
 import BudgetVsActual from '@/components/dashboard/BudgetVsActual.vue';
 import CategoryTargets from '@/components/dashboard/CategoryTargets.vue';
+import DashboardPager from '@/components/dashboard/DashboardPager.vue';
 import EconomicCommitmentCard from '@/components/dashboard/EconomicCommitmentCard.vue';
 import FinancialAgenda from '@/components/dashboard/FinancialAgenda.vue';
 import FinancialTimeline from '@/components/dashboard/FinancialTimeline.vue';
@@ -56,6 +57,23 @@ import type { DashboardPendingActionItem } from '@/types/dashboard';
 const ui = useUiCopy();
 
 const props = defineProps<DashboardPageProps>();
+const upcomingWidget = ref<HTMLElement | null>(null);
+const upcomingWidgetHeight = ref<string>();
+let upcomingWidgetObserver: ResizeObserver | undefined;
+
+onMounted(() => {
+    upcomingWidgetObserver = new ResizeObserver(() => {
+        if (upcomingWidget.value) {
+            upcomingWidgetHeight.value = `${upcomingWidget.value.getBoundingClientRect().height}px`;
+        }
+    });
+
+    if (upcomingWidget.value) {
+        upcomingWidgetObserver.observe(upcomingWidget.value);
+    }
+});
+onBeforeUnmount(() => upcomingWidgetObserver?.disconnect());
+
 const manualPayment = ref<DashboardPendingActionItem | null>(null);
 const manualOpen = ref(false);
 const manualRegistration = useForm<Record<string, boolean>>({
@@ -1098,262 +1116,272 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                 </div>
             </section>
 
-            <section
-                v-if="dashboard.credits_debts.arrears?.length"
-                class="rounded-2xl border border-destructive/20 bg-card p-5 shadow-sm sm:p-6"
+            <div
+                class="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2"
+                :style="{ '--dashboard-upcoming-height': upcomingWidgetHeight }"
             >
-                <h2 class="text-lg font-semibold">
-                    {{ t('creditsDebts.arrears') }}
-                </h2>
-                <div class="mt-3 grid gap-2 sm:grid-cols-2">
-                    <Link
-                        v-for="item in dashboard.credits_debts.arrears"
-                        :key="item.uuid"
-                        :href="item.source_url"
-                        class="flex min-w-0 items-center justify-between gap-3 rounded-xl border bg-muted/25 p-3 transition-colors hover:bg-muted/50"
-                    >
-                        <ReferenceAvatar
-                            :name="item.title"
-                            :logo-url="item.logo_url"
-                        />
-                        <div class="min-w-0 flex-1">
-                            <p class="font-medium break-words">
-                                {{ item.title }}
-                            </p>
-                            <p class="text-xs text-muted-foreground">
-                                {{
-                                    t('creditsDebts.overdueSince', {
-                                        period: new Intl.DateTimeFormat(
-                                            locale,
-                                            { month: 'long', year: 'numeric' },
-                                        ).format(
-                                            new Date(
-                                                `${item.due_date}T00:00:00`,
-                                            ),
-                                        ),
-                                    })
-                                }}
-                            </p>
-                        </div>
-                        <div class="shrink-0 text-right text-sm">
-                            <SensitiveValue
-                                class="font-semibold"
-                                :value="
-                                    formatCurrency(
-                                        Number(item.amount),
-                                        item.currency,
-                                    )
-                                "
-                            />
-                            <p class="text-xs text-muted-foreground">
-                                {{
-                                    t(
-                                        item.type === 'credit'
-                                            ? 'creditsDebts.receive'
-                                            : 'creditsDebts.pay',
-                                    )
-                                }}
-                            </p>
-                        </div>
-                    </Link>
-                </div>
-            </section>
-
-            <section
-                data-onboarding="dashboard.pending"
-                class="rounded-2xl border bg-card p-5 shadow-sm sm:p-6"
-            >
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <h2 class="text-lg font-semibold">
-                            {{ t('dashboard.analysis.upcomingEvents') }}
-                        </h2>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            {{
-                                t(
-                                    'dashboard.analysis.upcomingEventsDescription',
-                                )
-                            }}
-                        </p>
-                    </div>
-                    <CalendarDays class="size-5 text-muted-foreground" />
-                </div>
-                <div
-                    v-if="dashboard.pending_actions.items.length"
-                    class="mt-4 grid min-w-0 gap-3"
+                <section
+                    v-if="dashboard.credits_debts.arrears?.length"
+                    class="flex min-h-0 min-w-0 flex-col rounded-2xl border border-destructive/20 bg-card p-5 shadow-sm sm:p-6 lg:h-[var(--dashboard-upcoming-height)]"
                 >
-                    <article
-                        v-for="item in dashboard.pending_actions.items"
-                        :key="item.id"
-                        class="grid min-w-0 gap-2.5 rounded-xl border bg-muted/25 p-3 sm:p-4"
+                    <h2 class="text-lg font-semibold">
+                        {{ t('creditsDebts.arrears') }}
+                    </h2>
+                    <DashboardPager
+                        v-slot="{ item }"
+                        :items="dashboard.credits_debts.arrears"
+                        fill
+                        :label="t('creditsDebts.arrears')"
+                        class="mt-3 min-h-0 lg:flex-1"
                     >
-                        <div class="flex min-w-0 items-center gap-2.5">
+                        <Link
+                            :key="item.uuid"
+                            :href="item.source_url"
+                            class="flex min-w-0 items-center justify-between gap-3 rounded-xl border bg-muted/25 p-3 transition-colors hover:bg-muted/50"
+                        >
                             <ReferenceAvatar
                                 :name="item.title"
                                 :logo-url="item.logo_url"
-                                class="size-9 rounded-lg"
                             />
-                            <Link
-                                :href="item.action_url"
-                                class="block min-w-0 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
-                            >
-                                <div
-                                    class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
-                                >
-                                    <h3
-                                        :title="item.title"
-                                        class="line-clamp-2 min-w-0 text-sm leading-snug font-semibold [overflow-wrap:anywhere]"
-                                    >
-                                        {{ item.title }}
-                                    </h3>
-                                    <SensitiveValue
-                                        class="shrink-0 text-base font-semibold tabular-nums"
-                                        :value="
-                                            item.requires_payment_confirmation
-                                                ? formatCurrency(
-                                                      item.amount_raw,
-                                                      item.currency ?? currency,
-                                                  )
-                                                : money(item.amount_raw)
-                                        "
-                                    />
-                                </div>
-                            </Link>
-                        </div>
-                        <div
-                            class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
-                        >
-                            <time
-                                :datetime="item.date"
-                                class="inline-flex items-center gap-1"
-                                ><CalendarDays class="size-3.5 shrink-0" />{{
-                                    dateLabel(item.date)
-                                }}</time
-                            >
-                            <span aria-hidden="true">·</span>
-                            <span>{{
-                                item.recurrence_mode
-                                    ? ui(
-                                          item.recurrence_mode === 'automatic'
-                                              ? 'Ricorrenza automatica'
-                                              : 'Ricorrenza manuale',
-                                      )
-                                    : t(
-                                          `dashboard.agenda.entryKinds.${item.entry_kind}`,
-                                      )
-                            }}</span>
-                            <Badge
-                                variant="outline"
-                                class="max-w-full gap-1 rounded-full px-2 py-0.5 text-[11px] leading-snug font-medium whitespace-normal"
-                                :class="pendingEventStatusClass(item)"
-                            >
-                                <CircleAlert
-                                    v-if="
-                                        pendingEventStatus(item) === 'Scaduto'
+                            <div class="min-w-0 flex-1">
+                                <p class="font-medium break-words">
+                                    {{ item.title }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        t('creditsDebts.overdueSince', {
+                                            period: new Intl.DateTimeFormat(
+                                                locale,
+                                                {
+                                                    month: 'long',
+                                                    year: 'numeric',
+                                                },
+                                            ).format(
+                                                new Date(
+                                                    `${item.due_date}T00:00:00`,
+                                                ),
+                                            ),
+                                        })
+                                    }}
+                                </p>
+                            </div>
+                            <div class="shrink-0 text-right text-sm">
+                                <SensitiveValue
+                                    class="font-semibold"
+                                    :value="
+                                        formatCurrency(
+                                            Number(item.amount),
+                                            item.currency,
+                                        )
                                     "
-                                    class="size-3 shrink-0"
                                 />
-                                <CircleCheck
-                                    v-else-if="
-                                        pendingEventStatus(item) === 'Pagato'
-                                    "
-                                    class="size-3 shrink-0"
-                                />
-                                <Clock3 v-else class="size-3 shrink-0" />
-                                {{ ui(pendingEventStatus(item)) }}
-                            </Badge>
-                        </div>
-                        <p
-                            v-if="
-                                !item.is_future &&
-                                item.automatic_payment_missing
-                            "
-                            class="text-xs text-muted-foreground"
-                        >
-                            {{ ui('Movimento automatico mancante') }}
-                        </p>
-                        <div
-                            class="grid min-w-0 grid-cols-1 gap-2 empty:hidden min-[380px]:grid-cols-2"
-                        >
-                            <template v-if="!item.is_future">
-                                <Button
-                                    v-if="
-                                        item.payment_management &&
-                                        item.can_manage
-                                    "
-                                    size="sm"
-                                    class="h-auto min-h-11 w-full min-w-0 justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs leading-snug whitespace-normal sm:text-sm"
-                                    :class="
-                                        !item.plan_url
-                                            ? 'col-span-full'
-                                            : undefined
-                                    "
-                                    variant="outline"
-                                    @click="managePayment(item)"
-                                    ><Settings2 class="size-4 shrink-0" />{{
-                                        ui('Gestisci pagamento')
-                                    }}</Button
-                                >
-                            </template>
-                            <Link
-                                v-if="item.plan_url"
-                                :href="item.plan_url"
-                                :class="
-                                    item.is_future ||
-                                    !(
-                                        item.payment_management &&
-                                        item.can_manage
-                                    )
-                                        ? 'col-span-full'
-                                        : undefined
-                                "
-                                class="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/5 px-2.5 py-2 text-center text-xs leading-snug font-medium whitespace-normal text-blue-700 transition-colors hover:bg-blue-500/10 focus-visible:outline-2 focus-visible:outline-ring sm:text-sm dark:text-blue-300"
-                                ><ExternalLink class="size-3.5 shrink-0" />{{
-                                    ui('Vai al piano')
-                                }}</Link
-                            >
-                            <template v-if="!item.is_future">
-                                <Button
-                                    v-if="
-                                        item.can_verify_payment &&
-                                        item.transaction_uuid
-                                    "
-                                    size="sm"
-                                    class="col-span-full h-auto min-h-11 w-full min-w-0 justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs leading-snug whitespace-normal sm:text-sm"
-                                    :disabled="paymentVerification.processing"
-                                    @click="verifyPayment(item)"
-                                    >{{ ui('Conferma') }}</Button
-                                >
-                                <Button
-                                    v-else-if="item.can_confirm_manual"
-                                    size="sm"
-                                    class="col-span-full h-auto min-h-11 w-full min-w-0 justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs leading-snug whitespace-normal sm:text-sm"
-                                    :disabled="manualRegistration.processing"
-                                    @click="askManualPayment(item)"
-                                    >{{ ui('Conferma pagamento') }}</Button
-                                >
-                            </template>
-                        </div>
-                        <p
-                            v-if="
-                                !item.is_future &&
-                                paymentVerification.errors.payment &&
-                                item.can_verify_payment
-                            "
-                            role="alert"
-                            class="text-xs text-destructive"
-                        >
-                            {{ paymentVerification.errors.payment }}
-                        </p>
-                    </article>
-                </div>
-                <p
-                    v-else
-                    class="mt-5 rounded-xl bg-muted/40 p-5 text-sm text-muted-foreground"
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        t(
+                                            item.type === 'credit'
+                                                ? 'creditsDebts.receive'
+                                                : 'creditsDebts.pay',
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                        </Link>
+                    </DashboardPager>
+                </section>
+
+                <section
+                    ref="upcomingWidget"
+                    data-onboarding="dashboard.pending"
+                    class="min-w-0 rounded-2xl border bg-card p-5 shadow-sm sm:p-6"
                 >
-                    {{ t('dashboard.metrics.noPendingActions') }}
-                </p>
-            </section>
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 class="text-lg font-semibold">
+                                {{ t('dashboard.analysis.upcomingEvents') }}
+                            </h2>
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                {{
+                                    t(
+                                        'dashboard.analysis.upcomingEventsDescription',
+                                    )
+                                }}
+                            </p>
+                        </div>
+                        <CalendarDays class="size-5 text-muted-foreground" />
+                    </div>
+                    <DashboardPager
+                        v-if="dashboard.pending_actions.items.length"
+                        v-slot="{ item }"
+                        :items="dashboard.pending_actions.items"
+                        :label="t('dashboard.analysis.upcomingEvents')"
+                        class="mt-4"
+                    >
+                        <article
+                            :key="item.id"
+                            class="flex min-w-0 flex-col gap-2 rounded-xl border bg-muted/25 p-3"
+                        >
+                            <div class="flex min-w-0 items-center gap-1.5">
+                                <ReferenceAvatar
+                                    :name="item.title"
+                                    :logo-url="item.logo_url"
+                                    class="size-9 shrink-0 rounded-lg"
+                                />
+                                <Link
+                                    :href="item.action_url"
+                                    class="block min-w-0 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
+                                >
+                                    <div
+                                        class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5"
+                                    >
+                                        <h3
+                                            :title="item.title"
+                                            class="line-clamp-2 min-w-0 text-sm leading-snug font-semibold [overflow-wrap:anywhere]"
+                                        >
+                                            {{ item.title }}
+                                        </h3>
+                                        <SensitiveValue
+                                            class="shrink-0 text-sm font-semibold whitespace-nowrap tabular-nums"
+                                            :value="
+                                                item.requires_payment_confirmation
+                                                    ? formatCurrency(
+                                                          item.amount_raw,
+                                                          item.currency ??
+                                                              currency,
+                                                      )
+                                                    : money(item.amount_raw)
+                                            "
+                                        />
+                                    </div>
+                                </Link>
+                            </div>
+                            <div
+                                class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground"
+                            >
+                                <time
+                                    :datetime="item.date"
+                                    class="inline-flex items-center gap-1"
+                                    ><CalendarDays
+                                        class="size-3.5 shrink-0"
+                                    />{{ dateLabel(item.date) }}</time
+                                >
+                                <span aria-hidden="true">·</span>
+                                <span>{{
+                                    item.recurrence_mode
+                                        ? ui(
+                                              item.recurrence_mode ===
+                                                  'automatic'
+                                                  ? 'Ricorrenza automatica'
+                                                  : 'Ricorrenza manuale',
+                                          )
+                                        : t(
+                                              `dashboard.agenda.entryKinds.${item.entry_kind}`,
+                                          )
+                                }}</span>
+                                <Badge
+                                    variant="outline"
+                                    class="max-w-full gap-1 rounded-full px-2 py-0.5 text-[11px] leading-snug font-medium whitespace-normal"
+                                    :class="pendingEventStatusClass(item)"
+                                >
+                                    <CircleAlert
+                                        v-if="
+                                            pendingEventStatus(item) ===
+                                            'Scaduto'
+                                        "
+                                        class="size-3 shrink-0"
+                                    />
+                                    <CircleCheck
+                                        v-else-if="
+                                            pendingEventStatus(item) ===
+                                            'Pagato'
+                                        "
+                                        class="size-3 shrink-0"
+                                    />
+                                    <Clock3 v-else class="size-3 shrink-0" />
+                                    {{ ui(pendingEventStatus(item)) }}
+                                </Badge>
+                                <p
+                                    v-if="
+                                        !item.is_future &&
+                                        item.automatic_payment_missing
+                                    "
+                                    class="basis-full text-xs text-muted-foreground"
+                                >
+                                    {{ ui('Movimento automatico mancante') }}
+                                </p>
+                            </div>
+                            <div
+                                class="mt-auto flex min-w-0 flex-wrap items-center gap-1.5 empty:hidden"
+                            >
+                                <template v-if="!item.is_future">
+                                    <Button
+                                        v-if="
+                                            item.payment_management &&
+                                            item.can_manage
+                                        "
+                                        size="sm"
+                                        class="h-8 w-auto min-w-0 justify-center gap-1 rounded-md px-2 py-1 text-xs leading-snug whitespace-normal"
+                                        variant="outline"
+                                        @click="managePayment(item)"
+                                        ><Settings2 class="size-4 shrink-0" />{{
+                                            ui('Gestisci pagamento')
+                                        }}</Button
+                                    >
+                                </template>
+                                <Link
+                                    v-if="item.plan_url"
+                                    :href="item.plan_url"
+                                    class="inline-flex h-8 w-auto min-w-0 items-center justify-center gap-1 rounded-md border border-blue-500/20 bg-blue-500/5 px-2 py-1 text-center text-xs leading-snug font-medium whitespace-normal text-blue-700 transition-colors hover:bg-blue-500/10 focus-visible:outline-2 focus-visible:outline-ring dark:text-blue-300"
+                                    ><ExternalLink
+                                        class="size-3.5 shrink-0"
+                                    />{{ ui('Vai al piano') }}</Link
+                                >
+                                <template v-if="!item.is_future">
+                                    <Button
+                                        v-if="
+                                            item.can_verify_payment &&
+                                            item.transaction_uuid
+                                        "
+                                        size="sm"
+                                        class="h-8 w-auto min-w-0 justify-center gap-1 rounded-md px-2 py-1 text-xs leading-snug whitespace-normal"
+                                        :disabled="
+                                            paymentVerification.processing
+                                        "
+                                        @click="verifyPayment(item)"
+                                        >{{ ui('Conferma') }}</Button
+                                    >
+                                    <Button
+                                        v-else-if="item.can_confirm_manual"
+                                        size="sm"
+                                        class="h-8 w-auto min-w-0 justify-center gap-1 rounded-md px-2 py-1 text-xs leading-snug whitespace-normal"
+                                        :disabled="
+                                            manualRegistration.processing
+                                        "
+                                        @click="askManualPayment(item)"
+                                        >{{ ui('Conferma pagamento') }}</Button
+                                    >
+                                </template>
+                                <p
+                                    v-if="
+                                        !item.is_future &&
+                                        paymentVerification.errors.payment &&
+                                        item.can_verify_payment
+                                    "
+                                    role="alert"
+                                    class="basis-full text-xs text-destructive"
+                                >
+                                    {{ paymentVerification.errors.payment }}
+                                </p>
+                            </div>
+                        </article>
+                    </DashboardPager>
+                    <p
+                        v-else
+                        class="mt-5 rounded-xl bg-muted/40 p-5 text-sm text-muted-foreground"
+                    >
+                        {{ t('dashboard.metrics.noPendingActions') }}
+                    </p>
+                </section>
+            </div>
             <Dialog v-model:open="manualOpen">
                 <DialogContent class="sm:max-w-md">
                     <DialogHeader>

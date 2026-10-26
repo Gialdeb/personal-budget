@@ -1,1 +1,4 @@
+set -e
+
 npm exec --no -- lint-staged
+npm run types:check
