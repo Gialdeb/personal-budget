@@ -258,7 +258,7 @@ class DashboardService
                 'entry_kind' => 'recurring',
             ]);
 
-        $recurringItems = RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()
+        $recurringItems = RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()->whereNull('not_due')
             ->whereHas('recurringEntry', function (Builder $query) use ($accountContext): void {
                 $query->whereIn('account_id', $accountContext['account_ids'])
                     ->where('status', '!=', RecurringEntryStatusEnum::CANCELLED->value);

@@ -2,6 +2,12 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'Non dovuta': 'Not due',
+    'Segna come non dovuto': 'Mark as not due',
+    'Motivazione facoltativa': 'Optional reason',
+    'La scadenza resterà nello storico come Non dovuta e sarà esclusa dagli importi da pagare. Potrai ripristinarla senza registrare movimenti.':
+        'The occurrence will stay in history as Not due and be excluded from amounts payable. You can restore it without recording transactions.',
+
     'Pagamento corretto': 'Payment corrected',
     'Scadenza risolta': 'Occurrence resolved',
     'Previsione aggiornata': 'Forecast updated',

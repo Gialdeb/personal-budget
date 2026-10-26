@@ -10,7 +10,7 @@ const helper = readFileSync(
     new URL('lib/recurring-plan-progress.ts', root),
     'utf8',
 );
-const js = ts.transpile(helper.replace('export function', 'function'), {
+const js = ts.transpile(helper.replaceAll('export function', 'function'), {
     target: ts.ScriptTarget.ES2022,
 });
 const progress = new Function(`${js}; return recurringPlanProgress;`)();

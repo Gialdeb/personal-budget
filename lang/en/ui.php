@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'not_due_protected' => 'This occurrence cannot be marked as not due or restored because it has economic links or history.',
+    'occurrence_not_due' => 'Occurrence marked as not due.',
     'use_the_explicit_restart_date' => 'Choose an explicit restart date to reactivate this plan.',
     'restart_only_regular_recurring_plans' => 'This restart is only available for regular recurring plans, not installments or salaries.',
     'restart_must_follow_interruption' => 'The restart must be today or later and follow the interruption.',

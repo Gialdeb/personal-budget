@@ -6,6 +6,7 @@ use App\Http\Requests\FinancialIndexRequest;
 use App\Http\Requests\Recurring\AllocateOccurrencePaymentRequest;
 use App\Http\Requests\Recurring\ConvertRecurringOccurrenceRequest;
 use App\Http\Requests\Recurring\ManageOccurrencePaymentRequest;
+use App\Http\Requests\Recurring\SkipRecurringOccurrenceRequest;
 use App\Http\Requests\Recurring\UpdateRecurringOccurrenceAmountRequest;
 use App\Http\Requests\Recurring\UpdateRecurringOccurrenceRequest;
 use App\Models\CounterpartyPayment;
@@ -138,15 +139,18 @@ class RecurringEntryOccurrenceController extends Controller
     }
 
     public function skip(
-        Request $request,
+        SkipRecurringOccurrenceRequest $request,
         RecurringEntry $recurringEntry,
         RecurringEntryOccurrence $occurrence
     ): RedirectResponse {
-        $this->managementService->skipOccurrence(
-            $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true)
-        );
+        $occurrence = $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true);
+        if ($request->boolean('not_due')) {
+            $this->managementService->markOccurrenceNotDue($occurrence, $request->validated('reason'));
+        } else {
+            $this->managementService->skipOccurrence($occurrence);
+        }
 
-        return back()->with('success', __('ui.occurrence_skipped_b37cbdd0'));
+        return back()->with('success', $request->boolean('not_due') ? __('ui.occurrence_not_due') : __('ui.occurrence_skipped_b37cbdd0'));
     }
 
     public function restore(Request $request, RecurringEntry $recurringEntry, RecurringEntryOccurrence $occurrence): RedirectResponse

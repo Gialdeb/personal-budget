@@ -52,7 +52,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
         return [
             'uuid' => $this->uuid,
             'entry_uuid' => $entry?->uuid,
-            'payment_management' => $request->user() === null ? null : app(ManageOccurrencePaymentService::class)->presentation($this->resource, $request->user(), false),
+            'payment_management' => $request->user() === null || $this->not_due !== null ? null : app(ManageOccurrencePaymentService::class)->presentation($this->resource, $request->user(), false),
             'is_amount_variable' => (bool) $entry?->is_amount_variable,
             'component_name' => $entry?->compoundComponent?->displayName(),
             'payment_defaults' => $entry?->compoundComponent === null ? null : [
@@ -102,6 +102,8 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'automatic_posting_blocked_at' => $this->automatic_posting_blocked_at?->toJSON(),
             'payment_failed_at' => $this->payment_failed_at?->toJSON(),
             'notes' => $this->notes,
+            'not_due' => $this->not_due,
+            'can_mark_not_due' => $canEdit && ($this->read_can_mark_not_due ?? $this->resource->newQuery()->whereKey($this->id)->eligibleForNotDue()->exists()),
             'can_update_amount' => $canEdit
                 && (! $entry?->salarySchedule || ! $hasAllocations)
                 && (bool) $entry?->is_amount_variable

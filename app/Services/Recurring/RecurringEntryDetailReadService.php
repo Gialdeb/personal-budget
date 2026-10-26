@@ -203,7 +203,9 @@ class RecurringEntryDetailReadService
             'paymentAllocations.transaction.account', 'paymentAllocations.transaction.trackedItem', 'paymentAllocations.transaction.refundTransaction', 'settlementTransactions.refundTransaction', 'settlementTransactions.account', 'settlementTransactions.trackedItem', 'convertedTransaction.account', 'convertedTransaction.trackedItem', 'matchedTransaction.account', 'matchedTransaction.trackedItem']);
         $refundedPayments = RecurringPlanRefundPayment::query()->whereIn('occurrence_id', $rows->modelKeys())
             ->get(['occurrence_id', 'transaction_id'])->groupBy('occurrence_id');
+        $notDueEligible = RecurringEntryOccurrence::query()->whereKey($rows->modelKeys())->eligibleForNotDue()->pluck('id');
         foreach ($rows as $row) {
+            $row->setAttribute('read_can_mark_not_due', $notDueEligible->contains($row->id));
             $row->setAttribute('read_aggregate_refund_transactions', ($refundedPayments->get($row->id) ?? collect())->pluck('transaction_id')->map(fn ($id): int => (int) $id)->unique()->all());
         }
         $owners ??= new Collection([$entry]);

@@ -44,7 +44,7 @@ class RecurringOccurrenceReadService
             $allocated = (int) ($allocations->get($occurrence->id)?->total ?? 0);
             $external = $occurrence->externalPaymentCents();
             $this->snapshots[$occurrence] = ['allocated' => $allocated, 'personal' => $personal, 'external' => $external,
-                'remaining' => max(0, $occurrence->paymentTargetCents() - $allocated - $personal - $external),
+                'remaining' => $occurrence->not_due !== null ? 0 : max(0, $occurrence->paymentTargetCents() - $allocated - $personal - $external),
                 'count' => (int) ($allocations->get($occurrence->id)?->aggregate ?? 0)];
         }
     }

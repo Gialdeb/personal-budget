@@ -861,6 +861,11 @@ export type RecurringEntryShowPayload = {
         can_update_amount: boolean;
         can_update_occurrence: boolean;
         can_convert: boolean;
+        not_due?: {
+            previous_status: 'pending' | 'generated';
+            reason: string | null;
+        } | null;
+        can_mark_not_due?: boolean;
         can_skip: boolean;
         can_restore: boolean;
         can_cancel: boolean;

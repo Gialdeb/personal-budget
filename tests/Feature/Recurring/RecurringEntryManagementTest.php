@@ -19,6 +19,7 @@ use App\Models\ExchangeRate;
 use App\Models\Merchant;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\RecurringPlanRefund;
 use App\Models\ReminderDelivery;
 use App\Models\Scope;
 use App\Models\SharedExpenseLedgerEntry;
@@ -30,6 +31,7 @@ use App\Services\Accounts\AccountOpeningBalanceService;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
+use App\Services\Recurring\DeleteRecurringEntryService;
 use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
@@ -45,6 +47,8 @@ use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Illuminate\Testing\Fluent\AssertableJson;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -3327,3 +3331,133 @@ test('annual creation with automatic posting only registers already due payments
         ->and($entry->occurrences()->whereDate('expected_date', '2026-01-15')->value('converted_transaction_id'))->not->toBeNull()
         ->and($entry->occurrences()->whereDate('expected_date', '2027-01-15')->value('converted_transaction_id'))->toBeNull();
 })->with([false, true]);
+
+test('not due occurrences retain history exclude obligations and restore their original state', function (string $status, string $date) {
+    config(['features.credits_debts.enabled' => true]);
+    $this->travelTo(CarbonImmutable::parse('2026-01-20'));
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, ['end_mode' => 'after_occurrences', 'occurrences_limit' => 3]);
+    $row = $entry->occurrences()->whereDate('expected_date', $date)->firstOrFail();
+    $row->update(['status' => $status, 'payment_management_state' => $status === 'generated' ? 'pending' : null]);
+    $count = $entry->occurrences()->count();
+    $accountBefore = $c['account']->fresh()->getAttributes();
+    $entryBefore = $entry->fresh()->getAttributes();
+    $this->actingAs($c['user']);
+    $before = $this->getJson(route('recurring-entries.show', $entry->uuid))->json('recurringEntry.summary.remaining_amount');
+    $parameters = [$entry->uuid, $row->uuid];
+    $this->from(route('recurring-entries.show', $entry->uuid))->patch(route('recurring-entries.occurrences.skip', $parameters), [
+        'not_due' => true, 'confirmed' => true, 'reason' => 'Servizio non erogato',
+    ])->assertSessionHasNoErrors();
+    expect($row->fresh()->status->value)->toBe('skipped')
+        ->and($row->fresh()->not_due)->toBe(['previous_status' => $status, 'reason' => 'Servizio non erogato'])
+        ->and($row->fresh()->remainingPaymentCents())->toBe(0);
+    $this->getJson(route('recurring-entries.show', [$entry->uuid, 'highlight' => $row->uuid]))
+        ->assertSuccessful()
+        ->assertJsonPath('recurringEntry.summary.remaining_amount', fn ($amount): bool => (float) $amount === $before - (float) $row->expected_amount)
+        ->assertJson(fn (AssertableJson $json) => $json
+            ->where('recurringEntry.occurrences', fn ($rows): bool => collect($rows)->contains(fn ($item): bool => $item['uuid'] === $row->uuid && $item['status'] === 'skipped' && $item['not_due']['reason'] === 'Servizio non erogato' && $item['remaining_amount'] === 0 && $item['can_restore'] && ! $item['can_mark_not_due'] && ! $item['can_convert']))->etc());
+    $this->get(route('dashboard', ['year' => 2026, 'month' => 1]))->assertSuccessful()->assertInertia(fn (Assert $page) => $page
+        ->where('dashboard.pending_actions.items', fn ($items): bool => ! collect($items)->contains('id', 'recurring-'.$row->id))
+        ->where('dashboard.scheduled_summary.upcoming', fn ($items): bool => ! collect($items)->contains('id', 'recurring-'.$row->id))
+        ->where('dashboard.credits_debts.arrears', fn ($items): bool => ! collect($items)->contains('uuid', 'recurring:'.$row->uuid)));
+    $this->patch(route('recurring-entries.occurrences.skip', $parameters), ['not_due' => true, 'confirmed' => true])->assertSessionHasNoErrors();
+    expect($row->fresh()->not_due['previous_status'])->toBe($status);
+    $this->patch(route('recurring-entries.occurrences.restore', $parameters))->assertSessionHasNoErrors();
+    expect($row->fresh()->status->value)->toBe($status)
+        ->and($row->fresh()->not_due)->toBeNull()
+        ->and($entry->occurrences()->count())->toBe($count)
+        ->and(Transaction::count())->toBe(0)
+        ->and($c['account']->fresh()->getAttributes())->toBe($accountBefore)
+        ->and($entry->fresh()->getAttributes())->toBe($entryBefore);
+    $this->patch(route('recurring-entries.occurrences.restore', $parameters))->assertSessionHasErrors('occurrence');
+})->with(['pending', 'generated'])->with(['2026-01-15', '2026-02-15']);
+
+test('not due refuses economic links including archived transactions events and refunds', function (string $link) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-20'));
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c);
+    $row = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $transaction = Transaction::create(['user_id' => $c['user']->id, 'account_id' => $c['account']->id,
+        'direction' => 'expense', 'amount' => 10, 'currency' => 'EUR', 'transaction_date' => '2026-01-15',
+        'kind' => 'manual', 'source_type' => 'manual', 'status' => 'confirmed']);
+    if (in_array($link, ['converted', 'matched'], true)) {
+        $row->update([$link.'_transaction_id' => $transaction->id]);
+    } elseif ($link === 'allocation') {
+        $row->paymentAllocations()->create(['transaction_id' => $transaction->id, 'amount_cents' => 1000]);
+    } elseif ($link === 'archived') {
+        $transaction->update(['recurring_entry_occurrence_id' => $row->id]);
+        $transaction->delete();
+    } elseif ($link === 'event') {
+        $row->paymentEvents()->create(['request_id' => (string) Str::uuid(), 'actor_id' => $c['user']->id, 'reason' => 'other', 'action' => 'pending', 'details' => []]);
+    } elseif ($link === 'refund') {
+        $refund = RecurringPlanRefund::create(['request_uuid' => (string) Str::uuid(), 'plan_uuid' => $entry->uuid, 'user_id' => $c['user']->id, 'transaction_id' => $transaction->id, 'amount_cents' => 1000]);
+        $refund->payments()->create(['transaction_id' => $transaction->id, 'occurrence_id' => $row->id, 'amount_cents' => 1000]);
+    } elseif ($link === 'ledger') {
+        $row->sharedExpenseLedgerEntry()->create(['user_id' => $c['user']->id, 'counterparty_id' => $c['trackedItem']->id,
+            'entry_date' => '2026-01-15', 'title' => 'Pagamento esterno', 'currency' => 'EUR', 'total_cents' => 1000,
+            'paid_by' => 'counterparty', 'my_share_cents' => 500, 'counterparty_share_cents' => 500, 'status' => 'recorded']);
+    } else {
+        $row->update(['status' => $link]);
+    }
+    $rowBefore = $row->fresh()->getAttributes();
+    $transactionBefore = $transaction->fresh()->getAttributes();
+    $balanceBefore = $c['account']->fresh()->current_balance;
+    $this->actingAs($c['user'])->patch(route('recurring-entries.occurrences.skip', [$entry->uuid, $row->uuid]), ['not_due' => true, 'confirmed' => true])->assertSessionHasErrors('occurrence');
+    expect($row->fresh()->getAttributes())->toBe($rowBefore)
+        ->and($transaction->fresh()->getAttributes())->toBe($transactionBefore)
+        ->and($c['account']->fresh()->current_balance)->toBe($balanceBefore);
+    $this->getJson(route('recurring-entries.show', [$entry->uuid, 'highlight' => $row->uuid]))->assertSuccessful()
+        ->assertJson(fn (AssertableJson $json) => $json->where('recurringEntry.occurrences', fn ($rows): bool => ! collect($rows)->firstWhere('uuid', $row->uuid)['can_mark_not_due'])->etc());
+})->with(['converted', 'matched', 'allocation', 'archived', 'event', 'refund', 'ledger', 'completed', 'refunded', 'cancelled']);
+
+test('not due validates confirmation reason and ownership', function () {
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c);
+    $row = $entry->occurrences()->firstOrFail();
+    $url = route('recurring-entries.occurrences.skip', [$entry->uuid, $row->uuid]);
+    $this->actingAs($c['user'])->patch($url, ['not_due' => true])->assertSessionHasErrors('confirmed');
+    $this->patch($url, ['not_due' => true, 'confirmed' => true, 'reason' => str_repeat('x', 1001)])->assertSessionHasErrors('reason');
+    $this->actingAs(User::factory()->create())->patch($url, ['not_due' => true, 'confirmed' => true])->assertNotFound();
+    expect($row->fresh()->status->value)->toBe('pending')->and($row->fresh()->not_due)->toBeNull();
+});
+
+test('not due survives plan cancellation and recovery and restore does not automatically post', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-20'));
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, ['end_mode' => 'after_occurrences', 'occurrences_limit' => 1]);
+    $row = $entry->occurrences()->firstOrFail();
+    $service = app(RecurringEntryManagementService::class);
+    $service->markOccurrenceNotDue($row, 'Non richiesto');
+    $before = $row->fresh()->getAttributes();
+    $service->cancel($entry);
+    $service->resume($entry->fresh());
+    expect($row->fresh()->getAttributes())->toBe($before);
+    $entry->fresh()->forceFill(['auto_create_transaction' => true])->save();
+    $service->restoreOccurrence($row->fresh());
+    app(RecurringEntryLifecycleService::class)->synchronize($entry->fresh(), CarbonImmutable::parse('2026-01-20'));
+    expect($row->fresh()->status->value)->toBe('pending')
+        ->and($row->fresh()->automatic_posting_blocked_at)->not->toBeNull()
+        ->and(Transaction::count())->toBe(0);
+});
+
+test('not due restore refuses subsequent economic history and preserves the marker', function () {
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c);
+    $row = $entry->occurrences()->firstOrFail();
+    app(RecurringEntryManagementService::class)->markOccurrenceNotDue($row);
+    $row->paymentEvents()->create(['request_id' => (string) Str::uuid(), 'actor_id' => $c['user']->id, 'reason' => 'other', 'action' => 'pending', 'details' => []]);
+    $before = $row->fresh()->getAttributes();
+    $this->actingAs($c['user'])->patch(route('recurring-entries.occurrences.restore', [$entry->uuid, $row->uuid]))->assertSessionHasErrors('occurrence');
+    expect($row->fresh()->getAttributes())->toBe($before)->and(Transaction::count())->toBe(0);
+});
+
+test('not due does not change the existing plan deletion behavior', function () {
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c);
+    $row = $entry->occurrences()->firstOrFail();
+    app(RecurringEntryManagementService::class)->markOccurrenceNotDue($row);
+    app(DeleteRecurringEntryService::class)->delete($entry);
+    $this->assertModelMissing($entry);
+    $this->assertModelMissing($row);
+    expect(Transaction::count())->toBe(0)->and($c['account']->fresh()->current_balance)->toBe('1000.00');
+});
