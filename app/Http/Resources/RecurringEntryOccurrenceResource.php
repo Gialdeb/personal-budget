@@ -165,7 +165,8 @@ class RecurringEntryOccurrenceResource extends JsonResource
     /** @return array<string, mixed> */
     public function paymentDetails(): array
     {
-        $paidCents = 0;
+        $read = app(RecurringOccurrenceReadService::class);
+        $paidCents = $read->paid($this->resource) - $read->allocated($this->resource);
         $payments = $this->resource->paymentAllocations->filter(fn ($allocation): bool => $allocation->transaction !== null
             && $allocation->transaction->status?->value === 'confirmed'
             && $allocation->transaction->refundTransaction?->status?->value !== 'confirmed')
@@ -178,7 +179,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
                     'uuid' => $transaction->uuid,
                     'date' => $transaction->transaction_date->toDateString(),
                     'amount' => $allocation->amount_cents / 100,
-                    'classification' => $paidCents >= (int) round((float) $this->expected_amount * 100) ? 'balance' : 'advance',
+                    'classification' => $paidCents >= $this->resource->paymentTargetCents() ? 'balance' : 'advance',
                     'account' => $transaction->account?->name,
                     'reference' => $transaction->trackedItem?->name,
                     'show_url' => $this->transactionShowUrl($transaction),

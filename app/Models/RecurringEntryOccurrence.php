@@ -140,10 +140,6 @@ class RecurringEntryOccurrence extends Model
             ->where(function (Builder $dates): void {
                 $dates->whereDate('due_date', '<=', today())
                     ->orWhere(fn (Builder $fallback) => $fallback->whereNull('due_date')->whereDate('expected_date', '<=', today()));
-            })
-            ->where(function (Builder $amounts): void {
-                $amounts->whereNotNull('amount_confirmed_at')
-                    ->orWhereHas('recurringEntry', fn (Builder $entry) => $entry->where('is_amount_variable', false));
             });
     }
 

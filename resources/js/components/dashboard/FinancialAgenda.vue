@@ -3,6 +3,7 @@ import { Link } from '@inertiajs/vue3';
 import { CalendarClock, TrendingUp } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import ReferenceAvatar from '@/components/ReferenceAvatar.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { formatCurrency } from '@/lib/currency';
 import type {
@@ -99,9 +100,13 @@ function transactionLabel(count: number): string {
                             ? 'transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring'
                             : ''
                     "
-                    class="flex items-center justify-between gap-3 rounded-xl bg-muted/45 px-3.5 py-3"
+                    class="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted/45 px-3.5 py-3"
                 >
-                    <div class="min-w-0">
+                    <ReferenceAvatar
+                        :name="entry.display_label"
+                        :logo-url="entry.logo_url"
+                    />
+                    <div class="min-w-0 flex-1">
                         <h4 class="truncate text-sm font-medium">
                             {{ entry.display_label }}
                         </h4>
@@ -145,9 +150,13 @@ function transactionLabel(count: number): string {
                 <article
                     v-for="payee in payees"
                     :key="payee.display_label"
-                    class="flex items-center justify-between gap-3 rounded-xl bg-muted/45 px-3.5 py-3"
+                    class="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted/45 px-3.5 py-3"
                 >
-                    <div class="min-w-0">
+                    <ReferenceAvatar
+                        :name="payee.display_label"
+                        :logo-url="payee.logo_url"
+                    />
+                    <div class="min-w-0 flex-1">
                         <h4 class="truncate text-sm font-medium">
                             {{ payee.display_label }}
                         </h4>

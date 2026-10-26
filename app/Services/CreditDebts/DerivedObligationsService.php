@@ -80,8 +80,8 @@ class DerivedObligationsService
                 route('recurring-entries.show', ['recurringEntry' => $entry->uuid, 'highlight' => $occurrence->uuid]),
                 $entry->trackedItem, $account, $entry->category,
             );
-            $paid = $read->allocated($occurrence);
-            $position['total_amount'] = (string) $occurrence->expected_amount;
+            $paid = $read->paid($occurrence);
+            $position['total_amount'] = MoneyAmount::decimal($occurrence->paymentTargetCents());
             $position['paid_amount'] = MoneyAmount::decimal($paid);
             $position['status'] = $paid > 0 ? 'partial' : 'open';
             $position['payments_count'] = $read->count($occurrence);

@@ -230,6 +230,7 @@ watch(counterparty, () => {
                     :counterparties="counterparties"
                     :side="dropdownSide"
                     :teleport="dropdownTeleport"
+                    @prepared="(option) => createdCounterparties.push(option)"
                     @created="
                         (option) => {
                             createdCounterparties.push(option);

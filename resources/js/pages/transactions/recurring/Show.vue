@@ -394,6 +394,7 @@ const paymentFormOpen = ref(false);
 const paymentLoading = ref(false);
 const paymentOccurrence = ref<{
     is_amount_variable?: boolean;
+    total_due_amount: string;
     uuid: string;
     account_uuid: string;
     category_uuid: string | null;
@@ -417,11 +418,16 @@ function registerPayment(
         only: ['transactionSheet'],
         onSuccess: () => {
             paymentOccurrence.value = {
-                is_amount_variable:
-                    Boolean(
-                        occurrence.is_amount_variable ??
-                        entry.value.is_amount_variable,
-                    ) && !occurrence.payments?.length,
+                is_amount_variable: Boolean(
+                    occurrence.is_amount_variable ??
+                    entry.value.is_amount_variable,
+                ),
+                total_due_amount: String(
+                    occurrence.payment_management?.total_due_amount ??
+                        (occurrence.remaining_amount ??
+                            occurrence.expected_amount ??
+                            0) + (occurrence.allocated_amount ?? 0),
+                ),
                 uuid: occurrence.uuid,
                 account_uuid:
                     occurrence.resource?.uuid ??

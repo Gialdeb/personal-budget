@@ -269,8 +269,8 @@ test('occurrence timeline renders event dates separately from payment dates and 
         const html = await renderToString(app);
         assert.match(html, /<ol/);
         assert.match(html, /Evento registrato/);
-        assert.match(html, /3 nov 2026/);
-        assert.match(html, /2 nov 2026/);
+        assert.match(html, /03\/11\/2026/);
+        assert.match(html, /02\/11\/2026/);
         assert.match(html, /Data effettiva del pagamento/);
         assert.match(html, /Promemoria programmato/);
         assert.match(html, /Importo originario rettificato/);
@@ -283,4 +283,40 @@ test('occurrence timeline renders event dates separately from payment dates and 
     } finally {
         await server.close();
     }
+});
+
+test('both payment forms require an explicit mode and keep the new payment separate from the final total', () => {
+    for (const path of [
+        'resources/js/components/dashboard/ManagePaymentDialog.vue',
+        'resources/js/components/transactions/TransactionFormSheet.vue',
+    ]) {
+        const text = source(path);
+        const filename = fileURLToPath(
+            new URL(`../../${path}`, import.meta.url),
+        );
+        const { descriptor, errors } = parse(text, { filename });
+        assert.deepEqual(errors, []);
+        const script = compileScript(descriptor, {
+            id: path,
+            fs: {
+                fileExists: existsSync,
+                readFile: (file) => readFileSync(file, 'utf8'),
+            },
+        });
+        const template = compileTemplate({
+            source: descriptor.template.content,
+            filename,
+            id: path,
+            compilerOptions: { bindingMetadata: script.bindings },
+        });
+        assert.deepEqual(template.errors, []);
+        assert.match(text, /v-model="form.payment_type"/);
+        assert.match(text, /<option value="advance">/);
+        assert.match(text, /<option value="final">/);
+        assert.match(text, /v-model="\s*form\.final_total_amount\s*"/);
+        assert.match(text, /final_total_amount:/);
+        assert.doesNotMatch(text, /v-model="form.payment_is_partial"/);
+    }
+
+    assert.equal(paymentStateLabel('partial'), 'Parzialmente pagata');
 });

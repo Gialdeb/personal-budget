@@ -205,13 +205,13 @@ test('dashboard lists pending payment verification independently of the selected
     expect(collect($dashboard->build($otherUser, 2026, 11)['pending_actions']['items'])->firstWhere('transaction_uuid', $transaction->uuid))->toBeNull();
 });
 
-test('matched transactions and unconfirmed variable amounts are excluded from open obligations', function () {
+test('matched transactions are excluded while unconfirmed variable estimates remain open obligations', function () {
     $occurrence = paymentVerificationOccurrence(automatic: false);
     $transaction = app(RecurringEntryPostingService::class)->post(paymentVerificationOccurrence());
     $occurrence->forceFill(['matched_transaction_id' => $transaction->id])->save();
     $variable = paymentVerificationOccurrence(automatic: false);
     $variable->recurringEntry->forceFill(['is_amount_variable' => true])->save();
-    expect(RecurringEntryOccurrence::openObligations()->count())->toBe(0);
+    expect(RecurringEntryOccurrence::openObligations()->pluck('id')->all())->toBe([$variable->id]);
     $variable->forceFill(['amount_confirmed_at' => now()])->save();
     expect(RecurringEntryOccurrence::openObligations()->pluck('id')->all())->toBe([$variable->id]);
 });

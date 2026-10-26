@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'advance_requires_residual' => 'An advance must leave a positive balance. Choose Final payment to settle the occurrence.',
+    'final_total_mismatch' => 'The final total must equal previous payments plus this payment. For fixed amounts it must match the amount due.',
     'future_confirmation' => 'This occurrence is in the future. You can edit its forecast from the plan.',
     'automatic_confirmation_only' => 'Confirming an automatic recurrence only verifies its existing transaction. If it is missing, use Manage payment.',
     'updated' => 'Payment management updated.',

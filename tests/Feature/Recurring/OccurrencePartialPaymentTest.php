@@ -150,7 +150,7 @@ test('allocation and automation block roll back together on an error', function 
     expect(RecurringOccurrencePaymentAllocation::count())->toBe(0)->and($occurrence->fresh()->automatic_posting_blocked_at)->toBeNull();
 });
 
-test('ineligible occurrences and transactions reject allocations without changing records', function (string $invalid) {
+test('allocation eligibility preserves guards and accepts overdue variable estimates', function (string $invalid) {
     $occurrence = partialPaymentOccurrence();
     $transaction = partialPaymentTransaction($occurrence, 300);
     match ($invalid) {
@@ -161,6 +161,12 @@ test('ineligible occurrences and transactions reject allocations without changin
         'currency' => $transaction->update(['currency' => 'USD']),
         'invalid' => $transaction->update(['status' => 'ignored']),
     };
+    if ($invalid === 'variable') {
+        app(AllocateOccurrencePaymentService::class)->allocate($occurrence, $transaction, $occurrence->recurringEntry->user, '300');
+        expect($occurrence->fresh()->remainingPaymentCents())->toBe(20000)->and(RecurringOccurrencePaymentAllocation::count())->toBe(1);
+
+        return;
+    }
     expect(fn () => app(AllocateOccurrencePaymentService::class)->allocate($occurrence, $transaction, $occurrence->recurringEntry->user, '300'))->toThrow(ValidationException::class);
     expect(RecurringOccurrencePaymentAllocation::count())->toBe(0);
 })->with(['future', 'skipped', 'variable', 'direction', 'currency', 'invalid']);

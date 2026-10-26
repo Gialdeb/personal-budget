@@ -18,6 +18,8 @@ class ManageOccurrencePaymentRequest extends FormRequest
             'request_id' => ['required', 'uuid'],
             'reason' => ['required', Rule::in(['not_charged', 'bank_problem', 'insufficient_funds', 'postponed', 'cancelled', 'already_paid', 'different_amount', 'other', 'declined', 'invalid_method', 'processing', 'other_account', 'duplicate_charge', 'bank_reversal'])],
             'action' => ['required', Rule::in(['pending', 'cancel', 'confirm', 'correct', 'record'])],
+            'payment_type' => ['nullable', Rule::in(['advance', 'final'])],
+            'final_total_amount' => ['required_if:payment_type,final', 'nullable', 'numeric', 'gt:0', 'decimal:0,2', 'max:999999999999.99'],
             'estimated_date' => ['nullable', 'date_format:Y-m-d'],
             'actual_date' => ['required_if:action,correct,record', 'nullable', 'date_format:Y-m-d'],
             'actual_amount' => ['required_if:action,correct,record', 'nullable', 'numeric', 'gt:0', 'decimal:0,2', 'max:999999999999.99'],

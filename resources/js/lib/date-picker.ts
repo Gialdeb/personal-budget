@@ -51,6 +51,47 @@ export function formatDatePickerValue(
         : formatted;
 }
 
+export function formatDateTime(
+    value: string | null | undefined,
+    locale: string,
+    timeZone?: string,
+): string {
+    if (!value) {
+        return '—';
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return formatDatePickerValue(value, locale) || '—';
+    }
+
+    if (
+        !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ||
+        !parseDatePickerValue(value.slice(0, 10))
+    ) {
+        return '—';
+    }
+
+    const instant = new Date(
+        value.replace(
+            /\.(\d+)(?=Z|[+-]\d{2}:\d{2}$)/i,
+            (_, fraction: string) => `.${fraction.padEnd(3, '0').slice(0, 3)}`,
+        ),
+    );
+
+    if (!Number.isFinite(instant.getTime())) {
+        return '—';
+    }
+
+    return new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone,
+    }).format(instant);
+}
+
 export function parseDatePickerInput(
     value: string,
     locale: string,

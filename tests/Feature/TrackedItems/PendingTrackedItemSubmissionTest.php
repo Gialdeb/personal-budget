@@ -3,6 +3,7 @@
 use App\Models\Category;
 use App\Models\CreditDebtItem;
 use App\Models\RecurringEntry;
+use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\TransactionTemplate;
@@ -208,4 +209,65 @@ test('plain UUID selections from inline forms acquire new category associations 
     expect($reference->fresh()->compatibleCategories->modelKeys())->toBe([$oldCategory->id]);
     $this->post($url, [...$this->submission, 'tracked_item_uuid' => $reference->uuid])->assertSessionHasNoErrors();
     expect($reference->fresh()->compatibleCategories->modelKeys())->toContain($oldCategory->id, $this->category->id);
+});
+
+test('shared selection enables an existing personal reference only when the expense is saved and preserves history', function (string $payer) {
+    $reference = TrackedItem::create(['user_id' => $this->actor->id, 'name' => 'Persona esistente', 'slug' => 'existing-person', 'is_active' => true, 'is_shared_expense_counterpart' => false]);
+    $historical = userTransaction($this->actor, $this->account, ['tracked_item_id' => $reference->id, 'transaction_date' => '2026-10-01', 'value_date' => '2026-10-01', 'balance_after' => 900]);
+    $history = $historical->fresh()->getAttributes();
+    $count = TrackedItem::count();
+    $token = $this->postJson(route('shared-expenses.counterparties.store'), ['draft' => true, 'tracked_item_uuid' => $reference->uuid])->assertOk()->json('uuid');
+    expect($token)->toStartWith(PendingTrackedItemService::PREFIX)
+        ->and($reference->fresh()->is_shared_expense_counterpart)->toBeFalse()->and(TrackedItem::count())->toBe($count);
+    $payload = [...$this->submission,
+        'is_shared_expense' => true, 'shared_expense_counterparty_uuid' => $token,
+        'shared_expense_paid_by' => $payer, 'shared_expense_my_share' => '10', 'shared_expense_counterparty_share' => '10',
+    ];
+    $url = route('transactions.store', ['year' => 2026, 'month' => 10]);
+    $this->post($url, [...$payload, 'amount' => -1])->assertSessionHasErrors('amount');
+    expect($reference->fresh()->is_shared_expense_counterpart)->toBeFalse()->and(TrackedItem::count())->toBe($count);
+    $this->post($url, $payload)->assertSessionHasNoErrors();
+    $record = $payer === 'self'
+        ? Transaction::where('description', $this->submission['description'])->sole()
+        : SharedExpenseLedgerEntry::where('title', $this->submission['description'])->sole();
+    expect($payer === 'self' ? $record->shared_expense_counterparty_id : $record->counterparty_id)->toBe($reference->id)
+        ->and(TrackedItem::count())->toBe($count)->and($reference->fresh()->is_shared_expense_counterpart)->toBeTrue()
+        ->and($historical->fresh()->getAttributes())->toBe($history);
+})->with(['self', 'counterparty']);
+
+test('new shared counterparties stay provisional on failure and materialize once at the main save', function (string $payer) {
+    $count = TrackedItem::count();
+    $token = $this->postJson(route('shared-expenses.counterparties.store'), ['draft' => true, 'name' => 'Nuova controparte'])->assertOk()->json('uuid');
+    expect(TrackedItem::count())->toBe($count);
+    $payload = [...$this->submission, 'is_shared_expense' => true, 'shared_expense_counterparty_uuid' => $token,
+        'shared_expense_paid_by' => $payer, 'shared_expense_my_share' => '10', 'shared_expense_counterparty_share' => '10'];
+    $url = route('transactions.store', ['year' => 2026, 'month' => 10]);
+    $this->post($url, [...$payload, 'amount' => -1])->assertSessionHasErrors('amount');
+    expect(TrackedItem::count())->toBe($count);
+    $this->post($url, $payload)->assertSessionHasNoErrors();
+    $reference = TrackedItem::where('name', 'Nuova controparte')->sole();
+    expect(TrackedItem::count())->toBe($count + 1)->and($reference->is_shared_expense_counterpart)->toBeTrue();
+    $this->post($url, [...$payload, 'transaction_day' => 18, 'description' => 'Seconda spesa condivisa'])->assertSessionHasNoErrors();
+    expect(TrackedItem::count())->toBe($count + 1);
+})->with(['self', 'counterparty']);
+
+test('shared preparation rejects foreign archived and account scoped references without enabling them', function (string $invalid) {
+    $reference = TrackedItem::create(['user_id' => $invalid === 'foreign' ? User::factory()->create()->id : $this->actor->id,
+        'account_id' => $invalid === 'account' ? $this->account->id : null, 'name' => 'Non selezionabile', 'slug' => 'unavailable-person',
+        'is_active' => $invalid !== 'archived', 'is_shared_expense_counterpart' => false]);
+    $before = $reference->fresh()->getAttributes();
+    $this->postJson(route('shared-expenses.counterparties.store'), ['draft' => true, 'tracked_item_uuid' => $reference->uuid])->assertUnprocessable();
+    expect($reference->fresh()->getAttributes())->toBe($before)->and(Transaction::count())->toBe(0);
+})->with(['foreign', 'archived', 'account']);
+
+test('inline shared creation reuses a matching personal reference without creating another identity', function () {
+    $reference = TrackedItem::create(['user_id' => $this->actor->id, 'name' => 'Persona esistente', 'slug' => 'existing-person', 'is_active' => true, 'is_shared_expense_counterpart' => false]);
+    $count = TrackedItem::count();
+    $token = $this->postJson(route('shared-expenses.counterparties.store'), ['draft' => true, 'name' => '  PERSONA   ESISTENTE '])->assertOk()->json('uuid');
+    expect(TrackedItem::count())->toBe($count)->and($reference->fresh()->is_shared_expense_counterpart)->toBeFalse();
+    $this->post(route('transactions.store', ['year' => 2026, 'month' => 10]), [...$this->submission,
+        'is_shared_expense' => true, 'shared_expense_counterparty_uuid' => $token,
+        'shared_expense_paid_by' => 'self', 'shared_expense_my_share' => '10', 'shared_expense_counterparty_share' => '10',
+    ])->assertSessionHasNoErrors();
+    expect(TrackedItem::count())->toBe($count)->and(Transaction::sole()->shared_expense_counterparty_id)->toBe($reference->id);
 });

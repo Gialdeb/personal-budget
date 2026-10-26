@@ -67,6 +67,14 @@ export const uiCopy = {
         'Manage this occurrence only. Other occurrences remain unchanged.',
     'Importo diverso': 'Different amount',
     'Importo effettivo': 'Actual amount',
+    'Tipo di pagamento': 'Payment type',
+    'Scegli Acconto o Pagamento definitivo.':
+        'Choose Advance or Final payment.',
+    'Pagamento definitivo': 'Final payment',
+    'Totale definitivo dovuto': 'Final total due',
+    'Importo del versamento': 'Payment amount',
+    'Inserisci nel campo importo solo questo versamento. Il totale definitivo include anche i pagamenti precedenti.':
+        'Enter only this payment in the amount field. The final total also includes previous payments.',
     'Importo previsto': 'Expected amount',
     'La segnalazione conserva i movimenti esistenti. Verifica gli addebiti e gli storni nel dettaglio transazioni.':
         'This report preserves existing transactions. Review charges and reversals in transaction details.',
@@ -749,6 +757,10 @@ export const uiCopy = {
     'Allocato:': 'Allocated:',
     'Non allocato:': 'Unallocated:',
     Pagato: 'Paid',
+    'In attesa': 'Pending',
+    Previsto: 'Expected',
+    'Parzialmente pagato': 'Partially paid',
+    Scaduto: 'Overdue',
     Attivazione: 'Activation',
     Pagamento: 'Payment',
     Revisione: 'Revision',

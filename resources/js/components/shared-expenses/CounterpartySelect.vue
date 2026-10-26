@@ -35,7 +35,10 @@ const props = withDefaults(
     { disabled: false, side: 'bottom', teleport: true },
 );
 const counterparty = defineModel<string>({ required: true });
-const emit = defineEmits<{ created: [option: NormalizedOption] }>();
+const emit = defineEmits<{
+    created: [option: NormalizedOption];
+    prepared: [option: NormalizedOption];
+}>();
 const createdCounterparties = ref<NormalizedOption[]>([]);
 const creatingCounterparty = ref(false);
 const counterpartyCreationError = ref<string | null>(null);
@@ -94,6 +97,7 @@ async function createCounterparty(
                 'X-Requested-With': 'XMLHttpRequest',
             },
             body: JSON.stringify({
+                draft: true,
                 name: trackedItemUuid ? undefined : normalizedName,
                 tracked_item_uuid: trackedItemUuid,
             }),
@@ -107,6 +111,7 @@ async function createCounterparty(
 
         if (!response.ok || !payload.uuid || !payload.name) {
             counterpartyCreationError.value =
+                payload.errors?.tracked_item_uuid?.[0] ??
                 payload.errors?.name?.[0] ??
                 payload.message ??
                 ui('Impossibile creare la controparte.');
@@ -117,7 +122,6 @@ async function createCounterparty(
         const option = { value: payload.uuid, label: payload.name };
 
         if (
-            !trackedItemUuid &&
             !createdCounterparties.value.some(
                 (item) => item.value === option.value,
             )
@@ -127,7 +131,9 @@ async function createCounterparty(
 
         counterparty.value = option.value;
 
-        if (!trackedItemUuid) {
+        if (trackedItemUuid) {
+            emit('prepared', option);
+        } else {
             emit('created', option);
         }
     } catch {
@@ -138,7 +144,7 @@ async function createCounterparty(
         creatingCounterparty.value = false;
     }
 }
-function selectCounterparty(uuid: string): void {
+async function selectCounterparty(uuid: string): Promise<void> {
     if (!uuid) {
         counterparty.value = '';
 
@@ -148,8 +154,18 @@ function selectCounterparty(uuid: string): void {
     const option = counterparties.value.find((item) => item.value === uuid);
 
     if (option) {
-        counterparty.value = uuid;
         counterpartyCreationError.value = null;
+
+        if (
+            uuid.startsWith('pending-reference:') ||
+            createdCounterparties.value.some((item) => item.value === uuid)
+        ) {
+            counterparty.value = uuid;
+
+            return;
+        }
+
+        await createCounterparty(option.reference_name ?? option.label, uuid);
     }
 }
 </script>

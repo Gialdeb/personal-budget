@@ -6,10 +6,12 @@ import {
     ChevronLeft,
     ChevronRight,
     CircleAlert,
+    CircleCheck,
+    ExternalLink,
+    Settings2,
     Clock3,
     Landmark,
     Sparkles,
-    WalletCards,
 } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -26,6 +28,7 @@ import ManagePaymentDialog from '@/components/dashboard/ManagePaymentDialog.vue'
 import MonthDetailSheet from '@/components/dashboard/MonthDetailSheet.vue';
 import MonthlyRecapPanel from '@/components/dashboard/MonthlyRecapPanel.vue';
 import SpendingCapacityCard from '@/components/dashboard/SpendingCapacityCard.vue';
+import ReferenceAvatar from '@/components/ReferenceAvatar.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +45,6 @@ import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import { buildDashboardMonthCallout } from '@/lib/dashboard-month-callout';
-import { paymentStateLabel } from '@/lib/payment-management';
 import { dashboard as dashboardRoute } from '@/routes';
 import type {
     BreadcrumbItem,
@@ -266,6 +268,72 @@ const compactMetrics = computed(() => [
         tone: 'positive',
     },
 ]);
+
+function pendingEventStatus(
+    item: DashboardPendingActionItem,
+):
+    | 'Annullato'
+    | 'Da verificare'
+    | 'Parzialmente pagato'
+    | 'In attesa'
+    | 'Pagato'
+    | 'Previsto'
+    | 'Scaduto' {
+    const payment = item.payment_management;
+
+    if (payment?.state === 'cancelled') {
+        return 'Annullato';
+    }
+
+    if (payment?.state === 'review') {
+        return 'Da verificare';
+    }
+
+    if (
+        ((payment?.paid_amount ?? 0) > 0 &&
+            (payment?.remaining_amount ?? 0) > 0) ||
+        (payment?.state === 'partial' && payment.remaining_amount !== 0)
+    ) {
+        return 'Parzialmente pagato';
+    }
+
+    if (
+        item.requires_payment_confirmation ||
+        payment?.state === 'to_verify' ||
+        payment?.state === 'processing'
+    ) {
+        return 'In attesa';
+    }
+
+    if (
+        (payment?.state === 'paid' || payment?.state === 'corrected') &&
+        !(payment.remaining_amount && payment.remaining_amount > 0)
+    ) {
+        return 'Pagato';
+    }
+
+    if (item.is_future || item.status_key === 'upcoming') {
+        return 'Previsto';
+    }
+
+    return item.status_key === 'overdue' ? 'Scaduto' : 'In attesa';
+}
+function pendingEventStatusClass(item: DashboardPendingActionItem): string {
+    switch (pendingEventStatus(item)) {
+        case 'Pagato':
+            return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200';
+        case 'Parzialmente pagato':
+            return 'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200';
+        case 'Scaduto':
+            return 'border-destructive/25 bg-destructive/5 text-destructive';
+        case 'Previsto':
+            return 'border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-200';
+        case 'Annullato':
+            return 'border-border bg-muted/50 text-muted-foreground';
+        default:
+            return 'border-primary/20 bg-primary/5 text-primary';
+    }
+}
 
 function money(value: number): string {
     return formatCurrency(value, currency.value);
@@ -1044,7 +1112,11 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                         :href="item.source_url"
                         class="flex min-w-0 items-center justify-between gap-3 rounded-xl border bg-muted/25 p-3 transition-colors hover:bg-muted/50"
                     >
-                        <div class="min-w-0">
+                        <ReferenceAvatar
+                            :name="item.title"
+                            :logo-url="item.logo_url"
+                        />
+                        <div class="min-w-0 flex-1">
                             <p class="font-medium break-words">
                                 {{ item.title }}
                             </p>
@@ -1108,123 +1180,146 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                 </div>
                 <div
                     v-if="dashboard.pending_actions.items.length"
-                    class="-mx-1 mt-5 flex snap-x gap-3 overflow-x-auto px-1 pb-2"
+                    class="mt-4 grid min-w-0 gap-3"
                 >
                     <article
                         v-for="item in dashboard.pending_actions.items"
                         :key="item.id"
-                        class="min-w-56 snap-start rounded-xl border bg-muted/25 p-4 sm:min-w-64"
-                        :class="
-                            item.requires_amount_confirmation ||
-                            item.requires_payment_confirmation
-                                ? 'border-primary/30 bg-primary/5 shadow-sm'
-                                : ''
-                        "
+                        class="grid min-w-0 gap-2.5 rounded-xl border bg-muted/25 p-3 sm:p-4"
                     >
-                        <Link
-                            :href="item.action_url"
-                            class="block rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
-                        >
-                            <div
-                                class="flex items-center justify-between gap-3 text-xs text-muted-foreground"
-                            >
-                                <span class="inline-flex items-center gap-1.5"
-                                    ><WalletCards class="size-3.5" />{{
-                                        t('dashboard.analysis.selectedScope')
-                                    }}</span
-                                ><time>{{ dateLabel(item.date) }}</time>
-                            </div>
-                            <h3 class="mt-4 truncate font-semibold">
-                                {{ item.title }}
-                            </h3>
-                            <SensitiveValue
-                                class="mt-1 block text-lg font-semibold text-destructive"
-                                :value="
-                                    item.requires_payment_confirmation
-                                        ? formatCurrency(
-                                              item.amount_raw,
-                                              item.currency ?? currency,
-                                          )
-                                        : money(item.amount_raw)
-                                "
+                        <div class="flex min-w-0 items-center gap-2.5">
+                            <ReferenceAvatar
+                                :name="item.title"
+                                :logo-url="item.logo_url"
+                                class="size-9 rounded-lg"
                             />
-                        </Link>
-                        <p
-                            v-if="item.recurrence_mode"
-                            class="mt-3 text-xs text-muted-foreground"
-                        >
-                            {{
-                                ui(
-                                    item.recurrence_mode === 'automatic'
-                                        ? 'Ricorrenza automatica'
-                                        : 'Ricorrenza manuale',
-                                )
-                            }}
-                        </p>
-                        <Link
-                            v-if="item.plan_url"
-                            :href="item.plan_url"
-                            class="mt-2 block text-xs text-muted-foreground underline"
-                        >
-                            {{ ui('Vai al piano') }}
-                        </Link>
-                        <template v-if="!item.is_future">
-                            <Badge
-                                v-if="item.automatic_payment_missing"
-                                variant="outline"
-                                class="mt-3 gap-1.5 border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+                            <Link
+                                :href="item.action_url"
+                                class="block min-w-0 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
                             >
-                                <CircleAlert class="size-3.5 shrink-0" />{{
-                                    ui('Movimento automatico mancante')
-                                }}
-                            </Badge>
-                            <Badge
-                                v-else-if="item.payment_management"
-                                variant="outline"
-                                class="mt-3 max-w-full gap-1.5 border-primary/20 bg-primary/5 px-2.5 py-1 whitespace-normal text-primary"
+                                <div
+                                    class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+                                >
+                                    <h3
+                                        :title="item.title"
+                                        class="line-clamp-2 min-w-0 text-sm leading-snug font-semibold [overflow-wrap:anywhere]"
+                                    >
+                                        {{ item.title }}
+                                    </h3>
+                                    <SensitiveValue
+                                        class="shrink-0 text-base font-semibold tabular-nums"
+                                        :value="
+                                            item.requires_payment_confirmation
+                                                ? formatCurrency(
+                                                      item.amount_raw,
+                                                      item.currency ?? currency,
+                                                  )
+                                                : money(item.amount_raw)
+                                        "
+                                    />
+                                </div>
+                            </Link>
+                        </div>
+                        <div
+                            class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+                        >
+                            <time
+                                :datetime="item.date"
+                                class="inline-flex items-center gap-1"
+                                ><CalendarDays class="size-3.5 shrink-0" />{{
+                                    dateLabel(item.date)
+                                }}</time
                             >
-                                <Clock3
+                            <span aria-hidden="true">·</span>
+                            <span>{{
+                                item.recurrence_mode
+                                    ? ui(
+                                          item.recurrence_mode === 'automatic'
+                                              ? 'Ricorrenza automatica'
+                                              : 'Ricorrenza manuale',
+                                      )
+                                    : t(
+                                          `dashboard.agenda.entryKinds.${item.entry_kind}`,
+                                      )
+                            }}</span>
+                            <Badge
+                                variant="outline"
+                                class="max-w-full gap-1 rounded-full px-2 py-0.5 text-[11px] leading-snug font-medium whitespace-normal"
+                                :class="pendingEventStatusClass(item)"
+                            >
+                                <CircleAlert
                                     v-if="
-                                        item.payment_management.state ===
-                                        'pending'
+                                        pendingEventStatus(item) === 'Scaduto'
                                     "
-                                    class="size-3.5 shrink-0"
+                                    class="size-3 shrink-0"
                                 />
-                                {{
-                                    ui(
-                                        item.payment_management.state ===
-                                            'pending'
-                                            ? 'Pagamento ancora non avvenuto'
-                                            : paymentStateLabel(
-                                                  item.payment_management.state,
-                                              ),
-                                    )
-                                }}
+                                <CircleCheck
+                                    v-else-if="
+                                        pendingEventStatus(item) === 'Pagato'
+                                    "
+                                    class="size-3 shrink-0"
+                                />
+                                <Clock3 v-else class="size-3 shrink-0" />
+                                {{ ui(pendingEventStatus(item)) }}
                             </Badge>
-                            <p
-                                v-if="item.automatic_payment_missing"
-                                class="mt-2 max-w-64 text-xs text-muted-foreground"
-                            >
-                                {{
-                                    ui(
-                                        'La transazione prevista non è presente. Verifica da Gestisci pagamento.',
+                        </div>
+                        <p
+                            v-if="
+                                !item.is_future &&
+                                item.automatic_payment_missing
+                            "
+                            class="text-xs text-muted-foreground"
+                        >
+                            {{ ui('Movimento automatico mancante') }}
+                        </p>
+                        <div
+                            class="grid min-w-0 grid-cols-1 gap-2 empty:hidden min-[380px]:grid-cols-2"
+                        >
+                            <template v-if="!item.is_future">
+                                <Button
+                                    v-if="
+                                        item.payment_management &&
+                                        item.can_manage
+                                    "
+                                    size="sm"
+                                    class="h-auto min-h-11 w-full min-w-0 justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs leading-snug whitespace-normal sm:text-sm"
+                                    :class="
+                                        !item.plan_url
+                                            ? 'col-span-full'
+                                            : undefined
+                                    "
+                                    variant="outline"
+                                    @click="managePayment(item)"
+                                    ><Settings2 class="size-4 shrink-0" />{{
+                                        ui('Gestisci pagamento')
+                                    }}</Button
+                                >
+                            </template>
+                            <Link
+                                v-if="item.plan_url"
+                                :href="item.plan_url"
+                                :class="
+                                    item.is_future ||
+                                    !(
+                                        item.payment_management &&
+                                        item.can_manage
                                     )
-                                }}
-                            </p>
-                            <div
-                                v-if="
-                                    item.can_verify_payment ||
-                                    item.can_confirm_manual ||
-                                    (item.payment_management && item.can_manage)
+                                        ? 'col-span-full'
+                                        : undefined
                                 "
-                                class="mt-3 flex flex-wrap gap-2"
+                                class="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/5 px-2.5 py-2 text-center text-xs leading-snug font-medium whitespace-normal text-blue-700 transition-colors hover:bg-blue-500/10 focus-visible:outline-2 focus-visible:outline-ring sm:text-sm dark:text-blue-300"
+                                ><ExternalLink class="size-3.5 shrink-0" />{{
+                                    ui('Vai al piano')
+                                }}</Link
                             >
+                            <template v-if="!item.is_future">
                                 <Button
                                     v-if="
                                         item.can_verify_payment &&
                                         item.transaction_uuid
                                     "
                                     size="sm"
+                                    class="col-span-full h-auto min-h-11 w-full min-w-0 justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs leading-snug whitespace-normal sm:text-sm"
                                     :disabled="paymentVerification.processing"
                                     @click="verifyPayment(item)"
                                     >{{ ui('Conferma') }}</Button
@@ -1232,38 +1327,24 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                                 <Button
                                     v-else-if="item.can_confirm_manual"
                                     size="sm"
+                                    class="col-span-full h-auto min-h-11 w-full min-w-0 justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs leading-snug whitespace-normal sm:text-sm"
                                     :disabled="manualRegistration.processing"
                                     @click="askManualPayment(item)"
                                     >{{ ui('Conferma pagamento') }}</Button
                                 >
-                                <Button
-                                    v-if="
-                                        item.payment_management &&
-                                        item.can_manage
-                                    "
-                                    size="sm"
-                                    variant="outline"
-                                    @click="managePayment(item)"
-                                    >{{ ui('Gestisci pagamento') }}</Button
-                                >
-                            </div>
-                            <p
-                                v-if="
-                                    paymentVerification.errors.payment &&
-                                    item.can_verify_payment
-                                "
-                                role="alert"
-                                class="mt-2 text-xs text-destructive"
-                            >
-                                {{ paymentVerification.errors.payment }}
-                            </p>
-                        </template>
-                        <Badge
-                            v-else
-                            variant="outline"
-                            class="mt-3 text-muted-foreground"
-                            >{{ ui('Previsione') }}</Badge
+                            </template>
+                        </div>
+                        <p
+                            v-if="
+                                !item.is_future &&
+                                paymentVerification.errors.payment &&
+                                item.can_verify_payment
+                            "
+                            role="alert"
+                            class="text-xs text-destructive"
                         >
+                            {{ paymentVerification.errors.payment }}
+                        </p>
                     </article>
                 </div>
                 <p

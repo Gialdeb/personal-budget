@@ -48,6 +48,10 @@ export const bankPaymentReasons = {
     bank_problem: 'Problema bancario',
 } as const;
 export function paymentStateLabel(state: string) {
+    if (state === 'partial') {
+        return 'Parzialmente pagata';
+    }
+
     if (state === 'to_verify') {
         return 'Pagamento da confermare';
     }

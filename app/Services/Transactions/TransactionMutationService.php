@@ -113,7 +113,9 @@ class TransactionMutationService
                     ->whereHas('recurringEntry', fn ($query) => $query->where('user_id', $user->id))
                     ->firstOrFail();
                 $payments = app(AllocateOccurrencePaymentService::class);
-                if ($occurrence->recurringEntry->is_amount_variable
+                if (! empty($validated['payment_type'])) {
+                    $payments->recordPayment($occurrence, $transaction, $user, (string) $validated['amount'], $validated['payment_type'], isset($validated['final_total_amount']) ? (string) $validated['final_total_amount'] : null);
+                } elseif ($occurrence->recurringEntry->is_amount_variable
                     && $occurrence->recurringEntry->salarySchedule === null
                     && ! ($validated['payment_is_partial'] ?? false)
                     && ! $occurrence->paymentAllocations()->exists()) {

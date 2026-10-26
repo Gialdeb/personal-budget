@@ -57,6 +57,8 @@ class StoreTransactionRequest extends FormRequest
         return [
             'payment_occurrence_uuid' => ['nullable', 'uuid', Rule::exists('recurring_entry_occurrences', 'uuid')->whereIn('recurring_entry_id', RecurringEntry::query()->where('user_id', $userId)->select('id'))],
             'payment_is_partial' => ['sometimes', 'boolean'],
+            'payment_type' => ['nullable', Rule::in(['advance', 'final'])],
+            'final_total_amount' => ['required_if:payment_type,final', 'nullable', 'numeric', 'gt:0', 'decimal:0,2', 'max:999999999999.99'],
             'transaction_template_uuid' => ['nullable', 'uuid', Rule::exists('transaction_templates', 'uuid')->where('user_id', $this->user()->id)->where('is_active', true)],
             'transaction_day' => ['required', 'integer', 'between:1,'.$daysInMonth],
             'target_month' => ['nullable', 'integer', 'between:1,12'],

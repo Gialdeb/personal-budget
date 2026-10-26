@@ -13,6 +13,7 @@ use App\Models\Budget;
 use App\Models\Category;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\ScheduledEntry;
+use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
@@ -195,6 +196,8 @@ class DashboardService
         }
 
         $positions = $this->derivedObligationsService->openPositions($user, $accountContext['account_ids']);
+        $logos = TrackedItem::query()->whereIn('uuid', $positions->map(fn (array $item): ?string => $item['reference']['uuid'] ?? $item['counterparty']['uuid'] ?? null)->filter()->unique())
+            ->with('websiteIdentity')->get()->mapWithKeys(fn (TrackedItem $item): array => [$item->uuid => $item->logoUrl()]);
         $summary = $this->derivedObligationsService->openSummary($positions);
         $today = today()->toDateString();
 
@@ -206,6 +209,7 @@ class DashboardService
             'arrears' => $positions->filter(fn (array $item): bool => $item['due_date'] !== null && $item['due_date'] < $today)
                 ->sortBy('due_date')->map(fn (array $item): array => [
                     'uuid' => $item['uuid'], 'title' => $item['reference']['name'] ?? $item['description'],
+                    'logo_url' => $logos->get($item['reference']['uuid'] ?? $item['counterparty']['uuid'] ?? ''),
                     'type' => $item['type'], 'amount' => $item['remaining_amount'], 'currency' => $item['currency_code'],
                     'due_date' => $item['due_date'], 'source_url' => $item['source_url'], 'origin' => $item['origin'],
                 ])->values()->all(),
@@ -222,13 +226,14 @@ class DashboardService
             ->whereNull('payment_verified_at')
             ->where('status', 'confirmed')->whereNull('payment_rectified_at')
             ->whereDoesntHave('refundTransaction')
-            ->with('recurringOccurrence.recurringEntry')
+            ->with('recurringOccurrence.recurringEntry.trackedItem.websiteIdentity')
             ->orderBy('payment_verification_due_at')->get()
             ->filter(fn (Transaction $transaction): bool => $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id
                 && ($transaction->recurringOccurrence->due_date ?? $transaction->recurringOccurrence->expected_date)->lte($today))
             ->map(fn (Transaction $transaction): array => [
                 'id' => 'recurring-'.$transaction->recurring_entry_occurrence_id,
                 'title' => $transaction->description,
+                'logo_url' => $transaction->recurringOccurrence->recurringEntry->trackedItem?->logoUrl(),
                 'date' => $transaction->transaction_date->toDateString(),
                 'amount' => (float) $transaction->amount,
                 'currency' => $transaction->currency,
@@ -263,7 +268,7 @@ class DashboardService
             })
             ->with([
                 'recurringEntry.merchant:id,name',
-                'recurringEntry.trackedItem:id,name',
+                'recurringEntry.trackedItem.websiteIdentity',
                 'recurringEntry.category:id,name,name_is_custom,slug,foundation_key',
                 'recurringEntry.account:id,uuid',
                 'paymentEvents',
@@ -290,6 +295,7 @@ class DashboardService
                 return [
                     'id' => 'recurring-'.$occurrence->id,
                     'title' => $this->resolveAgendaRecurringLabel($occurrence),
+                    'logo_url' => $occurrence->recurringEntry->trackedItem?->logoUrl(),
                     'date' => ($occurrence->due_date ?? $occurrence->expected_date)?->toDateString(),
                     'amount' => $amount / 100,
                     'status_key' => $this->resolvePendingActionStatusKey(
@@ -331,7 +337,7 @@ class DashboardService
             $year,
             $month,
         )
-            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name,name_is_custom,slug,foundation_key', 'account:id,uuid'])
+            ->with(['merchant:id,name', 'trackedItem.websiteIdentity', 'category:id,name,name_is_custom,slug,foundation_key', 'account:id,uuid'])
             ->whereIn('status', [
                 ScheduledEntryStatusEnum::PLANNED->value,
                 ScheduledEntryStatusEnum::DUE->value,
@@ -342,6 +348,7 @@ class DashboardService
                 return [
                     'id' => 'scheduled-'.$entry->id,
                     'title' => $this->resolveAgendaScheduledLabel($entry),
+                    'logo_url' => $entry->trackedItem?->logoUrl(),
                     'date' => $entry->scheduled_date?->toDateString(),
                     'amount' => round((float) ($entry->expected_amount ?? 0), 2),
                     'status_key' => $this->resolvePendingActionStatusKey(
@@ -658,7 +665,7 @@ class DashboardService
         $converted = $entries->where('status', ScheduledEntryStatusEnum::CONVERTED)->count();
         $cancelled = $entries->where('status', ScheduledEntryStatusEnum::CANCELLED)->count();
         $upcomingScheduledEntries = ScheduledEntry::query()
-            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name,name_is_custom,slug,foundation_key', 'matchedTransaction:id,uuid,account_id,transaction_date'])
+            ->with(['merchant:id,name', 'trackedItem.websiteIdentity', 'category:id,name,name_is_custom,slug,foundation_key', 'matchedTransaction:id,uuid,account_id,transaction_date'])
             ->whereIn('scheduled_entries.account_id', $accountContext['account_ids'] !== [] ? $accountContext['account_ids'] : [0])
             ->whereIn('scheduled_entries.status', [
                 ScheduledEntryStatusEnum::PLANNED->value,
@@ -679,6 +686,7 @@ class DashboardService
                             'highlight' => $entry->matchedTransaction->uuid,
                         ]) : null,
                     'display_label' => $this->resolveAgendaScheduledLabel($entry),
+                    'logo_url' => $entry->trackedItem?->logoUrl(),
                     'scheduled_date' => $entry->scheduled_date?->toDateString(),
                     'expected_amount' => round((float) ($entry->expected_amount ?? 0), 2),
                     'status' => $entry->status->value,
@@ -689,7 +697,7 @@ class DashboardService
         $upcomingRecurringOccurrences = RecurringEntryOccurrence::query()->withoutArchivedFutureComponents()
             ->with([
                 'recurringEntry.merchant:id,name',
-                'recurringEntry.trackedItem:id,name',
+                'recurringEntry.trackedItem.websiteIdentity',
                 'recurringEntry.category:id,name,name_is_custom,slug,foundation_key',
             ])
             ->whereHas('recurringEntry', function (Builder $query) use ($accountContext) {
@@ -714,6 +722,7 @@ class DashboardService
                             'highlight' => $occurrence->uuid,
                         ]) : null,
                     'display_label' => $this->resolveAgendaRecurringLabel($occurrence),
+                    'logo_url' => $occurrence->recurringEntry?->trackedItem?->logoUrl(),
                     'scheduled_date' => $occurrence->expected_date?->toDateString(),
                     'expected_amount' => app(RecurringOccurrenceReadService::class)->remaining($occurrence) / 100,
                     'status' => $occurrence->status->value,
@@ -794,7 +803,7 @@ class DashboardService
 
         return $this->buildSnapshot[$key] ??= $this->baseTransactionPeriodQuery(
             $accountContext['account_ids'], $accountContext['owner_ids'], $year, $month,
-        )->with(['account', 'category', 'scope', 'merchant:id,name', 'trackedItem:id,name'])->get();
+        )->with(['account', 'category', 'scope', 'merchant:id,name', 'trackedItem.websiteIdentity'])->get();
     }
 
     protected function baseTransactionPeriodQuery(
@@ -867,6 +876,7 @@ class DashboardService
                     'merchant_id' => $sample?->merchant_id,
                     'merchant_name' => $label,
                     'display_label' => $label,
+                    'logo_url' => $group->pluck('tracked_item_id')->unique()->count() === 1 ? $sample?->trackedItem?->logoUrl() : null,
                     'total_amount' => round($this->sumResolvedAggregateAmounts(
                         $group,
                         $sample?->base_currency_code ?: $accountContext['base_currency'],

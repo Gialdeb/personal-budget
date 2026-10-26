@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'advance_requires_residual' => 'Un acconto deve lasciare un residuo positivo. Per saldare la scadenza scegli Pagamento definitivo.',
+    'final_total_mismatch' => 'Il totale definitivo deve corrispondere ai pagamenti precedenti più questo versamento. Per gli importi fissi deve coincidere con il totale dovuto.',
     'future_confirmation' => 'Questa scadenza è futura. Puoi modificare le previsioni dal piano.',
     'automatic_confirmation_only' => 'La conferma di una ricorrenza automatica verifica soltanto il movimento già generato. Se manca, usa Gestisci pagamento.',
     'updated' => 'Gestione del pagamento aggiornata.',

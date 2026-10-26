@@ -129,7 +129,7 @@ test('credits debts aggregates manual recurring installment and shared without p
     }
 });
 
-test('closed skipped future variable and other users obligations are not aggregated', function () {
+test('closed skipped future and other users obligations are excluded while variable estimates remain aggregated', function () {
     $user = User::factory()->create();
     foreach (['completed', 'skipped', 'cancelled'] as $status) {
         aggregateOccurrence($user, 'income')->forceFill(['status' => $status])->save();
@@ -139,7 +139,7 @@ test('closed skipped future variable and other users obligations are not aggrega
     $variable->recurringEntry->forceFill(['is_amount_variable' => true])->save();
     aggregateOccurrence(User::factory()->create(), 'income');
     aggregateShared(User::factory()->create(), 'self');
-    expect(app(DerivedObligationsService::class)->positions($user))->toHaveCount(0);
+    expect(app(DerivedObligationsService::class)->positions($user))->toHaveCount(1);
     $variable->forceFill(['amount_confirmed_at' => now(), 'expected_amount' => 150])->save();
     expect(app(DerivedObligationsService::class)->positions($user))->toHaveCount(1);
 });

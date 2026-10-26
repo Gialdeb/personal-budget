@@ -130,6 +130,7 @@ const props = defineProps<{
     template?: TransactionTemplatePrefill | null;
     paymentOccurrence?: {
         is_amount_variable?: boolean;
+        total_due_amount?: string;
         uuid: string;
         account_uuid: string;
         category_uuid: string | null;
@@ -154,6 +155,8 @@ const emit = defineEmits<{
 }>();
 
 const form = useForm({
+    payment_type: '' as '' | 'advance' | 'final',
+    final_total_amount: '',
     payment_is_partial: false,
     selected_date: '',
     transaction_day: '',
@@ -1433,6 +1436,9 @@ watch(
         if (props.paymentOccurrence) {
             const payment = props.paymentOccurrence;
             form.payment_is_partial = false;
+            form.payment_type = '';
+            form.final_total_amount =
+                payment.total_due_amount ?? payment.amount;
             form.transaction_date = `${props.year}-${String(props.month).padStart(2, '0')}-${String(form.transaction_day).padStart(2, '0')}`;
             form.account_uuid = payment.account_uuid;
             form.type_key = payment.direction;
@@ -1822,6 +1828,15 @@ function mobileTypeButtonClass(value: string, isSelected: boolean): string {
 }
 
 function submit(): void {
+    if (props.paymentOccurrence && !form.payment_type) {
+        form.setError(
+            'payment_type',
+            ui('Scegli Acconto o Pagamento definitivo.'),
+        );
+
+        return;
+    }
+
     if (creatingTrackedItem.value) {
         return;
     }
@@ -2001,6 +2016,11 @@ function submit(): void {
         selected_date: props.paymentOccurrence ? null : form.transaction_date,
         payment_occurrence_uuid: props.paymentOccurrence?.uuid ?? null,
         payment_is_partial: form.payment_is_partial,
+        payment_type: props.paymentOccurrence ? form.payment_type : null,
+        final_total_amount:
+            props.paymentOccurrence && form.payment_type === 'final'
+                ? form.final_total_amount
+                : null,
         transaction_template_uuid: !isEditing.value
             ? (props.template?.uuid ?? null)
             : null,
@@ -2559,29 +2579,69 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-5">
-                                <label
-                                    v-if="paymentOccurrence?.is_amount_variable"
-                                    class="flex items-center gap-2 text-sm"
-                                >
-                                    <input
-                                        v-model="form.payment_is_partial"
-                                        type="checkbox"
+                                <template v-if="paymentOccurrence">
+                                    <label
+                                        class="grid gap-2 text-sm font-medium"
+                                    >
+                                        {{ ui('Tipo di pagamento') }}
+                                        <select
+                                            v-model="form.payment_type"
+                                            class="min-h-11 rounded-md border border-input bg-background px-3"
+                                            required
+                                        >
+                                            <option disabled value="">
+                                                {{
+                                                    ui(
+                                                        'Scegli Acconto o Pagamento definitivo.',
+                                                    )
+                                                }}
+                                            </option>
+                                            <option value="advance">
+                                                {{ ui('Acconto') }}
+                                            </option>
+                                            <option value="final">
+                                                {{ ui('Pagamento definitivo') }}
+                                            </option>
+                                        </select>
+                                    </label>
+                                    <InputError
+                                        :message="form.errors.payment_type"
                                     />
-                                    {{ ui('Registra come acconto esplicito') }}
-                                </label>
-                                <p
-                                    v-if="
-                                        paymentOccurrence?.is_amount_variable &&
-                                        !form.payment_is_partial
-                                    "
-                                    class="text-sm text-muted-foreground"
-                                >
-                                    {{
-                                        ui(
-                                            'L’importo inserito è il pagamento effettivo di questa occorrenza, senza residui automatici.',
-                                        )
-                                    }}
-                                </p>
+                                    <template
+                                        v-if="form.payment_type === 'final'"
+                                    >
+                                        <label
+                                            class="grid gap-2 text-sm font-medium"
+                                        >
+                                            {{ ui('Totale definitivo dovuto') }}
+                                            <MobileAmountInput
+                                                v-model="
+                                                    form.final_total_amount
+                                                "
+                                                :currency-code="
+                                                    selectedAccountCurrency
+                                                "
+                                                :disabled="
+                                                    !paymentOccurrence.is_amount_variable
+                                                "
+                                                min="0.01"
+                                                required
+                                            />
+                                        </label>
+                                        <InputError
+                                            :message="
+                                                form.errors.final_total_amount
+                                            "
+                                        />
+                                    </template>
+                                    <p class="text-sm text-muted-foreground">
+                                        {{
+                                            ui(
+                                                'Inserisci nel campo importo solo questo versamento. Il totale definitivo include anche i pagamenti precedenti.',
+                                            )
+                                        }}
+                                    </p>
+                                </template>
                                 <div class="grid gap-2">
                                     <MobileAmountInput
                                         v-if="!isBalanceAdjustment"

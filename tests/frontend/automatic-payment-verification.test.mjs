@@ -15,6 +15,112 @@ registerTS(() => ts);
 const source = (path) =>
     readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
+const pageScript = parse(source('resources/js/pages/dashboard/Analysis.vue'))
+    .descriptor.scriptSetup.content;
+const syntaxTree = ts.createSourceFile(
+    'Analysis.ts',
+    pageScript,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+);
+const statusFunctions = syntaxTree.statements
+    .filter(
+        (node) =>
+            ts.isFunctionDeclaration(node) &&
+            ['pendingEventStatus', 'pendingEventStatusClass'].includes(
+                node.name?.text,
+            ),
+    )
+    .map((node) => node.getText(syntaxTree))
+    .join('\n');
+const { pendingEventStatus, pendingEventStatusClass } = new Function(
+    `${ts.transpile(statusFunctions, { target: ts.ScriptTarget.ES2022 })}; return { pendingEventStatus, pendingEventStatusClass };`,
+)();
+
+test('event labels reflect payment facts without treating verification or a zero estimate as payment', () => {
+    for (const [item, label] of [
+        [{ is_future: true }, 'Previsto'],
+        [{ status_key: 'upcoming' }, 'Previsto'],
+        [
+            { status_key: 'today', payment_management: { state: 'pending' } },
+            'In attesa',
+        ],
+        [
+            { status_key: 'overdue', payment_management: { state: 'pending' } },
+            'Scaduto',
+        ],
+        [{ status_key: 'overdue', automatic_payment_missing: true }, 'Scaduto'],
+        [
+            {
+                status_key: 'overdue',
+                payment_management: { state: 'to_verify' },
+            },
+            'In attesa',
+        ],
+        [
+            {
+                requires_payment_confirmation: true,
+                payment_management: { state: 'paid' },
+            },
+            'In attesa',
+        ],
+        [{ payment_management: { state: 'processing' } }, 'In attesa'],
+        [
+            {
+                payment_management: {
+                    state: 'paid',
+                    remaining_amount: 0,
+                    paid_amount: 15,
+                },
+            },
+            'Pagato',
+        ],
+        [
+            { payment_management: { state: 'corrected', remaining_amount: 0 } },
+            'Pagato',
+        ],
+        [
+            {
+                status_key: 'overdue',
+                payment_management: {
+                    state: 'partial',
+                    paid_amount: 10,
+                    remaining_amount: 5,
+                },
+            },
+            'Parzialmente pagato',
+        ],
+        [
+            {
+                payment_management: {
+                    state: 'paid',
+                    paid_amount: 10,
+                    remaining_amount: 5,
+                },
+            },
+            'Parzialmente pagato',
+        ],
+        [
+            {
+                payment_management: {
+                    state: 'pending',
+                    paid_amount: 0,
+                    remaining_amount: 0,
+                },
+            },
+            'In attesa',
+        ],
+        [{ payment_management: { state: 'review' } }, 'Da verificare'],
+        [{ payment_management: { state: 'cancelled' } }, 'Annullato'],
+    ]) {
+        const before = JSON.stringify(item);
+        assert.equal(pendingEventStatus(item), label);
+        assert.ok(pendingEventStatusClass(item));
+        assert.equal(JSON.stringify(item), before);
+    }
+});
+
 test('payment verification remains distinct from amount confirmation in dashboard rendering', () => {
     const page = source('resources/js/pages/dashboard/Analysis.vue');
     assert.match(
@@ -89,7 +195,7 @@ for (const path of [
 
 test('dashboard cards render only actions appropriate to due date and payment mode', async () => {
     const Vue = await import('vue');
-    const { compile } = await import('@vue/compiler-dom');
+    const { compile, baseParse } = await import('@vue/compiler-dom');
     const { renderToString } = await import('vue/server-renderer');
     const page = source('resources/js/pages/dashboard/Analysis.vue');
     const start = page.indexOf(
@@ -100,6 +206,7 @@ test('dashboard cards render only actions appropriate to due date and payment mo
     assert.ok(start > 0 && end > start);
     const { code } = compile(`<div>${page.slice(start, end)}</div>`, {
         mode: 'function',
+        prefixIdentifiers: true,
     });
     const render = new Function('Vue', code)(Vue);
     const element = (tag) => ({
@@ -122,6 +229,11 @@ test('dashboard cards render only actions appropriate to due date and payment mo
                 WalletCards: element('svg'),
                 Clock3: element('svg'),
                 CircleAlert: element('svg'),
+                CircleCheck: element('svg'),
+                CalendarDays: element('svg'),
+                ExternalLink: element('svg'),
+                Settings2: element('svg'),
+                ReferenceAvatar: element('span'),
             },
             setup: () => ({
                 dashboard: {
@@ -144,8 +256,8 @@ test('dashboard cards render only actions appropriate to due date and payment mo
                 money: (value) => `€ ${value}`,
                 formatCurrency: (value) => `€ ${value}`,
                 currency: 'EUR',
-                paymentStateLabel: (value) =>
-                    value === 'to_verify' ? 'Pagamento da confermare' : value,
+                pendingEventStatus,
+                pendingEventStatusClass,
                 paymentVerification: { processing: false, errors: {} },
                 manualRegistration: { processing: false },
                 verifyPayment() {},
@@ -166,6 +278,10 @@ test('dashboard cards render only actions appropriate to due date and payment mo
     });
     assert.match(automatic, />Conferma<\/button>/);
     assert.match(automatic, /Gestisci pagamento/);
+    assert.ok(automatic.includes('grid-cols-[minmax(0,1fr)_auto]'));
+    assert.match(automatic, /size-9/);
+    assert.ok(automatic.includes('min-[380px]:grid-cols-2'));
+    assert.match(automatic, /rounded-xl/);
     assert.doesNotMatch(automatic, /Conferma pagamento|<input/);
     const manual = await card({
         can_confirm_manual: true,
@@ -174,7 +290,11 @@ test('dashboard cards render only actions appropriate to due date and payment mo
         recurrence_mode: 'manual',
     });
     assert.match(manual, />Conferma pagamento<\/button>/);
-    assert.match(manual, /Pagamento ancora non avvenuto/);
+    assert.match(manual, /In attesa/);
+    assert.doesNotMatch(
+        manual,
+        /Pagamento ancora non avvenuto|Pagamento registrato/,
+    );
     assert.match(manual, /border-primary\/20/);
     assert.doesNotMatch(manual, /<input/);
     const future = await card({
@@ -192,7 +312,8 @@ test('dashboard cards render only actions appropriate to due date and payment mo
         /<button|Gestisci pagamento|Pagamento ancora non avvenuto/,
     );
     assert.match(future, /Ricorrenza automatica/);
-    assert.match(future, /Previsione/);
+    assert.match(future, /Previsto/);
+    assert.match(future, /text-blue-700/);
     assert.match(future, /Vai al piano/);
     const missing = await card({
         automatic_payment_missing: true,
@@ -202,4 +323,88 @@ test('dashboard cards render only actions appropriate to due date and payment mo
     assert.match(missing, /Movimento automatico mancante/);
     assert.match(missing, /Gestisci pagamento/);
     assert.doesNotMatch(missing, />Conferma/);
+    const partial = await card({
+        status_key: 'overdue',
+        can_manage: true,
+        plan_url: '/plan/partial',
+        payment_management: {
+            state: 'partial',
+            paid_amount: 10,
+            remaining_amount: 5,
+        },
+    });
+    assert.match(partial, /Parzialmente pagato/);
+    assert.match(partial, /Gestisci pagamento/);
+    assert.match(partial, /href="\/plan\/partial"/);
+    assert.match(partial, /Vai al piano/);
+    const findActionGrid = (node) => {
+        if (
+            node.type === 1 &&
+            node.props.some(
+                (prop) =>
+                    prop.type === 6 &&
+                    prop.name === 'class' &&
+                    prop.value?.content.includes('min-[380px]:grid-cols-2'),
+            )
+        ) {
+            return node;
+        }
+
+        return (node.children ?? []).map(findActionGrid).find(Boolean);
+    };
+    const primaryActions = findActionGrid(baseParse(partial)).children.filter(
+        (node) => node.type === 1,
+    );
+    assert.deepEqual(
+        primaryActions.map((node) => node.tag),
+        ['button', 'a'],
+    );
+
+    for (const action of primaryActions) {
+        const classes = action.props
+            .find((prop) => prop.type === 6 && prop.name === 'class')
+            .value.content.split(/\s+/);
+        assert.ok(classes.includes('w-full'));
+        assert.ok(classes.includes('min-h-11'));
+        assert.ok(!classes.includes('col-span-full'));
+        assert.ok(!classes.includes('ml-auto'));
+    }
+
+    const withConfirmation = await card({
+        can_verify_payment: true,
+        transaction_uuid: 'txn',
+        can_manage: true,
+        plan_url: '/plan',
+        payment_management: { state: 'to_verify' },
+    });
+    const allActions = findActionGrid(
+        baseParse(withConfirmation),
+    ).children.filter((node) => node.type === 1);
+    assert.deepEqual(
+        allActions.map((node) => node.tag),
+        ['button', 'a', 'button'],
+    );
+    assert.ok(
+        allActions[2].props.some(
+            (prop) =>
+                prop.type === 6 &&
+                prop.name === 'class' &&
+                prop.value.content.includes('col-span-full'),
+        ),
+    );
+
+    assert.ok(
+        partial.indexOf('Gestisci pagamento') < partial.indexOf('Vai al piano'),
+    );
+    const paid = await card({
+        payment_management: { state: 'paid', remaining_amount: 0 },
+        can_manage: false,
+    });
+    assert.match(paid, /Pagato/);
+    assert.doesNotMatch(paid, /Gestisci pagamento|>Conferma/);
+    const overdue = await card({
+        status_key: 'overdue',
+        payment_management: { state: 'pending' },
+    });
+    assert.match(overdue, /Scaduto/);
 });

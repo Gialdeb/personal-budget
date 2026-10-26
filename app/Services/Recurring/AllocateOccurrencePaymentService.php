@@ -7,11 +7,54 @@ use App\Models\RecurringEntryOccurrence;
 use App\Models\RecurringOccurrencePaymentAllocation;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\MoneyAmount;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AllocateOccurrencePaymentService
 {
+    public function recordPayment(RecurringEntryOccurrence $occurrence, Transaction $transaction, User $actor, string $amount, string $type, ?string $finalTotal): void
+    {
+        DB::transaction(function () use ($occurrence, $transaction, $actor, $amount, $type, $finalTotal): void {
+            $transaction = Transaction::query()->lockForUpdate()->findOrFail($transaction->id);
+            $occurrence = RecurringEntryOccurrence::query()->with('recurringEntry')->lockForUpdate()->findOrFail($occurrence->id);
+            $existing = $occurrence->paymentAllocations()->where('transaction_id', $transaction->id)->first();
+            if ($existing !== null) {
+                if ($existing->amount_cents !== MoneyAmount::cents($amount)
+                    || ($type === 'final' && MoneyAmount::cents($finalTotal ?? '0') !== $occurrence->paymentTargetCents())) {
+                    throw ValidationException::withMessages(['amount' => __('ui.this_transaction_is_already_allocated_with_a_different_amount_afe252e4')]);
+                }
+
+                return;
+            }
+            $this->preparePaymentTarget($occurrence, $amount, $type, $finalTotal);
+            $this->allocate($occurrence, $transaction, $actor, $amount);
+            $occurrence->refresh()->synchronizeSettlementState();
+        });
+    }
+
+    public function preparePaymentTarget(RecurringEntryOccurrence $occurrence, string $amount, string $type, ?string $finalTotal, int $replacedPaymentCents = 0): void
+    {
+        $paid = $occurrence->allocatedPaymentCents() + $occurrence->personalPaymentCents() + $occurrence->externalPaymentCents() - $replacedPaymentCents;
+        $payment = MoneyAmount::cents($amount);
+        if ($type === 'advance') {
+            if ($payment <= 0 || $paid + $payment >= $occurrence->paymentTargetCents()) {
+                throw ValidationException::withMessages(['amount' => __('payment_management.advance_requires_residual')]);
+            }
+
+            return;
+        }
+        $total = MoneyAmount::cents($finalTotal ?? '0');
+        if ($type !== 'final' || $total <= 0 || $paid + $payment !== $total
+            || (! $occurrence->recurringEntry->is_amount_variable && $total !== $occurrence->paymentTargetCents())) {
+            throw ValidationException::withMessages(['final_total_amount' => __('payment_management.final_total_mismatch')]);
+        }
+        $occurrence->forceFill([
+            'payment_actual_amount' => $total / 100,
+            'amount_confirmed_at' => now(),
+        ])->save();
+    }
+
     public function recordVariablePayment(RecurringEntryOccurrence $occurrence, Transaction $transaction, User $actor): void
     {
         DB::transaction(function () use ($occurrence, $transaction, $actor): void {

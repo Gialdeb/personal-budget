@@ -24,7 +24,7 @@ class ManageOccurrencePaymentService
     public function presentation(RecurringEntryOccurrence $occurrence, User $actor, bool $includeActions = true): array
     {
         $transaction = $occurrence->convertedTransaction;
-        $automatic = $transaction !== null && $transaction->payment_verification_started_at !== null && $transaction->payment_rectified_at === null;
+        $automatic = $transaction !== null && $transaction->payment_verification_started_at !== null && $transaction->payment_rectified_at === null && $transaction->payment_verification_method !== 'manual';
         $canRectify = $includeActions && $automatic && $transaction->payment_verification_method !== 'manual';
         if ($canRectify) {
             try {
@@ -35,16 +35,23 @@ class ManageOccurrencePaymentService
         }
         $entry = $occurrence->recurringEntry;
         $active = $transaction?->status === TransactionStatusEnum::CONFIRMED;
+        $read = app(RecurringOccurrenceReadService::class);
+        $paid = $read->paid($occurrence);
+        $remaining = $read->remaining($occurrence);
 
         return [
             'occurrence_uuid' => $occurrence->uuid, 'entry_uuid' => $entry->uuid,
             'reference' => $entry->trackedItem?->name ?? $entry->title,
             'expected_amount' => (float) $occurrence->expected_amount,
+            'is_amount_variable' => (bool) $entry->is_amount_variable,
+            'total_due_amount' => $occurrence->paymentTargetCents() / 100,
+            'paid_amount' => $paid / 100,
+            'remaining_amount' => $remaining / 100,
             'expected_date' => ($occurrence->due_date ?? $occurrence->expected_date)->toDateString(),
             'estimated_date' => $occurrence->payment_estimated_date?->toDateString(),
             'actual_amount' => $active ? (float) $transaction->amount : null,
             'actual_date' => $active ? $transaction->transaction_date->toDateString() : null,
-            'state' => $occurrence->payment_management_state ?? ($automatic ? 'to_verify' : 'pending'),
+            'state' => $occurrence->payment_management_state ?? ($remaining > 0 && $paid > 0 ? 'partial' : ($automatic ? 'to_verify' : ($remaining === 0 && $paid > 0 ? 'paid' : 'pending'))),
             'has_automatic_transaction' => $automatic, 'can_rectify' => $canRectify,
             'accounts' => $includeActions ? $this->presentationAccounts($actor, $entry->currency) : [],
             'history' => ($occurrence->relationLoaded('paymentEvents') ? $occurrence->paymentEvents : $occurrence->paymentEvents()->orderBy('id')->get())->sortBy('id')->map(fn ($event): array => [
@@ -131,11 +138,15 @@ class ManageOccurrencePaymentService
                 $occurrence->forceFill(['payment_management_state' => 'paid', 'payment_resolved_at' => now(), 'payment_reminder_date' => null])->save();
             } elseif (in_array($action, ['correct', 'record'], true)) {
                 if ($occurrence->status === RecurringOccurrenceStatusEnum::CANCELLED || $occurrence->matched_transaction_id !== null
-                    || $occurrence->paymentAllocations()->exists() || $occurrence->sharedExpenseLedgerEntry()->exists()
+                    || ($occurrence->paymentAllocations()->exists() && ! ($action === 'record' && isset($data['payment_type']))) || $occurrence->sharedExpenseLedgerEntry()->exists()
                     || $entry->shared_expense_counterparty_id !== null || $entry->salarySchedule !== null) {
                     $this->fail('protected');
                 }
-                if ($transaction !== null && $transaction->payment_rectified_at === null) {
+                if ($action === 'record' && isset($data['payment_type'])
+                    && ($transaction === null || $transaction->payment_rectified_at !== null
+                        || $transaction->payment_verification_started_at === null || $transaction->payment_verification_method === 'manual')) {
+                    $transaction = $this->recordAllocated($occurrence, $actor, $data);
+                } elseif ($transaction !== null && $transaction->payment_rectified_at === null) {
                     $this->assertUnprotected($occurrence, $transaction);
                     if ($action === 'record' && ! empty($data['transaction_uuid']) && $data['transaction_uuid'] !== $transaction->uuid) {
                         if (! ($data['confirm_rectification'] ?? false)) {
@@ -152,7 +163,9 @@ class ManageOccurrencePaymentService
                     }
                     $transaction = $this->record($occurrence, $actor, $data);
                 }
-                $occurrence->refresh()->forceFill(['payment_management_state' => $action === 'correct' ? 'corrected' : 'paid', 'payment_resolved_at' => now(), 'payment_reminder_date' => null])->save();
+                $occurrence->refresh();
+                $settled = $occurrence->remainingPaymentCents() === 0;
+                $occurrence->forceFill(['payment_management_state' => $settled ? ($action === 'correct' ? 'corrected' : 'paid') : 'partial', 'payment_resolved_at' => $settled ? now() : null, 'payment_reminder_date' => $settled ? null : $occurrence->payment_reminder_date])->save();
             } else {
                 $this->fail('invalid');
             }
@@ -214,7 +227,12 @@ class ManageOccurrencePaymentService
         }
         app(UserYearService::class)->ensureDateYearIsOpen($occurrence->recurringEntry->user, $transaction->transaction_date->toDateString(), 'payment');
         app(UserYearService::class)->ensureDateYearIsOpen($occurrence->recurringEntry->user, $data['actual_date'], 'actual_date');
-        $occurrence->forceFill(['payment_actual_amount' => $data['actual_amount'], 'payment_actual_date' => $data['actual_date']])->save();
+        if (isset($data['payment_type'])) {
+            app(AllocateOccurrencePaymentService::class)->preparePaymentTarget($occurrence, (string) $data['actual_amount'], $data['payment_type'], isset($data['final_total_amount']) ? (string) $data['final_total_amount'] : null, $transaction->activeAmountCents());
+            $occurrence->forceFill(['payment_actual_date' => $data['actual_date']])->save();
+        } else {
+            $occurrence->forceFill(['payment_actual_amount' => $data['actual_amount'], 'payment_actual_date' => $data['actual_date']])->save();
+        }
         $original = clone $transaction;
         $transaction->forceFill([
             'account_id' => $account->id,
@@ -236,6 +254,9 @@ class ManageOccurrencePaymentService
     /** @param array<string, mixed> $data */
     private function record(RecurringEntryOccurrence $occurrence, User $actor, array $data): Transaction
     {
+        if (isset($data['payment_type'])) {
+            return $this->recordAllocated($occurrence, $actor, $data);
+        }
         $entry = $occurrence->recurringEntry;
         if ($occurrence->personalPaymentCents() !== 0 || $occurrence->externalPaymentCents() !== 0) {
             $this->fail('protected');
@@ -266,6 +287,45 @@ class ManageOccurrencePaymentService
         }
 
         return app(RecurringEntryPostingService::class)->post($occurrence->fresh(), $actor, ['amount' => $data['actual_amount'], 'transaction_date' => $data['actual_date'], 'account_uuid' => $data['account_uuid'] ?? null]);
+    }
+
+    /** @param array<string, mixed> $data */
+    private function recordAllocated(RecurringEntryOccurrence $occurrence, User $actor, array $data): Transaction
+    {
+        $entry = $occurrence->recurringEntry;
+        app(UserYearService::class)->ensureDateYearIsOpen($entry->user, $data['actual_date'], 'actual_date');
+        if (! empty($data['transaction_uuid'])) {
+            $transaction = Transaction::query()->where('user_id', $actor->id)->where('uuid', $data['transaction_uuid'])->lockForUpdate()->firstOrFail();
+            abort_unless(app(AccessibleAccountsQuery::class)->canEditAccountId($actor, (int) $transaction->account_id), 403);
+            if ((float) $transaction->amount !== (float) $data['actual_amount'] || $transaction->transaction_date->toDateString() !== $data['actual_date']) {
+                $this->fail('protected');
+            }
+        } else {
+            if (! ($data['confirm_new_payment'] ?? false)) {
+                $this->fail('new_payment_confirmation');
+            }
+            $account = app(AccessibleAccountsQuery::class)->editable($actor)
+                ->where('accounts.uuid', $data['account_uuid'] ?? ($occurrence->account ?? $entry->account)->uuid)
+                ->where('currency', $entry->currency)->with('user:id,base_currency_code')->first();
+            if ($account === null) {
+                $this->fail('account_change');
+            }
+            $transaction = Transaction::query()->create([
+                'user_id' => $entry->user_id, 'created_by_user_id' => $actor->id, 'updated_by_user_id' => $actor->id,
+                'account_id' => $account->id, 'scope_id' => $entry->scope_id, 'category_id' => $entry->category_id,
+                'tracked_item_id' => $entry->tracked_item_id, 'merchant_id' => $entry->merchant_id,
+                'direction' => $entry->direction, 'currency' => $entry->currency, 'amount' => $data['actual_amount'],
+                'transaction_date' => $data['actual_date'], 'value_date' => $data['actual_date'],
+                'kind' => 'manual', 'source_type' => 'manual', 'status' => 'confirmed',
+                'description' => $entry->title, 'notes' => $data['notes'] ?? null,
+                ...app(TransactionExchangeSnapshotService::class)->buildForAccount($account, (float) $data['actual_amount'], $data['actual_date']),
+            ]);
+            app(TransactionMutationService::class)->recalculateAccount($account);
+            app(TransactionMutationService::class)->reconcileProcessedCreditCardCyclesForTransactions([$transaction]);
+        }
+        app(AllocateOccurrencePaymentService::class)->recordPayment($occurrence, $transaction, $actor, (string) $data['actual_amount'], $data['payment_type'], isset($data['final_total_amount']) ? (string) $data['final_total_amount'] : null);
+
+        return $transaction;
     }
 
     /** @return array<string, mixed> */

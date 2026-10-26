@@ -103,7 +103,7 @@ test('open occurrences use the normal transaction form and share payment history
     assert.match(payments, /payment\.status === 'confirmed'/);
     assert.match(payments, /:href="occurrenceUrl"/);
     assert.doesNotMatch(payments, /Pagamento precedent/);
-    assert.match(transaction, /v-model="form.payment_is_partial"/);
+    assert.match(transaction, /v-model="form.payment_type"/);
     assert.match(transaction, /payment_is_partial: form.payment_is_partial/);
 
     for (const source of [indexSource, mobileSource, show]) {

@@ -119,6 +119,7 @@ export type DashboardRecurringSummary = {
 };
 
 export type DashboardScheduledUpcomingItem = {
+    logo_url?: string | null;
     source_url: string | null;
     id: string;
     display_label: string;
@@ -139,6 +140,7 @@ export type DashboardScheduledSummary = {
 };
 
 export type DashboardMerchantBreakdownItem = {
+    logo_url?: string | null;
     merchant_id: number | null;
     merchant_name: string;
     display_label: string;
@@ -239,6 +241,10 @@ export type DashboardMonthlyRecap = {
 };
 
 export type PaymentManagement = {
+    is_amount_variable?: boolean;
+    total_due_amount?: number;
+    paid_amount?: number;
+    remaining_amount?: number;
     occurrence_uuid: string;
     entry_uuid: string;
     reference: string;
@@ -274,6 +280,7 @@ export type PaymentTimelineSnapshot = {
 };
 
 export type DashboardPendingActionItem = {
+    logo_url?: string | null;
     id: string;
     title: string;
     date: string;
@@ -322,6 +329,7 @@ export type DashboardData = {
     overview: DashboardOverview;
     credits_debts: {
         arrears?: Array<{
+            logo_url?: string | null;
             uuid: string;
             title: string;
             type: 'credit' | 'debit';

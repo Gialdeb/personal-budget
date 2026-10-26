@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency } from '@/lib/currency';
+import { formatDatePickerValue, formatDateTime } from '@/lib/date-picker';
 import {
     paymentReasonLabel,
     paymentStateLabel,
@@ -29,16 +30,8 @@ const props = defineProps<{
 const ui = useUiCopy();
 const { locale } = useI18n();
 const currencyForEvent = computed(() => props.currency ?? 'EUR');
-function eventDate(value: string): string {
-    return new Intl.DateTimeFormat(locale.value, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
-}
 function calendarDate(value: string): string {
-    return new Intl.DateTimeFormat(locale.value, {
-        dateStyle: 'medium',
-    }).format(new Date(`${value.slice(0, 10)}T12:00:00`));
+    return formatDatePickerValue(value.slice(0, 10), locale.value) || '—';
 }
 function timelineChanges(event: PaymentManagement['history'][number]) {
     const fields: {
@@ -110,7 +103,7 @@ function timelineChanges(event: PaymentManagement['history'][number]) {
                 {{ externalPayment.payer }}</span
             >
             <time :datetime="externalPayment.date">{{
-                externalPayment.date
+                calendarDate(externalPayment.date)
             }}</time>
             <SensitiveValue
                 :value="
@@ -131,7 +124,9 @@ function timelineChanges(event: PaymentManagement['history'][number]) {
                 :is="payment.rectified ? 'div' : Link"
                 :href="payment.rectified ? undefined : payment.show_url"
                 class="inline-flex min-h-11 items-center gap-2"
-                ><time :datetime="payment.date">{{ payment.date }}</time>
+                ><time :datetime="payment.date">{{
+                    calendarDate(payment.date)
+                }}</time>
                 <SensitiveValue
                     :value="formatCurrency(payment.amount, currency ?? 'EUR')"
                 />
@@ -169,7 +164,9 @@ function timelineChanges(event: PaymentManagement['history'][number]) {
             :href="payment.show_url"
             class="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-border px-3 py-2 hover:bg-muted"
         >
-            <time :datetime="payment.date">{{ payment.date }}</time>
+            <time :datetime="payment.date">{{
+                calendarDate(payment.date)
+            }}</time>
             <SensitiveValue
                 :value="formatCurrency(payment.amount, currency ?? 'EUR')"
             />
@@ -204,13 +201,13 @@ function timelineChanges(event: PaymentManagement['history'][number]) {
                     <dt class="text-muted-foreground">
                         {{ ui('Data prevista') }}
                     </dt>
-                    <dd>{{ management.expected_date }}</dd>
+                    <dd>{{ calendarDate(management.expected_date) }}</dd>
                 </div>
                 <div v-if="management.estimated_date">
                     <dt class="text-muted-foreground">
                         {{ ui('Nuova data stimata (facoltativa)') }}
                     </dt>
-                    <dd>{{ management.estimated_date }}</dd>
+                    <dd>{{ calendarDate(management.estimated_date) }}</dd>
                 </div>
                 <div v-if="management.actual_amount !== null">
                     <dt class="text-muted-foreground">
@@ -231,7 +228,7 @@ function timelineChanges(event: PaymentManagement['history'][number]) {
                     <dt class="text-muted-foreground">
                         {{ ui('Data effettiva') }}
                     </dt>
-                    <dd>{{ management.actual_date }}</dd>
+                    <dd>{{ calendarDate(management.actual_date) }}</dd>
                 </div>
                 <div>
                     <dt class="text-muted-foreground">
@@ -264,7 +261,7 @@ function timelineChanges(event: PaymentManagement['history'][number]) {
                             :datetime="event.created_at"
                             class="text-muted-foreground"
                             >{{ ui('Evento registrato') }} ·
-                            {{ eventDate(event.created_at) }}</time
+                            {{ formatDateTime(event.created_at, locale) }}</time
                         >
                         <dl class="mt-3 grid gap-2 sm:grid-cols-2">
                             <div
@@ -330,7 +327,7 @@ function timelineChanges(event: PaymentManagement['history'][number]) {
             {{
                 ui('Occorrenza {number} · prevista il {date}', {
                     number: sequenceNumber ?? '',
-                    date: expectedDate ?? '',
+                    date: expectedDate ? calendarDate(expectedDate) : '',
                 })
             }}
         </Link>
