@@ -7,7 +7,7 @@
         "build:ssr": "vite build && vite build --ssr",
         "dev": "vite",
         "prepare": "node .husky/install.mjs",
-        "test:hooks": "node --test tests/frontend-pre-commit.test.mjs",
+        "test:hooks": "node --test tests/frontend-pre-commit.test.mjs tests/frontend-pre-push.test.mjs",
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix",
