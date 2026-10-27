@@ -227,7 +227,7 @@ class DashboardService
             ->whereNull('payment_verified_at')
             ->where('status', 'confirmed')->whereNull('payment_rectified_at')
             ->whereDoesntHave('refundTransaction')
-            ->whereHas('recurringOccurrence.recurringEntry', fn (Builder $query) => $query->where('status', '!=', RecurringEntryStatusEnum::CANCELLED->value))
+            ->whereHas('recurringOccurrence.recurringEntry', fn (Builder $query) => $query->whereNull('recurring_entries.deleted_at')->where('status', '!=', RecurringEntryStatusEnum::CANCELLED->value))
             ->with('recurringOccurrence.recurringEntry.trackedItem.websiteIdentity')
             ->orderBy('payment_verification_due_at')->get()
             ->filter(fn (Transaction $transaction): bool => $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id

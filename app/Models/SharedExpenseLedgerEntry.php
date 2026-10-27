@@ -34,7 +34,7 @@ class SharedExpenseLedgerEntry extends Model
         if ($occurrenceId === null) {
             return;
         }
-        $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->find($occurrenceId);
+        $occurrence = RecurringEntryOccurrence::withHistoricalPlan()->lockForUpdate()->find($occurrenceId);
         $occurrence?->synchronizeSettlementState();
     }
 
@@ -59,6 +59,6 @@ class SharedExpenseLedgerEntry extends Model
 
     public function occurrence(): BelongsTo
     {
-        return $this->belongsTo(RecurringEntryOccurrence::class, 'recurring_entry_occurrence_id');
+        return $this->belongsTo(RecurringEntryOccurrence::class, 'recurring_entry_occurrence_id')->withoutGlobalScope(RecurringEntryOccurrence::ACTIVE_PLAN_SCOPE);
     }
 }

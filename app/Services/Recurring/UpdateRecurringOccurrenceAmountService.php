@@ -30,7 +30,7 @@ class UpdateRecurringOccurrenceAmountService
             return;
         }
 
-        $occurrence = RecurringEntryOccurrence::query()->with('recurringEntry')
+        $occurrence = RecurringEntryOccurrence::withHistoricalPlan()->with('recurringEntry')
             ->lockForUpdate()->findOrFail($transaction->recurring_entry_occurrence_id);
         $entry = $occurrence->recurringEntry;
         if (! $entry->is_amount_variable || $entry->entry_type !== RecurringEntryTypeEnum::RECURRING || $entry->salarySchedule !== null) {

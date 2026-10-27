@@ -79,7 +79,7 @@ class Transaction extends Model
             return;
         }
         $occurrenceId = $this->recurring_entry_occurrence_id ?? ($this->refunded_transaction_id === null ? null : $this->refundedTransaction?->recurring_entry_occurrence_id);
-        RecurringEntryOccurrence::query()->where(function (Builder $query) use ($sourceId, $occurrenceId): void {
+        RecurringEntryOccurrence::withHistoricalPlan()->where(function (Builder $query) use ($sourceId, $occurrenceId): void {
             $query->where('converted_transaction_id', $sourceId)->orWhere('matched_transaction_id', $sourceId);
             if ($occurrenceId !== null) {
                 $query->orWhere('id', $occurrenceId);
@@ -334,7 +334,7 @@ class Transaction extends Model
 
     public function recurringOccurrence(): BelongsTo
     {
-        return $this->belongsTo(RecurringEntryOccurrence::class, 'recurring_entry_occurrence_id');
+        return $this->belongsTo(RecurringEntryOccurrence::class, 'recurring_entry_occurrence_id')->withoutGlobalScope(RecurringEntryOccurrence::ACTIVE_PLAN_SCOPE);
     }
 
     public function creditDebtPayment(): HasOne
@@ -374,12 +374,12 @@ class Transaction extends Model
 
     public function matchedRecurringOccurrences(): HasMany
     {
-        return $this->hasMany(RecurringEntryOccurrence::class, 'matched_transaction_id');
+        return $this->hasMany(RecurringEntryOccurrence::class, 'matched_transaction_id')->withoutGlobalScope(RecurringEntryOccurrence::ACTIVE_PLAN_SCOPE);
     }
 
     public function convertedRecurringOccurrences(): HasMany
     {
-        return $this->hasMany(RecurringEntryOccurrence::class, 'converted_transaction_id');
+        return $this->hasMany(RecurringEntryOccurrence::class, 'converted_transaction_id')->withoutGlobalScope(RecurringEntryOccurrence::ACTIVE_PLAN_SCOPE);
     }
 
     public function matchedScheduledEntries(): HasMany

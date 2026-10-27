@@ -85,7 +85,7 @@ class ManageOccurrencePaymentService
     public function manage(RecurringEntryOccurrence $occurrence, User $actor, array $data): RecurringEntryOccurrence
     {
         return DB::transaction(function () use ($occurrence, $actor, $data): RecurringEntryOccurrence {
-            $occurrence = RecurringEntryOccurrence::query()->with('recurringEntry.user')->lockForUpdate()->findOrFail($occurrence->id);
+            $occurrence = RecurringEntryOccurrence::withHistoricalPlan()->with('recurringEntry.user')->lockForUpdate()->findOrFail($occurrence->id);
             $entry = $occurrence->recurringEntry;
             if ($occurrence->not_due !== null) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.not_due_protected')]);

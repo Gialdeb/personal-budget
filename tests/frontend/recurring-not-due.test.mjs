@@ -8,6 +8,7 @@ import {
     registerTS,
 } from '@vue/compiler-sfc';
 import ts from 'typescript';
+import { recurringPlanHeading } from '../../resources/js/lib/transaction-presentation.js';
 
 registerTS(() => ts);
 const filename = 'resources/js/pages/transactions/recurring/Show.vue';
@@ -40,8 +41,8 @@ function execute(names, args, values, returned) {
 }
 function heading(entry, compound) {
     const result = execute(
-        ['pageTitle', 'headingDescription'],
-        ['props', 'computed'],
+        ['planHeading', 'pageTitle', 'headingDescription'],
+        ['props', 'computed', 'recurringPlanHeading', 'ui'],
         [
             { recurringEntry: { entry }, compound },
             (callback) => ({
@@ -49,6 +50,8 @@ function heading(entry, compound) {
                     return callback();
                 },
             }),
+            recurringPlanHeading,
+            (value) => value,
         ],
         ['pageTitle', 'headingDescription'],
     );
@@ -56,14 +59,14 @@ function heading(entry, compound) {
     return [result.pageTitle.value, result.headingDescription.value];
 }
 
-test('detail heading uses reference name and description without duplicated labels', () => {
+test('detail heading uses plan name and description with a separate reference', () => {
     assert.deepEqual(
         heading({
             title: 'Abbonamento fibra',
             description: 'Internet casa',
             tracked_item: { name: 'Provider' },
         }),
-        ['Provider', 'Internet casa'],
+        ['Abbonamento fibra', 'Internet casa'],
     );
     assert.deepEqual(
         heading({
@@ -79,7 +82,7 @@ test('detail heading uses reference name and description without duplicated labe
             description: null,
             tracked_item: { name: 'Provider' },
         }),
-        ['Provider', 'Fibra'],
+        ['Fibra', null],
     );
     assert.deepEqual(
         heading({ title: 'Fibra', description: null, tracked_item: null }),
@@ -87,11 +90,11 @@ test('detail heading uses reference name and description without duplicated labe
     );
     assert.deepEqual(
         heading({ title: 'Componente', description: null }, { name: 'Piano' }),
-        ['Piano', 'Componente'],
+        ['Piano', null],
     );
     assert.match(
         source,
-        /<ReferenceAvatar\s+:name="pageTitle"\s+:logo-url="entry.tracked_item\?\.logo_url"/,
+        /<ReferenceAvatar\s+:name="entry.tracked_item\?\.name \|\| pageTitle"\s+:logo-url="entry.tracked_item\?\.logo_url"/,
     );
     assert.match(source, /v-if="headingDescription"/);
 });

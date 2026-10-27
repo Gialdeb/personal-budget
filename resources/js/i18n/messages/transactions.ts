@@ -493,9 +493,9 @@ export const transactionsMessages = {
                     'Le prossime occorrenze saranno saltate. Il piano ripartirà automaticamente senza spostare le date.',
                 cancelDescription:
                     'Il piano verrà annullato e le occorrenze future non convertite saranno disattivate.',
-                deleteTitle: 'Elimina definitivamente il piano',
+                deleteTitle: 'Sposta il piano nel cestino',
                 deleteDescription:
-                    'Il piano, tutte le sue scadenze e le transazioni generate collegate verranno eliminati definitivamente. Questa operazione non può essere annullata.',
+                    'Il piano sarà spostato nel cestino. Scadenze e storico saranno conservati e potrai ripristinarlo dal cestino dei movimenti.',
                 convertTitle: 'Converti occurrence',
                 convertDescription:
                     'Questa occurrence verrà registrata come transazione programmata reale.',
@@ -1370,9 +1370,9 @@ export const transactionsMessages = {
                     'The next occurrences will be skipped. The plan will resume automatically without shifting dates.',
                 cancelDescription:
                     'The plan will be cancelled and future unconverted occurrences will be deactivated.',
-                deleteTitle: 'Permanently delete plan',
+                deleteTitle: 'Move plan to trash',
                 deleteDescription:
-                    'The plan, all its occurrences, and its linked generated transactions will be permanently deleted. This action cannot be undone.',
+                    'The plan will be moved to trash. Occurrences and history will be preserved, and you can restore it from the transaction trash.',
                 convertTitle: 'Convert occurrence',
                 convertDescription:
                     'This occurrence will be posted as a real scheduled transaction.',

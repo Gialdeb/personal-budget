@@ -843,7 +843,7 @@ test('show reports paid installments against the plan total', function () {
         );
 });
 
-test('destroy removes the plan generated transactions and refunds but preserves matched transactions', function () {
+test('destroy trashes only the plan preserving generated matched and refunded transactions', function () {
     $context = recurringManagementContext();
     $entry = createManagedRecurringEntry($context, [
         'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
@@ -891,19 +891,26 @@ test('destroy removes the plan generated transactions and refunds but preserves 
 
     $refundTransaction = $generatedTransaction->fresh()->refundTransaction;
 
+    $entryBefore = $entry->fresh()->getAttributes();
+    $occurrencesBefore = $entry->occurrences()->withHistoricalPlan()->orderBy('id')->get()->map->getAttributes()->all();
+    $transactionsBefore = Transaction::withTrashed()->orderBy('id')->get()->map->getAttributes()->all();
+    $accountBefore = $context['account']->fresh()->getAttributes();
+    $reminderBefore = $reminderDelivery->fresh()->getAttributes();
     $this->actingAs($context['user'])
+        ->from(route('recurring-entries.show', $entry->uuid))
         ->delete(route('recurring-entries.destroy', $entry->uuid))
         ->assertRedirect(route('recurring-entries.index'))
-        ->assertSessionHas('success', __('transactions.flash.recurring_deleted'));
+        ->assertSessionHasNoErrors();
+    $this->assertSoftDeleted($entry);
 
-    $this->assertModelMissing($entry);
-    $this->assertModelMissing($occurrence);
-    $this->assertModelMissing($matchedOccurrence);
-    $this->assertModelMissing($reminderDelivery);
+    expect(collect($entry->fresh()->getAttributes())->except(['deleted_at', 'updated_at'])->all())->toBe(collect($entryBefore)->except(['deleted_at', 'updated_at'])->all())
+        ->and($entry->occurrences()->withHistoricalPlan()->orderBy('id')->get()->map->getAttributes()->all())->toBe($occurrencesBefore)
+        ->and(Transaction::withTrashed()->orderBy('id')->get()->map->getAttributes()->all())->toBe($transactionsBefore)
+        ->and($context['account']->fresh()->getAttributes())->toBe($accountBefore)
+        ->and($reminderDelivery->fresh()->getAttributes())->toBe($reminderBefore);
+    $this->assertModelExists($generatedTransaction);
+    $this->assertModelExists($refundTransaction);
     $this->assertModelExists($matchedTransaction);
-
-    expect(Transaction::withTrashed()->whereKey($generatedTransaction->id)->exists())->toBeFalse()
-        ->and(Transaction::withTrashed()->whereKey($refundTransaction->id)->exists())->toBeFalse();
 });
 
 test('show orders occurrences chronologically by date', function () {
@@ -3457,7 +3464,85 @@ test('not due does not change the existing plan deletion behavior', function () 
     $row = $entry->occurrences()->firstOrFail();
     app(RecurringEntryManagementService::class)->markOccurrenceNotDue($row);
     app(DeleteRecurringEntryService::class)->delete($entry);
-    $this->assertModelMissing($entry);
-    $this->assertModelMissing($row);
+    $this->assertSoftDeleted($entry);
+    $this->assertModelExists($row);
     expect(Transaction::count())->toBe(0)->and($c['account']->fresh()->current_balance)->toBe('1000.00');
 });
+
+test('plan trash preserves every linked movement and economic record', function (string $link) {
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, ['end_mode' => 'after_occurrences', 'occurrences_limit' => 2]);
+    $row = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $transaction = null;
+    if (in_array($link, ['converted', 'converted_archived', 'matched', 'matched_archived', 'direct', 'direct_archived', 'allocation', 'allocation_archived', 'refund_root'], true)) {
+        $transaction = Transaction::create(['user_id' => $c['user']->id, 'account_id' => $c['account']->id,
+            'direction' => 'expense', 'amount' => 10, 'currency' => 'EUR', 'transaction_date' => '2026-01-15',
+            'kind' => 'manual', 'source_type' => 'manual', 'status' => 'confirmed']);
+        if (str_starts_with($link, 'converted')) {
+            $row->update(['converted_transaction_id' => $transaction->id]);
+        } elseif (str_starts_with($link, 'matched')) {
+            $row->update(['matched_transaction_id' => $transaction->id]);
+        } elseif (str_starts_with($link, 'direct')) {
+            $transaction->update(['recurring_entry_occurrence_id' => $row->id]);
+        } elseif (str_starts_with($link, 'allocation')) {
+            $row->paymentAllocations()->create(['transaction_id' => $transaction->id, 'amount_cents' => 1000]);
+        } else {
+            RecurringPlanRefund::create(['request_uuid' => (string) Str::uuid(), 'plan_uuid' => $entry->uuid, 'user_id' => $c['user']->id, 'transaction_id' => $transaction->id, 'amount_cents' => 1000]);
+        }
+        if (str_ends_with($link, '_archived')) {
+            $transaction->delete();
+        }
+    } elseif ($link === 'manual_cost') {
+        $entry->manualCosts()->create(['date' => '2026-01-15', 'amount' => 10, 'currency' => 'EUR']);
+    } elseif ($link === 'ledger') {
+        $row->sharedExpenseLedgerEntry()->create(['user_id' => $c['user']->id, 'counterparty_id' => $c['trackedItem']->id,
+            'entry_date' => '2026-01-15', 'title' => 'Pagamento esterno', 'currency' => 'EUR', 'total_cents' => 1000,
+            'paid_by' => 'counterparty', 'my_share_cents' => 500, 'counterparty_share_cents' => 500, 'status' => 'recorded']);
+    } else {
+        $row->paymentEvents()->create(['request_id' => (string) Str::uuid(), 'actor_id' => $c['user']->id, 'reason' => 'other', 'action' => 'pending', 'details' => []]);
+    }
+    $reminder = ReminderDelivery::create(['user_id' => $c['user']->id, 'remindable_type' => $row->getMorphClass(),
+        'remindable_id' => $row->id, 'reminder_type' => 'recurring_advance_3', 'due_date' => $row->due_date,
+        'delivery_date' => now()->toDateString(), 'notification_kind' => 'recurring_due']);
+    $before = [
+        collect($entry->fresh()->getAttributes())->except(['deleted_at', 'updated_at'])->all(), $entry->occurrences()->withHistoricalPlan()->orderBy('id')->get()->map->getAttributes()->all(),
+        Transaction::withTrashed()->orderBy('id')->get()->map->getAttributes()->all(),
+        $c['account']->fresh()->getAttributes(), $reminder->fresh()->getAttributes(),
+        $entry->manualCosts()->get()->map->getAttributes()->all(), $row->paymentAllocations()->get()->map->getAttributes()->all(),
+        $row->sharedExpenseLedgerEntry?->getAttributes(), $row->paymentEvents()->get()->map->getAttributes()->all(),
+        RecurringPlanRefund::query()->get()->map->getAttributes()->all(),
+    ];
+    $this->actingAs($c['user'])->from(route('recurring-entries.show', $entry->uuid))
+        ->delete(route('recurring-entries.destroy', $entry->uuid))
+        ->assertRedirect(route('recurring-entries.index'))->assertSessionHasNoErrors();
+    $this->assertSoftDeleted($entry);
+    expect([
+        collect($entry->fresh()->getAttributes())->except(['deleted_at', 'updated_at'])->all(), $entry->occurrences()->withHistoricalPlan()->orderBy('id')->get()->map->getAttributes()->all(),
+        Transaction::withTrashed()->orderBy('id')->get()->map->getAttributes()->all(),
+        $c['account']->fresh()->getAttributes(), $reminder->fresh()->getAttributes(),
+        $entry->manualCosts()->get()->map->getAttributes()->all(), $row->paymentAllocations()->get()->map->getAttributes()->all(),
+        $row->fresh()->sharedExpenseLedgerEntry?->getAttributes(), $row->paymentEvents()->get()->map->getAttributes()->all(),
+        RecurringPlanRefund::query()->get()->map->getAttributes()->all(),
+    ])->toBe($before);
+})->with(['converted', 'converted_archived', 'matched', 'matched_archived', 'direct', 'direct_archived', 'allocation', 'allocation_archived', 'refund_root', 'manual_cost', 'ledger', 'event']);
+
+test('plan deletion safety preserves deletion of plans with no economic links', function (string $type) {
+    $c = recurringManagementContext();
+    $entry = createManagedRecurringEntry($c, $type === 'installment'
+        ? ['entry_type' => 'installment', 'total_amount' => 100, 'installments_count' => 2]
+        : ['end_mode' => 'after_occurrences', 'occurrences_limit' => 2]);
+    $rows = $entry->occurrences()->get();
+    $reminder = ReminderDelivery::create(['user_id' => $c['user']->id, 'remindable_type' => $rows[0]->getMorphClass(),
+        'remindable_id' => $rows[0]->id, 'reminder_type' => 'recurring_advance_3', 'due_date' => $rows[0]->due_date,
+        'delivery_date' => now()->toDateString(), 'notification_kind' => 'recurring_due']);
+    $before = $c['account']->fresh()->getAttributes();
+    $this->actingAs($c['user'])->delete(route('recurring-entries.destroy', $entry->uuid))
+        ->assertRedirect(route('recurring-entries.index'))->assertSessionHasNoErrors()
+        ->assertSessionHas('success', __('transactions.flash.recurring_deleted'));
+    $this->assertSoftDeleted($entry);
+    $this->assertModelExists($reminder);
+    foreach ($rows as $row) {
+        $this->assertModelExists($row);
+    }
+    expect(Transaction::withTrashed()->count())->toBe(0)->and($c['account']->fresh()->getAttributes())->toBe($before);
+})->with(['recurring', 'installment']);

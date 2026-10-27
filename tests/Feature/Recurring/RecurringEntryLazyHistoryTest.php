@@ -38,9 +38,20 @@ test('measures recurring history response', function () {
     $response = $this->getJson(route('recurring-entries.show', $this->historyEntry->uuid))->assertOk();
     $queries = count(DB::getQueryLog());
     DB::disableQueryLog();
-    $metrics = ['records' => count($response->json('recurringEntry.occurrences')), 'bytes' => strlen($response->getContent()), 'queries' => $queries];
+    $response->assertJsonStructure(['recurringEntry' => ['occurrences' => ['*' => ['not_due', 'can_mark_not_due']]]]);
+    $notDueMetadataBytes = array_sum(array_map(
+        fn (array $occurrence): int => strlen(json_encode([
+            'not_due' => $occurrence['not_due'],
+            'can_mark_not_due' => $occurrence['can_mark_not_due'],
+        ], JSON_THROW_ON_ERROR)) - 1,
+        $response->json('recurringEntry.occurrences'),
+    ));
+    $metrics = ['records' => count($response->json('recurringEntry.occurrences')), 'bytes' => strlen($response->getContent()), 'queries' => $queries, 'not_due_metadata_bytes' => $notDueMetadataBytes];
     fwrite(STDOUT, json_encode($metrics).PHP_EOL);
-    expect($metrics['records'])->toBe(7)->and($metrics['queries'])->toBeLessThan(90)->and($metrics['bytes'])->toBeLessThan(20000);
+    expect($metrics['records'])->toBe(7)
+        ->and($metrics['queries'])->toBeLessThan(90)
+        ->and($metrics['bytes'])->toBeLessThan(20_500)
+        ->and($metrics['bytes'] - $notDueMetadataBytes)->toBeLessThan(20_000);
     $response->assertJsonPath('planRefund', null)
         ->assertJsonPath('recurringEntry.occurrence_page.year', 2026)
         ->assertJsonPath('recurringEntry.occurrence_page.offset', 17)

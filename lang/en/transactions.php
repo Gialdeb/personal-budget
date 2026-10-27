@@ -26,7 +26,7 @@ return [
         'restored' => 'Transaction restored successfully.',
         'recurring_created' => 'Scheduled movement created successfully.',
         'recurring_updated' => 'Scheduled movement updated successfully.',
-        'recurring_deleted' => 'Plan and linked transactions permanently deleted.',
+        'recurring_deleted' => 'Plan moved to trash. Occurrences and history preserved.',
         'recurring_occurrence_amount_updated' => 'Recurring occurrence amount updated successfully.',
         'recurring_occurrence_updated' => 'Recurring occurrence updated successfully.',
         'recurring_occurrence_converted' => 'Occurrence converted into transaction :uuid.',

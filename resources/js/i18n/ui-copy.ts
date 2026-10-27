@@ -2,6 +2,15 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'Movimento senza descrizione': 'Transaction without description',
+    Risultati: 'Results',
+    'Paginazione piani': 'Plan pagination',
+    'Nessun piano trovato': 'No plans found',
+    'Cerca piani nel cestino': 'Search plans in trash',
+    'Totale piani nel cestino': 'Total plans in trash',
+    'Piani nel cestino': 'Plans in trash',
+    'Piano ricorrente': 'Recurring plan',
+    'Ripristina piano': 'Restore plan',
     'Non dovuta': 'Not due',
     'Segna come non dovuto': 'Mark as not due',
     'Motivazione facoltativa': 'Optional reason',

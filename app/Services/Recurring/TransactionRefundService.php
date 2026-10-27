@@ -89,7 +89,7 @@ class TransactionRefundService
             ]);
 
             if ($transaction->recurringOccurrence !== null) {
-                $occurrence = $transaction->recurringOccurrence->newQuery()->lockForUpdate()->findOrFail($transaction->recurringOccurrence->id);
+                $occurrence = $transaction->recurringOccurrence->newQuery()->withHistoricalPlan()->lockForUpdate()->findOrFail($transaction->recurringOccurrence->id);
                 $occurrence->synchronizeSettlementState();
             }
 
@@ -123,7 +123,7 @@ class TransactionRefundService
         $this->transactionMutationService->ensureNoLinkedObligation($originalTransaction);
 
         return DB::transaction(function () use ($refund, $originalTransaction): Transaction {
-            $occurrence = $originalTransaction->recurringOccurrence?->newQuery()->lockForUpdate()->find($originalTransaction->recurringOccurrence->id);
+            $occurrence = $originalTransaction->recurringOccurrence?->newQuery()->withHistoricalPlan()->lockForUpdate()->find($originalTransaction->recurringOccurrence->id);
             if ($occurrence !== null && (int) round((float) $refund->amount * 100) > $occurrence->remainingPaymentCents()) {
                 throw ValidationException::withMessages(['transaction' => __('transactions.validation.undo_refund_blocked')]);
             }
@@ -145,7 +145,7 @@ class TransactionRefundService
             return true;
         }
 
-        $latestConvertedOccurrenceId = $occurrence->newQuery()
+        $latestConvertedOccurrenceId = $occurrence->newQuery()->withHistoricalPlan()
             ->where('recurring_entry_id', $occurrence->recurring_entry_id)
             ->whereNotNull('converted_transaction_id')
             ->orderByRaw('COALESCE(due_date, expected_date) desc')

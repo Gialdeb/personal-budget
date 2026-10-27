@@ -6,6 +6,7 @@ import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
+import { transactionHeading } from '@/lib/transaction-presentation.js';
 import type { MonthlyTransactionSheetTransaction } from '@/types/transactions';
 
 defineProps<{
@@ -119,10 +120,28 @@ const { t, locale } = useI18n();
                                 }}</Badge
                             >
                         </div>
-                        <p class="text-sm break-words">
+                        <p class="text-sm font-medium break-words">
                             {{
-                                movement.description ||
-                                t('transactions.sharedLedger.untitled')
+                                transactionHeading(
+                                    movement,
+                                    t('transactions.sharedLedger.untitled'),
+                                ).title
+                            }}
+                        </p>
+                        <p
+                            v-if="
+                                transactionHeading(
+                                    movement,
+                                    t('transactions.sharedLedger.untitled'),
+                                ).subtitle
+                            "
+                            class="text-xs text-muted-foreground"
+                        >
+                            {{
+                                transactionHeading(
+                                    movement,
+                                    t('transactions.sharedLedger.untitled'),
+                                ).subtitle
                             }}
                         </p>
                         <div
@@ -192,9 +211,10 @@ const { t, locale } = useI18n();
                     class="size-9 shrink-0 rounded-lg text-muted-foreground"
                     :aria-label="
                         t('transactions.sharedLedger.edit', {
-                            title:
-                                movement.description ||
+                            title: transactionHeading(
+                                movement,
                                 t('transactions.sharedLedger.untitled'),
+                            ).title,
                         })
                     "
                     @click="emit('edit', movement)"

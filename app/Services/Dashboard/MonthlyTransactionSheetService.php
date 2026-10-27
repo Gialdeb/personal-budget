@@ -10,6 +10,7 @@ use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Scope;
 use App\Models\SharedExpenseLedgerEntry;
@@ -113,6 +114,7 @@ class MonthlyTransactionSheetService
             'transactions' => $transactionList,
             'shared_ledger_movements' => $this->sharedLedgerMovements($user, $year, $month, $editableAccountIds),
             'deleted_transactions' => $deletedTransactionList,
+            'deleted_recurring_plans' => $this->deletedRecurringPlans($user, $editableAccountIds),
             'planned_occurrences' => $plannedOccurrences,
             'editor' => [
                 'can_edit' => ! $isClosedYear && $editableAccountIds !== [],
@@ -209,8 +211,21 @@ class MonthlyTransactionSheetService
     }
 
     /**
-     * @return Collection<int, Transaction>
+     * @param  array<int>  $editableAccountIds
+     * @return array<int, array{uuid: string, title: string, reference: string|null, deleted_at: string|null, account_uuid: string|null, can_restore: bool}>
      */
+    protected function deletedRecurringPlans(User $user, array $editableAccountIds): array
+    {
+        return RecurringEntry::onlyTrashed()->whereIn('account_id', $this->accessibleAccountsQuery->ids($user))
+            ->with(['account:id,uuid', 'trackedItem:id,name'])->orderByDesc('deleted_at')->orderByDesc('id')->get()
+            ->map(fn (RecurringEntry $entry): array => [
+                'uuid' => $entry->uuid, 'title' => $entry->title, 'reference' => $entry->trackedItem?->name,
+                'deleted_at' => $entry->deleted_at?->toJSON(), 'account_uuid' => $entry->account?->uuid,
+                'can_restore' => in_array((int) $entry->account_id, $editableAccountIds, true),
+            ])->all();
+    }
+
+    /** @return Collection<int, Transaction> */
     protected function getDeletedMonthlyTransactions(User $user, int $year, int $month): Collection
     {
         return Transaction::onlyTrashed()->notRectified()

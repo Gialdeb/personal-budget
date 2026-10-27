@@ -24,7 +24,7 @@ class RecurringOccurrencePaymentAllocation extends Model
 
     public function occurrence(): BelongsTo
     {
-        return $this->belongsTo(RecurringEntryOccurrence::class, 'occurrence_id');
+        return $this->belongsTo(RecurringEntryOccurrence::class, 'occurrence_id')->withoutGlobalScope(RecurringEntryOccurrence::ACTIVE_PLAN_SCOPE);
     }
 
     public function transaction(): BelongsTo

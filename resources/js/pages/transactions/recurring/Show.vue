@@ -101,6 +101,7 @@ import {
     annualOccurrencesProgress,
     recurringPlanProgress,
 } from '@/lib/recurring-plan-progress';
+import { recurringPlanHeading } from '@/lib/transaction-presentation.js';
 import type {
     Auth,
     BreadcrumbItem,
@@ -170,25 +171,17 @@ async function toggleCancelled(year: number): Promise<void> {
     showCancelledYears.value[year] = !showCancelledYears.value[year];
     await loadYear(year, 0, true);
 }
-const pageTitle = computed(
-    () =>
-        props.recurringEntry.entry.tracked_item?.name?.trim() ||
-        props.compound?.name ||
-        props.recurringEntry.entry.title,
+const planHeading = computed(() =>
+    recurringPlanHeading(
+        {
+            ...props.recurringEntry.entry,
+            title: props.compound?.name || props.recurringEntry.entry.title,
+        },
+        ui('Piano ricorrente'),
+    ),
 );
-const headingDescription = computed(() => {
-    const title = pageTitle.value.trim().toLocaleLowerCase();
-
-    return (
-        [
-            props.recurringEntry.entry.description,
-            props.recurringEntry.entry.title,
-        ]
-            .map((value) => value?.trim())
-            .find((value) => value && value.toLocaleLowerCase() !== title) ??
-        null
-    );
-});
+const pageTitle = computed(() => planHeading.value.title);
+const headingDescription = computed(() => planHeading.value.subtitle);
 function occurrenceOwner(uuid: string): string {
     const row = Object.values(yearRows.value)
         .flat()
@@ -1779,7 +1772,7 @@ function isFutureOccurrence(
 
                         <div class="flex items-start gap-3">
                             <ReferenceAvatar
-                                :name="pageTitle"
+                                :name="entry.tracked_item?.name || pageTitle"
                                 :logo-url="entry.tracked_item?.logo_url"
                                 class="size-12 shrink-0 rounded-xl"
                             />
@@ -1795,6 +1788,13 @@ function isFutureOccurrence(
                                     class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
                                 >
                                     {{ headingDescription }}
+                                </p>
+                                <p
+                                    v-if="entry.tracked_item"
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    {{ ui('Riferimento') }}:
+                                    {{ entry.tracked_item.name }}
                                 </p>
                             </div>
                         </div>

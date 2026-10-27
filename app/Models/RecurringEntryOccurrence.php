@@ -18,8 +18,11 @@ class RecurringEntryOccurrence extends Model
 {
     use HasPublicUuid;
 
+    public const ACTIVE_PLAN_SCOPE = 'active_plan';
+
     protected static function booted(): void
     {
+        static::addGlobalScope(self::ACTIVE_PLAN_SCOPE, fn (Builder $query) => $query->whereHas('recurringEntry', fn (Builder $plans) => $plans->whereNull('recurring_entries.deleted_at')));
         static::updating(function (self $occurrence): void {
             foreach (['converted_transaction_id', 'matched_transaction_id'] as $link) {
                 if ($occurrence->isDirty($link) && $occurrence->getRawOriginal($link) !== null
@@ -85,7 +88,13 @@ class RecurringEntryOccurrence extends Model
 
     public function recurringEntry(): BelongsTo
     {
-        return $this->belongsTo(RecurringEntry::class);
+        return $this->belongsTo(RecurringEntry::class)->withTrashed();
+    }
+
+    /** Retain access to existing accounting links without exposing trashed plans operationally. */
+    public function scopeWithHistoricalPlan(Builder $query): Builder
+    {
+        return $query->withoutGlobalScope(self::ACTIVE_PLAN_SCOPE);
     }
 
     public function account(): BelongsTo

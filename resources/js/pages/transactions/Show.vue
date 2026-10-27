@@ -38,6 +38,7 @@ import {
     confirm as confirmAutomaticPayment,
     problem as paymentProblem,
 } from '@/actions/App/Http/Controllers/AutomaticPaymentVerificationController';
+import { restore as restoreRecurringPlan } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import {
     undoRefund as undoTransactionRefund,
     previewExchangeSnapshot,
@@ -101,6 +102,10 @@ import {
     calendarCategoryOrder,
     transactionDayCounts,
 } from '@/lib/transaction-calendar.js';
+import {
+    transactionHeading,
+    recurringPlanHeading,
+} from '@/lib/transaction-presentation.js';
 import {
     matchesTransactionDisplay,
     matchesSharedLedgerDisplay,
@@ -1117,6 +1122,70 @@ const filteredDeletedTransactions = computed(() =>
             matchesTransactionSearch(transaction),
     ),
 );
+
+function movementHeading(
+    transaction: MonthlyTransactionSheetTransaction | null,
+) {
+    return transactionHeading(transaction, ui('Movimento senza descrizione'));
+}
+
+const deletedRecurringPlanTotal = computed(
+    () => sheet.value.deleted_recurring_plans?.length ?? 0,
+);
+const deletedPlanSearch = ref('');
+const deletedPlanPage = ref(1);
+const deletedPlanPageSize = 10;
+const deletedRecurringPlans = computed(() => {
+    const search = deletedPlanSearch.value
+        .trim()
+        .toLocaleLowerCase(locale.value);
+
+    return (sheet.value.deleted_recurring_plans ?? []).filter(
+        (plan) =>
+            (selectedAccount.value === 'all' ||
+                plan.account_uuid === selectedAccount.value) &&
+            (!search ||
+                `${plan.reference ?? ''} ${plan.title}`
+                    .toLocaleLowerCase(locale.value)
+                    .includes(search)),
+    );
+});
+const deletedPlanPageCount = computed(() =>
+    Math.max(
+        1,
+        Math.ceil(deletedRecurringPlans.value.length / deletedPlanPageSize),
+    ),
+);
+const paginatedDeletedPlans = computed(() =>
+    deletedRecurringPlans.value.slice(
+        (deletedPlanPage.value - 1) * deletedPlanPageSize,
+        deletedPlanPage.value * deletedPlanPageSize,
+    ),
+);
+watch([deletedPlanSearch, selectedAccount], () => {
+    deletedPlanPage.value = 1;
+});
+watch(deletedPlanPageCount, (count) => {
+    deletedPlanPage.value = Math.min(deletedPlanPage.value, count);
+});
+const restoringPlan = ref<string | null>(null);
+function restorePlan(uuid: string): void {
+    if (restoringPlan.value) {
+        return;
+    }
+
+    restoringPlan.value = uuid;
+    router.patch(
+        restoreRecurringPlan.url(uuid),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                restoringPlan.value = null;
+            },
+        },
+    );
+}
 
 const sharedLedgerCounterparties = computed(() => {
     const options = new Map<string, { value: string; label: string }>();
@@ -6153,32 +6222,29 @@ resetInlineEntry();
                                                         <p
                                                             class="line-clamp-2 text-sm font-medium text-slate-800 dark:text-slate-200"
                                                             :title="
-                                                                transaction.detail ??
-                                                                transaction.description ??
-                                                                t(
-                                                                    'transactions.sheet.grid.noDetail',
-                                                                )
+                                                                movementHeading(
+                                                                    transaction,
+                                                                ).title
                                                             "
                                                         >
                                                             {{
-                                                                transaction.detail ??
-                                                                transaction.description ??
-                                                                t(
-                                                                    'transactions.sheet.grid.noDetail',
-                                                                )
+                                                                movementHeading(
+                                                                    transaction,
+                                                                ).title
                                                             }}
                                                         </p>
                                                         <p
                                                             v-if="
-                                                                transaction.notes &&
-                                                                transaction.notes !==
-                                                                    (transaction.detail ??
-                                                                        transaction.description)
+                                                                movementHeading(
+                                                                    transaction,
+                                                                ).subtitle
                                                             "
                                                             class="truncate text-xs text-slate-500 dark:text-slate-400"
                                                         >
                                                             {{
-                                                                transaction.notes
+                                                                movementHeading(
+                                                                    transaction,
+                                                                ).subtitle
                                                             }}
                                                         </p>
                                                         <div
@@ -7293,6 +7359,20 @@ resetInlineEntry();
                                                 </div>
                                                 <p
                                                     class="font-medium text-slate-950 dark:text-slate-100"
+                                                    :title="
+                                                        movementHeading(
+                                                            transaction,
+                                                        ).title
+                                                    "
+                                                >
+                                                    {{
+                                                        movementHeading(
+                                                            transaction,
+                                                        ).title
+                                                    }}
+                                                </p>
+                                                <p
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
                                                 >
                                                     {{
                                                         transactionCategoryLabel(
@@ -7301,21 +7381,22 @@ resetInlineEntry();
                                                     }}
                                                 </p>
                                                 <p
+                                                    v-if="
+                                                        movementHeading(
+                                                            transaction,
+                                                        ).subtitle
+                                                    "
                                                     class="truncate text-sm text-slate-600 dark:text-slate-300"
                                                     :title="
-                                                        transaction.detail ??
-                                                        transaction.description ??
-                                                        t(
-                                                            'transactions.sheet.grid.noDetail',
-                                                        )
+                                                        movementHeading(
+                                                            transaction,
+                                                        ).subtitle ?? undefined
                                                     "
                                                 >
                                                     {{
-                                                        transaction.detail ??
-                                                        transaction.description ??
-                                                        t(
-                                                            'transactions.sheet.grid.noDetail',
-                                                        )
+                                                        movementHeading(
+                                                            transaction,
+                                                        ).subtitle
                                                     }}
                                                 </p>
                                                 <div
@@ -7594,6 +7675,161 @@ resetInlineEntry();
                                 @edit="openEdit"
                             />
                         </div>
+                        <section
+                            v-if="showDeleted"
+                            class="m-4 rounded-xl border border-border bg-muted/20 p-4 sm:m-5"
+                            data-testid="trash-recurring-plans"
+                        >
+                            <details class="group/trash-plans">
+                                <summary
+                                    class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+                                >
+                                    <span
+                                        class="flex min-w-0 items-center gap-2 text-sm font-semibold"
+                                        >{{ ui('Piani nel cestino')
+                                        }}<Badge
+                                            variant="secondary"
+                                            :aria-label="
+                                                ui('Totale piani nel cestino')
+                                            "
+                                            >{{
+                                                deletedRecurringPlanTotal
+                                            }}</Badge
+                                        ></span
+                                    >
+                                    <ChevronDown
+                                        class="size-4 shrink-0 transition-transform group-open/trash-plans:rotate-180 motion-reduce:transition-none"
+                                        aria-hidden="true"
+                                    />
+                                </summary>
+                                <div class="mt-3 space-y-3">
+                                    <label
+                                        for="deleted-plan-search"
+                                        class="sr-only"
+                                        >{{
+                                            ui('Cerca piani nel cestino')
+                                        }}</label
+                                    >
+                                    <Input
+                                        id="deleted-plan-search"
+                                        v-model="deletedPlanSearch"
+                                        type="search"
+                                        :placeholder="
+                                            ui('Cerca piani nel cestino')
+                                        "
+                                        class="w-full sm:max-w-sm"
+                                    />
+                                    <p
+                                        class="text-xs text-muted-foreground"
+                                        role="status"
+                                        aria-live="polite"
+                                    >
+                                        {{ ui('Risultati') }}:
+                                        {{ deletedRecurringPlans.length }}
+                                    </p>
+                                    <div class="space-y-2">
+                                        <div
+                                            v-for="plan in paginatedDeletedPlans"
+                                            :key="plan.uuid"
+                                            class="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/25 p-3"
+                                        >
+                                            <div class="min-w-0">
+                                                <p
+                                                    class="text-sm font-medium break-words"
+                                                >
+                                                    {{
+                                                        recurringPlanHeading(
+                                                            plan,
+                                                            ui(
+                                                                'Piano ricorrente',
+                                                            ),
+                                                        ).title
+                                                    }}
+                                                </p>
+                                                <p
+                                                    v-if="plan.reference"
+                                                    class="text-xs text-muted-foreground"
+                                                >
+                                                    {{ plan.reference }}
+                                                </p>
+                                                <p
+                                                    class="text-xs text-muted-foreground"
+                                                >
+                                                    {{ ui('Piano ricorrente') }}
+                                                    ·
+                                                    {{
+                                                        formatDateShort(
+                                                            plan.deleted_at,
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                v-if="plan.can_restore"
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                :disabled="
+                                                    restoringPlan !== null
+                                                "
+                                                @click="restorePlan(plan.uuid)"
+                                            >
+                                                <RotateCcw class="size-4" />{{
+                                                    ui('Ripristina piano')
+                                                }}
+                                            </Button>
+                                        </div>
+
+                                        <p
+                                            v-if="!deletedRecurringPlans.length"
+                                            class="py-3 text-sm text-muted-foreground"
+                                        >
+                                            {{ ui('Nessun piano trovato') }}
+                                        </p>
+                                    </div>
+                                    <nav
+                                        v-if="deletedPlanPageCount > 1"
+                                        :aria-label="ui('Paginazione piani')"
+                                        class="flex flex-wrap items-center justify-center gap-3"
+                                    >
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            :disabled="deletedPlanPage === 1"
+                                            :aria-label="
+                                                ui('Pagina precedente')
+                                            "
+                                            @click="deletedPlanPage--"
+                                            ><ChevronLeft class="size-4" />{{
+                                                ui('Pagina precedente')
+                                            }}</Button
+                                        >
+                                        <span
+                                            class="text-xs tabular-nums"
+                                            aria-live="polite"
+                                            >{{ deletedPlanPage }} /
+                                            {{ deletedPlanPageCount }}</span
+                                        >
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            :disabled="
+                                                deletedPlanPage ===
+                                                deletedPlanPageCount
+                                            "
+                                            :aria-label="
+                                                ui('Pagina successiva')
+                                            "
+                                            @click="deletedPlanPage++"
+                                            >{{ ui('Pagina successiva')
+                                            }}<ChevronRight class="size-4"
+                                        /></Button>
+                                    </nav>
+                                </div>
+                            </details>
+                        </section>
                     </CardContent>
                 </Card>
 
@@ -8135,8 +8371,9 @@ resetInlineEntry();
                             </dt>
                             <dd>
                                 {{
-                                    paymentConfirmationTransaction.description ||
-                                    paymentConfirmationTransaction.detail
+                                    movementHeading(
+                                        paymentConfirmationTransaction,
+                                    ).title
                                 }}
                             </dd>
                         </div>
@@ -8270,7 +8507,7 @@ resetInlineEntry();
                         }}</DialogDescription></DialogHeader
                     >
                     <p v-if="undoRefundTransaction" class="text-sm">
-                        {{ undoRefundTransaction.description }} ·
+                        {{ movementHeading(undoRefundTransaction).title }} ·
                         {{ formatDateLong(undoRefundTransaction.date) }} ·
                         <SensitiveValue
                             :value="
@@ -8354,9 +8591,8 @@ resetInlineEntry();
                                 class="break-words text-slate-600 dark:text-slate-300"
                             >
                                 {{
-                                    paymentProblemTransaction.detail ??
-                                    paymentProblemTransaction.description ??
-                                    t('transactions.sheet.grid.noDetail')
+                                    movementHeading(paymentProblemTransaction)
+                                        .title
                                 }}
                             </p>
                             <p>
@@ -8464,9 +8700,7 @@ resetInlineEntry();
                             </p>
                             <p class="mt-1 text-slate-600 dark:text-slate-300">
                                 {{
-                                    refundingTransaction.detail ??
-                                    refundingTransaction.description ??
-                                    t('transactions.sheet.grid.noDetail')
+                                    movementHeading(refundingTransaction).title
                                 }}
                             </p>
                             <p
@@ -8563,11 +8797,7 @@ resetInlineEntry();
                             {{ transactionCategoryLabel(deletingTransaction) }}
                         </p>
                         <p class="mt-1 text-slate-600 dark:text-slate-300">
-                            {{
-                                deletingTransaction.detail ??
-                                deletingTransaction.description ??
-                                t('transactions.sheet.grid.noDetail')
-                            }}
+                            {{ movementHeading(deletingTransaction).title }}
                         </p>
                         <p
                             class="mt-3 text-xs text-slate-500 dark:text-slate-400"
@@ -8641,9 +8871,7 @@ resetInlineEntry();
                         </p>
                         <p class="mt-1 text-rose-700 dark:text-rose-200">
                             {{
-                                forceDeletingTransaction.detail ??
-                                forceDeletingTransaction.description ??
-                                t('transactions.sheet.grid.noDetail')
+                                movementHeading(forceDeletingTransaction).title
                             }}
                         </p>
                         <p

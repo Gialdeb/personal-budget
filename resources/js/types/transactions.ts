@@ -323,6 +323,14 @@ export type MonthlyTransactionSheetData = {
     summary_cards: MonthlyTransactionSheetSummaryCard[];
     transactions: MonthlyTransactionSheetTransaction[];
     deleted_transactions: MonthlyTransactionSheetTransaction[];
+    deleted_recurring_plans?: Array<{
+        uuid: string;
+        title: string;
+        reference: string | null;
+        deleted_at: string | null;
+        account_uuid: string | null;
+        can_restore: boolean;
+    }>;
     planned_occurrences: MonthlyTransactionSheetTransaction[];
     editor: {
         can_edit: boolean;
