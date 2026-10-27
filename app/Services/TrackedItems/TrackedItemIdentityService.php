@@ -238,6 +238,10 @@ class TrackedItemIdentityService
                 throw ValidationException::withMessages(['source_uuid' => __('form_errors.the_source_reference_has_active_children_resolve_the_hierarchy_before_recording_an')]);
             }
 
+            if ($source->is_shared_expense_counterpart && ! $canonical->is_shared_expense_counterpart) {
+                $canonical->update(['is_shared_expense_counterpart' => true]);
+            }
+
             $source->update(['is_active' => false]);
 
             $alias = TrackedItemAlias::query()->create([

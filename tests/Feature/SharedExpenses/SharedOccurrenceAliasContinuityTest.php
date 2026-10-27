@@ -6,6 +6,7 @@ use App\Models\CounterpartyObligation;
 use App\Models\CounterpartySourceLink;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
@@ -95,6 +96,35 @@ test('an untouched occurrence with a secondary plan counterparty resolves the ca
     $record = $payer === 'self' ? app(RecurringEntryPostingService::class)->post($occurrence, $this->actor) : app(SharedExpenseOccurrencePostingService::class)->post($occurrence, $this->actor);
     expect($record instanceof Transaction ? $record->shared_expense_counterparty_id : $record->counterparty_id)->toBe($this->target->id)
         ->and($occurrence->recurringEntry->fresh()->shared_expense_counterparty_id)->toBe($this->source->id);
+})->with(['bank' => ['self'], 'external' => ['counterparty']]);
+
+test('merging duplicate people retains the shared role for future payments without rewriting history', function (string $payer) {
+    $this->source->update(['name' => 'Mario Rossi', 'slug' => 'mario-rossi-old']);
+    $this->target->update(['name' => 'Mario Rossi', 'slug' => 'mario-rossi', 'is_shared_expense_counterpart' => false]);
+    $historical = continuityOccurrence($this, $payer);
+    $entry = $historical->recurringEntry;
+    $post = fn (RecurringEntryOccurrence $occurrence, array $metadata = []): Transaction|SharedExpenseLedgerEntry => $payer === 'self'
+        ? app(RecurringEntryPostingService::class)->post($occurrence, $this->actor, $metadata)
+        : app(SharedExpenseOccurrencePostingService::class)->post($occurrence, $this->actor, $metadata);
+    $record = $post($historical);
+    $recordBefore = $record->fresh()->getRawOriginal();
+    $partial = continuityOccurrence($this, sequence: 2, entry: $entry);
+    continuityComponent($this, $partial);
+    $next = continuityOccurrence($this, $payer, 3, $entry);
+    $before = continuitySnapshot();
+    $planBefore = $entry->fresh()->getRawOriginal();
+
+    app(TrackedItemIdentityService::class)->register($this->actor, $this->source, $this->target);
+
+    expect(continuitySnapshot())->toEqual($before)
+        ->and($entry->fresh()->getRawOriginal())->toEqual($planBefore)
+        ->and(app(SharedOccurrenceCounterpartyResolver::class)->historicalIdentity($historical)['counterparty_id'])->toBe($this->source->id)
+        ->and(app(SharedOccurrenceCounterpartyResolver::class)->forPosting($partial)->id)->toBe($this->source->id);
+
+    $new = $post($next);
+    expect($this->target->fresh()->is_shared_expense_counterpart)->toBeTrue();
+    expect($new instanceof Transaction ? $new->shared_expense_counterparty_id : $new->counterparty_id)->toBe($this->target->id)
+        ->and($record->fresh()->getRawOriginal())->toEqual($recordBefore);
 })->with(['bank' => ['self'], 'external' => ['counterparty']]);
 
 test('persisted source links or obligations anchor an occurrence even without components', function (string $evidence) {
