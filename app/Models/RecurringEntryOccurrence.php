@@ -13,12 +13,16 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
+/** @property array{previous_status: 'pending'|'generated', reason: string|null}|null $not_due */
 class RecurringEntryOccurrence extends Model
 {
     use HasPublicUuid;
 
+    public const ACTIVE_PLAN_SCOPE = 'active_plan';
+
     protected static function booted(): void
     {
+        static::addGlobalScope(self::ACTIVE_PLAN_SCOPE, fn (Builder $query) => $query->whereHas('recurringEntry', fn (Builder $plans) => $plans->whereNull('recurring_entries.deleted_at')));
         static::updating(function (self $occurrence): void {
             foreach (['converted_transaction_id', 'matched_transaction_id'] as $link) {
                 if ($occurrence->isDirty($link) && $occurrence->getRawOriginal($link) !== null
@@ -69,6 +73,7 @@ class RecurringEntryOccurrence extends Model
 
     protected $casts = [
         'payment_estimated_date' => 'date', 'payment_reminder_date' => 'date', 'payment_resolved_at' => 'datetime', 'payment_actual_amount' => 'decimal:2', 'payment_actual_date' => 'date',
+        'not_due' => 'array',
         'automatic_posting_blocked_at' => 'datetime',
         'payment_failed_at' => 'datetime',
         'sequence_number' => 'integer',
@@ -83,7 +88,13 @@ class RecurringEntryOccurrence extends Model
 
     public function recurringEntry(): BelongsTo
     {
-        return $this->belongsTo(RecurringEntry::class);
+        return $this->belongsTo(RecurringEntry::class)->withTrashed();
+    }
+
+    /** Retain access to existing accounting links without exposing trashed plans operationally. */
+    public function scopeWithHistoricalPlan(Builder $query): Builder
+    {
+        return $query->withoutGlobalScope(self::ACTIVE_PLAN_SCOPE);
     }
 
     public function account(): BelongsTo
@@ -112,6 +123,22 @@ class RecurringEntryOccurrence extends Model
             $visible->whereRaw('COALESCE(due_date, expected_date) < ?', [today()->toDateString()])
                 ->orWhereDoesntHave('recurringEntry.compoundComponent', fn (Builder $component) => $component->whereNotNull('archived_at'));
         });
+    }
+
+    public function scopeWithoutNotDueEconomicLinks(Builder $query): Builder
+    {
+        return $query->whereNull('converted_transaction_id')->whereNull('matched_transaction_id')
+            ->whereDoesntHave('paymentAllocations')
+            ->whereDoesntHave('settlementTransactions', fn (Builder $transactions) => $transactions->withTrashed())
+            ->whereDoesntHave('sharedExpenseLedgerEntry')->whereDoesntHave('salaryDetail')
+            ->whereDoesntHave('paymentEvents')
+            ->whereNotIn('id', RecurringPlanRefundPayment::query()->select('occurrence_id')->whereNotNull('occurrence_id'));
+    }
+
+    public function scopeEligibleForNotDue(Builder $query): Builder
+    {
+        return $query->withoutNotDueEconomicLinks()->whereNull('not_due')
+            ->whereIn('status', [RecurringOccurrenceStatusEnum::PENDING->value, RecurringOccurrenceStatusEnum::GENERATED->value]);
     }
 
     public function scopeOpenObligations(Builder $query): Builder
@@ -182,6 +209,10 @@ class RecurringEntryOccurrence extends Model
 
     public function remainingPaymentCents(): int
     {
+        if ($this->not_due !== null) {
+            return 0;
+        }
+
         return max(0, $this->paymentTargetCents()
             - $this->allocatedPaymentCents() - $this->externalPaymentCents() - $this->personalPaymentCents());
     }

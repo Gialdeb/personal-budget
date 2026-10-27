@@ -1,1 +1,1 @@
-composer ci:check
+# Full checks run in GitHub Actions.

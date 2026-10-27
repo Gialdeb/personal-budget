@@ -264,6 +264,15 @@ class RecurringEntryController extends Controller
             ->with('success', __('transactions.flash.recurring_deleted'));
     }
 
+    public function restore(Request $request, RecurringEntry $recurringEntry): RedirectResponse
+    {
+        abort_if($recurringEntry->compoundComponent()->exists(), 403, __('compound_recurring.protected_component'));
+        $entry = $this->editableRecurringEntry($request, $recurringEntry);
+        $this->deleteRecurringEntryService->restore($entry);
+
+        return back()->with('success', __('ui.recurring_plan_restored'));
+    }
+
     public function previewPromotion(PreviewRecurringPromotionRequest $request, RecurringEntryValidatorService $validator, RecurringEntryOccurrenceGeneratorService $generator): JsonResponse
     {
         $data = $request->validated();

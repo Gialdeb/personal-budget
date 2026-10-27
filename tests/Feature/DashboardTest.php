@@ -2283,12 +2283,12 @@ test('dashboard arrears retain recent and old unpaid occurrences independently o
         'status' => 'active', 'is_active' => true, 'start_date' => '2026-09-01', 'recurrence_type' => 'monthly',
         'recurrence_interval' => 1, 'end_mode' => 'never', 'expected_amount' => 32,
         'is_amount_variable' => false, 'auto_create_transaction' => false, 'auto_generate_occurrences' => false]);
-    $rows = collect(['2026-09-01', '2026-10-01', '2026-10-12', '2026-10-02', '2026-10-03'])->map(fn (string $date, int $index): RecurringEntryOccurrence => $entry->occurrences()->create([
+    $rows = collect(['2026-09-01', '2026-10-01', '2026-10-12', '2026-10-02', '2026-10-03', '2026-09-15', '2026-10-04', '2026-10-05'])->map(fn (string $date, int $index): RecurringEntryOccurrence => $entry->occurrences()->create([
         'sequence_number' => $index + 1, 'expected_date' => $date, 'due_date' => $date, 'expected_amount' => 32,
         'status' => $index === 4 ? 'cancelled' : 'pending',
     ]));
     app(RecurringEntryPostingService::class)->post($rows[3], $user);
-    $expected = $rows->take(3)->map(fn (RecurringEntryOccurrence $row): string => 'recurring:'.$row->uuid)->all();
+    $expected = $rows->except([3, 4])->sortBy('expected_date')->map(fn (RecurringEntryOccurrence $row): string => 'recurring:'.$row->uuid)->values()->all();
     $this->actingAs($user);
     foreach (['2026-10-13', '2026-11-13'] as $date) {
         $this->travelTo(CarbonImmutable::parse($date));
@@ -2336,3 +2336,67 @@ test('dashboard upcoming events use the canonical residual for every recurring s
             ->where('dashboard.recurring_summary.planned_count', $visible ? 1 : 0)
             ->where('dashboard.credits_debts.arrears', []));
 })->with(['unpaid', 'completed', 'transaction', 'allocation', 'external']);
+
+test('upcoming agenda excludes cancelled plans without changing their records', function (string $date, bool $automatic, string $status) {
+    $this->travelTo(CarbonImmutable::parse('2026-10-13'));
+    $user = User::factory()->create();
+    $account = seedDashboardFixture($user);
+    $entry = RecurringEntry::create([
+        'user_id' => $user->id, 'account_id' => $account->id,
+        'title' => 'Agenda plan', 'direction' => 'expense', 'currency' => 'EUR', 'entry_type' => 'recurring',
+        'status' => $status, 'is_active' => $status === 'active', 'start_date' => '2026-09-01',
+        'recurrence_type' => 'monthly', 'recurrence_interval' => 1, 'end_mode' => 'never', 'expected_amount' => 32,
+        'is_amount_variable' => false, 'auto_create_transaction' => $automatic, 'auto_generate_occurrences' => false,
+    ]);
+    $occurrence = $entry->occurrences()->create([
+        'sequence_number' => 1, 'expected_date' => $date, 'due_date' => $date,
+        'expected_amount' => 32, 'status' => $automatic ? 'generated' : 'pending',
+    ]);
+    $transaction = null;
+    if ($automatic) {
+        $transaction = Transaction::create([
+            'user_id' => $user->id, 'account_id' => $account->id, 'amount' => 32,
+            'currency' => 'EUR', 'direction' => 'expense', 'transaction_date' => $date,
+            'kind' => 'manual', 'source_type' => 'generated', 'status' => 'confirmed',
+            'recurring_entry_occurrence_id' => $occurrence->id,
+            'payment_verification_started_at' => $date, 'payment_verification_due_at' => $date,
+        ]);
+        $occurrence->update(['converted_transaction_id' => $transaction->id]);
+    }
+    $entryBefore = $entry->fresh()->getAttributes();
+    $occurrenceBefore = $occurrence->fresh()->getAttributes();
+    $transactionBefore = $transaction?->fresh()->getAttributes();
+
+    $this->actingAs($user)->get(route('dashboard', ['year' => 2026, 'month' => 10]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.pending_actions.total_count', $status === 'cancelled' ? 0 : 1)
+            ->where('dashboard.pending_actions.items', fn ($items): bool => collect($items)->contains('id', 'recurring-'.$occurrence->id) === ($status !== 'cancelled')));
+
+    expect($entry->fresh()->getAttributes())->toBe($entryBefore)
+        ->and($occurrence->fresh()->getAttributes())->toBe($occurrenceBefore)
+        ->and($transaction?->fresh()->getAttributes())->toBe($transactionBefore);
+})->with([
+    'overdue cancelled' => ['2026-09-10', false, 'cancelled'],
+    'future cancelled' => ['2026-10-14', false, 'cancelled'],
+    'automatic cancelled' => ['2026-10-10', true, 'cancelled'],
+    'overdue active' => ['2026-09-10', false, 'active'],
+    'future active' => ['2026-10-14', false, 'active'],
+    'automatic active' => ['2026-10-10', true, 'active'],
+]);
+
+test('dashboard agenda returns all scheduled items for client pagination', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-13'));
+    $user = User::factory()->create();
+    $account = seedDashboardFixture($user);
+    $items = collect(range(14, 21))->map(fn (int $day): ScheduledEntry => ScheduledEntry::create([
+        'user_id' => $user->id, 'account_id' => $account->id,
+        'title' => 'Scheduled '.$day, 'direction' => 'expense', 'currency' => 'EUR',
+        'expected_amount' => 32, 'scheduled_date' => '2026-10-'.$day, 'status' => 'planned',
+    ]));
+    $this->actingAs($user)->get(route('dashboard', ['year' => 2026, 'month' => 10]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.pending_actions.total_count', 8)
+            ->where('dashboard.pending_actions.items', fn ($rows): bool => collect($rows)->pluck('id')->all() === $items->map(fn (ScheduledEntry $item): string => 'scheduled-'.$item->id)->all()));
+});

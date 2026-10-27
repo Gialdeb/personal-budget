@@ -328,12 +328,19 @@ test('an occurrence uses its persistent UUID and cumulative postings revise one 
         ->and(sharedRelationReport($user, $party)['delta_minor'])->toBe(0)->and(Transaction::count())->toBe(0);
 });
 
-test('recurring root cascade revokes captured external obligations before deleting occurrences', function () {
+test('recurring root trash preserves captured external obligations', function () {
     [$user, $party, $account] = sharedLedgerDomain();
     $occurrence = sharedLedgerOccurrence($user, $party, $account);
     app(SharedExpenseOccurrencePostingService::class)->post($occurrence, $user);
+    $reportBefore = sharedRelationReport($user, $party);
+    $ledgerBefore = CounterpartyLedgerEntry::query()->orderBy('id')->get()->map->getAttributes()->all();
     app(DeleteRecurringEntryService::class)->delete($occurrence->recurringEntry);
-    expect(sharedRelationReport($user, $party)['ledger_balance_minor'])->toBe(0)->and(sharedRelationReport($user, $party)['delta_minor'])->toBe(0)->and(CounterpartyObligation::count())->toBe(1);
+    $this->assertSoftDeleted($occurrence->recurringEntry);
+    $this->assertModelExists($occurrence);
+    $this->assertModelExists($occurrence->recurringEntry);
+    expect(sharedRelationReport($user, $party))->toBe($reportBefore)
+        ->and(CounterpartyLedgerEntry::query()->orderBy('id')->get()->map->getAttributes()->all())->toBe($ledgerBefore)
+        ->and(CounterpartyObligation::count())->toBe(1);
 });
 
 test('multiple effective documents with one occurrence identity are reported as duplicate and ambiguous', function () {
@@ -574,4 +581,26 @@ test('settlement revisions project the current document and retain original immu
     expect(CounterpartyPayment::query()->first()->amount_minor)->toBe(2000)->and($report['payments'][0]['original_amount_minor'])->toBe(2000)
         ->and($report['payments'][0]['amount_minor'])->toBe(3000)->and($report['payments'][0]['effective_minor'])->toBe(3000)
         ->and($report['delta_minor'])->toBe(0)->and($report['readiness'])->toBe('reconciled');
+});
+
+test('economic changes retain occurrence identity while its recurring plan is trashed', function () {
+    [$user, $party, $account] = sharedLedgerDomain();
+    $occurrence = sharedLedgerOccurrence($user, $party, $account);
+    $source = app(SharedExpenseOccurrencePostingService::class)->post($occurrence, $user);
+    $identity = CounterpartyObligation::query()->firstOrFail()->economic_identity;
+    $accountBefore = $account->fresh()->getAttributes();
+    $plan = $occurrence->recurringEntry;
+    app(DeleteRecurringEntryService::class)->delete($plan);
+    $source->update(['total_cents' => 8000, 'my_share_cents' => 4000, 'counterparty_share_cents' => 4000]);
+    expect($occurrence->fresh()->status->value)->toBe('pending')
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(2000)
+        ->and(CounterpartyObligation::query()->firstOrFail()->economic_identity)->toBe($identity)
+        ->and(CounterpartyObligation::count())->toBe(1)
+        ->and(sharedRelationReport($user, $party)['ledger_balance_minor'])->toBe(-4000)
+        ->and($account->fresh()->getAttributes())->toBe($accountBefore);
+    $history = CounterpartyLedgerEntry::query()->orderBy('id')->get()->map->getAttributes()->all();
+    app(DeleteRecurringEntryService::class)->restore($plan->fresh());
+    expect(CounterpartyLedgerEntry::query()->orderBy('id')->get()->map->getAttributes()->all())->toBe($history)
+        ->and($occurrence->fresh()->remainingPaymentCents())->toBe(2000)
+        ->and($account->fresh()->getAttributes())->toBe($accountBefore);
 });

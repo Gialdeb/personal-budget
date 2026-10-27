@@ -63,6 +63,7 @@ import {
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
+import { recurringOccurrenceHeading } from '@/lib/transaction-presentation.js';
 import { cn } from '@/lib/utils';
 import { index as recurringEntriesIndex } from '@/routes/recurring-entries';
 import type {
@@ -2312,20 +2313,45 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                     class="font-semibold text-slate-950 underline-offset-4 hover:underline dark:text-white"
                                                 >
                                                     {{
-                                                        occurrence.title ??
-                                                        occurrence
-                                                            .recurring_entry
-                                                            .title
+                                                        recurringOccurrenceHeading(
+                                                            occurrence,
+                                                            ui(
+                                                                'Piano ricorrente',
+                                                            ),
+                                                        ).title
                                                     }}
                                                 </Link>
                                                 <p
+                                                    v-else
+                                                    class="font-semibold text-slate-950 dark:text-white"
+                                                >
+                                                    {{
+                                                        recurringOccurrenceHeading(
+                                                            occurrence,
+                                                            ui(
+                                                                'Piano ricorrente',
+                                                            ),
+                                                        ).title
+                                                    }}
+                                                </p>
+                                                <p
+                                                    v-if="
+                                                        recurringOccurrenceHeading(
+                                                            occurrence,
+                                                            ui(
+                                                                'Piano ricorrente',
+                                                            ),
+                                                        ).subtitle
+                                                    "
                                                     class="text-xs text-slate-500 dark:text-slate-400"
                                                 >
                                                     {{
-                                                        occurrence.description ??
-                                                        t(
-                                                            'transactions.recurring.labels.noDescription',
-                                                        )
+                                                        recurringOccurrenceHeading(
+                                                            occurrence,
+                                                            ui(
+                                                                'Piano ricorrente',
+                                                            ),
+                                                        ).subtitle
                                                     }}
                                                 </p>
                                             </div>

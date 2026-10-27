@@ -52,6 +52,11 @@ export const dashboardMessages = {
             monthlyAverage: 'Media mensile',
             nextMonths: 'Prossimi mesi',
             heavyMonths: 'Mesi pesanti',
+            pagination: {
+                previous: 'Pagina precedente',
+                next: 'Pagina successiva',
+                page: 'Pagina {page} di {total}',
+            },
             upcomingEvents: 'Prossime uscite ed eventi finanziari',
             upcomingEventsDescription:
                 'Impegni già noti nel perimetro selezionato.',
@@ -496,6 +501,11 @@ export const dashboardMessages = {
             monthlyAverage: 'Monthly average',
             nextMonths: 'Next months',
             heavyMonths: 'Heavy months',
+            pagination: {
+                previous: 'Previous page',
+                next: 'Next page',
+                page: 'Page {page} of {total}',
+            },
             upcomingEvents: 'Upcoming expenses and financial events',
             upcomingEventsDescription:
                 'Known commitments in the selected scope.',

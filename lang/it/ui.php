@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'recurring_plan_restored' => 'Piano ripristinato dal cestino. Scadenze e stati sono stati conservati.',
+    'recurring_plan_delete_economic_links' => 'Operazione bloccata: il piano contiene transazioni, rimborsi o altri collegamenti economici. Nessun dato è stato modificato.',
+    'not_due_protected' => 'Questa scadenza non può essere segnata come non dovuta o ripristinata perché contiene collegamenti o storico economico.',
+    'occurrence_not_due' => 'Scadenza segnata come non dovuta.',
     'use_the_explicit_restart_date' => 'Usa la riattivazione con una data di ripartenza esplicita.',
     'restart_only_regular_recurring_plans' => 'Questa ripartenza è disponibile solo per ricorrenze ordinarie, non per rate o stipendi.',
     'restart_must_follow_interruption' => 'La ripartenza deve essere da oggi in poi e successiva all’interruzione.',

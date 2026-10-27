@@ -207,7 +207,7 @@ class TransactionMutationService
                 }
 
                 return $this->counterpartyShadow->convert($transaction, function () use ($user, $transaction, $account, $validated, $originalAccountId, $originalTransactionDate): SharedExpenseLedgerEntry {
-                    $occurrence = RecurringEntryOccurrence::query()
+                    $occurrence = RecurringEntryOccurrence::withHistoricalPlan()
                         ->where(function ($query) use ($transaction): void {
                             $query->where('converted_transaction_id', $transaction->id)->orWhere('matched_transaction_id', $transaction->id);
                         })->lockForUpdate()->first();

@@ -14,7 +14,7 @@ class AutomaticPaymentVerificationService
     public function confirm(Transaction $transaction): void
     {
         DB::transaction(function () use ($transaction): void {
-            $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($transaction->recurring_entry_occurrence_id);
+            $occurrence = RecurringEntryOccurrence::withHistoricalPlan()->lockForUpdate()->findOrFail($transaction->recurring_entry_occurrence_id);
             $current = Transaction::query()->lockForUpdate()->findOrFail($transaction->id);
             $this->lockedOccurrence($current);
             if (($occurrence->due_date ?? $occurrence->expected_date)->isFuture()) {
@@ -49,7 +49,7 @@ class AutomaticPaymentVerificationService
 
     protected function lockedOccurrence(Transaction $transaction): RecurringEntryOccurrence
     {
-        $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()
+        $occurrence = RecurringEntryOccurrence::withHistoricalPlan()->lockForUpdate()
             ->find($transaction->recurring_entry_occurrence_id);
         if ($occurrence === null
             || $occurrence->converted_transaction_id !== $transaction->id

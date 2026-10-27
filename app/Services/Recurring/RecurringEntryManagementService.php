@@ -438,6 +438,26 @@ class RecurringEntryManagementService
         });
     }
 
+    public function markOccurrenceNotDue(RecurringEntryOccurrence $occurrence, ?string $reason = null): RecurringEntryOccurrence
+    {
+        return DB::transaction(function () use ($occurrence, $reason): RecurringEntryOccurrence {
+            $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->id);
+            $occurrence->recurringEntry->ensureComponentIsMutable();
+            if ($occurrence->not_due !== null) {
+                return $occurrence;
+            }
+            if (! RecurringEntryOccurrence::query()->whereKey($occurrence->id)->eligibleForNotDue()->exists()) {
+                throw ValidationException::withMessages(['occurrence' => __('ui.not_due_protected')]);
+            }
+            $occurrence->forceFill([
+                'not_due' => ['previous_status' => $occurrence->status->value, 'reason' => $reason],
+                'status' => RecurringOccurrenceStatusEnum::SKIPPED,
+            ])->save();
+
+            return $occurrence->fresh();
+        });
+    }
+
     public function skipOccurrence(RecurringEntryOccurrence $occurrence): RecurringEntryOccurrence
     {
         return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
@@ -458,7 +478,20 @@ class RecurringEntryManagementService
             if ($occurrence->paymentAllocations()->exists() || $occurrence->settlementTransactions()->withTrashed()->exists() || $occurrence->status !== RecurringOccurrenceStatusEnum::SKIPPED || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->sharedExpenseLedgerEntry()->exists()) {
                 throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_restored_30386567')]);
             }
-            $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::PENDING])->save();
+            if ($occurrence->not_due !== null) {
+                if (! RecurringEntryOccurrence::query()->whereKey($occurrence->id)->withoutNotDueEconomicLinks()->exists()
+                    || ! in_array($occurrence->not_due['previous_status'] ?? null, ['pending', 'generated'], true)) {
+                    throw ValidationException::withMessages(['occurrence' => __('ui.not_due_protected')]);
+                }
+                $occurrence->forceFill([
+                    'status' => $occurrence->not_due['previous_status'],
+                    'not_due' => null,
+                    'automatic_posting_blocked_at' => $occurrence->automatic_posting_blocked_at
+                        ?? ($occurrence->recurringEntry->auto_create_transaction && ($occurrence->due_date ?? $occurrence->expected_date)->lte(today()) ? now() : null),
+                ])->save();
+            } else {
+                $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::PENDING])->save();
+            }
 
             return $occurrence->fresh(['convertedTransaction']);
         });

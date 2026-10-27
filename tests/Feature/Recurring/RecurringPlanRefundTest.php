@@ -187,11 +187,18 @@ test('one transaction allocated to multiple occurrences is refunded only for its
         ->and(Transaction::where('kind', 'refund')->count())->toBe(1);
 });
 
-test('irreversible refunds prevent plan deletion without removing its history', function () {
+test('plan trash and restore preserve irreversible refunds and their payment history', function () {
     app(RecurringPlanRefundService::class)->refund($this->actor, $this->entry->uuid, $this->refundData);
-    expect(fn () => app(DeleteRecurringEntryService::class)->delete($this->entry))->toThrow(ValidationException::class);
-    expect($this->entry->fresh())->not->toBeNull()
-        ->and($this->payment->fresh())->not->toBeNull()
+    $before = Transaction::withTrashed()->orderBy('id')->get()->map->getAttributes()->all();
+    $paymentsBefore = RecurringPlanRefundPayment::query()->orderBy('id')->get()->map->getAttributes()->all();
+    $accountBefore = $this->account->fresh()->getAttributes();
+    app(DeleteRecurringEntryService::class)->delete($this->entry);
+    $this->assertSoftDeleted($this->entry);
+    app(DeleteRecurringEntryService::class)->restore($this->entry->fresh());
+    expect($this->entry->fresh()->trashed())->toBeFalse()
+        ->and(Transaction::withTrashed()->orderBy('id')->get()->map->getAttributes()->all())->toBe($before)
+        ->and(RecurringPlanRefundPayment::query()->orderBy('id')->get()->map->getAttributes()->all())->toBe($paymentsBefore)
+        ->and($this->account->fresh()->getAttributes())->toBe($accountBefore)
         ->and(RecurringPlanRefund::count())->toBe(1);
 });
 

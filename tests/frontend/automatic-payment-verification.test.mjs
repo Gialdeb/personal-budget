@@ -204,10 +204,13 @@ test('dashboard cards render only actions appropriate to due date and payment mo
     );
     const end = page.indexOf('</article>', start) + '</article>'.length;
     assert.ok(start > 0 && end > start);
-    const { code } = compile(`<div>${page.slice(start, end)}</div>`, {
-        mode: 'function',
-        prefixIdentifiers: true,
-    });
+    const { code } = compile(
+        `<div>${page.slice(start, end).replace('<article', '<article v-for="item in dashboard.pending_actions.items"')}</div>`,
+        {
+            mode: 'function',
+            prefixIdentifiers: true,
+        },
+    );
     const render = new Function('Vue', code)(Vue);
     const element = (tag) => ({
         inheritAttrs: false,
@@ -276,11 +279,31 @@ test('dashboard cards render only actions appropriate to due date and payment mo
         payment_management: { state: 'to_verify' },
         recurrence_mode: 'automatic',
     });
+    const article = baseParse(automatic).children[0].children.find(
+        (node) => node.type === 1 && node.tag === 'article',
+    );
+    const rows = article.children.filter((node) => node.type === 1);
+    assert.deepEqual(
+        rows.map((node) => node.tag),
+        ['div', 'div', 'div'],
+    );
+    assert.match(
+        automatic.slice(rows[0].loc.start.offset, rows[0].loc.end.offset),
+        /Plan[\s\S]*€ 15/,
+    );
+    assert.match(
+        automatic.slice(rows[1].loc.start.offset, rows[1].loc.end.offset),
+        /2026-10-09[\s\S]*Ricorrenza automatica/,
+    );
+    assert.match(
+        automatic.slice(rows[2].loc.start.offset, rows[2].loc.end.offset),
+        /Gestisci pagamento[\s\S]*Conferma/,
+    );
     assert.match(automatic, />Conferma<\/button>/);
     assert.match(automatic, /Gestisci pagamento/);
     assert.ok(automatic.includes('grid-cols-[minmax(0,1fr)_auto]'));
     assert.match(automatic, /size-9/);
-    assert.ok(automatic.includes('min-[380px]:grid-cols-2'));
+    assert.ok(automatic.includes('mt-auto flex min-w-0 flex-wrap'));
     assert.match(automatic, /rounded-xl/);
     assert.doesNotMatch(automatic, /Conferma pagamento|<input/);
     const manual = await card({
@@ -344,7 +367,7 @@ test('dashboard cards render only actions appropriate to due date and payment mo
                 (prop) =>
                     prop.type === 6 &&
                     prop.name === 'class' &&
-                    prop.value?.content.includes('min-[380px]:grid-cols-2'),
+                    prop.value?.content.includes('empty:hidden'),
             )
         ) {
             return node;
@@ -364,8 +387,9 @@ test('dashboard cards render only actions appropriate to due date and payment mo
         const classes = action.props
             .find((prop) => prop.type === 6 && prop.name === 'class')
             .value.content.split(/\s+/);
-        assert.ok(classes.includes('w-full'));
-        assert.ok(classes.includes('min-h-11'));
+        assert.ok(classes.includes('w-auto'));
+        assert.ok(!classes.includes('w-full'));
+        assert.ok(classes.includes('h-8'));
         assert.ok(!classes.includes('col-span-full'));
         assert.ok(!classes.includes('ml-auto'));
     }
@@ -389,7 +413,8 @@ test('dashboard cards render only actions appropriate to due date and payment mo
             (prop) =>
                 prop.type === 6 &&
                 prop.name === 'class' &&
-                prop.value.content.includes('col-span-full'),
+                prop.value.content.includes('h-8') &&
+                !prop.value.content.includes('w-full'),
         ),
     );
 
@@ -407,4 +432,71 @@ test('dashboard cards render only actions appropriate to due date and payment mo
         payment_management: { state: 'pending' },
     });
     assert.match(overdue, /Scaduto/);
+});
+
+test('dashboard lists share equal desktop columns and independent pagers', () => {
+    const page = source('resources/js/pages/dashboard/Analysis.vue');
+    assert.match(
+        page,
+        /grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2/,
+    );
+    assert.match(page, /:items="dashboard.credits_debts.arrears"/);
+    assert.match(page, /:items="dashboard.pending_actions.items"/);
+    assert.equal((page.match(/<DashboardPager/g) ?? []).length, 2);
+    assert.match(
+        page,
+        /class="flex min-w-0 flex-col gap-2 rounded-xl border bg-muted\/25 p-3"/,
+    );
+});
+
+test('arrears desktop height follows the exact natural upcoming widget measurement', () => {
+    const page = source('resources/js/pages/dashboard/Analysis.vue');
+    const lifecycle = page.slice(
+        page.indexOf('const upcomingWidget ='),
+        page.indexOf('const manualPayment ='),
+    );
+    let mounted;
+    let cleanup;
+    let observer;
+    const { upcomingWidget, upcomingWidgetHeight } = new Function(
+        'ref',
+        'onMounted',
+        'onBeforeUnmount',
+        'ResizeObserver',
+        `${ts.transpile(lifecycle, { target: ts.ScriptTarget.ES2022 })}; return { upcomingWidget, upcomingWidgetHeight };`,
+    )(
+        (value) => ({ value }),
+        (callback) => {
+            mounted = callback;
+        },
+        (callback) => {
+            cleanup = callback;
+        },
+        class {
+            constructor(callback) {
+                observer = { callback };
+            }
+            observe(element) {
+                observer.element = element;
+            }
+            disconnect() {
+                observer.disconnected = true;
+            }
+        },
+    );
+    let height = 347.5;
+    const widget = { getBoundingClientRect: () => ({ height }) };
+    upcomingWidget.value = widget;
+    mounted();
+    assert.equal(observer.element, widget);
+    observer.callback();
+    assert.equal(upcomingWidgetHeight.value, '347.5px');
+    height = 516.25;
+    observer.callback();
+    assert.equal(upcomingWidgetHeight.value, '516.25px');
+    assert.match(page, /'--dashboard-upcoming-height': upcomingWidgetHeight/);
+    assert.match(page, /lg:h-\[var\(--dashboard-upcoming-height\)\]/);
+    assert.match(page, /:items="dashboard.credits_debts.arrears"\s+fill/);
+    cleanup();
+    assert.equal(observer.disconnected, true);
 });

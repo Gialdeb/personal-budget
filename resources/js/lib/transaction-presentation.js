@@ -179,3 +179,76 @@ export function matchesSharedLedgerDisplay(movement, filters) {
         filters.account === 'all'
     );
 }
+
+/** Presentation only: preserve saved text and compare labels independently of case and whitespace. */
+export function cleanRecordText(value) {
+    return typeof value === 'string'
+        ? value.normalize('NFC').replace(/\s+/gu, ' ').trim()
+        : '';
+}
+
+export function sameRecordText(left, right) {
+    const key = (value) =>
+        cleanRecordText(value).replace(/\s/gu, '').toLowerCase();
+
+    return key(left) === key(right);
+}
+
+export function recordHeading(primary, secondary, fallback) {
+    const title =
+        primary.map(cleanRecordText).find(Boolean) || cleanRecordText(fallback);
+    const subtitles = [];
+
+    for (const value of secondary.map(cleanRecordText).filter(Boolean)) {
+        if (
+            !sameRecordText(value, title) &&
+            !subtitles.some((text) => sameRecordText(text, value))
+        ) {
+            subtitles.push(value);
+        }
+    }
+
+    return { title, subtitle: subtitles.join(' · ') || null };
+}
+
+export function transactionHeading(transaction, fallback) {
+    const record = transaction ?? {};
+    const metadata = [
+        record.tracked_item_label,
+        record.category_label,
+        record.category_path,
+        record.account_label,
+        record.scope_label,
+        record.shared_expense_counterparty_label,
+    ];
+    const detail = metadata.some(
+        (label) =>
+            cleanRecordText(label) && sameRecordText(label, record.detail),
+    )
+        ? null
+        : record.detail;
+
+    return recordHeading(
+        [record.description, detail],
+        [detail, record.notes],
+        fallback,
+    );
+}
+
+export function recurringPlanHeading(plan, fallback) {
+    return recordHeading(
+        [plan?.title, plan?.description],
+        [plan?.description],
+        fallback,
+    );
+}
+
+export function recurringOccurrenceHeading(occurrence, fallback) {
+    const plan = occurrence?.recurring_entry;
+
+    return recordHeading(
+        [plan?.title, occurrence?.title, occurrence?.description],
+        [occurrence?.description, plan?.description],
+        fallback,
+    );
+}

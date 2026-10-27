@@ -85,10 +85,10 @@ class SharedSourceProjector
         }
         $occurrences = collect();
         if ($source->recurring_entry_occurrence_id !== null) {
-            $occurrences->push(RecurringEntryOccurrence::query()->findOrFail($source->recurring_entry_occurrence_id));
+            $occurrences->push(RecurringEntryOccurrence::withHistoricalPlan()->findOrFail($source->recurring_entry_occurrence_id));
         }
         if ($source instanceof Transaction) {
-            $occurrences = $occurrences->concat(RecurringEntryOccurrence::query()->where('converted_transaction_id', $source->id)->orWhere('matched_transaction_id', $source->id)->get());
+            $occurrences = $occurrences->concat(RecurringEntryOccurrence::withHistoricalPlan()->where('converted_transaction_id', $source->id)->orWhere('matched_transaction_id', $source->id)->get());
         }
         $occurrences = $occurrences->unique('id');
         if ($occurrences->count() > 1) {

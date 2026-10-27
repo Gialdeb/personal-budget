@@ -26,7 +26,7 @@ return [
         'restored' => 'Transazione ripristinata correttamente.',
         'recurring_created' => 'Movimento programmato creato correttamente.',
         'recurring_updated' => 'Movimento programmato aggiornato correttamente.',
-        'recurring_deleted' => 'Piano e transazioni collegate eliminati definitivamente.',
+        'recurring_deleted' => 'Piano spostato nel cestino. Scadenze e storico conservati.',
         'recurring_occurrence_amount_updated' => 'Importo della ricorrenza aggiornato correttamente.',
         'recurring_occurrence_updated' => 'Scadenza della ricorrenza aggiornata correttamente.',
         'recurring_occurrence_converted' => 'Occorrenza convertita nella transazione :uuid.',

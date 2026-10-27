@@ -64,6 +64,7 @@ import RecurringCostTrend from '@/components/recurring/RecurringCostTrend.vue';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringPlanRefund from '@/components/recurring/RecurringPlanRefund.vue';
 import RecurringPriceConditions from '@/components/recurring/RecurringPriceConditions.vue';
+import ReferenceAvatar from '@/components/ReferenceAvatar.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import { Badge } from '@/components/ui/badge';
@@ -100,6 +101,7 @@ import {
     annualOccurrencesProgress,
     recurringPlanProgress,
 } from '@/lib/recurring-plan-progress';
+import { recurringPlanHeading } from '@/lib/transaction-presentation.js';
 import type {
     Auth,
     BreadcrumbItem,
@@ -169,9 +171,17 @@ async function toggleCancelled(year: number): Promise<void> {
     showCancelledYears.value[year] = !showCancelledYears.value[year];
     await loadYear(year, 0, true);
 }
-const pageTitle = computed(
-    () => props.compound?.name ?? props.recurringEntry.entry.title,
+const planHeading = computed(() =>
+    recurringPlanHeading(
+        {
+            ...props.recurringEntry.entry,
+            title: props.compound?.name || props.recurringEntry.entry.title,
+        },
+        ui('Piano ricorrente'),
+    ),
 );
+const pageTitle = computed(() => planHeading.value.title);
+const headingDescription = computed(() => planHeading.value.subtitle);
 function occurrenceOwner(uuid: string): string {
     const row = Object.values(yearRows.value)
         .flat()
@@ -358,18 +368,45 @@ function toggleYear(year: number): void {
         }
     }
 }
+const notDueOpen = ref(false);
+const notDueOccurrence = ref<
+    (typeof props.recurringEntry.occurrences)[number] | null
+>(null);
+const notDueForm = useForm({ not_due: true, confirmed: true, reason: '' });
 function toggleSkippedOccurrence(
     occurrence: (typeof props.recurringEntry.occurrences)[number],
 ): void {
-    if (!occurrence.can_skip && !occurrence.can_restore) {
+    if (occurrence.can_restore) {
+        router.patch(
+            restoreOccurrence.url([
+                occurrenceOwner(occurrence.uuid),
+                occurrence.uuid,
+            ]),
+            {},
+            { preserveScroll: true },
+        );
+    } else if (occurrence.can_mark_not_due) {
+        notDueForm.reset();
+        notDueForm.clearErrors();
+        notDueOccurrence.value = occurrence;
+        notDueOpen.value = true;
+    }
+}
+function markNotDue(): void {
+    const occurrence = notDueOccurrence.value;
+
+    if (!occurrence?.can_mark_not_due) {
         return;
     }
 
-    const action = occurrence.can_restore ? restoreOccurrence : skipOccurrence;
-    router.patch(
-        action.url([occurrenceOwner(occurrence.uuid), occurrence.uuid]),
-        {},
-        { preserveScroll: true },
+    notDueForm.patch(
+        skipOccurrence.url([occurrenceOwner(occurrence.uuid), occurrence.uuid]),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                notDueOpen.value = false;
+            },
+        },
     );
 }
 const page = usePage();
@@ -1164,6 +1201,13 @@ function occurrenceState(
     label: string;
     tone: string;
 } {
+    if (occurrence.not_due) {
+        return {
+            label: ui('Non dovuta'),
+            tone: 'bg-muted text-muted-foreground',
+        };
+    }
+
     if (occurrence.external_payment?.settled) {
         return {
             label: `Pagata da ${occurrence.external_payment.payer ?? 'controparte'}`,
@@ -1726,24 +1770,33 @@ function isFutureOccurrence(
                             </Badge>
                         </div>
 
-                        <div class="space-y-2">
-                            <h1
-                                data-onboarding="recurring-detail.step1"
-                                class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
-                            >
-                                {{ pageTitle }}
-                            </h1>
-                            <p
-                                v-if="!compound"
-                                class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
-                            >
-                                {{
-                                    entry.description ??
-                                    t(
-                                        'transactions.recurring.labels.noDescription',
-                                    )
-                                }}
-                            </p>
+                        <div class="flex items-start gap-3">
+                            <ReferenceAvatar
+                                :name="entry.tracked_item?.name || pageTitle"
+                                :logo-url="entry.tracked_item?.logo_url"
+                                class="size-12 shrink-0 rounded-xl"
+                            />
+                            <div class="min-w-0 space-y-1">
+                                <h1
+                                    data-onboarding="recurring-detail.step1"
+                                    class="text-3xl font-semibold tracking-tight break-words text-slate-950 dark:text-white"
+                                >
+                                    {{ pageTitle }}
+                                </h1>
+                                <p
+                                    v-if="headingDescription"
+                                    class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
+                                    {{ headingDescription }}
+                                </p>
+                                <p
+                                    v-if="entry.tracked_item"
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    {{ ui('Riferimento') }}:
+                                    {{ entry.tracked_item.name }}
+                                </p>
+                            </div>
                         </div>
 
                         <div
@@ -3484,7 +3537,7 @@ function isFutureOccurrence(
                                     </Button>
                                     <Button
                                         v-if="
-                                            occurrence.can_skip ||
+                                            occurrence.can_mark_not_due ||
                                             occurrence.can_restore
                                         "
                                         variant="outline"
@@ -3497,10 +3550,16 @@ function isFutureOccurrence(
                                             t(
                                                 occurrence.can_restore
                                                     ? 'transactions.recurring.actions.restoreOccurrence'
-                                                    : 'transactions.recurring.actions.skipOccurrence',
+                                                    : 'transactions.recurring.actions.markNotDue',
                                             )
                                         }}
                                     </Button>
+                                    <p
+                                        v-if="occurrence.not_due?.reason"
+                                        class="basis-full text-xs text-muted-foreground"
+                                    >
+                                        {{ occurrence.not_due.reason }}
+                                    </p>
                                     <Button
                                         v-if="
                                             occurrence.can_convert &&
@@ -4107,7 +4166,7 @@ function isFutureOccurrence(
                                                 </Button>
                                                 <Button
                                                     v-if="
-                                                        occurrence.can_skip ||
+                                                        occurrence.can_mark_not_due ||
                                                         occurrence.can_restore
                                                     "
                                                     variant="outline"
@@ -4122,10 +4181,22 @@ function isFutureOccurrence(
                                                         t(
                                                             occurrence.can_restore
                                                                 ? 'transactions.recurring.actions.restoreOccurrence'
-                                                                : 'transactions.recurring.actions.skipOccurrence',
+                                                                : 'transactions.recurring.actions.markNotDue',
                                                         )
                                                     }}
                                                 </Button>
+                                                <p
+                                                    v-if="
+                                                        occurrence.not_due
+                                                            ?.reason
+                                                    "
+                                                    class="basis-full text-xs text-muted-foreground"
+                                                >
+                                                    {{
+                                                        occurrence.not_due
+                                                            .reason
+                                                    }}
+                                                </p>
                                                 <Button
                                                     v-if="
                                                         occurrence.can_convert &&
@@ -5064,5 +5135,53 @@ function isFutureOccurrence(
             :sheet="props.transactionSheet"
             :payment-occurrence="paymentOccurrence"
         />
+        <Dialog v-model:open="notDueOpen">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{{ ui('Segna come non dovuto') }}</DialogTitle>
+                    <DialogDescription>{{
+                        ui(
+                            'La scadenza resterà nello storico come Non dovuta e sarà esclusa dagli importi da pagare. Potrai ripristinarla senza registrare movimenti.',
+                        )
+                    }}</DialogDescription>
+                </DialogHeader>
+                <form class="space-y-4" @submit.prevent="markNotDue">
+                    <div class="space-y-2">
+                        <label
+                            for="not-due-reason"
+                            class="text-sm font-medium"
+                            >{{ ui('Motivazione facoltativa') }}</label
+                        >
+                        <Input
+                            id="not-due-reason"
+                            v-model="notDueForm.reason"
+                            :maxlength="1000"
+                            :disabled="notDueForm.processing"
+                        />
+                        <InputError :message="notDueForm.errors.reason" />
+                    </div>
+                    <InputError
+                        :message="
+                            (notDueForm.errors as Record<string, string>)
+                                .occurrence ?? notDueForm.errors.confirmed
+                        "
+                    />
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            :disabled="notDueForm.processing"
+                            @click="notDueOpen = false"
+                            >{{ ui('Annulla') }}</Button
+                        >
+                        <Button
+                            type="submit"
+                            :disabled="notDueForm.processing"
+                            >{{ ui('Conferma') }}</Button
+                        >
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     </AppLayout>
 </template>
