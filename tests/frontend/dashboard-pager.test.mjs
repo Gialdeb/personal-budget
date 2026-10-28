@@ -194,7 +194,12 @@ function mount(items, reducedMotion = false, geometry = {}) {
         setup: () => () =>
             Vue.h(
                 Pager,
-                { items: state.items, label: 'Agenda', fill: geometry.fill },
+                {
+                    items: state.items,
+                    label: 'Agenda',
+                    fill: geometry.fill,
+                    compactMobile: geometry.compactMobile,
+                },
                 {
                     default: ({ item }) =>
                         Vue.h('article', { 'data-item': item }, item),
@@ -406,4 +411,61 @@ test('desktop fill follows available reference space and mobile stays bounded by
     assert.equal(mobile.groups().length, 1);
     assert.equal(mobile.buttons().length, 0);
     mobile.app.unmount();
+});
+
+for (const heights of [[100], [100, 100], [100, 100, 100, 100, 100, 100]]) {
+    test(`compact mobile pager fits active content for ${heights.length} movements`, async () => {
+        const view = mount(
+            heights.map((_, i) => i),
+            false,
+            {
+                heights,
+                desktop: false,
+                screenHeight: 800,
+                compactMobile: true,
+            },
+        );
+        await settle();
+        assert.equal(
+            view.viewport().props.style.height,
+            `${Math.min(heights.length, 3) * 108}px`,
+        );
+
+        if (heights.length > 3) {
+            const last = view
+                .buttons()
+                .filter(
+                    (node) =>
+                        node.props['aria-current'] !== undefined ||
+                        node.props['aria-label']?.includes('/'),
+                )
+                .at(-1);
+            last.props.onClick();
+            await settle();
+            assert.equal(view.viewport().props.style.height, '324px');
+        }
+
+        view.app.unmount();
+    });
+}
+
+test('compact mobile last page does not reserve space for fuller pages', async () => {
+    const view = mount([1, 2, 3, 4], false, {
+        heights: [100, 100, 100, 100],
+        desktop: false,
+        screenHeight: 800,
+        compactMobile: true,
+    });
+    await settle();
+    view.buttons().at(-1).props.onClick();
+    await settle();
+    assert.equal(view.viewport().props.style.height, '108px');
+    assert.deepEqual(
+        view
+            .all()
+            .filter((node) => node.type === 'article')
+            .map((node) => node.props['data-item']),
+        [1, 2, 3, 4],
+    );
+    view.app.unmount();
 });

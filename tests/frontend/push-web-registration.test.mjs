@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 const pushLibrarySource = readFileSync(
     new URL('../../resources/js/lib/push-notifications.ts', import.meta.url),
@@ -263,3 +264,99 @@ test('the root service worker initializes Firebase from a postMessage config and
     );
     assert.match(serviceWorkerSource, /clients\.openWindow/);
 });
+
+for (const sdkAvailable of [true, false]) {
+    test(`background data push displays without an open page (SDK: ${sdkAvailable})`, async () => {
+        const listeners = {};
+        const shown = [];
+        const cache = new Map();
+        let backgroundHandler;
+        const config = {
+            cache_names: {},
+            precache_urls: [],
+            firebase_messaging: {
+                apiKey: 'test',
+                projectId: 'test',
+                appId: 'test',
+                messagingSenderId: 'test',
+            },
+        };
+        const script = serviceWorkerSource
+            .replace(/'{{ \$config\['version'\] }}'/g, "'test'")
+            .replace(/'{{ \$config\['offline_url'\] }}'/g, "'/offline.html'")
+            .replace(
+                /^const config = .*;$/m,
+                `const config = ${JSON.stringify(config)};`,
+            )
+            .replace(
+                /\{!! .*file_get_contents.* !!\}/g,
+                JSON.stringify('offline'),
+            );
+        runInNewContext(script, {
+            console,
+            Response,
+            firebase: sdkAvailable
+                ? {
+                      initializeApp() {},
+                      messaging: () => ({
+                          onBackgroundMessage(handler) {
+                              backgroundHandler = handler;
+                          },
+                      }),
+                  }
+                : undefined,
+            self: {
+                navigator: { onLine: true },
+                importScripts() {
+                    if (!sdkAvailable) {
+                        throw new Error('offline SDK');
+                    }
+                },
+                addEventListener: (name, handler) => {
+                    listeners[name] = handler;
+                },
+                registration: {
+                    getNotifications: async () => [],
+                    showNotification: async (title, options) => {
+                        shown.push({ title, options });
+                    },
+                },
+            },
+            caches: {
+                open: async () => ({
+                    match: async (key) => cache.get(key)?.clone(),
+                    put: async (key, value) => {
+                        cache.set(key, value);
+                    },
+                    delete: async (key) => cache.delete(key),
+                }),
+            },
+        });
+        const payload = {
+            data: {
+                title: 'Promemoria',
+                body: 'Test locale',
+                url: '/dashboard',
+                broadcast_uuid: 'test-id',
+            },
+        };
+        const pending = [];
+        listeners.push({
+            data: { json: () => payload },
+            waitUntil: (promise) => pending.push(promise),
+        });
+
+        if (sdkAvailable) {
+            assert.equal(pending.length, 0);
+            await backgroundHandler(payload);
+        } else {
+            assert.equal(pending.length, 1);
+            await Promise.all(pending);
+        }
+
+        assert.equal(shown.length, 1);
+        assert.equal(shown[0].title, 'Promemoria');
+        assert.equal(shown[0].options.body, 'Test locale');
+        assert.equal(shown[0].options.data.url, '/dashboard');
+    });
+}

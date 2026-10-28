@@ -239,6 +239,7 @@ export function initializeSessionIsolation(
         }
     });
     window.addEventListener('online', () => void validate());
+    window.addEventListener('soamco:retry-session', () => void validate());
     window.addEventListener('soamco:network-restored', () => {
         if (!document.hidden) {
             void validate();

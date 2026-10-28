@@ -54,7 +54,7 @@ Schedule::command('reminders:daily')
     ->name('daily-reminders');
 
 Schedule::command('reminders:daily-expenses')
-    ->dailyAt('21:00')
+    ->everyMinute()
     ->timezone('Europe/Rome')
     ->withoutOverlapping()
     ->onOneServer()

@@ -12,7 +12,12 @@ import {
 } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-const props = defineProps<{ items: T[]; label: string; fill?: boolean }>();
+const props = defineProps<{
+    items: T[];
+    label: string;
+    fill?: boolean;
+    compactMobile?: boolean;
+}>();
 defineSlots<{ default(props: { item: T }): unknown }>();
 const { t } = useI18n();
 const root = ref<HTMLElement | null>(null);
@@ -22,6 +27,7 @@ const activePage = ref(0);
 const viewportId = useId();
 const heights = ref<number[]>([]);
 const availableHeight = ref(Infinity);
+const isDesktop = ref(true);
 const gap = ref(0);
 const padding = ref(0);
 const controlsHeight = ref(0);
@@ -72,7 +78,10 @@ const viewportHeight = computed(() => {
 
     const tallest = Math.max(
         0,
-        ...pages.value.map(
+        ...(props.compactMobile && !isDesktop.value
+            ? pages.value.slice(activePage.value, activePage.value + 1)
+            : pages.value
+        ).map(
             (page) =>
                 page.reduce(
                     (sum, entry) => sum + (heights.value[entry.index] ?? 0),
@@ -128,6 +137,7 @@ function measure(): void {
     }
 
     const desktop = window.matchMedia('(min-width: 1024px)').matches;
+    isDesktop.value = desktop;
     const section = element.closest('section');
     const chrome = section
         ? section.getBoundingClientRect().height -

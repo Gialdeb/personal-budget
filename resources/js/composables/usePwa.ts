@@ -202,6 +202,10 @@ async function disablePwa(): Promise<void> {
     await clearPwaCaches();
 }
 
+export function notifyPwaUpdateAvailable(): void {
+    isUpdateReady.value = true;
+}
+
 function setWaitingWorker(worker: ServiceWorker | null): void {
     waitingWorker.value = worker;
     isUpdateReady.value = worker !== null;

@@ -343,3 +343,37 @@ test('reconnection revalidates even a retained foreground page before trusting a
     assert.equal(h.state.hidden, true);
     assert.equal(h.state.reloads, 1);
 });
+
+test('iOS offline suspension recovery reveals the existing valid page without navigation', async () => {
+    const h = harness('A');
+    await h.initialize('A');
+    h.scope.document.hidden = true;
+    h.events.visibilitychange();
+    h.scope.navigator.onLine = false;
+    h.scope.document.hidden = false;
+    h.events.visibilitychange();
+    await new Promise(setImmediate);
+    assert.equal(h.state.hidden, true);
+    assert.equal(h.state.reloads, 0);
+    h.scope.navigator.onLine = true;
+    h.events['soamco:retry-session']();
+    await new Promise(setImmediate);
+    assert.equal(h.state.hidden, false);
+    assert.equal(h.state.reloads, 0);
+    assert.equal(h.state.requests.length, 2);
+    h.events.pagehide();
+    h.events.pageshow({ persisted: true });
+    await new Promise(setImmediate);
+    assert.equal(h.state.hidden, false);
+    assert.equal(h.state.reloads, 0);
+});
+
+test('embedded offline retry still conceals a changed session', async () => {
+    const h = harness('A');
+    await h.initialize('A');
+    h.state.uuid = 'B';
+    h.events['soamco:retry-session']();
+    await new Promise(setImmediate);
+    assert.equal(h.state.hidden, true);
+    assert.equal(h.state.reloads, 1);
+});

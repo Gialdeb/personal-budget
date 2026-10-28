@@ -111,3 +111,24 @@ test('guests cannot trigger session warning endpoints', function () {
     $this->postJson(route('session.warning.trigger'))->assertUnauthorized();
     $this->postJson(route('session.keep-alive'))->assertUnauthorized();
 });
+
+test('session expiry metadata follows the configured lifetime after login and renewal', function () {
+    $this->freezeTime();
+    config(['session.lifetime' => 1440]);
+    $user = User::factory()->create();
+    $expiry = now(config('app.timezone'))->addDay()->toIso8601String();
+
+    $this->actingAs($user)->get(route('dashboard'))->assertInertia(
+        fn (Assert $page) => $page
+            ->where('sessionWarning.session_lifetime_seconds', 86400)
+            ->where('sessionWarning.expires_at', $expiry),
+    );
+    $this->getJson(route('session.status'))->assertOk()
+        ->assertJsonPath('expires_at', $expiry)
+        ->assertJsonPath('session_lifetime_seconds', 86400);
+
+    $this->travel(20)->minutes();
+    $this->postJson(route('session.keep-alive'))->assertOk()
+        ->assertJsonPath('expires_at', now(config('app.timezone'))->addDay()->toIso8601String())
+        ->assertJsonPath('session_lifetime_seconds', 86400);
+});

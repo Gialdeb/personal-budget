@@ -47,7 +47,7 @@ it('sends one localized push per local day without any internal notification', f
     ['en', "A little reminder 💜 Don't forget to log today's expenses!"],
 ]);
 
-it('uses Rome time including DST regardless of the user timezone', function (string $timezone, string $utc, string $localDate) {
+it('uses each user local time including DST', function (string $timezone, string $utc, string $localDate) {
     $user = dailyExpenseReminderUser(['timezone' => $timezone]);
     DeviceToken::factory()->for($user)->create();
     $this->travelTo(CarbonImmutable::parse($utc, 'UTC'));
@@ -62,8 +62,12 @@ it('uses Rome time including DST regardless of the user timezone', function (str
 })->with([
     'Rome spring DST' => ['Europe/Rome', '2026-03-29 19:00:00', '2026-03-29'],
     'Rome autumn DST' => ['Europe/Rome', '2026-10-25 20:00:00', '2026-10-25'],
-    'New York previous UTC day' => ['America/New_York', '2026-10-16 19:00:00', '2026-10-16'],
-    'Kathmandu fractional offset' => ['Asia/Kathmandu', '2026-10-16 19:00:00', '2026-10-16'],
+    'New York previous UTC day' => ['America/New_York', '2026-10-17 01:00:00', '2026-10-16'],
+    'Kathmandu fractional offset' => ['Asia/Kathmandu', '2026-10-16 15:15:00', '2026-10-16'],
+    'Rome incident date' => ['Europe/Rome', '2026-10-27 20:00:00', '2026-10-27'],
+    'Rome before autumn change' => ['Europe/Rome', '2026-10-24 19:00:00', '2026-10-24'],
+    'Rome before spring change' => ['Europe/Rome', '2026-03-28 20:00:00', '2026-03-28'],
+    'New York after autumn change' => ['America/New_York', '2026-11-02 02:00:00', '2026-11-01'],
 ]);
 
 it('skips users without consent preference timezone or the correct local time', function (array $settings, ?bool $activeToken, bool $featureEnabled) {
@@ -99,11 +103,11 @@ it('does not retry a delivery whose Firebase result is uncertain', function () {
         ->and(ReminderDelivery::query()->sole()->pushed_at)->toBeNull();
 });
 
-it('registers the reminder at 21 Rome time with overlap protection', function () {
+it('checks every minute for local 21 time with overlap protection', function () {
     $event = collect(app(Schedule::class)->events())->firstWhere('description', 'daily-expense-reminders');
 
     expect($event)->not->toBeNull()
-        ->and($event->expression)->toBe('0 21 * * *')
+        ->and($event->expression)->toBe('* * * * *')
         ->and($event->timezone)->toBe('Europe/Rome')
         ->and($event->withoutOverlapping)->toBeTrue()
         ->and($event->onOneServer)->toBeTrue();
@@ -129,8 +133,8 @@ it('does not require a stored timezone or an open PWA', function (array $setting
     expect(app(DailyExpenseReminderService::class)->run())->toBe(1);
 })->with([[[]], [['timezone' => 'invalid']]]);
 
-it('never sends outside 21 Rome time', function (string $utc) {
-    $user = dailyExpenseReminderUser(['timezone' => 'America/New_York']);
+it('never sends outside the user local 21 time', function (string $utc) {
+    $user = dailyExpenseReminderUser(['timezone' => 'Europe/Rome']);
     DeviceToken::factory()->for($user)->create();
     $this->travelTo(CarbonImmutable::parse($utc, 'UTC'));
     $push = Mockery::mock(PushNotificationService::class);
@@ -139,7 +143,7 @@ it('never sends outside 21 Rome time', function (string $utc) {
 
     expect(app(DailyExpenseReminderService::class)->run())->toBe(0)
         ->and(ReminderDelivery::query()->count())->toBe(0);
-})->with(['2026-10-17 01:00:00', '2026-10-16 18:59:00', '2026-10-25 19:00:00']);
+})->with(['2026-10-17 01:00:00', '2026-10-16 18:59:00', '2026-10-25 19:00:00', '2026-10-27 19:00:00', '2026-10-27 20:01:00']);
 
 it('logs failed Firebase results and reserves the day against duplicates', function () {
     Log::spy();
@@ -190,7 +194,7 @@ it('reaches Firebase with each eligible device once and logs invalid tokens with
 
 it('reserves each user before dispatch even when another run starts during delivery', function () {
     $first = dailyExpenseReminderUser([]);
-    $second = dailyExpenseReminderUser(['timezone' => 'America/New_York']);
+    $second = dailyExpenseReminderUser(['timezone' => 'Europe/Rome']);
     DeviceToken::factory()->for($first)->create();
     DeviceToken::factory()->for($second)->create();
     $push = Mockery::mock(PushNotificationService::class);
@@ -211,4 +215,23 @@ it('reserves each user before dispatch even when another run starts during deliv
         ->and(app(DailyExpenseReminderService::class)->run())->toBe(0)
         ->and($recipients)->toBe([$first->getKey(), $second->getKey()])
         ->and(ReminderDelivery::query()->count())->toBe(2);
+});
+
+it('selects only users whose local clock is 21 and reserves their own local date', function () {
+    $rome = dailyExpenseReminderUser(['timezone' => 'Europe/Rome']);
+    $newYork = dailyExpenseReminderUser(['timezone' => 'America/New_York']);
+    DeviceToken::factory()->for($rome)->create();
+    DeviceToken::factory()->for($newYork)->create();
+    $push = Mockery::mock(PushNotificationService::class);
+    $push->shouldReceive('sendToUser')->once()->withArgs(fn (User $user): bool => $user->is($rome))->andReturn(['sent_count' => 1]);
+    $push->shouldReceive('sendToUser')->once()->withArgs(fn (User $user): bool => $user->is($newYork))->andReturn(['sent_count' => 1]);
+    $this->instance(PushNotificationService::class, $push);
+    $service = app(DailyExpenseReminderService::class);
+
+    $this->travelTo(CarbonImmutable::parse('2026-10-27 20:00:00', 'UTC'));
+    expect($service->run())->toBe(1)->and($service->run())->toBe(0);
+    $this->travelTo(CarbonImmutable::parse('2026-10-28 01:00:00', 'UTC'));
+    expect($service->run())->toBe(1)->and($service->run())->toBe(0)
+        ->and(ReminderDelivery::query()->count())->toBe(2)
+        ->and(ReminderDelivery::query()->get()->every(fn (ReminderDelivery $delivery): bool => $delivery->delivery_date->toDateString() === '2026-10-27'))->toBeTrue();
 });

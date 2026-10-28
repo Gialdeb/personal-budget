@@ -173,6 +173,10 @@
                 let checking = false;
                 async function retry() {
                     if (checking || navigator.onLine === false) return;
+                    if (window.parent !== window) {
+                        window.parent.dispatchEvent(new Event('soamco:retry-session'));
+                        return;
+                    }
                     checking = true;
                     const controller = new AbortController();
                     const timer = setTimeout(() => controller.abort(), 5000);

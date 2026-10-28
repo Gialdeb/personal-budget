@@ -10,7 +10,6 @@ import {
 import {
     keepAlive,
     status as sessionStatus,
-    triggerWarning,
 } from '@/actions/App/Http/Controllers/SessionActivityController';
 import { listenOnPrivateChannel } from '@/lib/realtime/echo';
 import { home, login, logout } from '@/routes';
@@ -36,6 +35,7 @@ type SessionUiSyncPayload = {
     occurredAt: number;
 };
 
+const syncStartedAt = Date.now();
 const WARNING_TRIGGER_LOCK_KEY = 'soamco-budget-session-warning-lock';
 const SESSION_UI_SYNC_STORAGE_KEY = 'soamco-budget-session-warning-sync';
 const SESSION_UI_SYNC_CHANNEL_NAME = 'soamco-budget-session-warning';
@@ -80,35 +80,6 @@ function readCsrfToken(): string {
         document
             .querySelector('meta[name="csrf-token"]')
             ?.getAttribute('content') ?? ''
-    );
-}
-
-function readWarningLock(): { expiresAt: number } | null {
-    if (typeof window === 'undefined') {
-        return null;
-    }
-
-    try {
-        const rawValue = window.localStorage.getItem(WARNING_TRIGGER_LOCK_KEY);
-
-        if (!rawValue) {
-            return null;
-        }
-
-        return JSON.parse(rawValue) as { expiresAt: number };
-    } catch {
-        return null;
-    }
-}
-
-function writeWarningLock(expiresAt: number): void {
-    if (typeof window === 'undefined') {
-        return;
-    }
-
-    window.localStorage.setItem(
-        WARNING_TRIGGER_LOCK_KEY,
-        JSON.stringify({ expiresAt }),
     );
 }
 
@@ -217,9 +188,7 @@ function updateCountdown(): void {
 
     sessionState.value.secondsRemaining = secondsRemaining;
 
-    if (secondsRemaining === 0) {
-        sessionState.value.isOpen = true;
-        sessionState.value.keepAlivePending = false;
+    if (secondsRemaining === 0 && document.visibilityState === 'visible') {
         void verifySessionStillValid();
     }
 }
@@ -256,15 +225,31 @@ function applySharedSessionWarning(
         return;
     }
 
+    const expiry = Date.parse(payload.expires_at);
+
+    if (!Number.isFinite(expiry) || expiry < (expiresAtTimestamp() ?? 0)) {
+        return;
+    }
+
     sessionState.value.expiresAt = payload.expires_at;
     sessionState.value.warningWindowSeconds = payload.warning_window_seconds;
     sessionState.value.sessionLifetimeSeconds =
         payload.session_lifetime_seconds;
-    sessionState.value.autoKeepAliveEnabled = payload.auto_keep_alive_enabled;
+    sessionState.value.autoKeepAliveEnabled =
+        payload.auto_keep_alive_enabled ??
+        sessionState.value.autoKeepAliveEnabled;
     sessionState.value.autoKeepAliveThresholdSeconds =
-        payload.auto_keep_alive_threshold_seconds;
+        payload.auto_keep_alive_threshold_seconds ??
+        sessionState.value.autoKeepAliveThresholdSeconds;
 
     updateCountdown();
+
+    if (
+        sessionState.value.secondsRemaining >
+        sessionState.value.warningWindowSeconds
+    ) {
+        closeWarning(false);
+    }
 }
 
 function isStandaloneDisplayMode(): boolean {
@@ -386,7 +371,12 @@ function scheduleWarningTrigger(): void {
 
     const expiryTimestamp = expiresAtTimestamp();
 
-    if (expiryTimestamp === null) {
+    if (
+        expiryTimestamp === null ||
+        document.visibilityState !== 'visible' ||
+        sessionState.value.isExpired ||
+        sessionState.value.isCheckingExpiry
+    ) {
         return;
     }
 
@@ -395,31 +385,31 @@ function scheduleWarningTrigger(): void {
     const delay = Math.max(0, triggerAt - Date.now());
 
     warningTimeout = window.setTimeout(() => {
-        void requestWarningBroadcast();
+        showScheduledWarning();
     }, delay);
-}
-
-function clampWarningPayload(
-    payload: SessionWarningRealtimePayload,
-): SessionWarningRealtimePayload {
-    const maxWarningExpiryTimestamp =
-        Date.now() + payload.warning_window_seconds * 1000;
-    const payloadExpiryTimestamp = new Date(payload.expires_at).getTime();
-    const clampedExpiryTimestamp = Number.isNaN(payloadExpiryTimestamp)
-        ? maxWarningExpiryTimestamp
-        : Math.min(payloadExpiryTimestamp, maxWarningExpiryTimestamp);
-
-    return {
-        ...payload,
-        expires_at: new Date(clampedExpiryTimestamp).toISOString(),
-    };
 }
 
 function openWarning(
     payload: SessionWarningRealtimePayload,
     shouldSync = false,
 ): void {
-    applySharedSessionWarning(clampWarningPayload(payload));
+    const expiry = Date.parse(payload.expires_at);
+
+    if (!Number.isFinite(expiry) || expiry < (expiresAtTimestamp() ?? 0)) {
+        return;
+    }
+
+    applySharedSessionWarning(payload);
+
+    if (
+        sessionState.value.secondsRemaining === 0 ||
+        sessionState.value.secondsRemaining >
+            sessionState.value.warningWindowSeconds ||
+        document.visibilityState !== 'visible'
+    ) {
+        return;
+    }
+
     sessionState.value.isOpen = true;
     sessionState.value.isExpired = false;
     sessionState.value.isCheckingExpiry = false;
@@ -436,7 +426,6 @@ function closeWarning(shouldSync = false): void {
     sessionState.value.isExpired = false;
     sessionState.value.isCheckingExpiry = false;
     sessionState.value.keepAliveError = false;
-    stopCountdownInterval();
 
     if (shouldSync) {
         postUiSyncEvent('warning-dismissed');
@@ -447,7 +436,11 @@ function applyUiSyncPayload(payload: SessionUiSyncPayload | null): void {
     if (
         payload === null ||
         payload.id === lastProcessedSyncEventId ||
-        payload.source === tabId
+        payload.source === tabId ||
+        !Number.isFinite(payload.occurredAt) ||
+        payload.occurredAt <= syncStartedAt ||
+        (payload.type !== 'signout-requested' &&
+            Date.parse(payload.expiresAt ?? '') < (expiresAtTimestamp() ?? 0))
     ) {
         return;
     }
@@ -500,8 +493,16 @@ function nowFallbackIsoString(sessionLifetimeSeconds: number): string {
 }
 
 function handleRealtimeUpdate(payload: SessionWarningRealtimePayload): void {
+    if (Date.parse(payload.expires_at) < (expiresAtTimestamp() ?? 0)) {
+        return;
+    }
+
     if (payload.state === 'warning') {
         openWarning(payload, true);
+
+        if (!sessionState.value.isOpen) {
+            scheduleWarningTrigger();
+        }
 
         return;
     }
@@ -629,94 +630,53 @@ function ensureRealtimeSubscription(userUuid: string | null): void {
     activeRealtimeUserUuid = userUuid;
 }
 
-function acquireWarningTriggerLock(): boolean {
-    const existingLock = readWarningLock();
-
-    if (existingLock !== null && existingLock.expiresAt > Date.now()) {
-        return false;
-    }
-
-    writeWarningLock(Date.now() + 30_000);
-
-    return true;
-}
-
-async function requestWarningBroadcast(): Promise<void> {
+function showScheduledWarning(): void {
     updateCountdown();
 
     if (
-        sessionState.value.isOpen ||
         sessionState.value.isExpired ||
-        sessionState.value.secondsRemaining >
-            sessionState.value.warningWindowSeconds
+        sessionState.value.isCheckingExpiry ||
+        !sessionState.value.expiresAt
     ) {
         return;
     }
 
-    if (!acquireWarningTriggerLock()) {
-        return;
-    }
-
-    try {
-        const response = await fetch(triggerWarning.url(), {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': readCsrfToken(),
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({}),
-        });
-
-        if (
-            response.redirected ||
-            response.status === 401 ||
-            response.status === 419
-        ) {
-            clearWarningLock();
-
-            confirmExpiredState();
-
-            return;
-        }
-
-        if (!response.ok) {
-            clearWarningLock();
-            sessionState.value.keepAliveError = true;
-        }
-    } catch {
-        clearWarningLock();
-        sessionState.value.keepAliveError = true;
-    }
+    openWarning(
+        {
+            state: 'warning',
+            expires_at: sessionState.value.expiresAt,
+            warning_window_seconds: sessionState.value.warningWindowSeconds,
+            session_lifetime_seconds: sessionState.value.sessionLifetimeSeconds,
+            auto_keep_alive_enabled: sessionState.value.autoKeepAliveEnabled,
+            auto_keep_alive_threshold_seconds:
+                sessionState.value.autoKeepAliveThresholdSeconds,
+        },
+        true,
+    );
 }
 
 function handleVisibilityChange(): void {
-    updateCountdown();
-    applyUiSyncPayload(readStoredUiSyncEvent());
+    if (document.visibilityState !== 'visible') {
+        clearWarningTimeout();
 
-    if (document.visibilityState === 'visible') {
-        maybeAutoKeepAlive();
-
-        if (sessionState.value.secondsRemaining === 0) {
-            void verifySessionStillValid();
+        if (!sessionState.value.isExpired) {
+            closeWarning(false);
         }
 
-        scheduleWarningTrigger();
+        return;
     }
+
+    handleWindowFocus();
 }
 
 function handleWindowFocus(): void {
-    updateCountdown();
-    applyUiSyncPayload(readStoredUiSyncEvent());
-    maybeAutoKeepAlive();
-
-    if (sessionState.value.secondsRemaining === 0) {
-        void verifySessionStillValid();
+    if (document.visibilityState !== 'visible') {
+        return;
     }
 
-    scheduleWarningTrigger();
+    clearWarningTimeout();
+    void verifySessionStillValid();
+    updateCountdown();
 }
 
 function attachActivityListeners(): void {

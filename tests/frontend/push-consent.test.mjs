@@ -270,3 +270,49 @@ test('missing or malformed status fields preserve the current enabled state', as
         /push-invalid-response/,
     );
 });
+
+test('service worker registration can recover after a transient registration failure', async () => {
+    const registration = { active: { state: 'activated' } };
+    let attempts = 0;
+    const b = compile(
+        `let serviceWorkerRegistrationPromise = null;\n${extract(
+            library,
+            'registerFirebaseMessagingServiceWorker',
+            '\nexport async function initializeForegroundPushNotifications',
+        )}`,
+        {
+            readFirebaseMessagingConfig: () => ({}),
+            resolveFirebaseMessagingServiceWorkerRegistration: async () => {
+                attempts += 1;
+
+                if (attempts === 1) {
+                    throw new Error('temporary registration network failure');
+                }
+
+                return registration;
+            },
+            isFirebaseMessagingServiceWorkerRegistration: () => true,
+            hasActiveFirebaseMessagingServiceWorkerRegistration: () => true,
+            waitForStableFirebaseMessagingServiceWorker: async (value) => value,
+            isRecoverableServiceWorkerActivationError: () => false,
+            navigator: {
+                serviceWorker: { ready: Promise.resolve(registration) },
+            },
+            delay: () => new Promise(() => {}),
+            SERVICE_WORKER_CONTROLLER_TIMEOUT_MS: 2500,
+        },
+    );
+    await assert.rejects(
+        b.registerFirebaseMessagingServiceWorker(),
+        /temporary registration/,
+    );
+    assert.equal(
+        await b.registerFirebaseMessagingServiceWorker(),
+        registration,
+    );
+    assert.equal(
+        await b.registerFirebaseMessagingServiceWorker(),
+        registration,
+    );
+    assert.equal(attempts, 2);
+});

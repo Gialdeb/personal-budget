@@ -702,14 +702,26 @@ export async function registerFirebaseMessagingServiceWorker(): Promise<ServiceW
 
     if (serviceWorkerRegistrationPromise === null) {
         serviceWorkerRegistrationPromise =
-            resolveFirebaseMessagingServiceWorkerRegistration(config);
+            resolveFirebaseMessagingServiceWorkerRegistration(config).catch(
+                (error) => {
+                    serviceWorkerRegistrationPromise = null;
+
+                    throw error;
+                },
+            );
     }
 
     let registration = await serviceWorkerRegistrationPromise;
 
     if (!isFirebaseMessagingServiceWorkerRegistration(registration)) {
         serviceWorkerRegistrationPromise =
-            resolveFirebaseMessagingServiceWorkerRegistration(config);
+            resolveFirebaseMessagingServiceWorkerRegistration(config).catch(
+                (error) => {
+                    serviceWorkerRegistrationPromise = null;
+
+                    throw error;
+                },
+            );
         registration = await serviceWorkerRegistrationPromise;
     }
 

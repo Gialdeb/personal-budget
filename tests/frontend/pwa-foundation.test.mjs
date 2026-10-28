@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 
 const bladeSource = readFileSync(
     new URL('../../resources/views/app.blade.php', import.meta.url),
@@ -355,4 +356,106 @@ test('loading screens use neutral accessible copy and a delayed motion aware ind
     assert.match(bladeSource, /startup-appear 0s 180ms forwards/);
     assert.match(bladeSource, /prefers-reduced-motion: reduce/);
     assert.match(bladeSource, /class="startup-label"/);
+});
+
+for (const trigger of ['idle timer', 'iOS foreground return']) {
+    test(`asset updates on ${trigger} announce an update without reloading`, async () => {
+        const guard = appSource.slice(
+            appSource.indexOf('function bootstrapAssetVersionGuard()'),
+        );
+        const events = {};
+        let version = 'current';
+        let reloads = 0;
+        let notices = 0;
+        let interval;
+        const scope = {
+            ASSET_VERSION_META: 'version',
+            ASSET_VERSION_ENDPOINT_META: 'endpoint',
+            ASSET_VERSION_CHECK_INTERVAL_MS: 60000,
+            Date,
+            window: {
+                location: { reload: () => reloads++ },
+                setInterval: (callback) => {
+                    interval = callback;
+
+                    return 1;
+                },
+                clearInterval() {},
+                addEventListener: (name, callback) => {
+                    events[name] = callback;
+                },
+            },
+            document: {
+                visibilityState: 'visible',
+                querySelector: (selector) => ({
+                    content: selector === 'version' ? 'current' : '/version',
+                }),
+                addEventListener: (name, callback) => {
+                    events[name] = callback;
+                },
+            },
+            notifyPwaUpdateAvailable: () => notices++,
+            fetch: async () => ({ ok: true, json: async () => ({ version }) }),
+        };
+        runInNewContext(
+            ts.transpile(guard, { target: ts.ScriptTarget.ES2022 }) +
+                '; bootstrapAssetVersionGuard();',
+            scope,
+        );
+        await new Promise(setImmediate);
+        assert.equal(notices, 0);
+        version = 'new-release';
+
+        if (trigger === 'idle timer') {
+            interval();
+        } else {
+            events.visibilitychange();
+        }
+
+        await new Promise(setImmediate);
+        assert.equal(reloads, 0);
+        assert.equal(notices, 1);
+        events.visibilitychange();
+        await new Promise(setImmediate);
+        assert.equal(reloads, 0);
+        assert.equal(notices, 1);
+    });
+}
+
+test('embedded offline recovery revalidates its existing parent instead of reloading the iOS PWA', async () => {
+    const retry = offlineSource.match(
+        /async function retry\(\) \{([\s\S]*?)\n                document.querySelector\('#retry'\)/,
+    )[1];
+    let reloads = 0;
+    let probes = 0;
+    const events = [];
+    const scope = {
+        navigator: { onLine: true },
+        checking: false,
+        AbortController,
+        Event,
+        setTimeout,
+        clearTimeout,
+        window: {
+            parent: {
+                location: {
+                    href: '/transactions?month=10',
+                    reload: () => reloads++,
+                },
+                dispatchEvent: (event) => events.push(event.type),
+            },
+        },
+        fetch: async () => {
+            probes++;
+
+            return { ok: true };
+        },
+    };
+    await runInNewContext(
+        'async function retry() {' + retry + '; retry();',
+        scope,
+    );
+    assert.deepEqual(events, ['soamco:retry-session']);
+    assert.equal(reloads, 0);
+    assert.equal(probes, 0);
 });

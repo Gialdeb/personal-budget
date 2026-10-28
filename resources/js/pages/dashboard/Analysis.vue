@@ -1213,6 +1213,7 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                         v-if="dashboard.pending_actions.items.length"
                         v-slot="{ item }"
                         :items="dashboard.pending_actions.items"
+                        compact-mobile
                         :label="t('dashboard.analysis.upcomingEvents')"
                         class="mt-4"
                     >

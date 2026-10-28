@@ -14,6 +14,7 @@ import PwaStatusBanner from '@/components/PwaStatusBanner.vue';
 import { initializeTheme } from '@/composables/useAppearance';
 import { initializeAppTouchGuards } from '@/composables/useAppTouchGuards';
 import { initializeNavigationFeedback } from '@/composables/useNavigationFeedback';
+import { notifyPwaUpdateAvailable } from '@/composables/usePwa';
 import { createAppI18n } from '@/i18n';
 import { initializeAnalytics } from '@/lib/analytics';
 import { notificationConfig } from '@/lib/notification-config.js';
@@ -218,10 +219,10 @@ function bootstrapAssetVersionGuard(): void {
         return;
     }
 
-    let isReloading = false;
+    let updateAnnounced = false;
 
-    const reloadIfVersionChanged = async (): Promise<void> => {
-        if (isReloading) {
+    const checkAssetVersion = async (): Promise<void> => {
+        if (updateAnnounced) {
             return;
         }
 
@@ -245,23 +246,23 @@ function bootstrapAssetVersionGuard(): void {
                 return;
             }
 
-            isReloading = true;
-            window.location.reload();
+            updateAnnounced = true;
+            notifyPwaUpdateAvailable();
         } catch {
             // Ignore transient failures and retry on the next check.
         }
     };
 
-    void reloadIfVersionChanged();
+    void checkAssetVersion();
 
     const intervalId = window.setInterval(
-        () => void reloadIfVersionChanged(),
+        () => void checkAssetVersion(),
         ASSET_VERSION_CHECK_INTERVAL_MS,
     );
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            void reloadIfVersionChanged();
+            void checkAssetVersion();
         }
     });
 

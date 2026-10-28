@@ -21,22 +21,20 @@ class DailyExpenseReminderService
     {
         $sent = 0;
         $now = CarbonImmutable::now('UTC');
-        $localNow = $now->setTimezone('Europe/Rome');
-
-        if ($localNow->format('H:i') !== '21:00') {
-            return 0;
-        }
-
         if (! config('features.push_notifications.enabled')) {
             Log::warning('Daily expense reminder skipped: push notifications feature disabled.');
 
             return 0;
         }
 
-        Log::info('Daily expense reminder run started.', ['date' => $localNow->toDateString(), 'timezone' => 'Europe/Rome']);
+        Log::info('Daily expense reminder run started.', ['at' => $now->toIso8601String()]);
 
         foreach (User::query()->with('settings')->whereHas('deviceTokens', fn ($query) => $query->active()->forPlatform('web'))->lazyById(200) as $user) {
-            if (! $user->pushNotificationsEnabled() || ! $user->dailyExpenseReminderEnabled()) {
+            $timezone = data_get($user->settings?->settings, 'timezone');
+            $timezone = in_array($timezone, timezone_identifiers_list(), true) ? $timezone : 'Europe/Rome';
+            $localNow = $now->setTimezone($timezone);
+
+            if ($localNow->format('H:i') !== '21:00' || ! $user->pushNotificationsEnabled() || ! $user->dailyExpenseReminderEnabled()) {
                 continue;
             }
 
@@ -92,7 +90,7 @@ class DailyExpenseReminderService
             }
         }
 
-        Log::info('Daily expense reminder run completed.', ['date' => $localNow->toDateString(), 'sent_users' => $sent]);
+        Log::info('Daily expense reminder run completed.', ['at' => $now->toIso8601String(), 'sent_users' => $sent]);
 
         return $sent;
     }
