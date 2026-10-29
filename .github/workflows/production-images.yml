@@ -4,6 +4,10 @@ name: Prepare private production images
 # Select main or release/3.5.4-beta manually. This workflow never deploys to the VPS.
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: [tests, linter]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -16,8 +20,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify-ci:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.conclusion == 'success' &&
+      !github.event.repository.fork
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    outputs:
+      sha: ${{ steps.ci.outputs.sha }}
+    steps:
+      - name: Require both CI workflows on the exact main commit
+        id: ci
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const sha = context.payload.workflow_run.head_sha;
+            for (const workflow_id of ['tests.yml', 'lint.yml']) {
+              const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                ...context.repo, workflow_id, head_sha: sha,
+                branch: 'main', event: 'push', per_page: 100,
+              });
+              const latest = runs
+                .filter(run => run.head_sha === sha && run.head_branch === 'main' &&
+                  run.event === 'push' && run.head_repository.full_name === context.payload.repository.full_name)
+                .sort((a, b) => b.run_number - a.run_number)[0];
+              if (!latest || latest.status !== 'completed' || latest.conclusion !== 'success') {
+                core.info(`${workflow_id} has not succeeded for ${sha}; skipping publication.`);
+                return;
+              }
+            }
+            core.setOutput('sha', sha);
+
   images:
-    if: (github.ref == 'refs/heads/release/3.5.4-beta' || github.ref == 'refs/heads/main') && !github.event.repository.fork
+    needs: verify-ci
+    if: >-
+      always() && !cancelled() && !github.event.repository.fork &&
+      ((github.event_name == 'workflow_run' && needs.verify-ci.result == 'success' && needs.verify-ci.outputs.sha != '') ||
+      (github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/release/3.5.4-beta' || github.ref == 'refs/heads/main')))
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -42,7 +86,7 @@ jobs:
       - name: Checkout selected commit
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.verify-ci.outputs.sha || github.sha }}
           persist-credentials: false
 
       - name: Verify private packages and unused commit tags

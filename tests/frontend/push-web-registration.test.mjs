@@ -266,97 +266,123 @@ test('the root service worker initializes Firebase from a postMessage config and
 });
 
 for (const sdkAvailable of [true, false]) {
-    test(`background data push displays without an open page (SDK: ${sdkAvailable})`, async () => {
-        const listeners = {};
-        const shown = [];
-        const cache = new Map();
-        let backgroundHandler;
-        const config = {
-            cache_names: {},
-            precache_urls: [],
-            firebase_messaging: {
-                apiKey: 'test',
-                projectId: 'test',
-                appId: 'test',
-                messagingSenderId: 'test',
-            },
-        };
-        const script = serviceWorkerSource
-            .replace(/'{{ \$config\['version'\] }}'/g, "'test'")
-            .replace(/'{{ \$config\['offline_url'\] }}'/g, "'/offline.html'")
-            .replace(
-                /^const config = .*;$/m,
-                `const config = ${JSON.stringify(config)};`,
-            )
-            .replace(
-                /\{!! .*file_get_contents.* !!\}/g,
-                JSON.stringify('offline'),
-            );
-        runInNewContext(script, {
-            console,
-            Response,
-            firebase: sdkAvailable
-                ? {
-                      initializeApp() {},
-                      messaging: () => ({
-                          onBackgroundMessage(handler) {
-                              backgroundHandler = handler;
-                          },
-                      }),
-                  }
-                : undefined,
-            self: {
-                navigator: { onLine: true },
-                importScripts() {
-                    if (!sdkAvailable) {
-                        throw new Error('offline SDK');
-                    }
+    for (const badgeSupported of [true, false]) {
+        test(`background data push displays without an open page (SDK: ${sdkAvailable}, badge: ${badgeSupported})`, async () => {
+            const listeners = {};
+            const shown = [];
+            let releaseBadge;
+            const badgeFetch = new Promise((resolve) => {
+                releaseBadge = resolve;
+            });
+            const cache = new Map();
+            let backgroundHandler;
+            const config = {
+                cache_names: {},
+                precache_urls: [],
+                notification_inbox_url: '/notifications/preview',
+                firebase_messaging: {
+                    apiKey: 'test',
+                    projectId: 'test',
+                    appId: 'test',
+                    messagingSenderId: 'test',
                 },
-                addEventListener: (name, handler) => {
-                    listeners[name] = handler;
-                },
-                registration: {
-                    getNotifications: async () => [],
-                    showNotification: async (title, options) => {
-                        shown.push({ title, options });
+            };
+            const script = serviceWorkerSource
+                .replace(/'{{ \$config\['version'\] }}'/g, "'test'")
+                .replace(
+                    /'{{ \$config\['offline_url'\] }}'/g,
+                    "'/offline.html'",
+                )
+                .replace(
+                    /^const config = .*;$/m,
+                    `const config = ${JSON.stringify(config)};`,
+                )
+                .replace(
+                    /\{!! .*file_get_contents.* !!\}/g,
+                    JSON.stringify('offline'),
+                );
+            runInNewContext(script, {
+                console,
+                Response,
+                URL,
+                fetch: () => badgeFetch,
+                firebase: sdkAvailable
+                    ? {
+                          initializeApp() {},
+                          messaging: () => ({
+                              onBackgroundMessage(handler) {
+                                  backgroundHandler = handler;
+                              },
+                          }),
+                      }
+                    : undefined,
+                self: {
+                    location: new URL('https://soamco.test/service-worker.js'),
+                    navigator: {
+                        onLine: true,
+                        ...(badgeSupported
+                            ? {
+                                  setAppBadge: async () => {
+                                      throw new Error('badge denied');
+                                  },
+                                  clearAppBadge: async () => {},
+                              }
+                            : {}),
+                    },
+                    importScripts() {
+                        if (!sdkAvailable) {
+                            throw new Error('offline SDK');
+                        }
+                    },
+                    addEventListener: (name, handler) => {
+                        listeners[name] = handler;
+                    },
+                    registration: {
+                        getNotifications: async () => [],
+                        showNotification: async (title, options) => {
+                            shown.push({ title, options });
+                        },
                     },
                 },
-            },
-            caches: {
-                open: async () => ({
-                    match: async (key) => cache.get(key)?.clone(),
-                    put: async (key, value) => {
-                        cache.set(key, value);
-                    },
-                    delete: async (key) => cache.delete(key),
-                }),
-            },
-        });
-        const payload = {
-            data: {
-                title: 'Promemoria',
-                body: 'Test locale',
-                url: '/dashboard',
-                broadcast_uuid: 'test-id',
-            },
-        };
-        const pending = [];
-        listeners.push({
-            data: { json: () => payload },
-            waitUntil: (promise) => pending.push(promise),
-        });
+                caches: {
+                    open: async () => ({
+                        match: async (key) => cache.get(key)?.clone(),
+                        put: async (key, value) => {
+                            cache.set(key, value);
+                        },
+                        delete: async (key) => cache.delete(key),
+                    }),
+                },
+            });
+            const payload = {
+                data: {
+                    title: 'Promemoria',
+                    body: 'Test locale',
+                    url: '/dashboard',
+                    broadcast_uuid: 'test-id',
+                },
+            };
+            const pending = [];
+            listeners.push({
+                data: { json: () => payload },
+                waitUntil: (promise) => pending.push(promise),
+            });
 
-        if (sdkAvailable) {
-            assert.equal(pending.length, 0);
-            await backgroundHandler(payload);
-        } else {
-            assert.equal(pending.length, 1);
+            if (sdkAvailable) {
+                assert.equal(pending.length, badgeSupported ? 1 : 0);
+                await backgroundHandler(payload);
+            } else {
+                assert.equal(pending.length, badgeSupported ? 2 : 1);
+                await pending[pending.length - 1];
+            }
+
+            assert.equal(shown.length, 1);
+            assert.equal(shown[0].title, 'Promemoria');
+            assert.equal(shown[0].options.body, 'Test locale');
+            assert.equal(shown[0].options.data.url, '/dashboard');
+            releaseBadge({ ok: true, json: async () => ({ unread_count: 3 }) });
             await Promise.all(pending);
-        }
-
-        assert.equal(shown.length, 1);
-        assert.equal(shown[0].title, 'Promemoria');
-        assert.equal(shown[0].options.body, 'Test locale');
-        assert.equal(shown[0].options.data.url, '/dashboard');
-    });
+            assert.equal(shown.length, 1);
+        });
+    }
 }

@@ -63,6 +63,7 @@ test('notification preview endpoint returns the latest inbox items', function ()
     $this->actingAs($user)
         ->get(route('notifications.preview'))
         ->assertOk()
+        ->assertHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store, private')
         ->assertJson([
             'unread_count' => 1,
         ])
@@ -182,3 +183,7 @@ test('notification pagination labels are localized', function (string $locale, s
     'Italian' => ['it', 'Precedente', 'Successiva'],
     'English' => ['en', 'Previous', 'Next'],
 ]);
+
+test('inbox badge requests require an authenticated session', function () {
+    $this->getJson(route('notifications.preview'))->assertUnauthorized();
+});
