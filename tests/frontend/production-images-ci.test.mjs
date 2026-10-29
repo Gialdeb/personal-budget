@@ -548,3 +548,26 @@ test('repeated automatic events cannot republish an existing commit tag', async 
         );
     });
 });
+
+test('workflow_run preserves the toolkit prototype repo getter during normalization', async () => {
+    const properties = { ...automaticContext };
+    delete properties.repo;
+    const toolkitContext = Object.assign(
+        Object.create({
+            get repo() {
+                return context.repo;
+            },
+        }),
+        properties,
+    );
+    delete toolkitContext.repo;
+    assert.equal(Object.hasOwn(toolkitContext, 'repo'), false);
+    assert.equal(imagePlan(toolkitContext).tag, 'sha-' + context.sha);
+    await withRunner(async ({ environment, core, outputs }) => {
+        await prepare(
+            { github: api({ missing: true }), context: toolkitContext, core },
+            environment,
+        );
+        assert.ok(outputs['bake-file']);
+    });
+});
