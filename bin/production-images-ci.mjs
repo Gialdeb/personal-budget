@@ -19,6 +19,27 @@ const publicArguments = [
 ];
 
 export function imagePlan(context, environment = {}, transport = 'ghcr') {
+    if (context.eventName === 'workflow_run' && transport === 'ghcr') {
+        const run = context.payload.workflow_run;
+
+        if (
+            run?.event !== 'push' ||
+            run.head_branch !== 'main' ||
+            run.conclusion !== 'success' ||
+            run.head_repository?.full_name !==
+                `${context.repo.owner}/${context.repo.repo}`
+        ) {
+            throw new Error('Only successful main push CI can prepare images.');
+        }
+
+        context = {
+            ...context,
+            eventName: 'workflow_dispatch',
+            ref: 'refs/heads/main',
+            sha: run.head_sha,
+        };
+    }
+
     if (
         !['ghcr', 'ssh'].includes(transport) ||
         context.eventName !== 'workflow_dispatch' ||

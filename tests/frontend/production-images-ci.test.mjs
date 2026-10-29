@@ -89,9 +89,9 @@ async function withRunner(callback) {
     }
 }
 
-test('manual workflow builds only on GitHub and has no production deployment or runtime credentials', () => {
+test('image workflow builds only on GitHub and has no production deployment or runtime credentials', () => {
     const workflow = yaml.load(read('.github/workflows/production-images.yml'));
-    assert.deepEqual(Object.keys(workflow.on), ['workflow_dispatch']);
+    assert.ok('workflow_dispatch' in workflow.on);
     assert.equal(workflow.concurrency['cancel-in-progress'], false);
     assert.equal(workflow.jobs.images['runs-on'], 'ubuntu-24.04');
     assert.deepEqual(workflow.jobs.images.permissions, {
@@ -103,7 +103,10 @@ test('manual workflow builds only on GitHub and has no production deployment or 
     const checkout = steps.find((step) =>
         step.uses?.startsWith('actions/checkout@'),
     );
-    assert.equal(checkout.with.ref, '${{ github.sha }}');
+    assert.equal(
+        checkout.with.ref,
+        '${{ needs.verify-ci.outputs.sha || github.sha }}',
+    );
     assert.equal(checkout.with['persist-credentials'], false);
     const bake = steps.find((step) =>
         step.uses?.startsWith('docker/bake-action@'),
@@ -399,4 +402,149 @@ test('manual image preparation also builds the exact main commit distributed by 
             plan.bake.target.web.labels['io.soamco.frontend-config.sha256'],
         );
     }
+});
+
+const automaticContext = {
+    ...context,
+    eventName: 'workflow_run',
+    sha: 'b'.repeat(40),
+    payload: {
+        repository: { fork: false, full_name: 'ExampleOwner/Soamco-Budget' },
+        workflow_run: {
+            head_sha: context.sha,
+            head_branch: 'main',
+            event: 'push',
+            conclusion: 'success',
+            head_repository: { full_name: 'ExampleOwner/Soamco-Budget' },
+        },
+    },
+};
+
+test('automatic checkout, tags and revision use the tested SHA, not the default branch tip', () => {
+    const workflow = yaml.load(read('.github/workflows/production-images.yml'));
+    assert.deepEqual(workflow.on.workflow_run, {
+        workflows: ['tests', 'linter'],
+        types: ['completed'],
+        branches: ['main'],
+    });
+    assert.deepEqual(workflow.permissions, { contents: 'read' });
+    assert.deepEqual(workflow.jobs['verify-ci'].permissions, {
+        actions: 'read',
+    });
+    assert.equal(workflow.jobs.images.needs, 'verify-ci');
+    assert.match(workflow.jobs.images.if, /always\(\)/);
+    assert.match(workflow.jobs.images.if, /needs.verify-ci.outputs.sha != ''/);
+    const plan = imagePlan(automaticContext);
+    assert.equal(plan.tag, 'sha-' + context.sha);
+    assert.equal(
+        plan.bake.target.php.labels['org.opencontainers.image.revision'],
+        context.sha,
+    );
+    assert.throws(() => imagePlan(automaticContext, {}, 'ssh'));
+});
+
+for (const change of [
+    { head_branch: 'develop' },
+    { event: 'pull_request' },
+    { conclusion: 'failure' },
+    { conclusion: 'cancelled' },
+    { head_repository: { full_name: 'fork/repo' } },
+    { head_sha: 'invalid' },
+]) {
+    test(`automatic image plan rejects ${JSON.stringify(change)}`, () => {
+        assert.throws(() =>
+            imagePlan({
+                ...automaticContext,
+                payload: {
+                    ...automaticContext.payload,
+                    workflow_run: {
+                        ...automaticContext.payload.workflow_run,
+                        ...change,
+                    },
+                },
+            }),
+        );
+    });
+}
+
+async function runGate(workflows) {
+    const workflow = yaml.load(read('.github/workflows/production-images.yml'));
+    const script = workflow.jobs['verify-ci'].steps[0].with.script;
+    const outputs = {};
+    await new (Object.getPrototypeOf(async function () {}).constructor)(
+        'github',
+        'context',
+        'core',
+        script,
+    )(
+        {
+            rest: { actions: { listWorkflowRuns: 'list' } },
+            paginate: async (_route, params) => {
+                assert.equal(params.head_sha, context.sha);
+                assert.equal(params.branch, 'main');
+                assert.equal(params.event, 'push');
+
+                return workflows[params.workflow_id] ?? [];
+            },
+        },
+        automaticContext,
+        {
+            info() {},
+            setOutput: (key, value) => {
+                outputs[key] = value;
+            },
+        },
+    );
+
+    return outputs;
+}
+
+const passedRun = {
+    ...automaticContext.payload.workflow_run,
+    status: 'completed',
+    run_number: 1,
+};
+
+test('CI gate allows only both successful workflows for the identical main push', async () => {
+    assert.deepEqual(
+        await runGate({ 'tests.yml': [passedRun], 'lint.yml': [passedRun] }),
+        { sha: context.sha },
+    );
+
+    for (const workflow of ['tests.yml', 'lint.yml']) {
+        for (const runs of [
+            [],
+            [{ ...passedRun, conclusion: 'failure' }],
+            [{ ...passedRun, conclusion: 'cancelled' }],
+            [{ ...passedRun, status: 'in_progress', conclusion: null }],
+            [{ ...passedRun, status: 'queued', conclusion: null }],
+            [{ ...passedRun, head_sha: 'c'.repeat(40) }],
+            [{ ...passedRun, head_branch: 'develop' }],
+            [{ ...passedRun, event: 'pull_request' }],
+            [passedRun, { ...passedRun, run_number: 2, conclusion: 'failure' }],
+        ]) {
+            assert.deepEqual(
+                await runGate({
+                    'tests.yml': [passedRun],
+                    'lint.yml': [passedRun],
+                    [workflow]: runs,
+                }),
+                {},
+            );
+        }
+    }
+});
+
+test('repeated automatic events cannot republish an existing commit tag', async () => {
+    await withRunner(async ({ environment, core }) => {
+        const github = api({
+            versions: [
+                { metadata: { container: { tags: ['sha-' + context.sha] } } },
+            ],
+        });
+        await assert.rejects(
+            prepare({ github, context: automaticContext, core }, environment),
+            /overwriting is forbidden/,
+        );
+    });
 });

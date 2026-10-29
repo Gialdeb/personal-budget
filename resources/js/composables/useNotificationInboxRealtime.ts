@@ -33,6 +33,40 @@ let realtimeSubscriptionCount = 0;
 let activeRealtimeUserUuid: string | null = null;
 let unsubscribeFromRealtime: (() => void) | null = null;
 
+async function requestInboxBadgeSync(): Promise<void> {
+    if (
+        typeof navigator === 'undefined' ||
+        typeof navigator.setAppBadge !== 'function' ||
+        !('serviceWorker' in navigator) ||
+        !activeRealtimeUserUuid
+    ) {
+        return;
+    }
+
+    const userUuid = activeRealtimeUserUuid;
+
+    try {
+        const worker =
+            navigator.serviceWorker.controller ??
+            (await navigator.serviceWorker.ready).active;
+
+        if (
+            realtimeSubscriptionCount > 0 &&
+            activeRealtimeUserUuid === userUuid
+        ) {
+            worker?.postMessage({ type: 'SYNC_INBOX_BADGE' });
+        }
+    } catch {
+        // Badging is optional; the inbox and push flow remain independent.
+    }
+}
+
+function syncVisibleInboxBadge(): void {
+    if (document.visibilityState === 'visible') {
+        void requestInboxBadgeSync();
+    }
+}
+
 function cloneInboxPreview(
     preview: NotificationInboxPreview | null,
 ): NotificationInboxPreview {
@@ -241,14 +275,33 @@ export function useNotificationInboxRealtime() {
         { immediate: true },
     );
 
+    watch(
+        () => notificationInboxState.value.unread_count,
+        () => {
+            void requestInboxBadgeSync();
+        },
+    );
+
     onMounted(() => {
         realtimeSubscriptionCount += 1;
+
+        if (realtimeSubscriptionCount === 1) {
+            document.addEventListener(
+                'visibilitychange',
+                syncVisibleInboxBadge,
+            );
+            void requestInboxBadgeSync();
+        }
     });
 
     onBeforeUnmount(() => {
         realtimeSubscriptionCount = Math.max(0, realtimeSubscriptionCount - 1);
 
         if (realtimeSubscriptionCount === 0) {
+            document.removeEventListener(
+                'visibilitychange',
+                syncVisibleInboxBadge,
+            );
             unsubscribeFromRealtime?.();
             unsubscribeFromRealtime = null;
             activeRealtimeUserUuid = null;
