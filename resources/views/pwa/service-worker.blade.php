@@ -21,6 +21,52 @@ let firebaseMessagingInitialized = false;
 const recentlyHandledPushMessages = new Map();
 const inFlightPushReservations = new Map();
 
+// All badge writes (push and foreground requests) are coordinated in this worker.
+let badgeRequestVersion = 0;
+let badgeWrites = Promise.resolve();
+
+async function syncInboxBadge() {
+    const version = ++badgeRequestVersion;
+
+    if (typeof self.navigator?.setAppBadge !== 'function' ||
+        typeof self.navigator?.clearAppBadge !== 'function' || !config.notification_inbox_url) {
+        return;
+    }
+
+    try {
+        const url = new URL(config.notification_inbox_url, self.location.origin);
+        if (url.origin !== self.location.origin) {
+            return;
+        }
+        const response = await fetch(url.href, {
+            credentials: 'same-origin',
+            cache: 'no-store',
+            redirect: 'error',
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok || response.redirected) {
+            return;
+        }
+        const { unread_count: count } = await response.json();
+        if (!Number.isSafeInteger(count) || count < 0) {
+            return;
+        }
+        badgeWrites = badgeWrites.then(async () => {
+            if (version !== badgeRequestVersion) {
+                return;
+            }
+            if (count === 0) {
+                await self.navigator.clearAppBadge();
+            } else {
+                await self.navigator.setAppBadge(count);
+            }
+        }).catch(() => {});
+        await badgeWrites;
+    } catch {
+        // Badge failures must not affect notification delivery or display.
+    }
+}
+
 function pushSwInfo(message, context) {
     if (!DEBUG_LOGGING_ENABLED) {
         return;
@@ -98,6 +144,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
+    if (event.data?.type === 'SYNC_INBOX_BADGE') {
+        event.waitUntil(syncInboxBadge());
+    }
+
     if (event.data?.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
@@ -581,6 +631,10 @@ function handlePushSubscriptionChange(event) {
 }
 
 self.addEventListener('push', (event) => {
+    if (typeof self.navigator?.setAppBadge === 'function') {
+        event.waitUntil(syncInboxBadge());
+    }
+
     // Firebase Messaging already owns the push event when it is configured.
     // Handling it here as well makes one FCM delivery produce two browser
     // notifications. The raw handler remains only as a no-Firebase fallback.

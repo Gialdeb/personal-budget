@@ -44,6 +44,7 @@ class PwaManifestData
         return [
             'version' => $this->version(),
             'firebase_messaging' => $this->firebaseMessagingConfig(),
+            'notification_inbox_url' => route('notifications.preview', absolute: false),
             'debug_logging' => $this->debugLoggingEnabled(),
             'offline_url' => '/offline.html',
             'precache_urls' => $this->precacheUrls(),
