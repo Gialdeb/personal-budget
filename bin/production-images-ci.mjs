@@ -34,6 +34,7 @@ export function imagePlan(context, environment = {}, transport = 'ghcr') {
 
         context = {
             ...context,
+            repo: context.repo,
             eventName: 'workflow_dispatch',
             ref: 'refs/heads/main',
             sha: run.head_sha,
