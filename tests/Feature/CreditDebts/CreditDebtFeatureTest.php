@@ -233,10 +233,17 @@ test('credits debts index searches description reference note and keeps results 
         'due_date' => '2026-05-20',
     ]);
 
+    $secondaryReference = TrackedItem::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Controparte secondaria',
+        'slug' => 'controparte-secondaria',
+        'is_active' => true,
+    ]);
     CreditDebtItem::factory()->forAccount($secondaryAccount)->create([
         'type' => CreditDebtTypeEnum::DEBIT->value,
         'description' => 'Voce non correlata',
         'total_amount' => '50.00',
+        'reference_id' => $secondaryReference->id,
         'due_date' => '2026-05-20',
     ]);
 
